@@ -1,0 +1,1864 @@
+// ═══ GLOBALS ═══
+let modelsLoaded = false;
+let gender = '남', cmbGender = '남', ggGenderA = '남', ggGenderB = '여';
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+
+// Stored state per context
+const state = {
+  gwansang: { relation: '본인', file: null, lm: null, w: 0, h: 0 },
+  combined: { relation: '본인', file: null, lm: null, q1: '', q2: '', q3: '' },
+  gunghamA: { file: null, lm: null },
+  gunghamB: { file: null, lm: null },
+  gungham: { relation: '연인/배우자' },
+  saju: { relation: '본인', q1: '', q2: '', q3: '' }, // 프로필 시스템(js/profile.js)이 대표 프로필의 관계를 여기 채워 넣는다
+};
+
+// 인쇄 시 접힌 상세 리포트(.report-accordion)를 전부 강제로 펼쳤다가, 인쇄가 끝나면 원래 상태로 되돌림.
+// 화면에서는 접어서 정보 과부하를 줄이되(버그 리포트 6번 항목), 인쇄/PDF에는 내용이 빠지지 않아야 하므로.
+let __openedForPrint = [];
+window.addEventListener('beforeprint', () => {
+  __openedForPrint = Array.from(document.querySelectorAll('.report-accordion:not([open])'));
+  __openedForPrint.forEach(d => { d.open = true; });
+});
+window.addEventListener('afterprint', () => {
+  __openedForPrint.forEach(d => { d.open = false; });
+  __openedForPrint = [];
+});
+
+// ═══ TABS ═══
+function switchTab(tab, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ═══ RELATION ═══
+function setRelation(ctx, rel, btn) {
+  state[ctx].relation = rel;
+  const container = btn.parentElement;
+  container.querySelectorAll('.rel-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+// ═══ SAJU 사전 질문 (사주보기에서는 진입 즉시, 통합분석에서는 사진 등록 후 노출) ═══
+// ctx: 'saju' | 'combined' — 커스텀 입력창 id는 saju는 'sajuQ1Custom', combined는 'cmbQ1Custom' 식으로 구분
+function sajuQCustomId(ctx, q) {
+  return (ctx === 'combined' ? 'cmb' : 'saju') + q.toUpperCase() + 'Custom';
+}
+function setSajuAnswer(ctx, q, value, btn) {
+  const container = btn.parentElement;
+  container.querySelectorAll('.rel-chip').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  const custom = document.getElementById(sajuQCustomId(ctx, q));
+  if (value === '직접 입력할게요') {
+    custom.classList.remove('hidden');
+    custom.focus();
+    state[ctx][q] = custom.value.trim();
+  } else {
+    custom.classList.add('hidden');
+    custom.value = '';
+    state[ctx][q] = value;
+  }
+  updateSajuGate(ctx);
+}
+function setSajuCustom(ctx, q, value) {
+  state[ctx][q] = value.trim();
+  updateSajuGate(ctx);
+}
+// saju는 전용 함수로, combined는 사진 업로드 여부까지 같이 보는 updateCtaDock으로 게이트를 거는 창구를 통일
+function updateSajuGate(ctx) {
+  if (ctx === 'saju') updateSajuSubmitState();
+  else if (ctx === 'combined') updateCtaDock('combined');
+}
+function onSajuQ3Input(ctx, el) {
+  state[ctx].q3 = el.value;
+  document.getElementById(ctx === 'combined' ? 'cmbQ3Counter' : 'sajuQ3Counter').textContent = el.value.length + '/100';
+}
+function updateSajuSubmitState() {
+  const dock = document.getElementById('sajuCtaDock');
+  if (!dock) return;
+  dock.classList.toggle('hidden', !(state.saju.q1 && state.saju.q2));
+}
+
+// ═══ GENDER ═══
+function setGender(g) {
+  gender = g;
+  document.getElementById('gMale').classList.toggle('on', g === '남');
+  document.getElementById('gFemale').classList.toggle('on', g === '여');
+}
+function setCmbGender(g) {
+  cmbGender = g;
+  document.getElementById('cmbGMale').classList.toggle('on', g === '남');
+  document.getElementById('cmbGFemale').classList.toggle('on', g === '여');
+}
+function setGgGender(who, g) {
+  if (who === 'A') { ggGenderA = g; document.getElementById('ggGMaleA').classList.toggle('on', g==='남'); document.getElementById('ggGFemaleA').classList.toggle('on', g==='여'); }
+  else { ggGenderB = g; document.getElementById('ggGMaleB').classList.toggle('on', g==='남'); document.getElementById('ggGFemaleB').classList.toggle('on', g==='여'); }
+}
+
+// ═══ UPLOAD / THUMBNAIL LOGIC ═══
+const ctxMap = {
+  gwansang: { uploadArea: 'uploadArea', thumbArea: 'thumbArea', thumbImg: 'thumbImg', thumbSub: 'thumbSub', spinner: 'gwansangSpinner', err: 'gwansangErr' },
+  combined: { uploadArea: 'cmbUploadArea', thumbArea: 'cmbThumbArea', thumbImg: 'cmbThumbImg', thumbSub: 'cmbThumbSub', spinner: 'cmbSpinner', err: 'cmbErr' },
+  gunghamA: { uploadArea: 'ggUploadA', thumbArea: 'ggThumbA', thumbImg: 'ggImgA', spinner: null, err: 'ggErr' },
+  gunghamB: { uploadArea: 'ggUploadB', thumbArea: 'ggThumbB', thumbImg: 'ggImgB', spinner: null, err: 'ggErr' },
+};
+
+function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag'); }
+function handleDragLeave(e) { e.currentTarget.classList.remove('drag'); }
+function handleDrop(ctx, e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadThumb(ctx, file);
+}
+function handleFile(ctx, e) {
+  if (e.target.files[0]) loadThumb(ctx, e.target.files[0]);
+}
+
+// 사진 업로드에 따라 나타나는 CTA(관상보기/통합분석/궁합보기)
+const ctaDockMap = { gwansang: 'gwansangCtaDock', combined: 'cmbCtaDock', gunghamA: 'ggCtaDock', gunghamB: 'ggCtaDock', saju: 'sajuCtaDock', gungham: 'ggCtaDock' };
+function updateCtaDock(ctx) {
+  const id = ctaDockMap[ctx];
+  if (!id) return;
+  const show = (ctx === 'gunghamA' || ctx === 'gunghamB')
+    ? !!(state.gunghamA.file && state.gunghamB.file)
+    : ctx === 'combined'
+      ? !!(state.combined.file && state.combined.q1 && state.combined.q2) // 사주보기처럼 상황·일상 질문까지 필수
+      : !!state[ctx].file;
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('hidden', !show);
+}
+
+// 사진 등록 영역(라벨·안심 안내·업로드 드롭존·썸네일·좌우 반전) 전체 — 관상보기/통합분석 전용
+// (궁합보기는 두 사람 사진 UI가 별도 구조라 대상 아님). 분석 전까지만 필요하고, 분석이 끝나면
+// "다른 OOO 분석하기" 버튼(resetUpload)을 눌러야 다시 나타난다.
+const uploadSectionMap = { gwansang: 'gwansangUploadSection', combined: 'cmbUploadSection' };
+
+// 통합분석 전용 — 사진을 올리기 전까지는 숨겨뒀다가, 업로드되는 순간 사주보기와 같은 상황 질문을 노출한다.
+const sajuQBlockMap = { combined: 'cmbSajuQBlock' };
+
+// 분석하기 → 고정 CTA 바와 사진 등록 영역을 숨기고, 결과 콘텐츠 맨 아래의 "다른 OOO 분석하기" 버튼으로 전환
+function markAnalyzed(ctx) {
+  const dock = ctaDockMap[ctx] && document.getElementById(ctaDockMap[ctx]);
+  if (dock) dock.classList.add('hidden');
+  const section = uploadSectionMap[ctx] && document.getElementById(uploadSectionMap[ctx]);
+  if (section) section.classList.add('hidden');
+}
+
+function loadThumb(ctx, file) {
+  state[ctx].file = file;
+  state[ctx].cleanImg = null; // 사진을 바꾸면 이전 사진의 AI 전송용 원본은 즉시 버린다
+  const m = ctxMap[ctx];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById(m.thumbImg).src = e.target.result;
+    if (m.thumbSub) document.getElementById(m.thumbSub).textContent = state[ctx].relation ? state[ctx].relation + ' · ' + file.name : file.name;
+  };
+  reader.readAsDataURL(file);
+  document.getElementById(m.uploadArea).style.display = 'none';
+  document.getElementById(m.thumbArea).classList.add('show');
+  const qBlock = sajuQBlockMap[ctx] && document.getElementById(sajuQBlockMap[ctx]);
+  if (qBlock) qBlock.classList.remove('hidden');
+  updateCtaDock(ctx);
+}
+
+function resetUpload(ctx) {
+  state[ctx].file = null;
+  state[ctx].lm = null;
+  state[ctx].cleanImg = null;
+  const m = ctxMap[ctx];
+  document.getElementById(m.uploadArea).style.display = '';
+  document.getElementById(m.thumbArea).classList.remove('show');
+  const section = uploadSectionMap[ctx] && document.getElementById(uploadSectionMap[ctx]);
+  if (section) section.classList.remove('hidden'); // 다른 OOO 분석하기 → 사진 등록 영역 재노출
+  const qBlock = sajuQBlockMap[ctx] && document.getElementById(sajuQBlockMap[ctx]);
+  if (qBlock) qBlock.classList.add('hidden'); // 사진 없을 땐 다시 숨김 — 다음 업로드 때 새로 답하도록
+  if (ctx === 'gwansang') {
+    document.getElementById('canvasCard').classList.add('hidden');
+    document.getElementById('gwansangResult').classList.add('hidden');
+  } else if (ctx === 'combined') {
+    document.getElementById('cmbCanvasCard').classList.add('hidden');
+    document.getElementById('cmbResult').classList.add('hidden');
+    state.combined.q1 = ''; state.combined.q2 = ''; state.combined.q3 = '';
+    document.querySelectorAll('#panel-combined .rel-chip').forEach(b => b.classList.remove('on'));
+    ['cmbQ1Custom', 'cmbQ2Custom'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.classList.add('hidden'); el.value = ''; }
+    });
+    const cmbQ3 = document.getElementById('cmbQ3');
+    if (cmbQ3) cmbQ3.value = '';
+    const cmbQ3Counter = document.getElementById('cmbQ3Counter');
+    if (cmbQ3Counter) cmbQ3Counter.textContent = '0/100';
+  }
+  updateCtaDock(ctx);
+}
+
+// ═══ 사주보기 재입력 — "다른 사주 분석하기" ═══
+function resetSajuForm() {
+  state.saju.q1 = ''; state.saju.q2 = ''; state.saju.q3 = '';
+  document.querySelectorAll('#panel-saju .rel-chip').forEach(b => b.classList.remove('on'));
+  ['sajuQ1Custom', 'sajuQ2Custom'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.add('hidden'); el.value = '';
+  });
+  const q3 = document.getElementById('sajuQ3');
+  q3.value = '';
+  document.getElementById('sajuQ3Counter').textContent = '0/100';
+  document.getElementById('sajuResult').classList.add('hidden');
+  document.getElementById('sajuComplement').classList.add('hidden');
+  updateSajuSubmitState();
+  document.getElementById('panel-saju').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ═══ 궁합보기 재입력 — "다른 궁합 분석하기" ═══
+function resetGunghamResult() {
+  resetUpload('gunghamA');
+  resetUpload('gunghamB');
+  document.getElementById('ggResult').classList.add('hidden');
+  document.getElementById('ggCanvasCard').classList.add('hidden');
+  document.getElementById('panel-gungham').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ═══ SPINNER / ERROR HELPERS ═══
+function setSpinner(id, msg) {
+  if (!id) return;
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('show'); el.style.display = 'block';
+  const msgEl = el.querySelector('p');
+  if (msgEl && msg) msgEl.textContent = msg;
+}
+function hideSpinner(id) {
+  if (!id) return;
+  const el = document.getElementById(id);
+  if (el) { el.classList.remove('show'); el.style.display = 'none'; }
+}
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.innerHTML = msg; el.classList.add('show'); }
+}
+function hideErr(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('show');
+}
+
+// ═══ FACE ANALYSIS (Promise 기반 — await 가능) ═══
+// ═══ ANALYZE (관상 탭 버튼용) ═══
+async function startAnalysis(ctx) {
+  if (!state[ctx].file) { alert('사진을 먼저 업로드해주세요.'); return; }
+  const m = ctxMap[ctx];
+  hideErr(m.err);
+
+  const lm = await runFaceAnalysis(ctx);
+  if (!lm) return;
+
+  if (ctx === 'gwansang') {
+    document.getElementById('canvasCard').classList.remove('hidden');
+    const rel = state.gwansang.relation;
+    document.getElementById('gwansangResultTitle').textContent = `🔮 AI 관상 개운 리포트 (${rel})`;
+    renderPersonalReportV2(lm, { headline:'gwansangHeadline', cards:'gwansangCards', summary:'gwansangSummary', result:'gwansangResult' }, null);
+    renderExtendedAnalysis(lm, { asymmetry:'gwansangAsymmetry', faceOhaeng:'gwansangFaceOhaeng', tier3:'gwansangTier3', foreheadNotice:'gwansangForeheadNotice' });
+    renderSnapshotHighlights(getGwansangRatios(lm), 'gwansangSnapshot');
+    // 관상보기 탭은 Gemini를 아예 호출하지 않는다(사용자 요청) — 분류(requestPersonalAi)는 이미
+    // 룰베이스로만 도는데, 여기서 이어서 부르던 requestDeepReport(장문 해설)는 여전히 Gemini API를
+    // 쳐서 503 등 API 장애가 그대로 사용자에게 "AI 리포트 생성 실패" 문구로 노출되는 문제가 있었다.
+    // 장문 해설은 고정 템플릿 하네스(별도 전달 예정)로 교체될 때까지 이 탭에서는 아예 호출하지 않는다.
+    setSpinner(m.spinner, '관상 분석중~');
+    await requestPersonalAi('gwansang');
+    hideSpinner(m.spinner);
+    document.getElementById('gwansangResult').classList.remove('hidden');
+    markAnalyzed('gwansang');
+  } else if (ctx === 'combined') {
+    document.getElementById('cmbCanvasCard').classList.remove('hidden');
+  }
+}
+
+// ═══ 2030 MBTI 콘텐츠 엔진 (db/FACE_READING·COMPLEMENT·SAJU_LINK 기반, 상세 매핑은 CONTENT_SPEC.md) ═══
+function getRelLabel(rel) {
+  const map = { '본인': '당신은', '엄마': '어머니는', '아빠': '아버지는', '자녀': '자녀분은', '형제/자매': '형제/자매분은', '친구': '친구분은', '연인/배우자': '파트너분은', '기타': '이분은', '가족': '가족분은' };
+  return map[rel] || '이분은';
+}
+
+// 오행(내부 판단용, 화면에는 절대 노출하지 않음) → 은유 표현 (CONTENT_SPEC.md §4)
+const OHAENG_VIBE = {
+  목: { season:'봄', line:'새싹처럼 쭉쭉 뻗어나가는 개척자 기운' },
+  화: { season:'여름', line:'태양처럼 확 타오르는 인싱 리더 기운' },
+  토: { season:'늦여름', line:'든든하고 넓은 산 같은, 흔들림 없는 능력자 기운' },
+  금: { season:'가을', line:'서리처럼 칼같이 정리하는 카리스마 기운' },
+  수: { season:'겨울', line:'강물처럼 깊고 조용히 다 계산 끝낸 지략가 기운' },
+};
+// 종합 운세 리포트용 상세 문단 (신년운세 톤, 한자 노출 없음)
+const OHAENG_DETAIL = {
+  목: '봄의 새싹처럼 쭉쭉 뻗어나가는 개척자 기운을 타고났어요. 남이 안 가본 길이라도 일단 발을 들이는 추진력이 있고, 새로운 걸 배우거나 시작하는 데 두려움이 없는 편이에요.',
+  화: '여름 태양처럼 확 타오르는 인싱 리더 기운을 타고났어요. 사람을 끌어모으는 매력이 있고, 하고 싶은 걸 숨기지 않고 바로 표현하는 솔직함이 매력 포인트예요.',
+  토: '든든하고 넓은 산 같은, 흔들림 없는 능력자 기운을 타고났어요. 웬만한 일에는 잘 흔들리지 않고, 주변 사람들이 자연스럽게 의지하게 되는 믿음직한 존재예요.',
+  금: '가을 서리처럼 칼같이 정리하는 카리스마 기운을 타고났어요. 맺고 끊는 게 분명하고, 원칙과 기준이 확실해서 한번 정한 건 끝까지 지켜내는 타입이에요.',
+  수: '겨울 강물처럼 깊고 조용히 다 계산 끝낸 지략가 기운을 타고났어요. 말은 적어도 이미 여러 수를 내다보고 있고, 위기 상황에서 오히려 차분해지는 스타일이에요.',
+};
+const OHAENG_TITLE = {
+  목: '일단 해보고 본다! 새싹처럼 뻗어나가는 개척자상',
+  화: '밝히고 본다! 주변까지 다 데우는 인싱 리더상',
+  토: '하면 된다! 흔들림 없이 내 길을 개척하는 능력자상',
+  금: '칼같이 정리한다! 결단력으로 승부 보는 카리스마상',
+  수: '다 계산 끝났다! 조용히 다 아는 지략가상',
+};
+
+// 8대 관상 부위 정의 (db/FACE_FEATURE.csv 중 detectable_by_ai=TRUE 8개 그대로 유지 → CONTENT_SPEC.md §1)
+const PART_DEF = [
+  { key:'forehead',    icon:'📍', label:'이마',      sub:'일 운 · 명예운' },
+  { key:'eyebrow',     icon:'🌿', label:'눈썹',      sub:'대인관계 · 형제운' },
+  { key:'midbrow',     icon:'🌟', label:'미간',      sub:'주관 · 리더십 · 대인관계' },
+  { key:'undereye',    icon:'👁', label:'눈밑',      sub:'정 · 인복 · 자녀운' },
+  { key:'nosebridge',  icon:'🏔', label:'코 뿌리',   sub:'자존심 · 중년운' },
+  { key:'nosetip',     icon:'💎', label:'코끝',      sub:'재물운 · 자존감' },
+  { key:'philtrum',    icon:'💧', label:'인중',      sub:'건강 · 수명 · 의지력' },
+  { key:'mouth',       icon:'👄', label:'입',        sub:'표현력 · 재물 씀씀이' },
+  { key:'smilelines',  icon:'〰', label:'팔자주름',  sub:'사회성 · 카리스마' },
+  { key:'jaw',         icon:'📍', label:'턱',        sub:'말년운 · 조력자 운' },
+  { key:'cheekbone',   icon:'⛰️', label:'광대',      sub:'대외활동력 · 추진력' },
+];
+// 부위별 문장 (db/FACE_READING.csv → CONTENT_SPEC.md §2, 팁은 db/COMPLEMENT.csv → §3, 시술 문구 없음)
+const PART_CONTENT = {
+  forehead: {
+    strength: { meaning:'이마 비율이 시원하게 딱 떨어져요. 일이든 관계든 스스로 방향을 잡고 나아가는 타입이라 명예운이 알아서 따라와요.', makeup:'이마 중앙에 은은한 펄 하이라이터나 톤업 베이스를 터치해서 빛을 받게 연출해보세요.', lifestyle:'세안 후 양손으로 이마 중앙에서 관자놀이 쪽으로 쓸어 넘기며 지압해주세요. 이마를 드러내는 헤어 연출도 잘 맞아요.' },
+    complement: { meaning:'이마 중앙 볼륨감이 살짝 아쉬워서, 한 일에 비해 평가를 조금 늦게 받는 편일 수 있어요.', makeup:'이마 중앙에 하이라이터로 볼륨감을 살려주면 훨씬 또렷한 인상을 줄 수 있어요.', lifestyle:'세안 후 이마 중앙 지압을 해주고, 시스루 뱅처럼 이마를 살짝 드러내는 헤어 연출을 함께 해보세요.' },
+  },
+  midbrow: {
+    strength: { meaning:'미간이 시원하게 넓어서 여유 있고 포용력 있는 인상이에요. 웬만한 건 다 받아주는 그릇이 큰 타입이라 대인관계가 편안해요.', makeup:'눈썹 숱을 자연스럽게 살려주면 포용력 있는 인상이 한층 살아나요.', lifestyle:'부드러운 웨이브 헤어스타일을 더하면 신뢰감이 훨씬 올라가요.' },
+    complement: { meaning:'미간이 살짝 좁아서 집중력은 최고인데, 가끔 내 세계에만 빠져있단 얘기를 들을 수 있어요.', makeup:'눈썹 사이를 살짝 정리하고 눈동자를 감싸는 아치형으로 그려주면 답답한 인상이 확 풀려요.', lifestyle:'대화할 때 상대 눈을 3초만 더 바라봐 주세요. 인복 기운이 훨씬 잘 통해요.' },
+  },
+  undereye: {
+    strength: { meaning:'눈 밑이 도톰해서 정이 많고 다정한 타입이에요. 사람이 잘 따르고 인복도 두둑해요.', makeup:'언더라인에 밝은 섀도우로 살짝 강조해주면 다정한 인상이 더 살아나요.', lifestyle:'웃을 때 눈웃음을 짓는 연습을 해보세요. 인복이 몰릴수록 운도 같이 몰려요.' },
+    complement: { meaning:'눈 밑이 매끈해서 독립적이고 자립심이 강한 타입이에요. 다만 혼자 다 짊어지려는 습관은 살짝 내려놔도 돼요.', makeup:'언더라인에 살짝 하이라이트를 더해 생기 있는 인상을 만들어보세요.', lifestyle:'화면을 오래 본 날은 온열 안대로 눈 피로를 풀어주세요.' },
+  },
+  nosebridge: {
+    strength: { meaning:'코 뿌리가 시원하게 뻗어 있어서 자존심 있고 리더십 있는 타입이에요. 중년으로 갈수록 입지가 더 단단해져요.', makeup:'콧대에 살짝 음영을 넣어 곧은 라인을 살려보세요.', lifestyle:'세안할 때 눈 앞머리부터 콧대 시작점까지 꾹꾹 쓸어내리는 셀프 마사지를 해보세요.' },
+    complement: { meaning:'코 뿌리가 부드러워서 유연하고 협동심 좋은 타입이에요. 다만 중요한 순간엔 내 의견도 확실히 챙기는 연습이 도움이 돼요.', makeup:'콧대에 하이라이터로 라인을 살짝 세워주세요.', lifestyle:'중요한 결정 앞에서는 "내가 원하는 건 뭐지"를 먼저 물어보는 연습을 해보세요.' },
+  },
+  nosetip: {
+    strength: { meaning:'콧대가 곧게 뻗어 있고 코끝에 힘이 딱 들어간 상이에요. 남한테 안 흔들리는 자존감과 차곡차곡 모으는 실속형 재물운을 함께 가졌어요.', makeup:'콧망울 옆 유분기는 파우더로 보송하게 잡아주고, 콧대에 살짝 음영을 넣어보세요.', lifestyle:'세안할 때 콧대에서 코끝까지 꾹꾹 눌러주는 셀프 마사지를 해보세요.' },
+    complement: { meaning:'코끝이 살짝 여려서, 있는 돈 없는 돈 다 쓰기 전에 잠깐 멈추는 습관이 필요해요.', makeup:'코 하이라이터로 콧대에서 코끝까지 이어서 세워주면 훨씬 실속 있는 인상이 돼요.', lifestyle:'큰 지출 전엔 하루만 미뤄보는 습관을 만들어보세요. 재물운이 훨씬 안정적으로 쌓여요.' },
+  },
+  philtrum: {
+    strength: { meaning:'인중이 또렷해서 건강한 생명력과 의지력을 가진 타입이에요. 웬만한 고비는 다 버텨내는 힘이 있어요.', makeup:'립 프라이머로 인중과 입술 경계를 또렷하게 정리해보세요.', lifestyle:'충분한 수분 섭취와 규칙적인 수면이 지금의 좋은 기운을 오래 유지해줘요.' },
+    complement: { meaning:'인중이 짧고 산뜻해서 빠릿빠릿하고 민첩한 타입이에요. 다만 중요한 결정 앞에서는 한 번 더 생각하는 여유가 도움이 돼요.', makeup:'립라인을 살짝 또렷하게 그려 안정감 있는 인상을 더해보세요.', lifestyle:'중요한 결정은 하루만 미뤄서 다시 한 번 살펴보는 습관을 만들어보세요.' },
+  },
+  smilelines: {
+    strength: { meaning:'팔자주름이 뚜렷해서 사회성과 카리스마가 넘치는 타입이에요. 조직 안에서 자연스럽게 중심이 돼요.', makeup:'너무 진하지 않은 자연스러운 톤의 메이크업으로 부드러움을 더하면 편안한 인상도 함께 챙길 수 있어요.', lifestyle:'평소보다 살짝 더 자신감 있는 표정을 지어보세요. 이미 갖춘 카리스마가 훨씬 잘 드러나요.' },
+    complement: { meaning:'팔자주름이 얕아서 자유로운 기질이 강한 편이에요. 다만 표현력은 살짝 약해 보일 수 있어요.', makeup:'입 주변을 또렷하게 연출하는 립 메이크업을 더해보세요.', lifestyle:'하루 10분 입꼬리 올리기 운동으로 표정 근육을 풀어주세요.' },
+  },
+  jaw: {
+    strength: { meaning:'턱선이 둥글고 안정적이라 한번 곁에 둔 사람은 오래가는 타입이에요. 말년운과 조력자 운이 빵빵해요.', makeup:'립 라이너로 입술 산과 입꼬리 끝을 살짝 위로 연장하듯 그려서 스마일 립을 만들어보세요.', lifestyle:'턱 밑 괄사 마사지로 라인을 정돈해보세요. 사람이 몰릴수록 운도 같이 몰려요.' },
+    complement: { meaning:'턱선이 갸름해서 감수성은 풍부하지만 안정감은 살짝 약해 보일 수 있어요.', makeup:'턱선 컨투어링으로 윤곽을 살려주면 훨씬 신뢰감 있는 인상이 돼요.', lifestyle:'하루 10분 턱 밑 괄사 마사지와 함께 장기 계획을 정기적으로 점검하는 습관을 만들어보세요.' },
+  },
+  eyebrow: {
+    strength: { meaning:'눈썹이 눈보다 여유 있게 위치해서 대인관계가 편안하고 형제·동료 운이 좋은 타입이에요.', makeup:'눈썹 앞머리는 자연스럽게 두고 꼬리만 살짝 정리해서 여유로운 인상을 살려보세요.', lifestyle:'주변 사람들과 함께하는 모임을 늘려보세요. 인복이 잘 몰리는 시기예요.' },
+    complement: { meaning:'눈썹이 눈에 가까이 있어서 예리하고 집중력 있는 타입이에요. 다만 날카로운 인상으로 비칠 수 있어요.', makeup:'눈썹 산 부분을 살짝 부드럽게 그려주면 날카로운 인상이 한결 편안해져요.', lifestyle:'대화할 때 미소를 조금 더 자주 지어보세요. 관계 운이 훨씬 부드러워져요.' },
+  },
+  mouth: {
+    strength: { meaning:'입이 시원하게 크고 또렷해서 표현력이 좋고 대인관계에 적극적인 타입이에요.', makeup:'입술 산 라인을 또렷하게 살려서 표현력 있는 인상을 강조해보세요.', lifestyle:'하고 싶은 말은 미루지 말고 바로 표현하는 습관이 운을 더 키워요.' },
+    complement: { meaning:'입이 아담해서 신중하고 절약형인 타입이에요. 다만 속마음을 잘 안 드러낼 수 있어요.', makeup:'립 라이너로 입술 윤곽을 살짝 키워 그리면 표현력이 살아나요.', lifestyle:'중요한 마음은 참지 말고 말로 표현하는 연습을 해보세요.' },
+  },
+  cheekbone: {
+    strength: { meaning:'광대가 시원하게 발달해서 대외활동력과 추진력이 좋은 타입이에요.', makeup:'광대 위쪽에 살짝 블러셔를 얹으면 생기 있고 활동적인 인상이 살아나요.', lifestyle:'새로운 사람을 만나는 자리를 피하지 말고 적극적으로 나서보세요.' },
+    complement: { meaning:'광대가 부드럽게 자리 잡아서 온화하고 편안한 인상인 타입이에요. 다만 대외적 추진력은 조금 아쉬울 수 있어요.', makeup:'광대 위치에 자연스러운 하이라이터로 볼륨감을 살짝 더해보세요.', lifestyle:'중요한 자리에서는 한 번 더 목소리를 내는 연습을 해보세요.' },
+  },
+};
+
+// 랜드마크 비율 → 부위별 강점/보완 판정 (판단기준 정립 인터뷰로 11개 부위 확정 — read/AI_관상_사진분석_판단기준_설계.md §6)
+// 절대 기준(모집단 대비 "넓다/좁다")은 실측 분포 데이터가 없어 검증할 수 없으므로 채택하지 않음.
+// 대신 "이 사람 자신의 부위들 중 상대적으로 어디가 더 발달했는가"로 판단 — 부위별 레벨(0~100)을 구해
+// 본인 안에서 순위를 매기고 상위 절반을 강점, 나머지를 보완으로 분류. 이렇게 하면 사람마다 반드시
+// 강점·보완이 섞여 나오고, 외부 레퍼런스 사진이나 모집단 통계 없이도 사진별로 결과가 달라진다.
+const PART_KEY_TO_MEASURE = { forehead:'gwanR', eyebrow:'browGapR', midbrow:'mgW', undereye:'waJ', nosebridge:'sanR', nosetip:'junduR', philtrum:'injR', mouth:'mouthR', smilelines:'beomR', jaw:'jigakR', cheekbone:'cheekR' };
+function judgePartStatus(r) {
+  const levels = Object.entries(PART_KEY_TO_MEASURE).map(([key, measure]) => [key, gwansangLevel(measure, r[measure])]);
+  const strongCount = Math.ceil(levels.length / 2);
+  const strongKeys = new Set([...levels].sort((a, b) => b[1] - a[1]).slice(0, strongCount).map(([key]) => key));
+  const status = {};
+  levels.forEach(([key]) => { status[key] = strongKeys.has(key) ? 'strength' : 'complement'; });
+  return status;
+}
+// judgePartStatus와 같은 레벨 계산을 재사용하되, 정렬된 순위 그대로 반환 — "가장 발달한 부위 Top" 같은
+// 스냅샷 하이라이트에 쓰기 위함(버그 리포트 6번 항목: 1페이지 핵심 요약 카드).
+function getPartLevelsSorted(r) {
+  return Object.entries(PART_KEY_TO_MEASURE).map(([key, measure]) => [key, gwansangLevel(measure, r[measure])]).sort((a, b) => b[1] - a[1]);
+}
+// 1페이지 핵심 스냅샷 — 전체 리포트를 다 안 봐도 "가장 발달한 부위 2개 + 채워볼 포인트 1개"만 바로 보이게.
+function renderSnapshotHighlights(r, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const sorted = getPartLevelsSorted(r);
+  const top2 = sorted.slice(0, 2).map(([key]) => PART_DEF.find(p => p.key === key));
+  const bottom = PART_DEF.find(p => p.key === sorted[sorted.length - 1][0]);
+  el.innerHTML = `
+    <div class="snapshot-row">✨ <strong style="color:var(--gold);">가장 발달한 부위</strong> — ${top2.map(p => `${p.icon} ${p.label}`).join(' · ')}</div>
+    <div class="snapshot-row">🌱 <strong style="color:var(--purple-light);">채워볼 포인트</strong> — ${bottom.icon} ${bottom.label}</div>
+  `;
+  el.classList.remove('hidden');
+}
+
+function buildHeadline(dStem) {
+  const oh = dStem >= 0 ? CG_OH[dStem] : '토';
+  return OHAENG_TITLE[oh] || OHAENG_TITLE['토'];
+}
+
+// 사주 × 관상 시너지 문장 — 한자 노출 없이 은유로 (db/SAJU_LINK.csv 규칙 재사용)
+function buildSajuSynergy(dStem, statusMap) {
+  const oh = dStem >= 0 ? CG_OH[dStem] : '토';
+  const v = OHAENG_VIBE[oh] || OHAENG_VIBE['토'];
+  const strongLabels = PART_DEF.filter(p => statusMap[p.key] === 'strength').map(p => p.label);
+  const nature = `${v.season}의 ${v.line}. 신중하지만 "내가 해야겠다" 싶은 일은 남 눈치 안 보고 끝까지 밀어붙이는 타입이에요.`;
+  const synergy = strongLabels.length
+    ? `${strongLabels.join(' · ')}에서도 그 기운이 그대로 드러나요. 남에게 의존하기보다 내 실력으로 운을 끌어당기는 스타일이에요.`
+    : `관상에서는 아직 뚜렷하게 드러나지 않지만, 타고난 기운만으로도 충분히 밀어붙이는 힘이 있어요.`;
+  return { nature, synergy };
+}
+
+// Daily 개운 루틴 3가지 — '보완' 부위의 팁을 아침/낮/밤 루틴으로 재구성
+function buildDailyRoutines(statusMap) {
+  const routineBank = {
+    forehead:   '아침: 메이크업할 때 이마 중앙에 은은한 하이라이터 터치하기',
+    eyebrow:    '낮: 대화할 때 미소를 조금 더 자주 지어보기',
+    midbrow:    '낮: 대화할 때 상대 눈을 3초만 더 바라보기',
+    undereye:   '낮: 거울 볼 때마다 눈웃음 3초 지어보기',
+    nosebridge: '밤: 세안 후 눈 앞머리부터 콧대까지 지압 마사지하기',
+    nosetip:    '밤: 세안 후 콧대~코끝 지압 마사지하기',
+    philtrum:   '아침: 충분한 수분 섭취로 하루 시작하기',
+    mouth:      '낮: 하고 싶은 말은 미루지 않고 바로 표현해보기',
+    smilelines: '낮: 자신감 있는 표정 3초 연습하기',
+    jaw:        '낮: 거울 볼 때마다 입꼬리 3초 동안 활짝 올려주기',
+    cheekbone:  '낮: 중요한 자리에서 목소리를 한 번 더 내보기',
+  };
+  // 11개 부위 중 "낮:" 태그가 7개로 몰려 있어서, 보완 부위가 우연히 겹치면 아침/밤 없이 "낮:" 팁
+  // 3개만 뽑히는 문제가 있었다(버그 리포트 3번 항목 — "부위별 팁과 Daily 루틴 중복"). 시간대별로
+  // 정확히 하나씩만 뽑아서 진짜 "아침→낮→밤" 3단계 실행 플랜이 되도록 고침.
+  const compKeys = PART_DEF.filter(p => statusMap[p.key] === 'complement').map(p => p.key);
+  const fallback = {
+    아침: '아침: 오늘의 컨디션을 살피며 가벼운 스트레칭으로 하루 시작하기',
+    낮:   '낮: 거울 볼 때마다 표정을 한 번 더 살펴보기',
+    밤:   '밤: 오늘 하루 애썼던 나를 떠올리며 가벼운 셀프 마사지로 마무리하기',
+  };
+  const bySlot = { 아침: null, 낮: null, 밤: null };
+  compKeys.forEach(key => {
+    const tip = routineBank[key];
+    const slot = tip.split(':')[0];
+    if (!bySlot[slot]) bySlot[slot] = tip;
+  });
+  return ['아침', '낮', '밤'].map(slot => bySlot[slot] || fallback[slot]);
+}
+
+// ═══ "타고난 기운 & 성향" 타입 카드 — 11개 부위 중 가장 발달한 부위 하나를 기준으로 MBTI 감성의
+// 타입 이름을 붙이고, 2위 부위까지 자연스럽게 엮어서 문장 하나에 녹인다("단순 사주 정보 나열처럼
+// 보인다"는 피드백 반영 — 부위 카드 아래에 이미 있는 문장을 또 나열하지 않고, 완전히 새로 쓴 문장으로
+// 구성). 마지막엔 실제 makeup/lifestyle 팁 하나를 자연스럽게 이어 붙인다.
+const PERSONALITY_TYPE = {
+  forehead:   { title:'🌟 탁 트인 전략가 타입', tagline:'미리 보는 설계자',
+    text:(p2)=>`시원하게 뻗은 이마가 먼저 눈에 들어오는 타입이에요. 남들이 코앞만 볼 때 몇 수 앞을 미리 그려두는 능력자라서, 일이든 관계든 방향을 잃지 않고 밀고 나가는 스타일이에요${p2?`, 여기에 ${p2}까지 더해져서 그 그림을 실제로 밀어붙이는 힘까지 갖췄어요`:''}. 이마 중앙을 살짝 밝혀주는 하이라이터 메이크업을 더하면, 그동안 쌓아온 성과가 훨씬 빠르게 인정받게 돼요.` },
+  eyebrow:    { title:'🤝 관계의 연결자 타입', tagline:'인복 부자',
+    text:(p2)=>`눈썹이 여유 있게 자리 잡아서 사람이 자연스럽게 몰리는 타입이에요. 형제·동료 운이 좋아서 혼자보다 함께할 때 시너지가 더 커지는 스타일이에요${p2?`, ${p2}까지 받쳐줘서 그 관계를 실제 성과로 잘 연결해요`:''}. 눈썹 꼬리만 살짝 정리해주는 메이크업으로 여유로운 인상을 한층 살려보세요.` },
+  midbrow:    { title:'👁 흔들림 없는 주관러 타입', tagline:'마이웨이 리더',
+    text:(p2)=>`미간이 시원하게 넓어서 웬만한 건 다 받아주는 그릇 큰 타입이에요. 내 기준이 확실해서 흔들리지 않고 밀고 나가는 리더십이 있어요${p2?`, ${p2}이 더해져서 그 뚝심이 더 단단해 보여요`:''}. 부드러운 웨이브 헤어스타일을 더하면 신뢰감이 한층 살아나요.` },
+  undereye:   { title:'💕 정 많은 케어러 타입', tagline:'인복 마그넷',
+    text:(p2)=>`눈 밑이 도톰해서 정이 많고 다정한 타입이에요. 사람이 잘 따르고 인복이 두둑해서, 챙겨주는 만큼 돌아오는 스타일이에요${p2?`, ${p2}까지 있어서 그 다정함이 훨씬 매력적으로 보여요`:''}. 눈웃음을 살짝 지어보세요 — 인복이 몰릴수록 운도 같이 몰려요.` },
+  nosebridge: { title:'🏔 자존심 강한 개척자 타입', tagline:'내 힘으로 간다',
+    text:(p2)=>`콧대가 시원하게 뻗어 있어서 자존심 있고 리더십 있는 타입이에요. 남에게 기대기보다 내 실력으로 판을 만들어가는 능력자 스타일이에요${p2?`, ${p2}까지 겸비해서 그 뚝심이 결과로 잘 이어져요`:''}. 콧대에 살짝 음영을 넣는 메이크업으로 곧은 인상을 더 살려보세요.` },
+  nosetip:    { title:'💎 실속형 승부사 타입', tagline:'알짜 재테커',
+    text:(p2)=>`코끝에 힘이 딱 들어간 상이라 자존감과 실속을 동시에 챙기는 타입이에요. 남한테 안 흔들리는 자존감으로 차곡차곡 모으는 재물운을 가졌어요${p2?`, ${p2}까지 더해져서 그 실속이 진짜 결과로 쌓여요`:''}. 콧대에서 코끝까지 이어지는 하이라이터로 실속 있는 인상을 완성해보세요.` },
+  philtrum:   { title:'💧 뚝심의 완주자 타입', tagline:'버티는 의지왕',
+    text:(p2)=>`인중이 또렷해서 건강한 생명력과 의지력을 가진 타입이에요. 웬만한 고비는 다 버텨내는 뚝심이 있어서, 끝까지 가는 힘이 남달라요${p2?`, ${p2}까지 있어서 그 뚝심이 더 빛나요`:''}. 충분한 수분 섭취와 규칙적인 수면으로 지금의 좋은 기운을 오래 유지해보세요.` },
+  mouth:      { title:'🎤 표현력 갑 타입', tagline:'할 말은 하는 스타일',
+    text:(p2)=>`입이 시원하게 크고 또렷해서 표현력이 좋고 대인관계에 적극적인 타입이에요. 하고 싶은 말은 참지 않고 바로 표현하는 솔직함이 매력이에요${p2?`, ${p2}까지 더해져서 그 표현력이 훨씬 인상 깊게 전달돼요`:''}. 입술 산 라인을 또렷하게 살리는 메이크업으로 표현력 있는 인상을 강조해보세요.` },
+  smilelines: { title:'👑 자연스러운 카리스마 타입', tagline:'있는 존재감',
+    text:(p2)=>`팔자주름이 뚜렷해서 사회성과 카리스마가 넘치는 타입이에요. 조직 안에서 자연스럽게 중심이 되는, 있는 듯 없는 듯 존재감을 뽐내는 스타일이에요${p2?`, ${p2}까지 받쳐줘서 그 카리스마가 더 단단해 보여요`:''}. 평소보다 살짝 더 자신감 있는 표정을 지어보세요 — 이미 갖춘 카리스마가 훨씬 잘 드러나요.` },
+  jaw:        { title:'🏡 든든한 조력자 타입', tagline:'한번 곁에 두면 오래가는',
+    text:(p2)=>`턱선이 둥글고 안정적이라 한번 곁에 둔 사람은 오래가는 타입이에요. 말년운과 조력자 운이 빵빵해서, 오래 갈수록 더 빛나는 스타일이에요${p2?`, ${p2}까지 있어서 그 든든함이 배가 돼요`:''}. 턱 밑 괄사 마사지로 라인을 정돈해보세요 — 사람이 몰릴수록 운도 같이 몰려요.` },
+  cheekbone:  { title:'🚀 추진력 만렙 타입', tagline:'일단 저지르는 행동파',
+    text:(p2)=>`광대가 시원하게 발달해서 대외활동력과 추진력이 좋은 타입이에요. 생각보다 행동이 먼저 나가는, 일단 저지르고 보는 실행력이 강점이에요${p2?`, ${p2}까지 더해져서 그 추진력이 훨씬 힘 있게 발휘돼요`:''}. 광대 위쪽에 살짝 블러셔를 얹어 생기 있고 활동적인 인상을 살려보세요.` },
+};
+function buildTypeCard(r) {
+  const sorted = getPartLevelsSorted(r);
+  const topKey = sorted[0][0], secondKey = sorted[1] ? sorted[1][0] : null;
+  const type = PERSONALITY_TYPE[topKey];
+  if (!type) return null;
+  const secondLabel = secondKey ? PART_DEF.find(p => p.key === secondKey).label : null;
+  return `<strong style="color:var(--gold);font-size:14px;">${type.title} (${type.tagline})</strong><br><br>${type.text(secondLabel)}`;
+}
+
+// 종합 운세 리포트 — 관상 8부위 + 사주 오행을 엮은 여러 문단 (신년운세 톤, 한자 노출 없음)
+function buildFullNarrative(dStem, ohaeng, statusMap, r) {
+  const oh = dStem >= 0 ? CG_OH[dStem] : '토';
+  const sortedOh = Object.entries(ohaeng).sort((a,b) => b[1] - a[1]);
+  const second = sortedOh.find(([k]) => k !== oh);
+
+  const natureP = OHAENG_DETAIL[oh] + (second && ohaeng[second[0]] >= 2
+    ? ` 거기에 ${OHAENG_VIBE[second[0]].line}도 함께 있어서, 상황에 따라 다른 얼굴을 보여줄 수 있는 타입이에요.`
+    : '');
+
+  const strongParts = PART_DEF.filter(p => statusMap[p.key] === 'strength');
+  const compParts = PART_DEF.filter(p => statusMap[p.key] === 'complement');
+
+  // 강점/보완 부위가 5~6개씩 걸리는 경우(11개 중 절반) 문장을 전부 이어 붙이면 단순 나열처럼 읽힌다
+  // (버그 리포트 3번 항목). 이름은 전체 다 보여주되, 실제 설명 문장은 1~2개만 뽑아 붙인다.
+  const strongP = strongParts.length
+    ? `관상에서는 ${strongParts.map(p => p.label).join(' · ')} 쪽이 특히 눈에 띄어요. ` + strongParts.slice(0, 2).map(p => PART_CONTENT[p.key].strength.meaning).join(' ')
+    : `관상에서는 유독 튀는 부위 없이 전체적으로 무난하고 안정적인 인상이에요.`;
+
+  const compP = compParts.length
+    ? `반대로 ${compParts.map(p => p.label).join(' · ')} 쪽은 살짝 채워볼 포인트예요. ` + compParts.slice(0, 2).map(p => PART_CONTENT[p.key].complement.meaning).join(' ')
+    : `딱히 채워볼 포인트가 없어요. 지금 상태를 잘 유지하는 게 핵심이에요.`;
+
+  const synergyP = strongParts.length >= 4
+    ? `타고난 기운과 관상이 서로 같은 방향을 보고 있어요. 마음먹은 걸 얼굴에서도 그대로 밀어붙이는 힘이 보이니, 망설이지 말고 밀고 나가도 좋은 시기예요.`
+    : strongParts.length >= 1
+    ? `타고난 기운의 일부는 관상에서도 그대로 드러나고, 일부는 아직 표면적으로 드러나지 않았어요. 마음속 확신을 조금 더 겉으로 드러내는 연습을 하면 주변에서도 더 잘 알아봐줄 거예요.`
+    : `타고난 기운은 확실히 있는데, 관상에서는 아직 조용히 숨어 있는 편이에요. 실력은 있는데 티가 잘 안 나는 스타일이니, 작은 성과라도 표현하고 알리는 습관이 도움이 돼요.`;
+
+  const closingP = `종합적으로 보면, ${OHAENG_VIBE[oh].line}을 바탕으로 ${strongParts[0] ? strongParts[0].label : '전체적인 인상'}에서 그 힘이 잘 드러나는 사람이에요. 지금 강점은 그대로 밀고 나가고, 채워볼 포인트는 하루 5분 루틴으로 천천히 다져가면 전체적인 기운이 훨씬 안정적으로 자리 잡을 거예요.`;
+
+  const typeCardP = r ? buildTypeCard(r) : null;
+  return typeCardP ? [typeCardP, natureP, strongP, compP, synergyP, closingP] : [natureP, strongP, compP, synergyP, closingP];
+}
+
+// 사진이 없는 경우엔 사주만으로 짧게, 있으면 관상까지 더한 종합 운세로
+function buildPersonNarrative(lm, pillars, ohaeng) {
+  const dStem = pillars && pillars[2] ? pillars[2].stem : -1;
+  if (lm) {
+    const r = getGwansangRatios(lm);
+    const statusMap = judgePartStatus(r);
+    return { paragraphs: buildFullNarrative(dStem, ohaeng, statusMap, r), statusMap };
+  }
+  const oh = dStem >= 0 ? CG_OH[dStem] : '토';
+  return { paragraphs: [OHAENG_DETAIL[oh], '사진을 추가하면 관상까지 더해진 훨씬 상세한 리포트를 볼 수 있어요.'], statusMap: null };
+}
+
+function renderNarrativeParagraphs(elId, paragraphs) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = paragraphs.map(p => `<p style="margin-bottom:12px;">${p}</p>`).join('');
+}
+
+// 개인 리포트 렌더링 — 관상 탭 · 통합분석 탭 공용 (지침서 예시① 구조)
+function renderPersonalReportV2(lm, ids, pillars, ohaeng) {
+  const r = getGwansangRatios(lm);
+  const statusMap = judgePartStatus(r);
+  const dStem = pillars && pillars[2] ? pillars[2].stem : -1;
+
+  if (ids.headline) {
+    document.getElementById(ids.headline).innerHTML = `"${buildHeadline(dStem)}"`;
+  }
+
+  document.getElementById(ids.cards).innerHTML = PART_DEF.map(p => {
+    const st = statusMap[p.key];
+    const c = PART_CONTENT[p.key][st];
+    const badge = st === 'strength' ? { label:'탁월한 강점', cls:'strength' } : { label:'채워볼 포인트', cls:'complement' };
+    const measureKey = PART_KEY_TO_MEASURE[p.key];
+    const rawValue = r[measureKey];
+    const level = gwansangLevel(measureKey, rawValue);
+    const rankNote = st === 'strength' ? '본인 11개 부위 중 상대적으로 발달한 편' : '본인 11개 부위 중 상대적으로 채워볼 편';
+    return `<div class="part-card" data-part-key="${p.key}">
+      <div class="part-head"><span class="part-icon">${p.icon}</span><span class="part-name">${p.label}</span><span class="status-badge ${badge.cls}">${badge.label}</span></div>
+      <div class="part-sub">${p.sub}</div>
+      <div class="part-value">📐 실측 비율 <strong>${rawValue.toFixed(3)}</strong> (정규화 지표 ${level}/100) — ${rankNote}</div>
+      <div class="part-meaning">${c.meaning}</div>
+      <div class="part-tip">💄 ${c.makeup}</div>
+      <div class="part-tip">🌿 ${c.lifestyle}</div>
+      <div class="part-tip ai-addition hidden"></div>
+    </div>`;
+  }).join('');
+
+  if (ids.synergy && pillars && ohaeng) {
+    const paragraphs = buildFullNarrative(dStem, ohaeng, statusMap, r);
+    renderNarrativeParagraphs(ids.synergy, paragraphs);
+    const synSection = document.getElementById(ids.synergy).closest('#cmbInsightSection');
+    if (synSection) synSection.style.display = 'block';
+  }
+
+  if (ids.summary) {
+    const routines = buildDailyRoutines(statusMap);
+    document.getElementById(ids.summary).innerHTML = `<strong style="color:var(--gold);">📌 Daily 개운 루틴 3가지</strong><ol class="routine-list">${routines.map(rt => `<li>${rt}</li>`).join('')}</ol>`;
+    document.getElementById(ids.summary).classList.remove('hidden');
+  }
+
+  // 결과 카드 자체는 여기서 공개하지 않음 — 호출자가 (AI 보완까지 끝난 뒤) 한번에 공개하도록 제어
+  return statusMap;
+}
+
+// ═══ SAJU ═══
+const CHEONGAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const JIJI = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+const CG_KO = ['갑','을','병','정','무','기','경','신','임','계'];
+const JJ_KO = ['자','축','인','묘','진','사','오','미','신','유','술','해'];
+const CG_OH = ['목','목','화','화','토','토','금','금','수','수'];
+const JJ_OH = ['수','토','목','목','토','화','화','토','금','금','토','수'];
+
+// ═══ 12운성(十二運星) — 일간(나) 기준으로 각 지지가 "장생~양" 중 어느 기운 단계인지 ═══
+// 양간(甲丙戊庚壬)은 자기 장생지에서 지지 순서대로 순행, 음간(乙丁己辛癸)은 역행한다는
+// 명리학 표준 공식 그대로다(학파 차이가 없는 부분). 실제 예시(1992-11-14 사시, 갑일간)로
+// 검증함: 일지 午→사, 시지 午→사, 월지 亥→장생, 년지 申→절 — 990사주 결과와 4/4 정확히 일치.
+const SIBIUNSEONG_START = [11, 6, 2, 9, 2, 9, 5, 0, 8, 3]; // 천간 인덱스별 장생지(지지 인덱스) — 甲亥 乙午 丙寅 丁酉 戊寅 己酉 庚巳 辛子 壬申 癸卯
+const SIBIUNSEONG_NAMES = ['장생','목욕','관대','건록','제왕','쇠','병','사','묘','절','태','양'];
+function get12Unseong(dayStemIdx, branchIdx) {
+  if (dayStemIdx < 0 || branchIdx < 0) return null;
+  const start = SIBIUNSEONG_START[dayStemIdx];
+  const isYang = dayStemIdx % 2 === 0; // 짝수 인덱스(甲丙戊庚壬)가 양간
+  const diff = isYang ? (branchIdx - start + 12) % 12 : (start - branchIdx + 12) % 12;
+  return SIBIUNSEONG_NAMES[diff];
+}
+const SIBIUNSEONG_MEANING = {
+  장생: '새싹이 움트는 시작의 기운. 순수하고 낙천적이며, 새 일을 시작할 때 힘을 잘 받는 시기예요.',
+  목욕: '태어나 처음 씻기는 기운. 감수성이 예민하고 이성 관계나 유행에 관심이 많아지는 시기예요.',
+  관대: '옷을 갖춰 입는 기운. 자신감이 붙고 사회로 나설 준비가 되는, 성장이 눈에 띄는 시기예요.',
+  건록: '스스로 녹(祿)을 버는 기운. 독립심이 강하고 자기 실력으로 자리를 잡아가는 안정적인 시기예요.',
+  제왕: '기운이 최고조에 달하는 시기. 리더십과 추진력이 강해지지만, 자칫 고집이 세질 수 있어요.',
+  쇠:   '왕성함이 한풀 꺾이는 기운. 경험과 관록이 쌓여 노련해지지만, 새 도전보다는 안정을 찾는 편이에요.',
+  병:   '기운이 약해지는 시기. 예민하고 생각이 많아지지만, 그만큼 섬세하고 배려심이 깊어져요.',
+  사:   '기운이 멈춘 듯 조용한 시기. 차분하고 신중하며, 겉으로 드러내기보다 속으로 다지는 타입이에요.',
+  묘:   '씨앗이 땅속에 숨듯 기운을 갈무리하는 시기. 내면을 다지고 준비하는 힘이 강해요.',
+  절:   '기운이 끊어졌다 다시 이어지는 전환점. 변화에 유연하고, 완전히 새로운 방향으로 틀 수 있는 시기예요.',
+  태:   '새 생명이 잉태되는 기운. 기대와 가능성이 움트는, 무언가 새로 시작되기 직전의 시기예요.',
+  양:   '태아가 자라나는 기운. 보호받으며 차곡차곡 성장하는, 안정 속에서 힘을 키우는 시기예요.',
+};
+
+// ═══ 천을귀인(天乙貴人) — 일간 기준으로 가장 잘 알려진 길신(吉神). 학파 차이가 거의 없는 표준 공식 ═══
+const CHEONEUL_GWIIN = { 0:[1,7], 4:[1,7], 6:[1,7], 1:[0,8], 5:[0,8], 2:[11,9], 3:[11,9], 7:[6,2], 8:[5,3], 9:[5,3] };
+// 甲戊庚→丑未(1,7), 乙己→子申(0,8), 丙丁→亥酉(11,9), 辛→午寅(6,2), 壬癸→巳卯(5,3)
+function isCheonEulGwiin(dayStemIdx, branchIdx) {
+  const targets = CHEONEUL_GWIIN[dayStemIdx];
+  return !!targets && targets.includes(branchIdx);
+}
+
+// ═══ 12신살(十二神殺) — 사용자가 보내준 상세 만세력 예시(최주연,1992-11-14)로 역산해서 검증한 공식.
+// 년지·월지·일지 3개를 각각 기준점으로 삼아, 그 지지가 속한 삼합국(申子辰·亥卯未·寅午戌·巳酉丑) 표를
+// 적용해 각 기둥의 지지가 어느 신살에 해당하는지 구한다. 기존엔 기준점을 하나만 썼다가 재현이 안
+// 됐는데, 3개 기준점 전부·4개 기둥 전부(12개 데이터포인트)를 이 방식으로 정확히 재현했다.
+const SAMHAP_GROUP = { 8:'수국',0:'수국',4:'수국', 11:'목국',3:'목국',7:'목국', 2:'화국',6:'화국',10:'화국', 5:'금국',9:'금국',1:'금국' };
+const SIBISINSAL_NAMES = ['겁살','재살','천살','지살','년살','월살','망신살','장성살','반안살','역마살','육해살','화개살'];
+const SIBISINSAL_START = { 수국:5, 목국:8, 화국:11, 금국:2 }; // 겁살이 시작하는 지지 인덱스(각 삼합국 생지의 -3)
+function get12Sinsal(refBranchIdx, targetBranchIdx) {
+  const group = SAMHAP_GROUP[refBranchIdx];
+  if (!group) return null;
+  const diff = (targetBranchIdx - SIBISINSAL_START[group] + 12) % 12;
+  return SIBISINSAL_NAMES[diff];
+}
+function get12SinsalForBranch(targetBranchIdx, yBranch, mBranch, dBranch) {
+  if (targetBranchIdx < 0) return [];
+  const labels = new Set();
+  [yBranch, mBranch, dBranch].forEach(ref => { if (ref >= 0) { const s = get12Sinsal(ref, targetBranchIdx); if (s) labels.add(s); } });
+  return Array.from(labels);
+}
+const SIBISINSAL_MEANING = {
+  겁살: '갑작스러운 손실이나 변화의 기운. 예상 못 한 지출이나 이별을 조심하되, 위기 대응력을 키워주는 시기예요.',
+  재살: '얽매이고 구속되는 기운. 인간관계나 상황에 발이 묶이는 느낌이 들 수 있어요. 인내심이 필요한 시기예요.',
+  천살: '내 힘으로 어쩔 수 없는 외부 변수를 마주하는 기운. 순응하고 받아들이는 지혜가 필요한 시기예요.',
+  지살: '이동과 변화의 기운. 이사, 여행, 새로운 곳으로 나아가는 흐름이 자연스럽게 따라와요.',
+  년살: '매력과 사교의 기운(도화살과 비슷해요). 사람을 끄는 매력이 있지만 유혹에는 신중해야 하는 시기예요.',
+  월살: '메마르고 정체되는 기운. 일이 더디게 풀리는 느낌이 들 수 있어요. 인내와 기다림이 필요한 시기예요.',
+  망신살: '체면과 이미지의 기운. 뜻하지 않게 구설수에 오르거나 민망할 수 있어요. 언행에 신경 쓰면 좋은 시기예요.',
+  장성살: '장군처럼 기운이 강해지는 시기. 리더십과 추진력이 살아나고 통솔력이 빛을 발해요.',
+  반안살: '말안장에 올라탄 듯 안정되는 기운. 승진이나 명예운이 따르는 시기예요.',
+  역마살: '이동과 역동의 기운. 여행·이사·해외 등 움직임이 많아지고 활동 반경이 넓어지는 시기예요.',
+  육해살: '얽히고설키는 기운. 건강이나 인간관계에서 세심하게 신경 쓸 일이 생기는 시기예요.',
+  화개살: '예술과 종교의 기운. 감수성과 예술적 재능이 발달하고, 혼자만의 시간에서 힘을 얻는 시기예요.',
+};
+
+// ═══ 그 외 귀인/살 — 전부 일간 또는 월지 기준의 단일 표라 학파 차이가 거의 없는 것들만 골랐고,
+// 마찬가지로 위 예시로 검증했다. ═══
+const TAEGEUK_GWIIN = { 0:[0,6],1:[0,6], 2:[3,9],3:[3,9], 4:[4,10,1,7],5:[4,10,1,7], 6:[2,11],7:[2,11], 8:[5,8],9:[5,8] };
+const MUNGOK_GWIIN = [11,0,2,3,2,3,5,6,8,9]; // 일간별 문곡귀인 지지
+const AMROK_GWIIN = [11,10,8,7,8,7,5,4,2,1]; // 일간별 암록 지지
+const WOLDEOK_GWIIN_TARGET = { 화국:2, 수국:8, 목국:0, 금국:6 }; // 월지 삼합국별 월덕귀인 천간
+const GORAN_SAL = [[0,2],[1,5],[3,5],[4,8],[7,11],[7,9],[8,10]]; // 甲寅 乙巳 丁巳 戊申 辛亥 辛酉 壬戌
+// ⚠️ 현침살은 출처마다 글자 구성이 조금씩 다르다(甲辛卯午未까지만 쓰는 곳도 있음) — 이 예시의 4기둥이
+// 전부 걸리는 걸로 봐서 申까지 포함한 6글자 버전으로 넣었는데, 다른 예시에서 어긋나면 알려달라.
+const HYEONCHIM_STEMS = [0, 7]; // 甲, 辛
+const HYEONCHIM_BRANCHES = [3, 6, 7, 8]; // 卯, 午, 未, 申
+
+// ═══ 포스텔러 만세력 예시(최정원, 무신일주)로 추가 검증한 귀인/살 7종 ═══
+// 문창귀인·천주귀인은 일간 기준 단일 표, 관귀학관은 12운성 표를 재사용해 유도, 천의성·과숙살은
+// 월지/년지 기준 계산식, 괴강살·백호대살은 특정 간지 조합 표 — 전부 이 예시로 실측 대조함.
+const MUNCHANG_GWIIN = [5, 6, 8, 9, 8, 9, 11, 0, 2, 3]; // 甲巳 乙午 丙申 丁酉 戊申 己酉 庚亥 辛子 壬寅 癸卯
+const CHEONJU_GWIIN = [5, 6, 5, 6, 8, 9, 11, 0, 2, 3]; // 甲巳 乙午 丙巳 丁午 戊申 己酉 庚亥 辛子 壬寅 癸卯
+// 관귀학관 = "일간을 극하는 오행(관성)"의 대표 양간이 12운성 장생을 맞는 지지 — SIBIUNSEONG_START 재사용
+const CONTROLLING_OH = { 목:'금', 화:'수', 토:'목', 금:'화', 수:'토' };
+const OH_YANG_STEM_IDX = { 목:0, 화:2, 토:4, 금:6, 수:8 };
+// 방합(方合, 계절별 묶음 — 삼합국과는 다른 분류) 기준 과숙살 목표 지지
+const BANGHAP_GROUP = { 11:'해자축',0:'해자축',1:'해자축', 2:'인묘진',3:'인묘진',4:'인묘진', 5:'사오미',6:'사오미',7:'사오미', 8:'신유술',9:'신유술',10:'신유술' };
+const GWASUK_TARGET = { 해자축:10, 인묘진:1, 사오미:4, 신유술:7 }; // 亥子丑→戌 寅卯辰→丑 巳午未→辰 申酉戌→未
+// 괴강살(확장판 — 壬戌까지 포함, 원조 4종만 쓰는 곳도 있음) / 백호대살 — 특정 (천간,지지) 조합
+const GOEGANG_SAL = [[6,4],[6,10],[8,4],[4,10],[8,10]]; // 庚辰 庚戌 壬辰 戊戌 壬戌
+const BAEKHO_SAL = [[0,4],[1,7],[2,10],[3,1],[4,4],[8,10],[9,1]]; // 甲辰 乙未 丙戌 丁丑 戊辰 壬戌 癸丑
+
+function computeExtraGwiin(pillars) {
+  const [y, m, d] = pillars; // 년,월,일 (시주는 신살 판정 기준점으로 안 씀)
+  const dStemIdx = d.stem, mBranchIdx = m.branch, yBranchIdx = y.branch;
+  const result = {};
+  if (dStemIdx >= 0) {
+    result.taegeuk = TAEGEUK_GWIIN[dStemIdx] || [];
+    result.mungok = MUNGOK_GWIIN[dStemIdx];
+    result.amrok = AMROK_GWIIN[dStemIdx];
+    result.hakdang = SIBIUNSEONG_START[dStemIdx]; // 학당귀인 = 일간의 12운성 장생지, 계산식 재사용
+    result.munchang = MUNCHANG_GWIIN[dStemIdx];
+    result.cheonju = CHEONJU_GWIIN[dStemIdx];
+    const controlOh = CONTROLLING_OH[CG_OH[dStemIdx]];
+    result.gwangwi = SIBIUNSEONG_START[OH_YANG_STEM_IDX[controlOh]];
+  }
+  if (mBranchIdx >= 0 && dStemIdx >= 0) {
+    const group = SAMHAP_GROUP[mBranchIdx];
+    result.woldeok = group && WOLDEOK_GWIIN_TARGET[group] === dStemIdx;
+  }
+  if (mBranchIdx >= 0) result.cheonui = (mBranchIdx - 1 + 12) % 12; // 천의성 = 월지 바로 앞 지지
+  if (yBranchIdx >= 0) {
+    const bg = BANGHAP_GROUP[yBranchIdx];
+    result.gwasuk = bg ? GWASUK_TARGET[bg] : null;
+  }
+  return result;
+}
+function isGoranSal(stemIdx, branchIdx) {
+  return GORAN_SAL.some(([s, b]) => s === stemIdx && b === branchIdx);
+}
+function isHyeonchimSal(stemIdx, branchIdx) {
+  return HYEONCHIM_STEMS.includes(stemIdx) || HYEONCHIM_BRANCHES.includes(branchIdx);
+}
+function isGoegangSal(stemIdx, branchIdx) {
+  return GOEGANG_SAL.some(([s, b]) => s === stemIdx && b === branchIdx);
+}
+function isBaekhoSal(stemIdx, branchIdx) {
+  return BAEKHO_SAL.some(([s, b]) => s === stemIdx && b === branchIdx);
+}
+function isCheonmunseong(branchIdx) {
+  return branchIdx === 10 || branchIdx === 11; // 戌 또는 亥
+}
+const GWIIN_MEANING = {
+  천을귀인: '사주에서 가장 널리 알려진 길신이에요. 어려운 일이 생겨도 뜻밖의 도움을 받거나 위기를 잘 넘기는 복이 있다고 봐요.',
+  태극귀인: '하늘의 이치를 깨닫는 길신이에요. 위기 속에서도 중심을 잃지 않고 지혜롭게 해결책을 찾아내는 복이 있다고 봐요.',
+  문곡귀인: '학문과 문서 운을 돕는 길신이에요. 공부나 시험, 글 쓰는 일에서 좋은 결과를 얻기 쉬운 기운이에요.',
+  암록: '드러나지 않게 도와주는 숨은 복이에요. 어려울 때 뜻밖의 곳에서 도움의 손길이 나타나는 기운이에요.',
+  학당귀인: '배움과 재능을 꽃피우는 길신이에요. 총명하고 학구열이 높아 공부로 인정받기 쉬운 기운이에요.',
+  월덕귀인: '한 달의 기운을 다스리는 길신이에요. 마음이 너그럽고 덕이 있어 주변에서 신망을 얻기 쉬운 기운이에요.',
+  고란살: '외로움을 상징하는 살이에요. 배우자운에서 다소 외로움을 느낄 수 있지만, 그만큼 자립심과 독립심이 강한 편이에요.',
+  현침살: '바늘처럼 예리한 기운이에요. 손끝이 야무지고 판단력이 예리해 의료·기술·전문직에서 강점을 보이는 편이에요.',
+  문창귀인: '글재주와 표현력을 돕는 길신이에요. 문서·기획·창작 쪽에서 두각을 나타내기 쉬운 기운이에요.',
+  천주귀인: '먹을 복을 상징하는 길신이에요. 평생 의식주 걱정이 적고, 베풀어도 다시 채워지는 복이 있다고 봐요.',
+  관귀학관: '직장운과 시험운을 돕는 길신이에요. 자격증이나 승진, 공적인 인정을 받기에 유리한 기운이에요.',
+  천의성: '치유와 돌봄의 기운이에요. 의료·상담·힐링 분야에 잘 맞고, 아픈 사람을 잘 챙기는 손을 가졌다고 봐요.',
+  과숙살: '혼자만의 시간을 편하게 여기는 기운이에요. 독립심이 강한 대신, 의식적으로 관계를 챙기는 노력이 도움이 돼요.',
+  천문성: '영적 감각과 직관이 발달한 기운이에요. 종교·철학·심리 등 눈에 안 보이는 걸 다루는 분야에 강점이 있어요.',
+  괴강살: '강렬한 카리스마의 기운이에요. 극과 극을 오가는 스케일이 있어서, 잘 쓰면 큰 성취를 이루지만 고집도 세질 수 있어요.',
+  백호대살: '한번 힘을 쓰면 확실하게 밀어붙이는 기운이에요. 결단력은 강하지만, 급한 성미는 다스리는 연습이 필요해요.',
+};
+
+// ═══ 공망(空亡) — 60갑자를 10개씩 묶은 "순(旬)" 안에서 짝이 안 맞는 지지 2개. 계산식으로 유도 가능한
+// 부분이라 표 없이 구한다(위 예시의 [年]戌亥·[日]辰巳 둘 다 정확히 재현됨). ═══
+function getGongmang(stemIdx, branchIdx) {
+  if (stemIdx < 0 || branchIdx < 0) return [];
+  const b0 = (branchIdx - stemIdx + 12) % 12; // 이 순(旬)에서 갑(甲)과 짝지어지는 지지
+  return [(b0 + 10) % 12, (b0 + 11) % 12];
+}
+
+// 만세력 계산 — 예전엔 자체 JS 공식(고정 달력월→지지 매핑, 고정 기준일 REF)을 썼는데, 실제 검증 결과
+// (1996-11-07 20:17 테스트 케이스) 월주가 절기(입동)를 반영하지 않아 통째로 한 달씩 밀렸고, 일주도
+// 기준일이 24일 어긋나 있었다. 지금은 절기·60갑자를 정확히 계산하는 lunar-javascript(전역 Solar/Lunar/
+// EightChar, gwansang-saju.html에서 CDN으로 로드)에 위임하고, 결과 한자를 CHEONGAN/JIJI 인덱스로
+// 변환해서 기존 렌더링 코드(renderPillarsTable 등)는 그대로 재사용한다.
+function computePillars(dateVal, hourVal) {
+  const [year, month, day] = dateVal.split('-').map(Number);
+  const hv = parseInt(hourVal);
+  // 시간을 모르면(-1) 정오로 대입 — 시주만 비워두고 년/월/일주는 그대로 계산(절기 경계에 걸치는 극히
+  // 드문 자정 근처 출생이 아닌 한 결과에 영향 없음).
+  const solar = Solar.fromYmdHms(year, month, day, hv >= 0 ? hv : 12, 0, 0);
+  const ec = solar.getLunar().getEightChar();
+  const gi = (ganChar, ziChar) => ({ stem: CHEONGAN.indexOf(ganChar), branch: JIJI.indexOf(ziChar) });
+  const y = gi(ec.getYearGan(), ec.getYearZhi());
+  const m = gi(ec.getMonthGan(), ec.getMonthZhi());
+  const d = gi(ec.getDayGan(), ec.getDayZhi());
+  const h = hv >= 0 ? gi(ec.getTimeGan(), ec.getTimeZhi()) : { stem: -1, branch: -1 };
+  return [
+    { label:'년주', stem:y.stem, branch:y.branch },
+    { label:'월주', stem:m.stem, branch:m.branch },
+    { label:'일주', stem:d.stem, branch:d.branch },
+    { label:'시주', stem:h.stem, branch:h.branch },
+  ];
+}
+
+// ═══ 대운(大運) — lunar-javascript에 이미 내장된 getYun/getDaYun을 그대로 사용 ═══
+// 순행/역행 판정, 대운수(첫 대운이 시작하는 나이) 계산, 이후 각 대운의 60갑자까지 전부 라이브러리가
+// 계산해준다. 손으로 공식을 유도하지 않고 그대로 가져다 쓰는 이유: 2026-08-13에 포스텔러 만세력
+// 실측 예시(최정원, 1996-11-07 20:12, 여자)로 교차검증해서 8자·역행 여부·대운 9개 60갑자가 전부
+// 정확히 일치함을 확인했다(무술·정유·병신·을미·갑오·계사·임진·신묘·경인).
+function computeDaeun(dateVal, hourVal, genderVal) {
+  const [year, month, day] = dateVal.split('-').map(Number);
+  const hv = parseInt(hourVal);
+  const solar = Solar.fromYmdHms(year, month, day, hv >= 0 ? hv : 12, 0, 0);
+  const ec = solar.getLunar().getEightChar();
+  const genderNum = genderVal === '여' ? 0 : 1; // 라이브러리 규약: 1=남성, 0=여성
+  const yun = ec.getYun(genderNum);
+  // index=0은 "대운 이전" 자리표시자(빈 간지)라 제외하고 실제 대운 9개만 취한다.
+  const list = yun.getDaYun(9).filter(d => d.getIndex() >= 1).map(d => {
+    const gz = d.getGanZhi();
+    const stemIdx = CHEONGAN.indexOf(gz[0]);
+    const branchIdx = JIJI.indexOf(gz[1]);
+    return { startAge: d.getStartAge(), endAge: d.getEndAge(), ganZhi: gz, stemIdx, branchIdx };
+  });
+  return { isForward: yun.isForward(), list };
+}
+
+// 대운 표 렌더링 — renderPillarsTable과 같은 pillar-col 스타일을 재사용해서 시각적으로 통일감 있게.
+function renderDaeunTable(daeun, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!daeun || !daeun.list.length) { el.innerHTML = ''; el.classList.add('hidden'); return; }
+  const rows = daeun.list.map(d => {
+    const ss = d.stemIdx>=0?CHEONGAN[d.stemIdx]:'?', bs = d.branchIdx>=0?JIJI[d.branchIdx]:'?';
+    const sk = d.stemIdx>=0?CG_KO[d.stemIdx]:'?', bk = d.branchIdx>=0?JJ_KO[d.branchIdx]:'?';
+    const stemOh = d.stemIdx>=0 ? CG_OH[d.stemIdx] : null;
+    const branchOh = d.branchIdx>=0 ? JJ_OH[d.branchIdx] : null;
+    return `<div class="pillar-col"><div class="pillar-label">${d.startAge}세~</div><div class="pillar-stem" style="${ohaengCellStyle(stemOh)}">${ss}<div class="pillar-hanja">${sk}</div></div><div class="pillar-branch" style="${ohaengCellStyle(branchOh)}">${bs}<div class="pillar-hanja">${bk}</div></div></div>`;
+  }).join('');
+  el.innerHTML = `<div style="font-size:11px;color:var(--text2);margin-bottom:6px;">${daeun.isForward ? '순행' : '역행'} · 첫 대운 시작 나이 ${daeun.list[0].startAge}세</div><div class="pillars-table">${rows}</div>`;
+  el.classList.remove('hidden');
+}
+
+// 다른 만세력 사이트들의 관례(시주-일주-월주-년주, 오른쪽에서 왼쪽으로 시간이 흐르는 배치)에 맞춰
+// 표시 순서만 뒤집는다 — pillars 배열 자체(년→월→일→시)는 computeOhaeng 등 다른 곳에서 계속 그 순서로
+// 쓰이므로 건드리지 않고, 렌더링 직전에만 [...].reverse()로 뒤집는다.
+// 오행 분포 막대(oh-목-bar 등, 아래 renderOhaengBars)와 같은 팔레트를 그대로 재사용 — 사주 원국 표의
+// 천간·지지 칸 색이 오행 분포와 같은 색으로 매칭되어야 한 눈에 "이 글자가 무슨 오행인지" 알 수 있다는
+// 사용자 피드백(다른 만세력 앱들은 이렇게 색으로 오행을 바로 보여준다는 점 참고).
+const OHAENG_COLOR = {
+  목: { base:'#4ade80', dark:'#22c55e' },
+  화: { base:'#f87171', dark:'#ef4444' },
+  토: { base:'#fbbf24', dark:'#f59e0b' },
+  금: { base:'#e2e8f0', dark:'#cbd5e1' },
+  수: { base:'#60a5fa', dark:'#3b82f6' },
+};
+function ohaengCellStyle(oh) {
+  const c = OHAENG_COLOR[oh];
+  if (!c) return '';
+  return `background:linear-gradient(135deg, ${c.base}55, ${c.dark}22);border:1px solid ${c.dark}99;color:${c.base};`;
+}
+function renderPillarsTable(pillars, elId) {
+  const [yP, mP, dP] = pillars; // pillars는 항상 [년,월,일,시] 고정 순서
+  const dayStemIdx = dP ? dP.stem : -1;
+  const yBranch = yP ? yP.branch : -1, mBranch = mP ? mP.branch : -1, dBranch = dP ? dP.branch : -1;
+  const extra = computeExtraGwiin(pillars);
+  document.getElementById(elId).innerHTML = [...pillars].reverse().map(p => {
+    const ss = p.stem>=0?CHEONGAN[p.stem]:'?', bs = p.branch>=0?JIJI[p.branch]:'?';
+    const sk = p.stem>=0?CG_KO[p.stem]:'?', bk = p.branch>=0?JJ_KO[p.branch]:'?';
+    const stemOh = p.stem>=0 ? CG_OH[p.stem] : null;
+    const branchOh = p.branch>=0 ? JJ_OH[p.branch] : null;
+    const unseong = p.branch>=0 ? get12Unseong(dayStemIdx, p.branch) : null;
+    const unseongLine = unseong ? `<div class="pillar-unseong">${unseong}</div>` : '';
+
+    const badges = [];
+    if (p.branch >= 0 && isCheonEulGwiin(dayStemIdx, p.branch)) badges.push('천을귀인');
+    if (p.branch >= 0 && extra.taegeuk && extra.taegeuk.includes(p.branch)) badges.push('태극귀인');
+    if (p.branch >= 0 && p.branch === extra.mungok) badges.push('문곡귀인');
+    if (p.branch >= 0 && p.branch === extra.amrok) badges.push('암록');
+    if (p.branch >= 0 && p.branch === extra.hakdang) badges.push('학당귀인');
+    if (p.label === '일주' && extra.woldeok) badges.push('월덕귀인');
+    if (isGoranSal(p.stem, p.branch)) badges.push('고란살');
+    if (isHyeonchimSal(p.stem, p.branch)) badges.push('현침살');
+    if (p.branch >= 0 && p.branch === extra.munchang) badges.push('문창귀인');
+    if (p.branch >= 0 && p.branch === extra.cheonju) badges.push('천주귀인');
+    if (p.branch >= 0 && p.branch === extra.gwangwi) badges.push('관귀학관');
+    if (p.branch >= 0 && p.branch === extra.cheonui) badges.push('천의성');
+    if (p.branch >= 0 && p.branch === extra.gwasuk) badges.push('과숙살');
+    if (p.branch >= 0 && isCheonmunseong(p.branch)) badges.push('천문성');
+    if (isGoegangSal(p.stem, p.branch)) badges.push('괴강살');
+    if (isBaekhoSal(p.stem, p.branch)) badges.push('백호대살');
+    const gwiinBadges = badges.map(b => `<div class="pillar-gwiin">★ ${b}</div>`).join('');
+
+    const sinsalList = get12SinsalForBranch(p.branch, yBranch, mBranch, dBranch);
+    const sinsalBadges = sinsalList.map(s => `<div class="pillar-sinsal">${s}</div>`).join('');
+
+    return `<div class="pillar-col"><div class="pillar-label">${p.label}</div><div class="pillar-stem" style="${ohaengCellStyle(stemOh)}">${ss}<div class="pillar-hanja">${sk}</div></div><div class="pillar-branch" style="${ohaengCellStyle(branchOh)}">${bs}<div class="pillar-hanja">${bk}</div></div>${unseongLine}${sinsalBadges}${gwiinBadges}</div>`;
+  }).join('');
+}
+
+// 이 사람 사주에 실제로 등장하는 12운성 단계 + 천을귀인 여부만 골라 설명을 붙인다(12개 전부 나열하지 않음).
+function renderUnseongLegend(pillars, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const [yP, mP, dP] = pillars;
+  const dayStemIdx = dP ? dP.stem : -1;
+  const yBranch = yP ? yP.branch : -1, mBranch = mP ? mP.branch : -1, dBranch = dP ? dP.branch : -1;
+
+  const seenUnseong = new Set();
+  const unseongRows = [];
+  pillars.forEach(p => {
+    if (p.branch < 0) return;
+    const u = get12Unseong(dayStemIdx, p.branch);
+    if (u && !seenUnseong.has(u)) { seenUnseong.add(u); unseongRows.push(u); }
+  });
+
+  const seenSinsal = new Set();
+  pillars.forEach(p => { get12SinsalForBranch(p.branch, yBranch, mBranch, dBranch).forEach(s => seenSinsal.add(s)); });
+
+  const extra = computeExtraGwiin(pillars);
+  const gwiinNames = new Set();
+  if (pillars.some(p => p.branch >= 0 && isCheonEulGwiin(dayStemIdx, p.branch))) gwiinNames.add('천을귀인');
+  if (pillars.some(p => p.branch >= 0 && extra.taegeuk && extra.taegeuk.includes(p.branch))) gwiinNames.add('태극귀인');
+  if (pillars.some(p => p.branch === extra.mungok)) gwiinNames.add('문곡귀인');
+  if (pillars.some(p => p.branch === extra.amrok)) gwiinNames.add('암록');
+  if (pillars.some(p => p.branch === extra.hakdang)) gwiinNames.add('학당귀인');
+  if (extra.woldeok) gwiinNames.add('월덕귀인');
+  if (pillars.some(p => isGoranSal(p.stem, p.branch))) gwiinNames.add('고란살');
+  if (pillars.some(p => isHyeonchimSal(p.stem, p.branch))) gwiinNames.add('현침살');
+  if (pillars.some(p => p.branch === extra.munchang)) gwiinNames.add('문창귀인');
+  if (pillars.some(p => p.branch === extra.cheonju)) gwiinNames.add('천주귀인');
+  if (pillars.some(p => p.branch === extra.gwangwi)) gwiinNames.add('관귀학관');
+  if (pillars.some(p => p.branch === extra.cheonui)) gwiinNames.add('천의성');
+  if (pillars.some(p => p.branch === extra.gwasuk)) gwiinNames.add('과숙살');
+  if (pillars.some(p => p.branch >= 0 && isCheonmunseong(p.branch))) gwiinNames.add('천문성');
+  if (pillars.some(p => isGoegangSal(p.stem, p.branch))) gwiinNames.add('괴강살');
+  if (pillars.some(p => isBaekhoSal(p.stem, p.branch))) gwiinNames.add('백호대살');
+
+  if (!unseongRows.length && !seenSinsal.size && !gwiinNames.size) { el.innerHTML = ''; el.classList.add('hidden'); return; }
+
+  const unseongSection = unseongRows.length
+    ? `<div class="card-title" style="margin-top:16px;color:var(--purple-light);">🌱 십이운성으로 본 기운의 흐름</div>`
+      + unseongRows.map(u => `<div class="part-tip"><strong style="color:var(--purple-light);">${u}</strong> — ${SIBIUNSEONG_MEANING[u]}</div>`).join('')
+    : '';
+  const sinsalSection = seenSinsal.size
+    ? `<div class="card-title" style="margin-top:16px;color:var(--gold);">🔮 십이신살로 본 기운</div>`
+      + Array.from(seenSinsal).map(s => `<div class="part-tip"><strong style="color:var(--gold);">${s}</strong> — ${SIBISINSAL_MEANING[s]}</div>`).join('')
+    : '';
+  const gwiinSection = gwiinNames.size
+    ? `<div class="card-title" style="margin-top:16px;color:var(--gold-light);">✨ 이 사주에 있는 귀인·살</div>`
+      + Array.from(gwiinNames).map(g => `<div class="part-tip">★ <strong style="color:var(--gold-light);">${g}</strong> — ${GWIIN_MEANING[g]}</div>`).join('')
+    : '';
+
+  el.innerHTML = unseongSection + sinsalSection + gwiinSection;
+  el.classList.remove('hidden');
+}
+
+// renderUnseongLegend와 동일한 집계 로직을 데이터로만 뽑아낸 버전 — Gemini 프롬프트에 "이미 검증된 사실"로
+// 그대로 넘기기 위한 것. Gemini에게 신살/귀인 계산 자체를 맡기면 근거 없이 지어낼 위험이 있어서,
+// 계산은 항상 이 앱의 로컬 공식(2026-08-13 기준 실제 만세력 예시로 검증된 값)으로 하고 Gemini는
+// 그 결과를 바탕으로 "해석"만 하게 한다.
+function collectSajuInsightSummary(pillars) {
+  const [yP, mP, dP] = pillars;
+  const dayStemIdx = dP ? dP.stem : -1;
+  const yBranch = yP ? yP.branch : -1, mBranch = mP ? mP.branch : -1, dBranch = dP ? dP.branch : -1;
+
+  const unseongList = [];
+  const seenUnseong = new Set();
+  pillars.forEach(p => {
+    if (p.branch < 0) return;
+    const u = get12Unseong(dayStemIdx, p.branch);
+    if (u && !seenUnseong.has(u)) { seenUnseong.add(u); unseongList.push({ name: u, meaning: SIBIUNSEONG_MEANING[u] }); }
+  });
+
+  const seenSinsal = new Set();
+  pillars.forEach(p => { get12SinsalForBranch(p.branch, yBranch, mBranch, dBranch).forEach(s => seenSinsal.add(s)); });
+  const sinsalList = Array.from(seenSinsal).map(s => ({ name: s, meaning: SIBISINSAL_MEANING[s] }));
+
+  const extra = computeExtraGwiin(pillars);
+  const gwiinNames = new Set();
+  if (pillars.some(p => p.branch >= 0 && isCheonEulGwiin(dayStemIdx, p.branch))) gwiinNames.add('천을귀인');
+  if (pillars.some(p => p.branch >= 0 && extra.taegeuk && extra.taegeuk.includes(p.branch))) gwiinNames.add('태극귀인');
+  if (pillars.some(p => p.branch === extra.mungok)) gwiinNames.add('문곡귀인');
+  if (pillars.some(p => p.branch === extra.amrok)) gwiinNames.add('암록');
+  if (pillars.some(p => p.branch === extra.hakdang)) gwiinNames.add('학당귀인');
+  if (extra.woldeok) gwiinNames.add('월덕귀인');
+  if (pillars.some(p => isGoranSal(p.stem, p.branch))) gwiinNames.add('고란살');
+  if (pillars.some(p => isHyeonchimSal(p.stem, p.branch))) gwiinNames.add('현침살');
+  if (pillars.some(p => p.branch === extra.munchang)) gwiinNames.add('문창귀인');
+  if (pillars.some(p => p.branch === extra.cheonju)) gwiinNames.add('천주귀인');
+  if (pillars.some(p => p.branch === extra.gwangwi)) gwiinNames.add('관귀학관');
+  if (pillars.some(p => p.branch === extra.cheonui)) gwiinNames.add('천의성');
+  if (pillars.some(p => p.branch === extra.gwasuk)) gwiinNames.add('과숙살');
+  if (pillars.some(p => p.branch >= 0 && isCheonmunseong(p.branch))) gwiinNames.add('천문성');
+  if (pillars.some(p => isGoegangSal(p.stem, p.branch))) gwiinNames.add('괴강살');
+  if (pillars.some(p => isBaekhoSal(p.stem, p.branch))) gwiinNames.add('백호대살');
+  const gwiinList = Array.from(gwiinNames).map(g => ({ name: g, meaning: GWIIN_MEANING[g] }));
+
+  return { unseongList, sinsalList, gwiinList };
+}
+
+function computeOhaeng(pillars) {
+  const c = {목:0,화:0,토:0,금:0,수:0};
+  pillars.forEach(p => { if(p.stem>=0) c[CG_OH[p.stem]]++; if(p.branch>=0) c[JJ_OH[p.branch]]++; });
+  return c;
+}
+
+function renderOhaengBars(count, elId) {
+  const total = Object.values(count).reduce((a,b)=>a+b,0);
+  const colors = {목:'oh-목-bar',화:'oh-화-bar',토:'oh-토-bar',금:'oh-금-bar',수:'oh-수-bar'};
+  const emojis = {목:'🌳',화:'🔥',토:'🏔',금:'⚔',수:'💧'};
+  document.getElementById(elId).innerHTML = Object.entries(count).map(([k,v]) =>
+    `<div class="ohaeng-row"><div class="ohaeng-name oh-${k}">${emojis[k]}${k}</div><div class="ohaeng-bar-bg"><div class="ohaeng-bar-fill ${colors[k]}" style="width:${total?(v/total*100):0}%"></div></div><div class="ohaeng-count">${v}</div></div>`
+  ).join('');
+}
+
+// ═══ 사주 오행 심층 리포트 — 다른 만세력 앱들처럼 "메타포 제목 + 서사 + 사주분석(근거 수치)/
+// 사주원리(원론)/현실조언(행동)" 구조로 작성한다("내 사주 오행 이렇게 상세하게 넣어주는데 너는 너무
+// 짧다"는 피드백 반영). 오행 8글자 중 0개(제로)인 오행이 있으면 그걸 우선으로, 없으면 3개 이상
+// 몰린 과다 오행을 기준으로 이야기를 짠다.
+const OHAENG_HANJA = { 목:'木', 화:'火', 토:'土', 금:'金', 수:'水' };
+const OHAENG_MEANING = {
+  목: '추진력과 성장, 새로운 시작', 화: '열정과 표현력, 확산하는 에너지',
+  토: '재물, 신용, 꾸준함, 안정적인 관계', 금: '결단력, 원칙, 정리하는 힘', 수: '지혜, 융통성, 깊이 있는 사고',
+};
+const OHAENG_ADVICE = {
+  목: '초록색 계열의 옷이나 소품을 가까이 하고, 화분을 키우거나 정기적으로 산책·등산을 하며 목 기운을 보충해보세요.',
+  화: '빨강·주황색 계열을 활용하고, 밝은 조명 아래서 사람들과 어울리는 자리를 자주 만들어 화 기운을 북돋아보세요.',
+  토: '황토길을 걷거나 도예를 배우고, 노란색·베이지색 계열의 옷과 소품을 활용하며 안정적인 루틴을 만드는 게 큰 도움이 됩니다.',
+  금: '흰색·은색 계열을 활용하고, 주변을 정리정돈하며 규칙적인 마감 시간을 정해두면 금 기운을 다스리는 데 도움이 돼요.',
+  수: '검정·남색 계열을 활용하고, 독서와 사색의 시간을 늘리거나 물가 산책·목욕으로 마음을 정돈해보세요.',
+};
+const OHAENG_ZERO_STORY = {
+  목: { title:'뿌리내릴 씨앗이 없는 사주', body:(dom,cnt)=>`사주 여덟 글자 중 목(木) 기운이 하나도 없는 '목(木) 제로' 사주입니다. 대신 ${dom}(${OHAENG_HANJA[dom]}) 기운이 ${cnt}개로 가장 강해서, 정작 새로운 걸 밀어붙이고 확장해나가는 추진력이 약해질 수 있는 구조예요. 목은 성장과 새로운 시작을 의미하는데 이 기운이 없으니, 안주하기 쉽고 변화를 미루는 경향이 있을 수 있습니다.` },
+  화: { title:'빛이 꺼진 무대, 스스로 불을 켜야 하는 사주', body:(dom,cnt)=>`사주 여덟 글자 중 화(火) 기운이 하나도 없는 '화(火) 제로' 사주입니다. 대신 ${dom}(${OHAENG_HANJA[dom]}) 기운이 ${cnt}개로 가장 강해서, 정작 감정을 표현하고 존재감을 드러내는 열정이 위축될 수 있는 구조예요. 화는 표현력과 확산하는 에너지를 의미하는데 이 기운이 없으니, 속마음을 잘 안 드러내고 조용히 있는 편일 수 있습니다.` },
+  토: { title:'흙 한 줌 없는 사주, 안정의 물길을 터야', body:(dom,cnt)=>`사주 여덟 글자 중 흙(土) 기운이 하나도 없는 '토(土) 제로' 사주입니다. 대신 ${dom}(${OHAENG_HANJA[dom]}) 기운이 ${cnt}개로 가장 강해서, 정작 뿌리내리고 결실을 맺을 흙이 없는 구조예요. 마치 단단한 바위산에 위태롭게 서 있는 나무와 같아, 안정감과 결실을 얻기 어려운 구조입니다. 토는 재물과 신용, 꾸준함, 안정적인 관계를 의미하는데 이 기운이 없으니, 노력한 결과물을 차곡차곡 쌓아가거나 관계의 안정성을 유지하는 데 어려움을 느낄 수 있습니다.` },
+  금: { title:'날이 무뎌진 칼, 다시 벼려야 하는 사주', body:(dom,cnt)=>`사주 여덟 글자 중 금(金) 기운이 하나도 없는 '금(金) 제로' 사주입니다. 대신 ${dom}(${OHAENG_HANJA[dom]}) 기운이 ${cnt}개로 가장 강해서, 정작 맺고 끊는 결단력과 원칙이 흐려질 수 있는 구조예요. 금은 결단력과 정리하는 힘을 의미하는데 이 기운이 없으니, 우유부단해지거나 마무리를 짓는 데 어려움을 느낄 수 있습니다.` },
+  수: { title:'마른 강바닥, 지혜의 물길이 끊긴 사주', body:(dom,cnt)=>`사주 여덟 글자 중 수(水) 기운이 하나도 없는 '수(水) 제로' 사주입니다. 대신 ${dom}(${OHAENG_HANJA[dom]}) 기운이 ${cnt}개로 가장 강해서, 정작 한 걸음 물러서서 깊이 생각하는 여유가 부족해질 수 있는 구조예요. 수는 지혜와 융통성, 깊이 있는 사고를 의미하는데 이 기운이 없으니, 순발력은 있어도 신중하게 돌아보는 여유가 아쉬울 수 있습니다.` },
+};
+const OHAENG_EXCESS_STORY = {
+  목: { title:'무성하게 뻗은 나무, 가지치기가 필요한 사주', body:(cnt)=>`목(木) 기운이 ${cnt}개로 과다한 사주입니다. 추진력과 성장 욕구는 넘치지만, 곁가지를 정리하지 않으면 힘이 분산될 수 있어요. 한 번에 여러 일을 벌이기보다, 우선순위를 정해 하나씩 집중하는 게 도움이 돼요.` },
+  화: { title:'활활 타오르는 불꽃, 온도 조절이 필요한 사주', body:(cnt)=>`화(火) 기운이 ${cnt}개로 과다한 사주입니다. 열정과 표현력은 넘치지만, 감정 기복이나 성급함으로 이어지기 쉬워요. 차분한 루틴과 충분한 휴식으로 불기운을 다스리는 게 도움이 돼요.` },
+  토: { title:'단단하게 굳은 땅, 변화의 바람이 필요한 사주', body:(cnt)=>`토(土) 기운이 ${cnt}개로 과다한 사주입니다. 안정감과 신용은 확실하지만, 고집이 세지거나 변화를 거부하기 쉬워요. 익숙하지 않은 시도를 의식적으로 늘려보는 게 도움이 돼요.` },
+  금: { title:'서슬 퍼런 칼날, 날을 무디게 다스려야 하는 사주', body:(cnt)=>`금(金) 기운이 ${cnt}개로 과다한 사주입니다. 의지와 원칙은 굳건하지만, 융통성이 부족해 관계에서 날카로워지기 쉬워요. 한 박자 쉬고 타협점을 찾는 연습이 도움이 돼요.` },
+  수: { title:'깊고 넓은 바다, 넘치지 않게 둑이 필요한 사주', body:(cnt)=>`수(水) 기운이 ${cnt}개로 과다한 사주입니다. 지혜와 융통성은 뛰어나지만, 생각이 너무 많아져 결단이 늦어지기 쉬워요. 생각의 마감 시간을 정해두고 실행을 우선하는 연습이 도움이 돼요.` },
+};
+function buildOhaengDeepDive(ohaeng, dStem) {
+  const entries = Object.entries(ohaeng);
+  const zero = entries.find(([, c]) => c === 0);
+  const sorted = [...entries].sort((a, b) => b[1] - a[1]);
+  const dominant = sorted[0];
+  const dOh = dStem >= 0 ? CG_OH[dStem] : null;
+  const dayMasterNote = dOh ? `, 일간인 ${dOh}(${OHAENG_HANJA[dOh]})은 ${ohaeng[dOh]}개로 ${ohaeng[dOh] <= 1 ? '외로운 형국' : '무난한 힘을 갖춘 형국'}` : '';
+
+  let title, bodyText, factLine, principleLine, adviceLine;
+
+  if (zero) {
+    const story = OHAENG_ZERO_STORY[zero[0]];
+    title = story.title;
+    bodyText = story.body(dominant[0], dominant[1]);
+    factLine = `사주에 ${zero[0]}(${OHAENG_HANJA[zero[0]]}) 오행이 전무하며, ${dominant[0]}이 ${dominant[1]}개로 ${dominant[1] >= 3 ? '과다하고' : '가장 강하며'}${dayMasterNote}입니다.`;
+    principleLine = `${zero[0]}는 ${OHAENG_MEANING[zero[0]]}을 상징하는데, 이 기운이 없으면 그 영역에서 어려움을 느끼기 쉽습니다.`;
+    adviceLine = OHAENG_ADVICE[zero[0]];
+  } else if (dominant[1] >= 3) {
+    const story = OHAENG_EXCESS_STORY[dominant[0]];
+    title = story.title;
+    bodyText = story.body(dominant[1]);
+    factLine = `${dominant[0]}(${OHAENG_HANJA[dominant[0]]})이 ${dominant[1]}개로 과다하고${dayMasterNote}입니다.`;
+    principleLine = `${dominant[0]}는 ${OHAENG_MEANING[dominant[0]]}을 상징하는데, 이 기운이 지나치면 오히려 균형이 무너지기 쉽습니다.`;
+    adviceLine = OHAENG_ADVICE[dominant[0]];
+  } else {
+    // 균형 케이스 — 예전엔 정렬 후 sorted[0] 하나만 "우세 오행"으로 임의로 집어서 근거로 삼았는데,
+    // 실제로는 여러 오행이 동점(예: 2개씩 3종류)인 경우가 흔해서 그 중 하나만 콕 집는 게 부자연스러웠다
+    // (버그 리포트: "화 원리라고 나오는데 화가 딱히 우세한 것도 아닌데 왜?"). 최고점 동점 그룹·최저점
+    // 동점 그룹을 각각 묶어서 서술하고, 조언은 실제 여백이 있는(가장 적은) 오행 쪽으로 준다.
+    const maxCount = sorted[0][1];
+    const minCount = sorted[sorted.length - 1][1];
+    const topTier = entries.filter(([, c]) => c === maxCount).map(([k]) => k);
+    const bottomTier = entries.filter(([, c]) => c === minCount).map(([k]) => k);
+    const topLabel = topTier.map(k => `${k}(${OHAENG_HANJA[k]})`).join('·');
+    const bottomLabel = bottomTier.map(k => `${k}(${OHAENG_HANJA[k]})`).join('·');
+    const topMeaning = topTier.map(k => OHAENG_MEANING[k]).join(', ');
+
+    title = topTier.length > 1 ? '여러 기운이 함께 흐르는 조화형 사주' : `${topTier[0]} 기운이 살짝 앞서가는 균형형 사주`;
+    bodyText = `사주 여덟 글자에 오행이 비교적 고르게 분포돼 있어서, 어느 한쪽으로 크게 치우치지 않는 균형 잡힌 사주입니다. 그중에서도 ${topLabel} 기운이 ${maxCount}개로 살짝 앞서 있어서 ${topMeaning} 쪽에 자연스러운 강점이 있고, ${bottomLabel} 기운은 ${minCount}개로 상대적으로 여백이 있는 영역이에요. 특정 기운에 크게 쏠리지 않은 만큼, 상황에 따라 유연하게 대응하는 힘이 있습니다.`;
+    factLine = `오행이 ${entries.map(([k,v]) => `${k} ${v}개`).join(', ')}로 고르게 분포돼 있고${dayMasterNote}입니다.`;
+    principleLine = `오행은 서로 낳고 도와주는 상생(相生)의 순환으로 이어지는데, 이렇게 고르게 갖춰져 있으면 그 흐름이 어느 한 곳에서도 막히지 않고 두루두루 잘 통합니다.`;
+    adviceLine = `${OHAENG_ADVICE[bottomTier[0]]} 지금처럼 여러 기운을 골고루 쓰는 장점을 살리면서, 이 부분을 조금 더 채워두면 훨씬 더 단단해져요.`;
+  }
+
+  return {
+    title,
+    html: `<div style="font-size:13px;color:var(--gold);font-weight:800;margin-bottom:8px;">🌾 ${title}</div>`
+      + `<p style="margin-bottom:10px;">${bodyText}</p>`
+      + `<p style="margin-bottom:6px;"><strong style="color:var(--gold-light);">사주 분석</strong> — ${factLine}</p>`
+      + `<p style="margin-bottom:6px;"><strong style="color:var(--gold-light);">사주 원리</strong> — ${principleLine}</p>`
+      + `<p><strong style="color:var(--gold-light);">현실 조언</strong> — ${adviceLine}</p>`,
+  };
+}
+function renderOhaengDeepDive(ohaeng, dStem, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = buildOhaengDeepDive(ohaeng, dStem).html;
+  el.classList.remove('hidden');
+}
+
+// 관상 오행(얼굴형 기반)의 1위 오행을 헤드라인으로 부각 — 버그 리포트 2번 항목: 단순 나열형 대신
+// "화(火) 기운 42% - 열정적인 화형 관상"처럼 메인 칭호를 앞세우는 UI로 개편.
+const FACE_OHAENG_TITLE = {
+  목: '쭉쭉 뻗은 개척자, 목형(木形) 관상',
+  화: '열정 넘치는 리더, 화형(火形) 관상',
+  토: '든든하고 안정적인, 토형(土形) 관상',
+  금: '칼같이 정리하는, 금형(金形) 관상',
+  수: '깊고 지혜로운, 수형(水形) 관상',
+};
+function renderFaceOhaengBars(count, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const top = Object.entries(count).sort((a, b) => b[1] - a[1])[0];
+  const headline = top
+    ? `<div style="font-size:13px;color:var(--gold);font-weight:800;margin-bottom:10px;">✨ ${FACE_OHAENG_TITLE[top[0]]} — ${top[0]} 기운 ${top[1]}%</div>`
+    : '';
+  const total = Object.values(count).reduce((a, b) => a + b, 0);
+  const colors = {목:'oh-목-bar',화:'oh-화-bar',토:'oh-토-bar',금:'oh-금-bar',수:'oh-수-bar'};
+  const emojis = {목:'🌳',화:'🔥',토:'🏔',금:'⚔',수:'💧'};
+  el.innerHTML = headline + Object.entries(count).map(([k,v]) =>
+    `<div class="ohaeng-row"><div class="ohaeng-name oh-${k}">${emojis[k]}${k}</div><div class="ohaeng-bar-bg"><div class="ohaeng-bar-fill ${colors[k]}" style="width:${total?(v/total*100):0}%"></div></div><div class="ohaeng-count">${v}%</div></div>`
+  ).join('');
+}
+
+function renderSajuCards(pillars, g, cardsId, summaryId) {
+  const dStem = pillars[2].stem, mBranch = pillars[1].branch;
+  const count = computeOhaeng(pillars);
+  const maxOh = Object.entries(count).sort((a,b)=>b[1]-a[1]);
+  const minOh = Object.entries(count).sort((a,b)=>a[1]-b[1]);
+
+  const pers = ['강한 리더십과 개척 정신의 소유자입니다.','유연하고 섬세한 감각의 소유자입니다.','밝고 활발한 에너지의 소유자입니다.','집중력과 통찰력이 뛰어납니다.','믿음직하고 포용력 있는 성품입니다.','현실적이고 세밀한 처리 능력을 가집니다.','결단력 있고 의리를 중시합니다.','완벽주의적 성향으로 날카로운 판단력을 가집니다.','지혜롭고 포용력이 큽니다.','깊은 감수성과 직관력의 소유자입니다.'];
+  const jobs = ['무역·IT·연구·유통 분야','공직·부동산·금융·서비스업','창의·교육·기획·컨설팅 분야','창의·교육·기획·컨설팅 분야','공직·부동산·금융·서비스업','예술·방송·영업·리더십 분야','예술·방송·영업·리더십 분야','공직·부동산·금융·서비스업','법조·의료·정밀기술·금융 분야','법조·의료·정밀기술·금융 분야','공직·부동산·금융·서비스업','무역·IT·연구·유통 분야'];
+  const overMsg = {목:'목 기운이 강해 추진력은 넘치나, 유연성을 기르면 도움이 됩니다.',화:'화 기운이 강해 열정이 넘치나, 감정 조절이 필요합니다.',토:'토 기운이 강해 안정적이나, 변화를 수용하는 자세가 필요합니다.',금:'금 기운이 강해 의지가 굳건하나, 융통성을 기르면 더욱 발전합니다.',수:'수 기운이 강해 지혜롭지만, 빠른 결단력 강화가 좋습니다.'};
+  const underMsg = {목:'목 기운 보강 권장. 녹색 식물 가꾸기, 창의적 활동이 도움됩니다.',화:'화 기운 보강 권장. 밝은 색상 활용, 적극적인 사교 활동이 좋습니다.',토:'토 기운 보강 권장. 규칙적인 생활이 운을 키웁니다.',금:'금 기운 보강 권장. 명확한 목표 설정이 도움됩니다.',수:'수 기운 보강 권장. 독서와 사색의 시간을 늘리세요.'};
+
+  const cards = [
+    {name:`⭐ 일간 성격 (${dStem>=0?CG_KO[dStem]+'일간':'미상'})`, text: dStem>=0?pers[dStem]:'출생 정보 확인 필요.'},
+    {name:`💼 직업운`, text: mBranch>=0?`${jobs[mBranch]}에서 두각을 나타냅니다.`:'-'},
+    {name:`🌊 오행 조언`, text: maxOh[0][1]>=3?overMsg[maxOh[0][0]]:minOh[0][1]===0?underMsg[minOh[0][0]]:'오행이 비교적 균형 잡혀 있습니다.'},
+  ];
+
+  document.getElementById(cardsId).innerHTML = cards.map(c => `<div class="result-card"><div class="rc-name">${c.name}</div><div class="rc-text">${c.text}</div></div>`).join('');
+  const sn = dStem>=0?CG_KO[dStem]+'('+CHEONGAN[dStem]+')':'?';
+  document.getElementById(summaryId).innerHTML = `<strong style="color:var(--gold);">✨ 종합 사주 해석</strong><br><br>일간이 <strong>${sn}</strong>인 ${g==='여'?'그녀':'그'}는 ${dStem>=0?pers[dStem].replace('입니다.','입니다'):''}. ${mBranch>=0?jobs[mBranch]+'에서 타고난 재능을 발휘할 가능성이 높습니다.':''} 사주란 타고난 기질과 환경의 흐름을 보여주는 지도와 같습니다. 의지와 노력으로 더 좋은 길을 만들어 나갈 수 있습니다. 🌟`;
+}
+
+async function calcSaju(ctx) {
+  const dateVal = document.getElementById('birthDate').value;
+  const hourVal = document.getElementById('birthHour').value;
+  if (!dateVal) { alert('생년월일을 입력해주세요.'); return; }
+  const pillars = computePillars(dateVal, hourVal);
+  renderPillarsTable(pillars, 'pillarsTable');
+  renderUnseongLegend(pillars, 'sajuUnseongLegend');
+  renderDaeunTable(computeDaeun(dateVal, hourVal, gender), 'sajuDaeunTable');
+  const count = computeOhaeng(pillars);
+  renderOhaengBars(count, 'ohaengBars');
+  renderOhaengDeepDive(count, pillars[2].stem, 'sajuOhaengDeepDive');
+  renderSajuCards(pillars, gender, 'sajuCards', 'sajuSummary');
+  document.getElementById('sajuResult').classList.remove('hidden');
+  document.getElementById('sajuResult').scrollIntoView({behavior:'smooth'});
+  markAnalyzed('saju');
+
+  const complementItems = [...generateOhaengLifestyle(count), ...generatePersonalBehavior(pillars, count)];
+  renderComplementCards(complementItems, 'sajuComplementCards', 'sajuComplement');
+
+  // 사진이 없는 탭이라 requestPersonalAi/requestDeepReport(사진 전제)를 못 쓰므로 별도 함수로 연결.
+  await requestSajuDeepReport(pillars, count, 'sajuDeepReport', state.saju.relation);
+}
+
+// ═══ COMBINED ═══
+async function runCombined() {
+  const dateVal = document.getElementById('cmbBirthDate').value;
+  if (!dateVal) { alert('생년월일을 입력해주세요.'); return; }
+
+  hideErr('cmbErr');
+  document.getElementById('cmbResult').classList.add('hidden');
+  document.getElementById('cmbCanvasCard').classList.add('hidden');
+
+  const rel = state.combined.relation;
+  document.getElementById('cmbResultTitle').textContent = `🔮 AI 관상 X 사주 개운 리포트 (${rel})`;
+
+  // ① 사주 먼저 계산 (사진 없어도 항상 실행) — 원국 표는 참고용으로만 노출
+  const hourVal = document.getElementById('cmbBirthHour').value;
+  const pillars = computePillars(dateVal, hourVal);
+  const ohaeng = computeOhaeng(pillars);
+  state.combined.pillars = pillars;
+  state.combined.ohaeng = ohaeng;
+  renderPillarsTable(pillars, 'cmbPillarsTable');
+  renderUnseongLegend(pillars, 'cmbUnseongLegend');
+  renderDaeunTable(computeDaeun(dateVal, hourVal, cmbGender), 'cmbDaeunTable');
+  renderOhaengBars(ohaeng, 'cmbOhaengBars');
+  renderOhaengDeepDive(ohaeng, pillars[2].stem, 'cmbOhaengDeepDive');
+
+  // ② 관상 섹션 초기화 — 사진 관련 부분(관상 포인트·관상 형상)은 AI 보완까지 끝난 뒤 한번에 공개
+  document.getElementById('cmbInsightSection').style.display = 'none';
+  document.getElementById('cmbPhotoLoading').classList.add('hidden');
+  document.getElementById('cmbPhotoSection').classList.add('hidden');
+  if (!state.combined.file) {
+    document.getElementById('cmbGwansangCards').innerHTML = '<div style="color:var(--text2);font-size:13px;padding:4px 0 8px;">📸 사진을 업로드하면 얼굴 관상 포인트와 타고난 기운의 시너지를 함께 볼 수 있어요.</div>';
+    document.getElementById('cmbHeadline').innerHTML = `"${buildHeadline(pillars[2].stem)}"`;
+    document.getElementById('cmbPhotoSection').classList.remove('hidden');
+  } else {
+    document.getElementById('cmbPhotoLoading').classList.remove('hidden'); // 사진 분석이 끝날 때까지 "관상 분석중~"만 노출
+  }
+
+  // 결과 카드 먼저 공개 (사주 정보는 항상 즉시 보임 — 사진 관련 섹션만 위에서 별도로 게이팅)
+  document.getElementById('cmbResult').classList.remove('hidden');
+  markAnalyzed('combined');
+
+  // ③ 사진이 있으면 관상 분석 + 사주 시너지까지 한번에 렌더링
+  let lm = null;
+  if (state.combined.file) {
+    lm = await runFaceAnalysis('combined');
+    if (lm) {
+      document.getElementById('cmbCanvasCard').classList.remove('hidden');
+      renderPersonalReportV2(lm, { headline:'cmbHeadline', cards:'cmbGwansangCards', synergy:'cmbSynergyBox', summary:null, result:'cmbResult' }, pillars, ohaeng);
+      const ext = renderExtendedAnalysis(lm, { asymmetry:'cmbAsymmetry', faceOhaeng:'cmbFaceOhaeng' });
+      renderGoldenTime('cmbGoldenTime', ext.samjeong, calcAge(dateVal), pillars[2].stem);
+      renderSnapshotHighlights(ext.ratios, 'cmbSnapshot');
+      await requestPersonalAi('combined'); // 키가 없어도 룰베이스 약식 추정으로 대체됨 — 로컬+AI(or 약식)가 다 끝난 뒤에 사진 섹션을 공개
+      await requestDeepReport('combined');
+      document.getElementById('cmbPhotoLoading').classList.add('hidden');
+      document.getElementById('cmbPhotoSection').classList.remove('hidden');
+    } else {
+      document.getElementById('cmbPhotoLoading').classList.add('hidden'); // 얼굴 인식 실패 — 별도 에러 메시지는 이미 표시됨
+    }
+  }
+
+  // ④ Daily 개운 루틴 — 얼굴 사진이 있으면 부위 기반, 없으면 오행 생활 팁으로 대체
+  if (lm) {
+    const r = getGwansangRatios(lm);
+    const statusMap = judgePartStatus(r);
+    const routines = buildDailyRoutines(statusMap);
+    document.getElementById('cmbComplementCards').innerHTML = `<ol class="routine-list">${routines.map(rt => `<li>${rt}</li>`).join('')}</ol>`;
+  } else {
+    const items = [...generateOhaengLifestyle(ohaeng), ...generatePersonalBehavior(pillars, ohaeng)];
+    renderComplementCards(items, 'cmbComplementCards', null);
+  }
+  document.getElementById('cmbComplementSection').classList.remove('hidden');
+}
+
+// ═══ GUNGHAM ═══
+async function runGungham() {
+  const dateA = document.getElementById('ggBirthA').value;
+  const dateB = document.getElementById('ggBirthB').value;
+  if (!dateA || !dateB) { showErr('ggErr', '두 사람의 생년월일을 모두 입력해주세요.'); return; }
+  hideErr('ggErr');
+  document.getElementById('ggResult').classList.add('hidden');
+  document.getElementById('ggCanvasCard').classList.add('hidden');
+
+  const pillarsA = computePillars(dateA, '-1');
+  const pillarsB = computePillars(dateB, '-1');
+  const ohA = computeOhaeng(pillarsA);
+  const ohB = computeOhaeng(pillarsB);
+  const rel = state.gungham.relation;
+
+  // 사주가 들어가는 다른 탭(사주 탭·통합분석 탭)과 동일하게 원국 표(오행 색상·12운성·신살·귀인 배지)를
+  // 보여준다 — 사진 없이 생년월일만으로도 바로 볼 수 있는 부분이라 여기서 먼저 렌더링.
+  state.gunghamA.pillars = pillarsA; state.gunghamA.ohaeng = ohA;
+  state.gunghamB.pillars = pillarsB; state.gunghamB.ohaeng = ohB;
+  renderPillarsTable(pillarsA, 'ggPillarsA');
+  renderUnseongLegend(pillarsA, 'ggUnseongLegendA');
+  renderOhaengBars(ohA, 'ggOhaengA');
+  renderOhaengDeepDive(ohA, pillarsA[2].stem, 'ggOhaengDeepDiveA');
+  renderPillarsTable(pillarsB, 'ggPillarsB');
+  renderUnseongLegend(pillarsB, 'ggUnseongLegendB');
+  renderOhaengBars(ohB, 'ggOhaengB');
+  renderOhaengDeepDive(ohB, pillarsB[2].stem, 'ggOhaengDeepDiveB');
+
+  // ① 참고용 궁합 점수(접힌 상세 영역에만 노출)
+  function renderCompatScore(compat) {
+    document.getElementById('ggScore').textContent = compat.score;
+    document.getElementById('ggGrade').textContent = compat.grade;
+    document.getElementById('ggDesc').textContent = compat.desc;
+    document.getElementById('ggBars').innerHTML = compat.bars.map(b =>
+      `<div class="compat-bar-row"><div class="compat-bar-label">${b.label}</div><div class="compat-bar-bg"><div class="compat-bar-fill" style="width:${b.pct}%"></div></div><div class="compat-bar-pct">${b.pct}%</div></div>`
+    ).join('');
+  }
+  renderCompatScore(calcCompatScore(pillarsA, pillarsB, ohA, ohB, rel));
+  document.getElementById('ggResult').classList.remove('hidden');
+  document.getElementById('ggResult').scrollIntoView({ behavior:'smooth' });
+  markAnalyzed('gungham');
+
+  // ② 사진 있으면 관상 분석 (병렬 실행)
+  let lmA = null, lmB = null;
+  const tasks = [];
+  if (state.gunghamA.file) tasks.push(runFaceAnalysis('gunghamA', 'gunghamCanvasA').then(lm => { lmA = lm; }));
+  if (state.gunghamB.file) tasks.push(runFaceAnalysis('gunghamB', 'gunghamCanvasB').then(lm => { lmB = lm; }));
+  if (tasks.length > 0) {
+    await Promise.all(tasks);
+    if (lmA || lmB) document.getElementById('ggCanvasCard').classList.remove('hidden');
+  }
+
+  // ②-1 두 사람 사진이 모두 있으면 관상 궁합(db/MATCHING.csv 기반)을 사주 궁합과 블렌드해 재계산
+  if (lmA && lmB) {
+    renderCompatScore(calcCompatScore(pillarsA, pillarsB, ohA, ohB, rel, calcGwansangCompat(lmA, lmB)));
+  }
+
+  // ②-2 골든타임 + 관상 형상(눈모양·동물상) — 사진이 있는 사람만, 사주 탭·통합분석 탭과 동일하게 반영
+  const aiTasks = [];
+  if (lmA) {
+    renderGoldenTime('ggGoldenTimeA', calcSamjeongRatio(lmA), calcAge(dateA), pillarsA[2].stem);
+    aiTasks.push(requestPersonalAi('gunghamA'));
+  }
+  if (lmB) {
+    renderGoldenTime('ggGoldenTimeB', calcSamjeongRatio(lmB), calcAge(dateB), pillarsB[2].stem);
+    aiTasks.push(requestPersonalAi('gunghamB'));
+  }
+  if (aiTasks.length) await Promise.all(aiTasks);
+
+  // ③ 나 / 상대방 각각의 관상 X 사주 종합 리포트 (STEP1·STEP2에 해당)
+  const narrativeA = buildPersonNarrative(lmA, pillarsA, ohA);
+  const narrativeB = buildPersonNarrative(lmB, pillarsB, ohB);
+
+  // Gemini "AI 정밀 해석" 버튼이 재사용할 수 있도록 계산 결과 캐시
+  state.gungham.cache = { pillarsA, pillarsB, ohA, ohB, statusMapA: narrativeA.statusMap, statusMapB: narrativeB.statusMap };
+
+  // ④ 지침서 예시② 구조의 4섹션 비교 리포트 (STEP3에 해당, 관상 없어도 사주만으로 생성)
+  const chemi = buildRoleChemi(pillarsA[2].stem, narrativeA.statusMap, pillarsB[2].stem, narrativeB.statusMap);
+  const partComparison = buildPartComparison(narrativeA.statusMap, narrativeB.statusMap);
+  const faceCombo = buildFaceComboChemi(lmA, lmB, ggGenderA, ggGenderB, rel);
+  const energy = buildEnergyChemi(ohA, ohB);
+  const moments = buildMoments(ohA, ohB, narrativeA.statusMap, narrativeB.statusMap);
+  const routines = buildCoupleRoutines();
+  renderCoupleReport(narrativeA, narrativeB, chemi, partComparison, faceCombo, energy, moments, routines);
+
+  // ⑤ Gemini 정밀 해석 자동 요청(수동 버튼 없음) — 키가 없으면 requestCoupleAi 내부에서 조용히 스킵된다.
+  await requestCoupleAi();
+}
+
+// ── 나이 → 인생 시기(초년/중년/말년) 및 골든타임 서술 (설계문서 §3-2,3) ──
+function calcAge(birthDateStr) {
+  const today = new Date();
+  const [y, m, d] = birthDateStr.split('-').map(Number);
+  let age = today.getFullYear() - y;
+  if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
+  return age;
+}
+// 오행 상생상극 — 사주 세운(올해의 간지) 판정용. 목생화, 화생토... 순서로 서로를 살려주는 관계(상생),
+// 목극토, 토극수... 순서로 서로를 억누르는 관계(상극).
+const OHAENG_GENERATES = { 목:'화', 화:'토', 토:'금', 금:'수', 수:'목' };
+const OHAENG_CONTROLS = { 목:'토', 화:'금', 토:'수', 금:'목', 수:'화' };
+// 골든타임 3중 판정의 세 번째 축 — 올해(세운) 간지 오행과 일간(나) 오행의 관계로 "올해가 나에게 어떤
+// 해인지"를 더한다. 버그 리포트 4번 항목: 나이 구간(초년/중년/말년) 하나만으로는 20대 전원이 같은
+// 문구를 받는 문제가 있었는데, 세운까지 더하면 같은 나이·같은 삼정이라도 해마다 문구가 달라진다.
+function getSewoonRelation(dStem) {
+  if (dStem == null || dStem < 0 || typeof Solar === 'undefined') return null;
+  const dOh = CG_OH[dStem];
+  const now = new Date();
+  const solar = Solar.fromYmdHms(now.getFullYear(), now.getMonth() + 1, now.getDate(), 12, 0, 0);
+  const yearGanChar = solar.getLunar().getEightChar().getYearGan();
+  const yStemIdx = CHEONGAN.indexOf(yearGanChar);
+  const yearOh = CG_OH[yStemIdx];
+  if (yearOh === dOh) return { yearOh, text: `올해는 ${yearOh} 기운이 나와 똑같이 겹치는 해라, 원래 성향이 더 뚜렷하게 강해지는 시기예요.` };
+  if (OHAENG_GENERATES[yearOh] === dOh) return { yearOh, text: `올해는 ${yearOh} 기운이 나를 채워주는 해라, 배우고 회복하기 좋은 시기예요.` };
+  if (OHAENG_GENERATES[dOh] === yearOh) return { yearOh, text: `올해는 내 기운이 ${yearOh} 기운을 밀어주는 해라, 표현하고 확장하기 좋은 시기예요.` };
+  if (OHAENG_CONTROLS[dOh] === yearOh) return { yearOh, text: `올해는 내가 ${yearOh} 기운을 다스리는 해라, 결과물이나 재물로 연결하기 좋은 시기예요.` };
+  return { yearOh, text: `올해는 ${yearOh} 기운이 나를 다잡아주는 해라, 책임감 있게 도전해보기 좋은 시기예요.` };
+}
+// 골든타임 "타입" 4종 — 나이 구간(초년/중년/말년) 하나만으로는 문구가 획일화되는 문제(버그 리포트
+// 4번 항목)를 넘어서, 실제 삼정 % 격차와 시기 전후 관계까지 반영해 4가지 서사로 나눈다.
+// ① 현재=최고조 ② 다음 시기가 크게 앞서있음(격차≥15%p) ③ 다음 시기가 완만하게 앞서있음
+// ④ 이미 지난 시기가 가장 발달(대기만성형) — 실측 %는 그대로 문장에 넣어 매번 다른 숫자가 나오게 한다.
+const STAGE_ORDER = ['sangjeong', 'jungjeong', 'hajeong'];
+const STAGE_AGE_LABEL = { sangjeong:'20대', jungjeong:'30대', hajeong:'40대 이후' };
+const STAGE_PART_LABEL = { sangjeong:'이마', jungjeong:'눈과 코', hajeong:'하관과 턱선' };
+function buildGoldenTime(samjeong, age, dStem) {
+  const stage = age <= 30 ? 'sangjeong' : age <= 50 ? 'jungjeong' : 'hajeong';
+  const stageLabel = { sangjeong:'초년(이마)', jungjeong:'중년(코와 눈가)', hajeong:'말년(턱과 하관)' };
+  const value = samjeong[stage];
+  const sorted = Object.entries(samjeong).sort((a, b) => b[1] - a[1]);
+  const topStage = sorted[0][0];
+  const isPeak = topStage === stage;
+  const sewoon = getSewoonRelation(dStem);
+
+  const curIdx = STAGE_ORDER.indexOf(stage), topIdx = STAGE_ORDER.indexOf(topStage);
+  const gap = samjeong[topStage] - samjeong[stage];
+
+  let typeLabel, baseText;
+  if (isPeak) {
+    typeLabel = '🎯 지금이 딱 내 세상 타이머';
+    baseText = `만 ${age}세인 지금은 ${STAGE_AGE_LABEL[stage]}를 대표하는 ${STAGE_PART_LABEL[stage]}의 비율과 기운이 현재 나이대와 완벽하게 맞아떨어지는 타이밍이에요. 내 나이와 얼굴의 기운이 동시에 상향 곡선을 그리는 아주 귀한 구간이니, 지금 밀어붙이는 일에서 최고의 시너지를 얻을 수 있어요.`;
+  } else if (topIdx > curIdx) {
+    if (gap >= 15) {
+      typeLabel = '🚀 포텐 터지는 스타터';
+      baseText = `현재 만 ${age}세로, 관상학적으로는 ${STAGE_PART_LABEL[stage]}(${STAGE_AGE_LABEL[stage]})에서 ${STAGE_PART_LABEL[topStage]}(${STAGE_AGE_LABEL[topStage]})로 넘어가는 중요한 길목에 서 있어요. ${STAGE_AGE_LABEL[stage]} 기운보다 ${STAGE_AGE_LABEL[topStage]}를 담당하는 ${STAGE_PART_LABEL[topStage]}의 포텐이 ${samjeong[topStage]}%로 먼저 터져있는 타입이에요! 남들보다 빠르게 다음 시기의 재물운과 커리어 포텐을 먼저 당겨쓰는 '스타트 부스터' 시기이니, 망설이지 말고 하고 싶었던 일을 바로 추진해보세요.`;
+    } else {
+      typeLabel = '❄️ 차곡차곡 스노우볼 러너';
+      baseText = `만 ${age}세로 한창 ${STAGE_PART_LABEL[stage]}(${STAGE_AGE_LABEL[stage]})의 기운을 쓰는 구간이지만, ${STAGE_PART_LABEL[topStage]}(${STAGE_AGE_LABEL[topStage]})에 매력과 운의 저력이 꽉 차 있는 타입이에요. 지금 당장 결과가 빠르게 안 나온다고 조급해할 필요가 전혀 없어요! 시간이 갈수록 운의 크기가 눈덩이처럼 커지는 '스노우볼 러너' 흐름이니, 지금 기운을 예쁘게 다져두면 나이가 들수록 재물과 인복이 크게 불어나요.`;
+    }
+  } else {
+    typeLabel = '🌙 저력으로 승부하는 관록형';
+    baseText = `만 ${age}세로 ${STAGE_PART_LABEL[stage]}(${STAGE_AGE_LABEL[stage]}) 기운을 쓰는 지금이지만, 사실 ${STAGE_PART_LABEL[topStage]}(${STAGE_AGE_LABEL[topStage]})에 이미 다져둔 저력이 가장 크게 자리 잡은 타입이에요. 화려하게 새로 터뜨리기보다, 그동안 쌓아온 경험과 관록으로 지금을 헤쳐나가는 힘이 있어요. 과거의 강점을 지금 상황에 맞게 다시 꺼내 쓰는 지혜가 필요한 시기예요.`;
+  }
+
+  return {
+    stage, stageLabel: stageLabel[stage], value, isPeak, topStage, sewoon, typeLabel,
+    text: sewoon ? `${baseText} ${sewoon.text}` : baseText,
+  };
+}
+
+// 좌우 비대칭 + 관상오행 렌더링 — 관상 탭·통합분석 탭 공용 (나이가 없어도 항상 표시 가능한 부분만)
+function renderExtendedAnalysis(lm, ids) {
+  const asym = calcAsymmetry(lm);
+  const asymEl = document.getElementById(ids.asymmetry);
+  if (asymEl) {
+    const leftCount = asym.filter(a => a.leftHigher).length;
+    asymEl.innerHTML = asym.map(a => {
+      const side = a.leftHigher ? '왼쪽(내면의 나)' : '오른쪽(사회적으로 보이는 나)';
+      return `<div class="part-tip">〔${a.label}〕 ${side} 쪽이 살짝 더 올라가 있어요. (차이 ${(a.diffRatio*100).toFixed(1)}%)</div>`;
+    }).join('') + `<div class="part-tip" style="margin-top:6px;">✨ ${leftCount >= 2 ? '내면의 성향이 겉으로도 잘 드러나는 솔직한 얼굴이에요.' : '평소 내면과는 조금 다른 모습을 사회적으로 연출하고 있을 수 있어요.'}</div>`;
+  }
+  const faceOh = calcFaceOhaeng(lm);
+  if (ids.faceOhaeng) renderFaceOhaengBars(faceOh, ids.faceOhaeng);
+
+  const ratios = getGwansangRatios(lm);
+  if (ids.tier3) {
+    const tier3 = classifyGwansang3Tier(ratios);
+    const el = document.getElementById(ids.tier3);
+    if (el) {
+      el.innerHTML = Object.entries(tier3).map(([part, t]) =>
+        `<div class="part-tip">〔${part}〕 ${t.typeLabel} · ${t.tierLabel} (실측값 ${t.value.toFixed(2)})</div>`
+      ).join('') + `<div class="part-tip" style="margin-top:6px;font-size:11px;color:var(--text2);">※ 전통 관상 삼정 기준과 미용성형 황금비율을 참고한 초안 기준이에요.</div>`;
+    }
+  }
+  if (ids.foreheadNotice) {
+    const el = document.getElementById(ids.foreheadNotice);
+    if (el) {
+      if (!isForeheadReliable(ratios.gwanR)) {
+        el.textContent = '⚠ 앞머리 등으로 이마 측정이 제한되어 눈·코 중심 관상으로 대체 분석했어요.';
+        el.classList.remove('hidden'); el.classList.add('show');
+      } else {
+        el.classList.add('hidden'); el.classList.remove('show');
+      }
+    }
+  }
+  return { asym, faceOh, samjeong: calcSamjeongRatio(lm), ratios };
+}
+
+function renderGoldenTime(elId, samjeong, age, dStem) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const gt = buildGoldenTime(samjeong, age, dStem);
+  el.innerHTML = `<strong style="color:var(--gold);">☯️ 나이 골든타임 — ${gt.typeLabel}</strong><br><br>${gt.text}`;
+  el.classList.remove('hidden');
+}
+
+// ── 커플 케미 콘텐츠 엔진 (지침서 예시② 구조, CONTENT_SPEC.md §5 — db/MATCHING·SAJU_LINK 재사용) ──
+const sangSaeng = {목:['수','화'],화:['목','토'],토:['화','금'],금:['토','수'],수:['금','목']};
+const sangGeuk  = {목:['금','토'],화:['수','금'],토:['목','수'],금:['화','목'],수:['토','화']};
+
+const PART_ROLE = {
+  forehead:   '방향을 설정하는 리더 · 전략가',
+  eyebrow:    '관계를 편안하게 만드는 분위기 메이커',
+  midbrow:    '판단하고 지켜내는 수호자',
+  undereye:   '분위기를 다정하게 만드는 무드메이커',
+  nosebridge: '중심을 잡아주는 기둥',
+  nosetip:    '실속을 챙기는 승부사',
+  philtrum:   '끝까지 버텨내는 지구력파',
+  mouth:      '마음을 솔직하게 표현하는 소통가',
+  smilelines: '주변을 이끄는 카리스마형',
+  jaw:        '분위기를 지키는 조력자',
+  cheekbone:  '앞장서서 판을 벌리는 행동파',
+};
+const OHAENG_ROLE = { 목:PART_ROLE.forehead, 화:PART_ROLE.smilelines, 토:PART_ROLE.jaw, 금:PART_ROLE.nosetip, 수:PART_ROLE.midbrow };
+
+function getRoleLabel(statusMap, dStem) {
+  if (statusMap) {
+    const strong = PART_DEF.find(p => statusMap[p.key] === 'strength');
+    if (strong) return PART_ROLE[strong.key];
+  }
+  const oh = dStem >= 0 ? CG_OH[dStem] : '토';
+  return OHAENG_ROLE[oh] || PART_ROLE.midbrow;
+}
+
+// 1) 관상 케미 — 역할 분담 + 총평 + 부위별(관상 대 관상) 비교 (MATCH_0002 패턴)
+function buildRoleChemi(dStemA, statusMapA, dStemB, statusMapB) {
+  const roleA = getRoleLabel(statusMapA, dStemA);
+  const roleB = getRoleLabel(statusMapB, dStemB);
+  const sameRole = roleA === roleB;
+  const total = sameRole
+    ? `두 사람 모두 "${roleA}" 쪽에 가까워요. 같은 역할을 서로 하려다 부딪힐 수 있는데, 상황별로 역할을 미리 나눠두면 훨씬 편해져요.`
+    : `한 사람이 이끄는데 다른 한 사람이 반발하는 구조가 아니에요. 한쪽이 방향을 정하면 다른 쪽이 그걸 현실로 만드는, 역할 분담이 깔끔한 궁합이에요.`;
+  return { roleA, roleB, total, sameRole };
+}
+
+// 관상 대 관상 — 8개 부위를 하나씩 맞대어 비교 (db/MATCHING.csv 패턴)
+function buildPartComparison(statusMapA, statusMapB) {
+  if (!statusMapA || !statusMapB) return null;
+  return PART_DEF.map(p => {
+    const a = statusMapA[p.key], b = statusMapB[p.key];
+    let note;
+    if (a === 'strength' && b === 'strength') note = '둘 다 강점이라 이 영역에서는 척척 맞아요.';
+    else if (a === 'complement' && b === 'complement') note = '둘 다 채워볼 포인트라, 이 영역은 같이 챙기면 좋아요.';
+    else if (a === 'strength' && b === 'complement') note = '나는 강점, 상대는 채워볼 포인트 — 내가 이끌어주면 좋아요.';
+    else note = '상대는 강점, 나는 채워볼 포인트 — 상대에게 배우면 좋아요.';
+    return { label: p.label, a, b, note };
+  });
+}
+
+// ── 얼굴형·눈·입·광대 "조합"으로 보는 궁합 — 부위별 강점/보완 비교(buildPartComparison)와는 별개로,
+// 두 사람의 유형 조합 자체에 의미를 두는 통속 관상 궁합론을 반영한 것(참고 자료 정리, 2026-08-13).
+// 연인/배우자 관계 + 성별이 서로 다를 때만 남녀 역할 서술을 쓰고, 그 외(친구·형제자매·동성 등)에는
+// 성별을 언급하지 않는 일반 서술로 대체한다 — 관계 유형이 다양한 이 탭의 특성상 이성 커플에만
+// 해당하는 서술을 모든 관계에 강제하지 않기 위함.
+const FACE_SHAPE_COMBO = {
+  '원형_원형':     '둘 다 둥근형이라 편안하고 다정한 분위기는 좋지만, 감정이 격해지면 완충 없이 크게 부딪히기 쉬워요. 한번 다투면 오래갈 수 있으니 서로 진정할 시간을 주는 습관이 필요해요.',
+  '사각형_사각형': '둘 다 각진 사각형이라 생활력과 실행력은 확실하지만, 서로 안으로 들어가 지원하는 역할을 하기 어려워요. 집안일이든 바깥일이든 한쪽에 쏠리지 않게 의식적으로 나누는 게 좋아요.',
+  '역삼각형_역삼각형': '둘 다 갸름한 역삼각형이라 마음은 잘 통하는데, 감정 표현이 서로 서툴러서 서운함이 쌓여도 티가 잘 안 나요. 뭔가 걸리면 그때그때 말로 확인하는 습관을 들이면 좋아요.',
+  '원형_사각형': '여유로운 원형과 부지런한 사각형의 조합이라, 자칫 한쪽에게만 역할이 쏠리기 쉬워요. 의식적으로 짐을 나눠 들면 균형이 맞아요.',
+  '사각형_원형': '여유로운 원형과 부지런한 사각형의 조합이라, 자칫 한쪽에게만 역할이 쏠리기 쉬워요. 의식적으로 짐을 나눠 들면 균형이 맞아요.',
+  '원형_역삼각형': '털털한 원형과 섬세한 역삼각형의 조합 — 한쪽이 대범하게 이끌고 다른 한쪽이 세심하게 챙겨주는, 편안하게 잘 맞는 궁합이에요.',
+  '역삼각형_원형': '털털한 원형과 섬세한 역삼각형의 조합 — 한쪽이 대범하게 이끌고 다른 한쪽이 세심하게 챙겨주는, 편안하게 잘 맞는 궁합이에요.',
+  '사각형_역삼각형': '바깥일에 강한 사각형과 안팎을 세심하게 챙기는 역삼각형의 조합 — 서로의 역할이 자연스럽게 나뉘어서 좋아요.',
+  '역삼각형_사각형': '바깥일에 강한 사각형과 안팎을 세심하게 챙기는 역삼각형의 조합 — 서로의 역할이 자연스럽게 나뉘어서 좋아요.',
+};
+// 연인/배우자 + 남녀가 다를 때만 쓰는 방향성 있는 서술(참고 자료의 "남편/아내" 구도를 반영)
+const FACE_SHAPE_COMBO_GENDERED = {
+  '원형_사각형': '여유로운 원형남과 부지런한 사각형녀 조합이에요. 아내 쪽에 역할이 쏠리기 쉬우니, 남편이 의식적으로 짐을 나눠 들면 좋아요.',
+  '원형_역삼각형': '털털한 원형남을 섬세한 역삼각형녀가 살뜰히 챙겨주는, 편안하게 잘 맞는 조합이에요.',
+  '사각형_원형': '듬직한 사각형남과 상냥한 원형녀 — 안정적이고 다정한 조합이에요.',
+  '사각형_역삼각형': '바깥일에 강한 사각형남과 안팎을 잘 챙기는 역삼각형녀 — 역할이 자연스럽게 나뉘는 좋은 조합이에요.',
+  '역삼각형_사각형': '역삼각형남이 사각형녀에게 기가 눌리기 쉬운 조합이에요. 남편 쪽이 자기 의견을 확실히 내는 연습을 해보면 좋아요.',
+  '역삼각형_원형': '화끈한 원형녀에게 역삼각형남이 끌려다니기 쉬운 조합이에요. 대신 아내가 주도권을 쥐고 편하게 이끌면 잘 맞아요.',
+};
+function describeFaceShapeCombo(shapeA, shapeB, genderA, genderB, rel) {
+  if (rel === '연인/배우자' && genderA && genderB && genderA !== genderB) {
+    const maleShape = genderA === '남' ? shapeA : shapeB;
+    const femaleShape = genderA === '남' ? shapeB : shapeA;
+    const key = `${maleShape}_${femaleShape}`;
+    if (FACE_SHAPE_COMBO_GENDERED[key]) return FACE_SHAPE_COMBO_GENDERED[key];
+  }
+  return FACE_SHAPE_COMBO[`${shapeA}_${shapeB}`] || FACE_SHAPE_COMBO[`${shapeB}_${shapeA}`];
+}
+
+// 눈 크기 / 입 크기 — gwansangLevel(0~100)로 "큼(>=60)/작음(<=40)/보통"을 나눠 조합 서술을 고른다.
+// 성별·관계와 무관하게 통하는 일반 서술을 기본으로 하고, 연인/배우자 + 남녀가 다를 때만 방향성 있는
+// 서술을 덧붙인다(참고 자료가 이 조합에서만 남녀를 구분해서 설명하고 있어서).
+function describeSizeCombo(levelA, levelB, genderA, genderB, rel, opts) {
+  const bigA = levelA >= 60, smallA = levelA <= 40;
+  const bigB = levelB >= 60, smallB = levelB <= 40;
+  if (bigA && bigB) return opts.bothBig;
+  if (smallA && smallB) return opts.bothSmall;
+  if (rel === '연인/배우자' && genderA && genderB && genderA !== genderB) {
+    const maleBig = genderA === '남' ? bigA : bigB;
+    const maleSmall = genderA === '남' ? smallA : smallB;
+    if (maleBig) return opts.maleBig;
+    if (maleSmall) return opts.maleSmall;
+  }
+  return opts.mixed;
+}
+
+function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel) {
+  if (!lmA || !lmB) return null;
+  const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
+  const shapeA = classifyFaceShape3(rA), shapeB = classifyFaceShape3(rB);
+  const eyeLevelA = gwansangLevel('waJ', rA.waJ), eyeLevelB = gwansangLevel('waJ', rB.waJ);
+  const mouthLevelA = gwansangLevel('mouthR', rA.mouthR), mouthLevelB = gwansangLevel('mouthR', rB.mouthR);
+  const cheekLevelA = gwansangLevel('cheekR', rA.cheekR), cheekLevelB = gwansangLevel('cheekR', rB.cheekR);
+
+  const faceShapeText = describeFaceShapeCombo(shapeA, shapeB, genderA, genderB, rel);
+  const eyeText = describeSizeCombo(eyeLevelA, eyeLevelB, genderA, genderB, rel, {
+    bothBig: '둘 다 눈이 큰 편이에요. 감정 표현이 풍부하고 씀씀이도 큰 편일 수 있어서, 둘이 같이 있으면 즉흥적인 소비가 늘어나기 쉬워요. 큰 지출 전엔 서로 한 번씩 물어보는 습관을 들이면 좋아요.',
+    bothSmall: '둘 다 눈이 작은 편이에요. 알뜰하게 돈을 모으기엔 좋지만, 낭만적인 이벤트는 서로 먼저 챙기지 않으면 뜸해지기 쉬워요. 기념일만큼은 의식적으로 챙겨보세요.',
+    maleBig: '한쪽은 화려하고 감성적인 걸 좋아하고, 다른 한쪽은 다소 차분하고 소극적이에요. 취향 차이를 존중하면서 번갈아 리드해보면 균형이 맞아요.',
+    maleSmall: '내성적인 한쪽을, 눈이 큰 다른 한쪽이 밝게 이끌어주는 조합이에요. 잘 맞는 편이에요.',
+    mixed: '눈 크기 성향이 서로 달라서, 감정 표현 방식의 차이를 서로 이해해주면 좋은 조합이에요.',
+  });
+  const mouthText = describeSizeCombo(mouthLevelA, mouthLevelB, genderA, genderB, rel, {
+    bothBig: '둘 다 입이 큰 편이에요. 애정 표현이 솔직하고 정열적인 편이라, 감정을 숨기지 않고 잘 주고받는 조합이에요.',
+    bothSmall: '둘 다 입이 작은 편이에요. 서로에 대한 마음은 깊어도 말이나 스킨십으로 표현하는 게 서툴 수 있어요. 가끔은 마음을 직접 말로 꺼내보세요.',
+    maleBig: '한쪽이 애정 표현에 적극적이고, 다른 한쪽은 그걸 받아주는 편이에요. 표현하는 쪽이 너무 앞서가지 않게 속도를 맞춰주면 좋아요.',
+    maleSmall: '한쪽에게 다른 한쪽이 끌려다니기 쉬운 조합이에요. 끌려다니는 쪽도 원하는 걸 표현하는 연습을 해보면 더 좋아져요.',
+    mixed: '애정 표현 방식의 온도차가 있는 조합이라, 서로 원하는 표현 방식을 한 번쯤 이야기해보면 좋아요.',
+  });
+  const cheekText = (cheekLevelA >= 60 && cheekLevelB >= 60)
+    ? '둘 다 광대가 발달한 편이에요. 각자 자기 주장이 뚜렷하고 드센 편이라, 양보 없이 매일 사소하게 부딪히거나 반대로 무심한 사이가 되기 쉬워요. 이기고 지는 문제가 아니라는 걸 서로 확인하는 대화가 필요해요.'
+    : '광대 발달 정도가 서로 달라서, 자기 주장을 내는 정도에 차이가 있는 조합이에요. 결정할 때 목소리가 큰 쪽만 따라가지 않도록 신경 써보세요.';
+
+  return {
+    faceShape: { a: shapeA, b: shapeB, text: faceShapeText },
+    eye: { text: eyeText },
+    mouth: { text: mouthText },
+    cheek: { text: cheekText },
+  };
+}
+
+// 2) 사주 기운 케미 — 각자의 기운을 먼저 밝히고(사주 대 사주), 시너지 + 마음의 안식처로 종합
+function buildEnergyChemi(ohA, ohB) {
+  const domA = Object.entries(ohA).sort((a,b)=>b[1]-a[1])[0][0];
+  const domB = Object.entries(ohB).sort((a,b)=>b[1]-a[1])[0][0];
+  const weakA = Object.entries(ohA).sort((a,b)=>a[1]-b[1])[0][0];
+  const vA = OHAENG_VIBE[domA], vB = OHAENG_VIBE[domB];
+  const compare = `나는 "${vA.line}"에 가깝고, 상대는 "${vB.line}"에 가까워요.`;
+  let synergy;
+  if (sangSaeng[domA].includes(domB) || sangSaeng[domB].includes(domA)) {
+    synergy = `${compare} 두 사람 모두 주관이 명확하고 현실 감각이 뛰어나요. 서로를 키워주는 조합이라, 함께 있을수록 서로의 장점이 더 잘 드러나요.`;
+  } else if (sangGeuk[domA].includes(domB) || sangGeuk[domB].includes(domA)) {
+    synergy = `${compare} 서로 다른 결이 부딪히는 조합이라 초반엔 의견 차이가 생기기 쉬워요. 대신 그 다름을 역할로 나누면 웬만한 팀보다 강력한 파트너십이 돼요.`;
+  } else {
+    synergy = `${compare} 결이 비슷해서 안정적이고 예측 가능한 관계를 만들어요. 큰 충돌 없이 꾸준하게 이어갈 수 있는 궁합이에요.`;
+  }
+  const haven = (sangSaeng[domB].includes(weakA) || domB === weakA)
+    ? `한쪽의 추진력이 과열될 때 상대방의 기운이 브레이크 역할을 해줘요. 각자 자기 할 일을 잘하면서도, 함께 있을 때 제일 안정감을 느끼는 관계예요.`
+    : `서로 다른 결을 가졌지만, 집에 오면 가장 편안해지는 사이예요. 굳이 애쓰지 않아도 옆에 있는 것만으로 채워지는 부분이 있어요.`;
+  return { synergy, haven };
+}
+
+// 3) 티격태격 모먼트 & 극복 전략 — 오행 상극 여부 + 같은 강점이 겹칠 때
+function buildMoments(ohA, ohB, statusMapA, statusMapB) {
+  const domA = Object.entries(ohA).sort((a,b)=>b[1]-a[1])[0][0];
+  const domB = Object.entries(ohB).sort((a,b)=>b[1]-a[1])[0][0];
+  const moments = [];
+  if (sangGeuk[domA].includes(domB) || sangGeuk[domB].includes(domA)) {
+    moments.push({ title:'속마음 표현의 속도 차이', desc:'한쪽은 고민이 생기면 속으로 파고드는 편이라, 다른 한쪽은 답답하게 느낄 수 있어요.', tip:'"천천히 생각하고 말해줘도 돼"라는 여유를 건네주는 대화법을 써보세요.' });
+  }
+  if (statusMapA && statusMapB && statusMapA.midbrow === 'strength' && statusMapB.midbrow === 'strength') {
+    moments.push({ title:'주관 대 주관의 충돌', desc:'두 사람 모두 자기 주관이 뚜렷해서, 소소한 선택(데이트 코스, 물건 고르기 등)에서 의견이 엇갈릴 수 있어요.', tip:'분야를 나눠서 한쪽 결정을 믿어주는 "전담 영역"을 미리 정해두세요.' });
+  }
+  if (!moments.length) {
+    moments.push({ title:'무난해서 오히려 심심할 때', desc:'큰 갈등은 없지만, 그만큼 특별한 자극도 적게 느껴질 수 있어요.', tip:'가끔은 평소와 다른 데이트나 새로운 활동으로 리듬을 깨뜨려보세요.' });
+  }
+  return moments.slice(0, 2);
+}
+
+// 4) 커플 전용 개운 루틴 (지침서 예시② 패턴 그대로 — 메이크업/생활습관만, 시술 없음)
+function buildCoupleRoutines() {
+  return [
+    '커플 괄사 &amp; T존 케어 — 주말마다 서로의 콧대와 턱선 라인을 정리해주는 스킨케어를 함께 해보세요. 상대 얼굴이 맑아질수록 내 기운도 함께 좋아져요.',
+    '주 1회 활짝 웃는 데이트 — 무뚝뚝해지기 쉬운 표정 근육을 풀 수 있도록, 배꼽 잡고 웃을 수 있는 활동을 함께 해보세요.',
+    '3초 아이컨택 칭찬 — 대화할 때 서로의 눈을 또렷하게 3초씩 바라보며 오늘 좋았던 점을 한 마디씩 말해보세요.',
+  ];
+}
+
+function buildCoupleHeadline(sameRole) {
+  return sameRole
+    ? '같은 곳을 보는 케미! 티키타카가 척척 맞는 "평행 성장형" 궁합'
+    : '누가 이끄냐로 다투지 않는다! 서로의 영역을 확실히 나누는 "전략적 파트너" 궁합';
+}
+
+function renderCoupleReport(narrativeA, narrativeB, chemi, partComparison, faceCombo, energy, moments, routines) {
+  document.getElementById('ggHeadline').innerHTML = `"${buildCoupleHeadline(chemi.sameRole)}"`;
+
+  // STEP1·STEP2 — 나 / 상대방 각각의 관상 X 사주 종합 리포트
+  renderNarrativeParagraphs('ggPersonACards', narrativeA.paragraphs);
+  renderNarrativeParagraphs('ggPersonBCards', narrativeB.paragraphs);
+
+  // STEP3 — 관상 케미 (역할 분담 + 총평 + 부위별 관상 대 관상 비교)
+  const compareRows = partComparison
+    ? partComparison.map(row => `
+        <div class="chemi-role" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <strong style="min-width:64px;">${row.label}</strong>
+          <span class="status-badge ${row.a === 'strength' ? 'strength' : 'complement'}" style="margin-left:0;">나: ${row.a === 'strength' ? '강점' : '보완'}</span>
+          <span class="status-badge ${row.b === 'strength' ? 'strength' : 'complement'}" style="margin-left:0;">상대: ${row.b === 'strength' ? '강점' : '보완'}</span>
+          <span style="color:var(--text2);font-size:12px;">— ${row.note}</span>
+        </div>`).join('')
+    : `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 8개 부위를 하나씩 맞대어 비교한 결과를 볼 수 있어요.</div>`;
+  document.getElementById('ggRoleCards').innerHTML = `
+    <div class="chemi-card">
+      <div class="chemi-title">역할 분담 케미</div>
+      <div class="chemi-role">👤 나 → <strong>${chemi.roleA}</strong></div>
+      <div class="chemi-role">👤 상대 → <strong>${chemi.roleB}</strong></div>
+    </div>
+    <div class="chemi-card"><div class="chemi-title">관상 궁합 총평</div><div class="chemi-role">${chemi.total}</div></div>
+    <div class="chemi-card">
+      <div class="chemi-title">관상 대 관상 — 부위별 비교</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">${compareRows}</div>
+    </div>`;
+
+  // 얼굴형·눈·입·광대 "조합"으로 보는 궁합 — 부위별 강점/보완 비교와 달리 두 사람 유형의 조합 자체를 본다
+  document.getElementById('ggFaceComboCards').innerHTML = faceCombo
+    ? `
+    <div class="chemi-card"><div class="chemi-title">얼굴형 조합 (${faceCombo.faceShape.a} × ${faceCombo.faceShape.b})</div><div class="chemi-role">${faceCombo.faceShape.text}</div></div>
+    <div class="chemi-card"><div class="chemi-title">눈 크기 조합</div><div class="chemi-role">${faceCombo.eye.text}</div></div>
+    <div class="chemi-card"><div class="chemi-title">입 크기 조합</div><div class="chemi-role">${faceCombo.mouth.text}</div></div>
+    <div class="chemi-card"><div class="chemi-title">광대뼈 조합</div><div class="chemi-role">${faceCombo.cheek.text}</div></div>`
+    : `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 얼굴형·눈·입·광대 조합으로 보는 궁합을 볼 수 있어요.</div>`;
+
+  // STEP3 — 사주 기운 케미
+  document.getElementById('ggEnergyCards').innerHTML = `
+    <div class="chemi-card"><div class="chemi-title">에너지 시너지 (사주 대 사주)</div><div class="chemi-role">${energy.synergy}</div></div>
+    <div class="chemi-card"><div class="chemi-title">마음의 안식처 케미</div><div class="chemi-role">${energy.haven}</div></div>`;
+
+  document.getElementById('ggMomentCards').innerHTML = moments.map((m, i) => `
+    <div class="moment-card">
+      <div class="moment-title">${i+1}. ${m.title}</div>
+      <div class="part-tip">${m.desc}</div>
+      <div class="moment-tip">💡 해결책 — ${m.tip}</div>
+    </div>`).join('');
+  document.getElementById('ggComplementCards').innerHTML = `<ol class="routine-list">${routines.map(r => `<li>${r}</li>`).join('')}</ol>`;
+  document.getElementById('ggComplementSection').classList.remove('hidden');
+}
+
+// 두 지지(地支) 간 관계 점수 — 삼합/육합/충 여부로 판단 (일지·월지 공용)
+function branchRelationScore(bA, bB) {
+  const diff = Math.abs(bA - bB);
+  if ([4,8].includes(diff)) return 90;   // 삼합
+  if (diff === 6) return 70;             // 충
+  if ([1,11].includes(diff)) return 85;  // 육합/인접
+  return 60;
+}
+
+// 두 사람 오행 분포의 유사도 — 차이가 적을수록 생활 습관·리듬이 비슷하다고 봄
+function ohBalanceScore(ohA, ohB) {
+  const totalDiff = Object.keys(ohA).reduce((s, k) => s + Math.abs(ohA[k] - ohB[k]), 0);
+  return Math.max(30, Math.round(100 - totalDiff * 8));
+}
+
+// ── 관상학적 궁합 스코어링 (db/MATCHING.csv 설계를 실제 점수 공식으로 구현) ──
+// MediaPipe 마이그레이션으로 landmark-engine.js의 비율 계산식(분모가 interocularDist 등으로 통일)이
+// 바뀌면서 값의 스케일도 바뀌었다. 아래 range는 scratchpad 검증 사진 실측값을 anchor로 재조정한
+// 것이며, 여전히 "초안"이다(문서 §0 원칙과 동일하게 실측 데이터가 쌓이면 추후 보정 필요).
+const GWANSANG_FEATURE_RANGE = { waJ:[0.05,0.20], mgW:[0.4,1.7], beomR:[0.25,0.75], junduR:[0.5,1.3], jigakR:[0.4,1.0], gwanR:[0.10,0.55], injR:[0.25,0.65], sanR:[0.05,0.20], browGapR:[1.0,4.0], mouthR:[0.5,1.3], cheekR:[1.8,3.0] };
+
+// 부위별 실측값을 해당 부위의 FACE_FEATURE.csv 범위 안에서 0~100으로 정규화한 "상대적 위치"
+function gwansangLevel(key, v) {
+  const [min, max] = GWANSANG_FEATURE_RANGE[key];
+  return Math.max(0, Math.min(100, Math.round((v - min) / (max - min) * 100)));
+}
+
+// 같은 부위를 가진 두 사람의 궁합 = "둘 다 발달했는지(수준)" + "값이 서로 비슷한지(유사도)"를 절반씩 반영
+function gwansangFeatureCompat(key, vA, vB) {
+  const [min, max] = GWANSANG_FEATURE_RANGE[key];
+  const range = max - min;
+  const avgLevel = (gwansangLevel(key, vA) + gwansangLevel(key, vB)) / 2;
+  const similarity = Math.max(30, Math.min(100, Math.round(100 - (Math.abs(vA - vB) / range) * 120)));
+  return Math.round(avgLevel * 0.5 + similarity * 0.5);
+}
+
+// MATCHING.csv의 8개 관계차원 ↔ 부위쌍 매핑을 그대로 구현 (db/README.md 매핑표 참고)
+// 생활 궁합은 README에 명시된 대로 얼굴 부위쌍이 없어(순수 오행 유사도) 제외
+function calcGwansangCompat(lmA, lmB) {
+  const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
+  const emo    = gwansangFeatureCompat('waJ', rA.waJ, rB.waJ);                                                                        // MATCH_0001 와잠
+  const comm   = Math.round((gwansangFeatureCompat('beomR', rA.beomR, rB.beomR) + gwansangFeatureCompat('mgW', rA.mgW, rB.mgW)) / 2); // MATCH_0003+0004 법령+명궁
+  const love   = Math.round((gwansangFeatureCompat('waJ', rA.waJ, rB.waJ) + gwansangFeatureCompat('injR', rA.injR, rB.injR)) / 2);     // MATCH_0007 와잠+인중
+  const money  = gwansangFeatureCompat('junduR', rA.junduR, rB.junduR);                                                               // MATCH_0005 준두
+  const jaw    = gwansangFeatureCompat('jigakR', rA.jigakR, rB.jigakR);                                                               // MATCH_0006 지각
+  const growth = gwansangFeatureCompat('gwanR', rA.gwanR, rB.gwanR);                                                                  // MATCH_0008 관록궁
+  return {
+    '정서적 궁합': emo,
+    '대화·소통 궁합': comm,
+    '연애 궁합': love,
+    '금전 궁합': money,
+    '갈등 궁합': jaw,
+    '성장 궁합': growth,
+    '장기적인 관계 궁합': jaw, // MATCH_0006 지각 유사도 — 갈등해결과 공유(README 명시)
+  };
+}
+
+function calcCompatScore(pillarsA, pillarsB, ohA, ohB, rel, gwansangCompat) {
+  // 오행 궁합표 (상생/상극)
+  const ohCompat = { 목: {목:60,화:85,토:40,금:30,수:90}, 화: {목:85,화:60,토:80,금:35,수:25}, 토: {목:40,화:80,토:60,금:85,수:30}, 금: {목:30,화:35,토:85,금:60,수:80}, 수: {목:90,화:25,토:30,금:80,수:60} };
+
+  const domA = Object.entries(ohA).sort((a,b)=>b[1]-a[1])[0][0];
+  const domB = Object.entries(ohB).sort((a,b)=>b[1]-a[1])[0][0];
+  const ohScore = ohCompat[domA]?.[domB] || 60;
+
+  // 일간 궁합 (천간 합)
+  const stemDiff = Math.abs(pillarsA[2].stem - pillarsB[2].stem);
+  const stemScore = [0,5,4,2,6,10].includes(stemDiff) ? 85 : stemDiff===1||stemDiff===9 ? 75 : 60;
+
+  // 일지 궁합 (삼합/육합) · 월지 궁합(사회적 관계) · 오행 분포 유사도(생활 리듬)
+  const branchScore = branchRelationScore(pillarsA[2].branch, pillarsB[2].branch);
+  const monthScore = branchRelationScore(pillarsA[1].branch, pillarsB[1].branch);
+  const balanceScore = ohBalanceScore(ohA, ohB);
+
+  // 8개 궁합 영역 — 각기 다른 지표 조합에 가중치를 둬 영역별 특성을 반영
+  const areaDefs = [
+    { label:'정서적 궁합',     pct: Math.round(branchScore*0.5 + ohScore*0.3 + balanceScore*0.2) },
+    { label:'대화·소통 궁합',   pct: Math.round(monthScore*0.5 + ohScore*0.3 + stemScore*0.2) },
+    { label:'연애 궁합',       pct: Math.round(stemScore*0.5 + branchScore*0.3 + ohScore*0.2) },
+    { label:'생활 궁합',       pct: Math.round(balanceScore*0.5 + branchScore*0.3 + monthScore*0.2) },
+    { label:'금전 궁합',       pct: Math.round(ohScore*0.4 + stemScore*0.3 + balanceScore*0.3) },
+    { label:'갈등 궁합',       pct: Math.round(ohScore*0.3 + stemScore*0.3 + monthScore*0.4) },
+    { label:'성장 궁합',       pct: Math.round(ohScore*0.5 + monthScore*0.3 + stemScore*0.2) },
+    { label:'장기적인 관계 궁합', pct: Math.round(branchScore*0.4 + balanceScore*0.3 + ohScore*0.3) },
+  ].map(a => {
+    let pct = Math.max(0, Math.min(100, a.pct));
+    // 두 사람 사진이 모두 있으면 해당 관계차원의 관상 궁합(calcGwansangCompat)과 절반씩 블렌드
+    if (gwansangCompat && gwansangCompat[a.label] != null) pct = Math.round(pct*0.5 + gwansangCompat[a.label]*0.5);
+    return { label: a.label, pct: Math.max(0, Math.min(100, pct)) };
+  });
+
+  const totalScore = Math.round(areaDefs.reduce((s,a) => s+a.pct, 0) / areaDefs.length);
+
+  const grade = totalScore>=85?'천생연분 ✨':totalScore>=75?'좋은 궁합 💫':totalScore>=60?'무난한 궁합 🌙':totalScore>=45?'노력이 필요한 궁합 ⚡':'주의가 필요한 궁합 ⚠️';
+  const gradeDesc = {
+    '천생연분 ✨': `${rel === '연인/배우자' ? '연인으로서 최고의 궁합입니다.' : '최고의 궁합입니다.'} 두 사람의 에너지가 완벽하게 조화를 이룹니다.`,
+    '좋은 궁합 💫': '서로의 장점이 잘 어우러지는 좋은 궁합입니다. 함께할수록 더 빛납니다.',
+    '무난한 궁합 🌙': '평균적인 궁합입니다. 서로 이해하고 노력한다면 좋은 관계를 유지할 수 있습니다.',
+    '노력이 필요한 궁합 ⚡': '에너지가 다소 충돌하는 면이 있습니다. 상호 이해와 배려가 중요합니다.',
+    '주의가 필요한 궁합 ⚠️': '기운이 많이 충돌합니다. 서로의 차이를 존중하는 노력이 필요합니다.',
+  };
+
+  const sortedAreas = [...areaDefs].sort((a,b) => b.pct - a.pct);
+  const bestArea = sortedAreas[0], worstArea = sortedAreas[sortedAreas.length-1];
+
+  const ohName = {목:'목',화:'화',토:'토',금:'금',수:'수'};
+  const summary = `<strong style="color:var(--gold);">💕 궁합 종합 분석 (${rel})</strong><br><br>` +
+    `첫 번째 분의 주 오행은 <strong>${ohName[domA]}</strong>, 두 번째 분의 주 오행은 <strong>${ohName[domB]}</strong>입니다. ` +
+    `${gradeDesc[grade]} 8개 영역 중에서는 <strong>${bestArea.label}</strong>(${bestArea.pct}%)이 가장 두드러지고, <strong>${worstArea.label}</strong>(${worstArea.pct}%)에 조금 더 신경 쓰면 관계가 한층 좋아질 수 있습니다. ` +
+    (gwansangCompat ? '이 점수에는 두 사람의 관상 비교 결과도 함께 반영되어 있습니다. ' : '') +
+    `사주 궁합은 두 사람의 에너지와 기질의 조화를 보여줍니다. 좋은 관계는 타고난 궁합보다 서로에 대한 이해와 노력으로 만들어집니다. 🌟`;
+
+  return {
+    score: totalScore,
+    grade,
+    desc: gradeDesc[grade],
+    bars: areaDefs,
+    summary,
+  };
+}
+
+// ═══ STEP 4. 우리를 보완하다 ═══
+const COMPLEMENT_STYLE = {
+  오행보완: { bg:'rgba(74,222,128,0.1)',  border:'rgba(74,222,128,0.4)',  badge:'rgba(74,222,128,0.2)',  text:'#4ade80', label:'오행 보완' },
+  행동보완: { bg:'rgba(251,191,36,0.1)',  border:'rgba(251,191,36,0.4)',  badge:'rgba(251,191,36,0.2)',  text:'#fbbf24', label:'행동 보완' },
+  관계보완: { bg:'rgba(167,139,250,0.1)', border:'rgba(167,139,250,0.4)', badge:'rgba(167,139,250,0.2)', text:'#a78bfa', label:'관계 보완' },
+};
+
+function renderComplementCards(items, cardsElId, sectionElId) {
+  const cardsEl = document.getElementById(cardsElId);
+  if (!cardsEl || !items || !items.length) return;
+  cardsEl.innerHTML = items.map(it => {
+    const s = COMPLEMENT_STYLE[it.type] || COMPLEMENT_STYLE['오행보완'];
+    return `<div style="background:${s.bg};border:1px solid ${s.border};border-radius:10px;padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <strong style="font-size:13px;color:${s.text};">${it.title}</strong>
+        <span style="font-size:10px;font-weight:700;background:${s.badge};color:${s.text};padding:2px 7px;border-radius:999px;">${s.label}</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:6px;">${it.issue || ''}</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.7;">💡 ${it.suggestion}</div>
+    </div>`;
+  }).join('');
+  if (sectionElId) {
+    const sec = document.getElementById(sectionElId);
+    if (sec) sec.classList.remove('hidden');
+  }
+}
+
+// 관상 기반 메이크업·생활습관 팁은 PART_CONTENT(§3, 시술 문구 없음)로 대체되어
+// generateStylingTips / generateBeautyTips 는 제거했습니다 (지침서: 시술 추천 금지).
+
+// 3) 사주 · 오행 보완 — 색상/공간/취미/생활 패턴을 현대적 행동 언어로
+function generateOhaengLifestyle(ohaeng) {
+  const weakOh = Object.entries(ohaeng).sort((a,b)=>a[1]-b[1])[0][0];
+  const lifestyleMap = {
+    목: { issue:'새싹 같은 성장 · 추진 기운이 부족해 새로운 시도 앞에서 망설이는 경향이 있을 수 있어요.', suggestion:'초록색 계열의 소품이나 식물을 가까이 두고, 새로운 취미나 배움을 시작하는 활동을 늘려보세요. 계획을 오래 세우기보다 일단 작게 시작해보는 경험이 도움이 돼요.' },
+    화: { issue:'태양 같은 표현 · 적극성 기운이 부족해 감정을 드러내는 데 소극적일 수 있어요.', suggestion:'운동, 새로운 사람과의 교류, 감정을 적극적으로 표현하는 활동을 생활 속에 늘려보세요. 밝은 조명이나 붉은 계열 소품도 활력을 더하는 데 도움이 돼요.' },
+    토: { issue:'산처럼 든든한 안정 · 신뢰 기운이 부족해 생활 리듬이 불규칙해지기 쉬워요.', suggestion:'규칙적인 취침 · 기상 시간과 공간 정리를 습관화해보세요. 흙색 · 베이지 계열 인테리어와 반려식물 키우기도 안정감을 더하는 데 도움이 돼요.' },
+    금: { issue:'서리처럼 칼같은 결단 · 원칙 기운이 부족해 중요한 결정을 미루는 경향이 있을 수 있어요.', suggestion:'스스로 마감 기한을 정해 실행하는 연습과 정리정돈된 미니멀한 공간이 도움이 돼요. 흰색 · 메탈릭 계열 소품도 명료함을 더할 수 있어요.' },
+    수: { issue:'강물처럼 깊은 지혜 · 유연성 기운이 부족해 생각을 오래 담아두는 경향이 있을 수 있어요.', suggestion:'독서, 사색의 시간, 물이 보이는 곳으로의 여행을 늘려보세요. 파란색 · 검정 계열 소품과 조용한 공간 배치도 도움이 돼요.' },
+  };
+  const info = lifestyleMap[weakOh];
+  return [{ type:'오행보완', title:`${OHAENG_VIBE[weakOh].line}이 필요해요`, issue: info.issue, suggestion: info.suggestion }];
+}
+
+// 4) 개인 행동 보완 — 일간 성격 기준, 인간관계/연애/직장/돈관리/의사결정/감정표현/갈등관리
+function generatePersonalBehavior(pillars, ohaeng) {
+  const dStem = pillars[2].stem;
+  const behaviorMap = [
+    { area:'의사결정', issue:'생각을 오래 한 뒤 말하는 성향이 강해 상대에게 무관심하게 느껴질 수 있습니다.', suggestion:'결론이 나지 않았더라도 지금 느끼는 감정을 먼저 표현하는 연습이 도움이 됩니다.' },
+    { area:'감정 표현', issue:'유연한 성향이 때로는 우유부단함으로 비칠 수 있습니다.', suggestion:'중요한 순간에는 자신의 의견을 명확히 밝히는 연습을 해보세요.' },
+    { area:'인간관계', issue:'밝은 에너지가 앞서 깊이 있는 관계를 쌓는 데는 시간이 걸릴 수 있습니다.', suggestion:'소수의 사람과 깊은 대화를 나누는 시간을 의식적으로 만들어보세요.' },
+    { area:'갈등 관리', issue:'통찰력이 뛰어나지만 갈등 상황에서는 감정 표현을 아끼는 편입니다.', suggestion:'갈등이 생기면 상대의 의도를 추측하기보다 먼저 감정을 말로 표현해보세요.' },
+    { area:'돈 관리', issue:'포용력이 크지만 그만큼 지출에도 관대한 편일 수 있습니다.', suggestion:'월별 지출 계획을 세우고 정기적으로 점검하는 습관을 만들어보세요.' },
+    { area:'직장생활', issue:'세밀한 처리 능력이 강해 완벽을 추구하다 스스로를 지치게 할 수 있습니다.', suggestion:'우선순위를 정해 일부는 과감히 위임하는 연습이 필요합니다.' },
+    { area:'연애', issue:'의리를 중시하지만 표현이 서툴러 오해를 살 수 있습니다.', suggestion:'마음을 말과 행동으로 함께 표현하는 습관을 들여보세요.' },
+    { area:'의사결정', issue:'날카로운 판단력이 때로는 완벽주의로 이어져 결정이 늦어질 수 있습니다.', suggestion:'80% 확신이 서면 실행에 옮기는 결단이 도움이 됩니다.' },
+    { area:'인간관계', issue:'포용력이 크지만 자기 주장을 뒤로 미루는 경향이 있습니다.', suggestion:'거절해야 할 상황에서는 명확하게 의사를 전달하는 연습을 해보세요.' },
+    { area:'감정 표현', issue:'깊은 감수성을 가졌지만 속마음을 잘 드러내지 않는 편입니다.', suggestion:'신뢰하는 사람에게는 감정을 먼저 나누는 시도를 해보세요.' },
+  ];
+  const b = behaviorMap[dStem >= 0 ? dStem : 0];
+  return [{ type:'행동보완', title:`${b.area} 보완`, issue: b.issue, suggestion: b.suggestion }];
+}
+
+// generateRelationshipComplement 는 buildCoupleRoutines()로 대체되었습니다 (커플 개운 루틴, 시술 없음).

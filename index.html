@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>관상냥반</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0" rel="stylesheet">
+<style>
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal; font-style: normal; font-size: 20px; line-height: 1;
+  display: inline-block; vertical-align: middle; white-space: nowrap; word-wrap: normal;
+  direction: ltr; -webkit-font-smoothing: antialiased;
+}
+/* ══════════════════════════════════════════════════════════════════
+   Neo Korean Mysticism — 관상·사주 서비스 UI Style Guide 기반 리스킨
+   ══════════════════════════════════════════════════════════════════ */
+:root {
+  /* 피그마 실측 기준 토큰 — 브랜드 포인트는 mint 하나로 제한, 나머지는 뉴트럴 그레이스케일 */
+  --mint: #55CCBB;
+  --mint-05: rgba(85,204,187,0.05);
+  --mint-10: rgba(85,204,187,0.10);
+  --mint-tint-10: rgba(85,204,187,0.10); /* 구 별칭 — 다른 규칙 호환용 */
+  --mint-soft: #EDF9F6;
+  --mint-border: #CBEDE6;
+  --beige: #E6D1A7;
+  --beige-bg: #F8F4EC;
+  --beige-chip-bg: #F3E8D3;
+  --beige-chip-text: #675536;
+
+  --text-heading: #040404;   /* 팝업/앱바 타이틀 */
+  --text-title: #111111;     /* 섹션 라벨(예: "관상 정보") */
+  --text-strong: #333333;    /* 이름, 폼 라벨 */
+  --text-strong2: #3b3b3b;   /* "안심하세요" 등 강조 서브텍스트 */
+  --text-sub: #666666;       /* 일반 서브텍스트, 아이콘 */
+  --text-sub2: #5b5b5b;      /* 헬퍼텍스트, 안내 문구 */
+  --text-caption: #706a72;   /* 업로드 캡션 등 옅은 문구 */
+
+  --border-gray: #d9d9d9;    /* 인풋/뱃지 테두리 */
+  --border-gray2: #dddddd;   /* 업로드 드롭존 테두리 */
+  --border-lavender: #e8e2e8; /* 팝업/헤더 구분선, 미선택 칩 테두리 */
+
+  --bg-soft: #f3f6f8;        /* 안심 안내 박스 배경 */
+  --bg-soft2: #f3f3f3;       /* 배너 영역 배경 */
+  --bg-info-yellow: #fffaef; /* 사진 팁 안내 박스 배경 */
+  --icon-orange: #ff9533;
+  --icon-purple-gray: #504250;
+
+  --ink: #163B38;
+  --jade: #2F6F68;
+  --bg: #FFFFFF;
+  --surface: #FFFFFF;
+  --card2: #F0F4F3;
+  --text: #17201F;
+  --text2: #68716F;
+  --text3: #9AA3A1;
+  --border: #E3E9E7;
+  --r: 20px;         /* 리포트 등 일반 카드 radius(범위 밖 화면 한정) */
+  --r-btn: 8px;       /* 버튼 radius — 피그마 실측 */
+  --r-input: 8px;     /* 인풋/칩 radius — 피그마 실측 */
+  --r-drop: 12px;     /* 업로드 드롭존 radius */
+  --nav-h: 69px;
+  --cta-h: 96px;
+  --frame-w: 390px; /* 모바일 프레임 고정 너비 — 데스크탑 브라우저에서도 이 폭으로 고정 */
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: #E5E5E5; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Malgun Gothic', '맑은 고딕', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: calc(var(--nav-h) + var(--cta-h) + 12px);
+  max-width: var(--frame-w);
+  margin: 0 auto;
+  box-shadow: 0 0 40px rgba(0,0,0,0.12);
+  min-height: 100dvh;
+}
+.wrap { position: relative; z-index: 1; max-width: var(--frame-w); margin: 0 auto; padding: 0 16px 24px; }
+/* 배너/업로드 섹션은 피그마 상 화면 가장자리까지 꽉 차는 full-bleed 구조 — wrap의 16px 패딩을 상쇄 */
+.top-banner, .upload-section { margin: 0 -16px; }
+
+/* ── Header (피그마 통합분석 화면 Header 노드 기준) ── */
+.app-header { max-width: var(--frame-w); margin: 0 auto; background: var(--surface); }
+.header-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px; padding: 0 24px; background: var(--surface);
+}
+.header-topbar h1 {
+  font-size: 20px; font-weight: 500; color: var(--text-heading); letter-spacing: -0.2px;
+}
+.header-topbar .topbar-icon { font-size: 18px; color: var(--icon-purple-gray); background: none; border: none; cursor: default; line-height: 1; }
+.header-topbar p { display:none; }
+.kakao-auth-box { display: flex; align-items: center; gap: 8px; }
+.kakao-login-btn {
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: none;
+  background: #FEE500; color: #191919; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.kakao-login-btn:hover { opacity: 0.9; }
+.kakao-user-name { font-size: 13px; font-weight: 700; color: var(--text-strong); white-space: nowrap; }
+.kakao-logout-btn {
+  padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-gray); background: var(--surface);
+  color: var(--text-sub); font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.kakao-logout-btn:hover { border-color: var(--mint); color: var(--jade); }
+.info-box {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  height: 46px; background: var(--mint-10); border: none; border-radius: 0;
+  padding: 12px 20px; transition: background .15s;
+}
+.info-box:hover { background: rgba(85,204,187,0.16); }
+.profile-name { font-size: 16px; font-weight: 500; color: var(--text-strong); }
+.profile-name.profile-empty { color: var(--text-sub); font-weight: 500; }
+.profile-badge {
+  font-size: 10px; font-weight: 400; color: var(--text-sub); background: var(--surface);
+  border: 1px solid var(--border-gray); border-radius: 50px; padding: 0 8px; line-height: 14px;
+}
+.profile-edit-icon { margin-left: auto; font-size: 14px; color: var(--text-sub); opacity: 1; }
+
+/* ── Bottom Navigation (fixed, 피그마 실측 색상) ── */
+.bottom-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; max-width: var(--frame-w); margin: 0 auto;
+  display: flex; background: var(--surface); border-top: 1px solid var(--border-lavender);
+  height: var(--nav-h);
+}
+.tab-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; background: none; border: none; cursor: pointer; font-family: inherit;
+  color: var(--text-sub2); font-size: 12px; font-weight: 400; padding: 12px 0;
+}
+.tab-btn .nav-icon { font-size: 20px; line-height: 1; color: var(--text-sub); }
+.tab-btn.active { color: var(--mint); font-weight: 600; }
+.tab-btn.active .nav-icon { color: var(--mint); }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── Card ── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 24px; margin-bottom: 16px;
+}
+/* 프로필 영역(마인트 톤 info-box) 바로 아래에 오는 카드라 위쪽 간격 없이 붙어 보이는 문제 — 24px 띄움 */
+#canvasCard, #cmbCanvasCard { margin-top: 24px; }
+
+/* ── 16캐릭터 일러스트 카드(#gwansangCharacterCard) — MBTI 카드 UI 참고, 실제 카피는 character-db.js에서 옴 ── */
+.char-card { position: relative; background: linear-gradient(160deg, #fdf3d3, #f6dd8c); border: 3px solid #c9a24a; border-radius: 22px; padding: 22px 16px 20px; text-align: center; box-shadow: 0 8px 20px rgba(120,90,20,0.16); overflow: hidden; }
+.char-card::before { content: ''; position: absolute; inset: 9px; border: 1.5px dashed rgba(150,110,30,0.4); border-radius: 15px; pointer-events: none; }
+.char-card-corner { position: absolute; font-size: 13px; color: #b8862f; line-height: 1; }
+.char-card-corner.tl { top: 14px; left: 16px; } .char-card-corner.tr { top: 14px; right: 16px; }
+.char-card-corner.bl { bottom: 14px; left: 16px; } .char-card-corner.br { bottom: 14px; right: 16px; }
+.char-card-badge { display: inline-block; background: #fff8e6; border: 1px solid #c9a24a; border-radius: 999px; padding: 3px 16px; font-size: 11px; font-weight: 700; color: #8a6a20; letter-spacing: 1.5px; margin-bottom: 12px; }
+.char-card-name { font-size: 25px; font-weight: 900; color: #3a2c12; letter-spacing: 0.3px; margin-bottom: 12px; }
+.char-card-img-wrap { width: 168px; height: 168px; margin: 0 auto 16px; border-radius: 50%; background: rgba(255,255,255,0.55); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid rgba(180,130,40,0.35); }
+.char-card-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.char-card-ribbon { display: inline-block; background: #3a2c12; color: #fff8e6; font-size: 13px; font-weight: 700; line-height: 1.5; padding: 9px 20px; border-radius: 8px; max-width: 90%; }
+.card-title {
+  font-size: 15px; font-weight: 800; color: var(--jade); letter-spacing: 0.2px;
+  margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+}
+.card-title::before {
+  content: ''; width: 3px; height: 16px; background: var(--mint); border-radius: 999px;
+}
+
+/* ── Mini profile chip (궁합 탭) ── */
+.mini-profile-chip {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  background: var(--mint-10); border: none; border-radius: 8px;
+  padding: 12px; margin-bottom: 12px; width: 100%; text-align: left;
+  font-family: inherit; cursor: default;
+}
+.mini-profile-chip.select-mode { cursor: pointer; }
+.mini-profile-chip.select-mode:hover { background: rgba(85,204,187,0.16); }
+.mini-profile-name { font-size: 14px; font-weight: 500; color: var(--text-strong); }
+.mini-profile-badge { font-size: 10px; color: var(--text-sub); background: var(--surface); border: 1px solid var(--border-gray); border-radius: 50px; padding: 0 8px; }
+.mini-profile-sub { font-size: 11px; color: var(--text-sub); }
+.mini-profile-placeholder { font-size: 13px; font-weight: 700; color: var(--text-sub2); }
+.mini-profile-empty { font-size: 12px; color: var(--text3); }
+
+/* ── 배너 영역 (피그마 Massage/InfoAlarm 최상단 — 플레이스홀더) ── */
+.top-banner {
+  background: var(--bg-soft2); padding: 16px; display: flex; flex-direction: column; gap: 8px;
+}
+.top-banner-text { font-size: 20px; font-weight: 400; color: var(--text-sub); }
+.top-banner-btn { font-size: 14px; font-weight: 600; color: var(--text-sub); background: none; border: none; cursor: pointer; font-family: inherit; align-self: flex-start; }
+
+/* ── Face Upload Area (피그마 실측 구조: Label → 안심 안내 → 드롭존[아이콘/캡션/노란 팁박스]) ── */
+.upload-section { padding: 28px 20px 40px; }
+.upload-label { font-size: 16px; font-weight: 700; color: var(--text-title); margin-bottom: 16px; }
+.reassure-box { background: var(--bg-soft); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+.reassure-head { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.reassure-head .icon { font-size: 16px; color: var(--text-sub); }
+.reassure-head .label { font-size: 16px; font-weight: 700; color: var(--text-strong2); }
+.reassure-sub { font-size: 14px; color: var(--text-sub); line-height: 1.5; }
+
+/* ── 사주 사전 질문 (진입 즉시 노출) ── */
+.saju-q-block { padding: 24px 0; }
+.saju-q-block:first-child { padding-top: 0; }
+.saju-divider { border-top: 1px solid var(--border-lavender); }
+.saju-q-title { font-size: 16px; font-weight: 700; color: var(--text-title); line-height: 1.4; margin-bottom: 16px; }
+.saju-q-optional { font-size: 13px; font-weight: 400; color: var(--text-sub); margin-left: 4px; }
+.saju-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.saju-q-custom { margin-top: 8px; }
+.saju-textarea { min-height: 88px; resize: vertical; line-height: 1.5; }
+.saju-char-counter { text-align: right; font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+/* 사진 업로드가 끝나 썸네일(.thumb-area.show)이 뜨면, 라벨/안심 안내/드롭존 안내 박스는 더 볼 필요가
+   없으니 숨긴다. app.js의 loadThumb/resetUpload가 건드리는 클래스만 보고 반응하는 순수 CSS 처리라
+   기존 업로드 로직은 전혀 건드리지 않는다. */
+.upload-section:has(.thumb-area.show) .upload-label,
+.upload-section:has(.thumb-area.show) .reassure-box,
+.upload-section:has(.thumb-area.show) .tip-box {
+  display: none;
+}
+
+.upload-area {
+  border: 2px solid var(--border-gray2); border-radius: var(--r-drop);
+  padding: 40px 20px; text-align: center; cursor: pointer;
+  transition: border-color .2s; background: var(--surface);
+}
+.upload-area:hover, .upload-area.drag { border-color: var(--mint); }
+.upload-icon-circle {
+  width: 64px; height: 64px; border-radius: 999px; background: var(--mint-10);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 26px; color: var(--mint);
+}
+.upload-icon-circle.small { width: 44px; height: 44px; font-size: 18px; margin-bottom: 8px; }
+.upload-area strong { display: block; color: var(--text-caption); font-size: 14px; font-weight: 400; margin: 0; }
+.upload-area p { color: var(--text-caption); font-size: 14px; margin: 0; }
+/* 목선까지~ 안내는 업로드 드롭존 "안"이 아니라 그 아래 별도 섹션 — 피그마 Message/InfoBox는 Background+Border의 형제 노드 */
+.tip-box {
+  display: flex; align-items: flex-start; gap: 8px; text-align: left;
+  background: var(--bg-info-yellow); border-radius: 8px; padding: 12px; margin-top: 12px;
+}
+.tip-box .icon { font-size: 16px; color: var(--icon-orange); flex-shrink: 0; }
+.tip-box p { font-size: 12px !important; font-weight: 500; color: var(--text-sub2) !important; margin: 0 !important; }
+.upload-hint { display: none; } /* 레거시 클래스 — 신규 마크업에서는 tip-box로 대체 */
+
+/* 궁합 탭처럼 좁은 칼럼에서 동일 구조를 축소 적용할 때 쓰는 보정 클래스 */
+.upload-section.compact { padding: 20px 16px 24px; }
+.upload-section.compact .upload-label { font-size: 14px; margin-bottom: 12px; }
+.upload-section.compact .reassure-box { padding: 12px; }
+.upload-section.compact .reassure-head .label { font-size: 14px; }
+.upload-section.compact .reassure-sub { font-size: 12px; }
+.upload-section.compact .upload-area { padding: 24px 16px; }
+
+/* ── Thumbnail area ── */
+.thumb-area { display: none; align-items: center; gap: 16px; padding: 16px; background: var(--card2); border: 1px solid var(--border); border-radius: var(--r-drop); margin-bottom: 0; }
+.thumb-area.show { display: flex; }
+.thumb-img { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; border: 2px solid var(--border-gray); }
+.thumb-info { flex: 1; }
+.thumb-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.thumb-sub { font-size: 11px; color: var(--text-sub); }
+.thumb-btns { display: flex; flex-direction: column; gap: 8px; }
+.analyze-btn {
+  padding: 10px 18px; border-radius: var(--r-btn); border: none;
+  background: var(--mint); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: opacity .15s; font-family: inherit; white-space: nowrap;
+}
+.analyze-btn:hover { opacity: 0.85; }
+.reupload-btn {
+  padding: 8px 14px; border-radius: var(--r-btn); border: 1.5px solid var(--border-gray);
+  background: var(--surface); color: var(--text-sub); font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all .15s; font-family: inherit;
+}
+.reupload-btn:hover { border-color: var(--mint); color: var(--mint); }
+.reupload-btn.on { background: var(--mint-soft); border-color: var(--mint); color: var(--jade); }
+
+/* ── Canvas ── */
+.canvas-wrap { position: relative; display: inline-block; max-width: 100%; }
+#gwansangCanvas, #combinedCanvas, #gunghamCanvasA, #gunghamCanvasB { max-width: 100%; border-radius: 10px; display: block; }
+
+/* ── Spinner ── */
+.spinner { display: none; text-align: center; padding: 28px; }
+.spinner.show { display: block; }
+.spin-ring { width: 44px; height: 44px; border: 3px solid var(--mint-border); border-top-color: var(--mint); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Error ── */
+.err-msg { display: none; background: #FDECEC; border: 1px solid #F5C2C2; color: #C23B3B; border-radius: var(--r); padding: 14px; text-align: center; font-size: 13px; }
+.err-msg.show { display: block; }
+
+/* ── Result cards ── */
+.result-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+.result-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+.rc-name { font-size: 13px; font-weight: 800; color: var(--jade); margin-bottom: 6px; }
+.rc-text { font-size: 12px; color: var(--text2); line-height: 1.6; }
+
+/* ── Summary ── */
+.summary-box { background: var(--beige-bg); border: 1px solid var(--beige); border-radius: var(--r); padding: 18px; margin-top: 16px; font-size: 13px; line-height: 1.8; color: var(--text); }
+
+.snapshot-box { border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; margin-bottom: 16px; background: var(--card2); }
+.snapshot-row { font-size: 12.5px; line-height: 1.7; color: var(--text); margin-top: 4px; }
+.snapshot-row:first-child { margin-top: 0; }
+
+.report-accordion { margin-top: 8px; }
+.report-accordion > summary {
+  cursor: pointer; list-style: none; font-size: 13px; font-weight: 700; color: var(--jade);
+  padding: 12px 14px; border: 1px dashed var(--mint-border); border-radius: var(--r);
+  margin-bottom: 12px; user-select: none; background: var(--mint-tint-10);
+}
+.report-accordion > summary::-webkit-details-marker { display: none; }
+.report-accordion > summary::before { content: '▶ '; }
+.report-accordion[open] > summary::before { content: '▼ '; }
+
+.gender-btns { display: flex; gap: 8px; }
+.gender-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; font-family: inherit; }
+.gender-btn.on { background: var(--mint-soft); border-color: var(--mint); color: var(--jade); }
+
+.submit-btn, .btn-solid-primary {
+  width: 100%; padding: 16px; border-radius: var(--r-btn); border: none;
+  background: var(--mint); color: #ffffff; font-size: 18px; font-weight: 700; cursor: pointer;
+  transition: opacity .15s; margin-top: 8px; font-family: inherit;
+}
+.submit-btn:hover, .btn-solid-primary:hover { opacity: 0.9; }
+.submit-btn:disabled { background: var(--border-gray); color: var(--text-sub); cursor: not-allowed; opacity: 1; }
+.submit-btn:disabled:hover { opacity: 1; }
+.btn-outline-primary {
+  padding: 14px 18px; border-radius: var(--r-btn); border: 1.5px solid var(--border-lavender);
+  background: var(--surface); color: var(--text-sub); font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+
+/* ── CTA dock: 하단 네비게이션 바로 위 고정 바(피그마 "bottom Group") ── */
+.cta-dock {
+  position: fixed; left: 0; right: 0; bottom: var(--nav-h); z-index: 30;
+  max-width: var(--frame-w); margin: 0 auto; background: var(--surface);
+  padding: 20px; box-shadow: 0 -2px 8px rgba(0,0,0,0.03);
+}
+.cta-dock .submit-btn { margin-top: 0; }
+.panel-scroll-area { padding: 0 0 calc(var(--cta-h) + var(--nav-h) + 16px); }
+
+/* ── Pillars ── */
+.pillars-table { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
+.pillar-col { text-align: center; }
+.pillar-label { font-size: 10px; color: var(--text2); font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+.pillar-stem, .pillar-branch { padding: 12px 8px; border-radius: 10px; margin-bottom: 6px; }
+.pillar-stem { background: var(--mint-tint-10); border: 1px solid var(--mint-border); font-size: 20px; font-weight: 900; color: var(--ink); }
+.pillar-branch { background: var(--beige-bg); border: 1px solid var(--beige); font-size: 20px; font-weight: 900; color: var(--jade); }
+.pillar-hanja { font-size: 10px; color: var(--text2); margin-top: 4px; }
+.pillar-unseong { font-size: 11px; color: var(--jade); font-weight: 700; margin-top: 2px; }
+.pillar-gwiin { font-size: 10px; color: var(--beige-chip-text); margin-top: 2px; }
+.pillar-sinsal { font-size: 10px; color: var(--text2); margin-top: 2px; }
+
+/* ── Ohaeng (오행 색은 데이터 시맨틱 색상 유지) ── */
+.ohaeng-bars { margin-bottom: 8px; }
+.ohaeng-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.ohaeng-name { width: 28px; font-size: 12px; font-weight: 800; text-align: right; flex-shrink: 0; }
+.ohaeng-bar-bg { flex: 1; height: 9px; background: var(--card2); border-radius: 999px; overflow: hidden; }
+.ohaeng-bar-fill { height: 100%; border-radius: 999px; transition: width 0.8s ease; }
+.ohaeng-count { width: 20px; font-size: 11px; color: var(--text2); text-align: center; flex-shrink: 0; }
+.oh-목 { color: #2e9e5b; } .oh-목-bar { background: linear-gradient(90deg, #4ade80, #22c55e); }
+.oh-화 { color: #e35b5b; } .oh-화-bar { background: linear-gradient(90deg, #f87171, #ef4444); }
+.oh-토 { color: #b8860b; } .oh-토-bar { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+.oh-금 { color: #6b7280; } .oh-금-bar { background: linear-gradient(90deg, #cbd5e1, #94a3b8); }
+.oh-수 { color: #2563eb; } .oh-수-bar { background: linear-gradient(90deg, #60a5fa, #3b82f6); }
+
+/* ── Compatibility ── */
+.compat-section { margin-bottom: 20px; }
+.compat-score-box { text-align: center; padding: 28px; background: var(--mint-tint-10); border: 1px solid var(--mint-border); border-radius: var(--r); margin-bottom: 16px; }
+.compat-num { font-size: 64px; font-weight: 900; color: var(--ink); }
+.compat-grade { font-size: 20px; font-weight: 800; color: var(--jade); margin: 4px 0; }
+.compat-desc { font-size: 13px; color: var(--text2); }
+.compat-bars { display: flex; flex-direction: column; gap: 10px; }
+.compat-bar-row { display: flex; align-items: center; gap: 10px; }
+.compat-bar-label { font-size: 11.5px; color: var(--text2); width: 96px; flex-shrink: 0; text-align: right; line-height: 1.3; }
+.compat-bar-bg { flex: 1; height: 10px; background: var(--card2); border-radius: 999px; overflow: hidden; }
+.compat-bar-fill { height: 100%; border-radius: 999px; background: var(--mint); transition: width 0.8s ease; }
+.compat-bar-pct { font-size: 12px; color: var(--text2); width: 36px; flex-shrink: 0; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+.person-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
+.person-block { padding: 20px 16px 0; }
+.person-block + .person-block { border-top: 8px solid var(--bg-soft2); margin: 20px -16px 0; padding: 20px 32px 0; }
+.person-label { font-size: 16px; font-weight: 700; color: var(--text-title); margin-bottom: 12px; }
+
+.combined-layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
+
+.headline-quote { text-align: center; padding: 20px 18px; margin-bottom: 16px; background: var(--mint-tint-10); border: 1px solid var(--mint-border); border-radius: var(--r); font-size: 15px; font-weight: 800; color: var(--ink); line-height: 1.6; }
+.part-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.part-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+.part-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.part-icon { font-size: 16px; }
+.part-name { font-size: 14px; font-weight: 800; color: var(--text); }
+.status-badge { font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 999px; margin-left: auto; }
+.status-badge.strength { background: rgba(85,204,187,0.18); color: var(--jade); }
+.status-badge.complement { background: var(--beige-chip-bg); color: var(--beige-chip-text); }
+.part-sub { font-size: 11px; color: var(--text2); margin-bottom: 10px; }
+.part-value { font-size: 11px; color: var(--jade); background: var(--mint-tint-10); border-radius: 6px; padding: 4px 8px; margin-bottom: 10px; display: inline-block; }
+.part-meaning { font-size: 13px; color: var(--text); line-height: 1.7; margin-bottom: 10px; }
+.part-tip { font-size: 12px; color: var(--text2); line-height: 1.7; margin-bottom: 4px; }
+.routine-list { list-style: none; margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.routine-list li { font-size: 12.5px; color: var(--text); line-height: 1.6; padding-left: 20px; position: relative; }
+.routine-list li::before { content: '✓'; position: absolute; left: 0; color: var(--jade); font-weight: 900; }
+.chemi-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+.chemi-title { font-size: 13px; font-weight: 800; color: var(--jade); margin-bottom: 8px; }
+.chemi-role { font-size: 12.5px; color: var(--text); line-height: 1.8; margin-bottom: 4px; }
+.moment-card { background: var(--beige-bg); border: 1px solid var(--beige); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
+.moment-title { font-size: 13px; font-weight: 800; color: var(--beige-chip-text); margin-bottom: 6px; }
+.moment-tip { font-size: 12.5px; color: var(--text); line-height: 1.7; margin-top: 6px; }
+
+.ai-card { border: 1.5px solid var(--mint-border); border-radius: var(--r); padding: 18px; background: var(--mint-tint-10); margin-top: 16px; }
+.ai-badge { display: inline-block; font-size: 11px; font-weight: 800; color: var(--ink); background: var(--mint); padding: 4px 10px; border-radius: 999px; }
+.part-tip.ai-addition { color: var(--jade); border-top: 1px dashed var(--mint-border); padding-top: 8px; margin-top: 4px; }
+
+.archetype-card { display: flex; gap: 14px; align-items: flex-start; border: 1.5px solid var(--mint-border); border-radius: var(--r); padding: 14px 16px; margin-top: 10px; background: var(--mint-tint-10); }
+.archetype-icon { flex-shrink: 0; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: var(--surface); border-radius: 12px; }
+.archetype-type-label { font-size: 10px; font-weight: 800; color: var(--jade); letter-spacing: 0.5px; margin-bottom: 3px; }
+.archetype-title { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.archetype-hanja { font-size: 12px; color: var(--text2); font-weight: 400; }
+.archetype-glance { font-size: 12.5px; color: var(--text); line-height: 1.6; margin-bottom: 6px; }
+.archetype-traditional { font-size: 12px; color: var(--beige-chip-text); line-height: 1.6; margin-bottom: 6px; }
+.archetype-keywords { font-size: 11px; color: var(--jade); }
+
+.shape-detail-row { border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-top: 8px; background: var(--card2); }
+.shape-detail-head { font-size: 12.5px; color: var(--text); margin-bottom: 5px; }
+.shape-detail-text { font-size: 12px; color: var(--text2); line-height: 1.6; }
+.shape-coaching { font-size: 12px; color: var(--jade); line-height: 1.6; margin-top: 4px; }
+.ai-status-msg { text-align: center; font-size: 12px; color: var(--text2); margin-top: 8px; }
+
+.print-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 12px; font-weight: 700; cursor: pointer; transition: all .15s; font-family: inherit; margin-top: 12px; }
+.print-btn:hover { border-color: var(--mint); color: var(--jade); }
+.hidden { display: none !important; }
+
+/* ══ 프로필 시스템 (js/profile.js가 생성하는 오버레이) ══ */
+body.overlay-open { overflow: hidden; }
+.overlay-backdrop { position: fixed; inset: 0; background: rgba(23,32,31,0.45); z-index: 100; }
+.bottomsheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 101; max-width: var(--frame-w); margin: 0 auto;
+  background: var(--surface); border-radius: 20px 20px 0 0; padding: 4px 0 20px;
+  max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 -8px 24px rgba(23,32,31,0.12);
+}
+.bottomsheet-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; font-size: 20px; font-weight: 500; color: var(--text-heading); }
+.overlay-close { background: none; border: none; font-size: 16px; color: var(--text-sub); cursor: pointer; padding: 4px; }
+.profile-row-list { overflow-y: auto; padding: 4px 12px; }
+.profile-row { display: flex; align-items: center; gap: 10px; padding: 12px 8px; border-radius: 8px; cursor: pointer; }
+.profile-row:hover { background: var(--card2); }
+.profile-row.is-selected { background: var(--mint-10); }
+.profile-row-check { width: 20px; font-size: 13px; flex-shrink: 0; text-align: center; }
+.profile-row-body { flex: 1; min-width: 0; }
+.profile-row-top { display: flex; align-items: center; gap: 8px; }
+.profile-row-name { font-size: 14px; font-weight: 500; color: var(--text-strong); }
+.profile-row-badge { font-size: 10px; color: var(--text-sub); background: var(--surface); border: 1px solid var(--border-gray); border-radius: 50px; padding: 1px 8px; }
+.profile-row-sub { font-size: 11.5px; color: var(--text-sub); margin-top: 2px; }
+.profile-row-edit { background: none; border: none; font-size: 15px; cursor: pointer; padding: 6px; flex-shrink: 0; }
+.btn-add { margin: 12px 16px 4px; width: calc(100% - 32px); }
+
+.form-popup {
+  position: fixed; left: 0; right: 0; bottom: 0; top: 8vh; z-index: 101; max-width: var(--frame-w); margin: 0 auto;
+  background: var(--surface); border-radius: 20px 20px 0 0; display: flex; flex-direction: column;
+  box-shadow: 0 -8px 24px rgba(23,32,31,0.12);
+}
+.form-popup.small { top: auto; bottom: 0; border-radius: 20px 20px 0 0; }
+.popup-header { display: flex; align-items: center; justify-content: space-between; padding: 20px; font-size: 20px; font-weight: 500; color: var(--text-heading); border-bottom: 1px solid var(--border-lavender); }
+.popup-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 20px; }
+.popup-footer { display: flex; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--border-lavender); }
+.popup-footer .btn-outline-primary { flex: 0 0 100px; }
+.popup-footer .btn-solid-primary { flex: 1; margin-top: 0; }
+
+.field-group { display: flex; flex-direction: column; gap: 8px; }
+.field-label { font-size: 14px; font-weight: 500; color: var(--text-strong); }
+.req-dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--mint); margin-left: 3px; }
+.field-input {
+  width: 100%; background: var(--surface); border: 1px solid var(--border-gray); border-radius: var(--r-input);
+  padding: 13px 14px; color: var(--text-strong); font-size: 14px; outline: none; font-family: inherit; text-align: left;
+}
+.field-input:focus { border-color: var(--mint); }
+.field-input-btn { cursor: pointer; color: var(--text-strong); }
+.chip-row { display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.chip-row::-webkit-scrollbar { display: none; }
+.chip-row.two-col { flex-wrap: nowrap; }
+.rel-chip {
+  padding: 10px 16px; border-radius: var(--r-input); border: 1px solid var(--border-lavender);
+  background: var(--surface); color: var(--text-caption); font-size: 14px; font-weight: 400;
+  cursor: pointer; transition: all .15s; font-family: inherit; flex: 0 0 auto; white-space: nowrap;
+}
+.rel-chip.wide { flex: 1; }
+.rel-chip.on { background: var(--mint-05); border-color: var(--mint); color: var(--mint); }
+.radio-row { display: flex; gap: 16px; margin-top: 8px; }
+.radio-option { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-strong); cursor: pointer; }
+.radio-option input[type="radio"] {
+  -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid var(--border-gray); background: var(--surface); cursor: pointer; margin: 0;
+  position: relative; flex-shrink: 0;
+}
+.radio-option input[type="radio"]:checked { border-color: var(--mint); }
+.radio-option input[type="radio"]:checked::after {
+  content: ''; position: absolute; top: 50%; left: 50%; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--mint); transform: translate(-50%, -50%);
+}
+
+.cal-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.cal-arrow { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border-gray); background: var(--surface); color: var(--text-sub); font-size: 16px; cursor: pointer; }
+.cal-select { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-gray); background: var(--surface); color: var(--text-strong); font-size: 13px; font-family: inherit; }
+.cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-cell { aspect-ratio: 1; border: none; background: none; border-radius: 10px; font-size: 13px; color: var(--text); cursor: pointer; font-family: inherit; }
+.cal-cell.empty { cursor: default; }
+.cal-cell:not(.empty):hover { background: var(--card2); }
+.cal-cell.is-selected { background: var(--mint); color: var(--ink); font-weight: 800; }
+.leap-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); margin-top: 10px; }
+.hour-row .profile-row-name { font-weight: 700; }
+
+/* Saju form (레거시 — 현재 미사용, 클래스만 유지) */
+.saju-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 600px) { .saju-form { grid-template-columns: 1fr; } }
+.form-group label { display: block; font-size: 11px; font-weight: 700; color: var(--jade); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.form-group input, .form-group select { width: 100%; background: var(--surface); border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 13px; outline: none; font-family: inherit; }
+.form-group.full { grid-column: 1 / -1; }
+
+@media print {
+  .app-header, .bottom-nav, .upload-area, .thumb-area, .submit-btn, .print-btn, .form-group { display: none; }
+  .card { break-inside: avoid; }
+  .report-accordion, .report-accordion > * { display: block !important; }
+  .report-accordion > summary { display: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="header-topbar">
+    <h1>관상냥반</h1>
+    <div class="kakao-auth-box" id="kakaoAuthBox"></div>
+  </div>
+  <div class="info-box" id="profileInfoBox">
+    <span class="profile-name profile-empty">프로필을 등록해주세요</span>
+    <span class="profile-edit-icon material-symbols-outlined">edit</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ===== 통합 분석 패널 ===== -->
+  <div class="panel active" id="panel-combined">
+    <div class="top-banner">
+      <div class="top-banner-text">배너 영역</div>
+      <button class="top-banner-btn">자세히 보기</button>
+    </div>
+
+    <div class="upload-section" id="cmbUploadSection">
+      <div class="upload-label">관상 정보</div>
+
+      <div class="reassure-box">
+        <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
+        <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
+      </div>
+
+      <div class="upload-area" id="cmbUploadArea"
+           onclick="document.getElementById('cmbFileInput').click()"
+           ondrop="handleDrop('combined', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
+        <strong>사진을 클릭하거나 드래그하여 업로드</strong>
+      </div>
+      <div class="tip-box">
+        <span class="icon material-symbols-outlined">warning</span>
+        <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+      </div>
+      <input type="file" id="cmbFileInput" accept="image/*" style="display:none" onchange="handleFile('combined', event)">
+      <div class="thumb-area" id="cmbThumbArea" style="margin-top:12px;">
+        <img id="cmbThumbImg" class="thumb-img" src="" alt="">
+        <div class="thumb-info">
+          <div class="thumb-name">사진 업로드 완료</div>
+          <div class="thumb-sub" id="cmbThumbSub"></div>
+        </div>
+        <div class="thumb-btns" id="cmbThumbBtns">
+          <button class="reupload-btn" onclick="toggleMirror('combined', this)" title="비대칭 판정이 반대로 나오는 것 같으면 눌러보세요"><span class="material-symbols-outlined" style="font-size:14px;">flip</span> 좌우 반전</button>
+        </div>
+      </div>
+
+      <!-- 사진 등록 후에만 노출 — 사주보기와 동일한 질문으로 관상×사주 리포트에 참고할 맥락을 더 받는다 -->
+      <div class="hidden" id="cmbSajuQBlock" style="margin-top:16px;">
+        <div class="saju-q-block">
+          <div class="saju-q-title">지금의 상황을 알려주세요</div>
+          <div class="saju-chip-row">
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q1','솔로',this)">솔로</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q1','연애중',this)">연애중</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q1','결혼했어요',this)">결혼했어요</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q1','새로운 출발 (돌싱/기타)',this)">새로운 출발 (돌싱/기타)</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q1','직접 입력할게요',this)">직접 입력할게요</button>
+          </div>
+          <input type="text" class="field-input saju-q-custom hidden" id="cmbQ1Custom" placeholder="상황을 입력해주세요" oninput="setSajuCustom('combined','q1', this.value)">
+        </div>
+
+        <div class="saju-divider"></div>
+
+        <div class="saju-q-block">
+          <div class="saju-q-title">주로 어떤 일상을 보내고 계세요</div>
+          <div class="saju-chip-row">
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','학생',this)">학생</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','취업 준비중',this)">취업 준비중</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','주부',this)">주부</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','직장인',this)">직장인</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','자영업/프리랜서',this)">자영업/프리랜서</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','은퇴함',this)">은퇴함</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','직접 입력할게요',this)">직접 입력할게요</button>
+          </div>
+          <input type="text" class="field-input saju-q-custom hidden" id="cmbQ2Custom" placeholder="하시는 일을 입력해주세요" oninput="setSajuCustom('combined','q2', this.value)">
+        </div>
+
+        <div class="saju-divider"></div>
+
+        <div class="saju-q-block">
+          <div class="saju-q-title">특별히 더 궁금한 내용이 있나요. <span class="saju-q-optional">(선택사항)</span></div>
+          <textarea class="field-input saju-textarea" id="cmbQ3" maxlength="100" placeholder="예: 올해 이직운이 있는지 궁금해요, 결혼 시기가 언제쯤일지 등" oninput="onSajuQ3Input('combined', this)"></textarea>
+          <div class="saju-char-counter" id="cmbQ3Counter">0/100</div>
+        </div>
+      </div>
+
+      <input type="hidden" id="cmbBirthDate" value="">
+      <input type="hidden" id="cmbBirthHour" value="-1">
+
+      <div class="spinner" id="cmbSpinner" style="display:none;">
+        <div class="spin-ring"></div>
+        <p style="color:var(--text2);font-size:13px;" id="cmbSpinnerMsg">분석 중...</p>
+      </div>
+      <div class="err-msg" id="cmbErr"></div>
+    </div>
+
+    <div class="cta-dock hidden" id="cmbCtaDock">
+      <button class="submit-btn" onclick="Profile.runCombined()">분석하기</button>
+    </div>
+
+    <div class="card hidden" id="cmbCanvasCard">
+      <div class="card-title">관상 영역 분석</div>
+      <div style="text-align:center;"><div class="canvas-wrap"><canvas id="combinedCanvas"></canvas></div></div>
+    </div>
+
+    <div class="card hidden" id="cmbResult">
+      <div class="card-title" id="cmbResultTitle">🔮 AI 관상 X 사주 개운 리포트</div>
+      <div class="headline-quote" id="cmbHeadline"></div>
+
+      <div id="cmbPhotoLoading" class="hidden" style="text-align:center;color:var(--text2);font-size:13px;padding:24px 0;">🔮 관상 분석중~</div>
+
+      <details class="report-accordion" open>
+        <summary>1️⃣ 기본 관상 리포트</summary>
+        <div id="cmbPhotoSection" class="hidden">
+          <div class="hidden" id="cmbArchetype" style="margin-bottom:16px;"></div>
+        </div>
+        <div class="snapshot-box hidden" id="cmbSnapshot"></div>
+        <div class="summary-box hidden" id="cmbGoldenTime"></div>
+        <div class="card-title" style="margin-top:12px;">📊 나만의 관상 오행 능력치</div>
+        <div class="ohaeng-bars" id="cmbFaceOhaeng" style="margin-bottom:8px;"></div>
+        <div class="card-title" style="margin-top:12px;margin-bottom:12px;">📷 내 얼굴 관상 포인트</div>
+        <div class="part-grid" id="cmbGwansangCards"></div>
+        <div class="card-title" style="margin-top:20px;">🎭 좌우 비대칭으로 본 내면 vs 사회적 모습</div>
+        <div id="cmbAsymmetry" style="margin-bottom:8px;"></div>
+      </details>
+
+      <details class="report-accordion">
+        <summary>2️⃣ 기본 사주 구성</summary>
+        <div id="cmbInsightSection" style="display:none;margin-bottom:16px;">
+          <div class="card-title" style="color:var(--jade);">💡 타고난 기운 &amp; 성향</div>
+          <div class="summary-box" id="cmbSynergyBox" style="margin-top:0;"></div>
+        </div>
+        <div class="card-title" style="margin-bottom:12px;">☯ 사주 원국</div>
+        <div class="pillars-table" id="cmbPillarsTable"></div>
+        <div class="hidden" id="cmbUnseongLegend"></div>
+        <div class="card-title" style="margin-top:16px;margin-bottom:12px;">🌊 대운(大運) — 10년 단위 인생 흐름</div>
+        <div class="hidden" id="cmbDaeunTable"></div>
+        <div class="card-title" style="margin-bottom:12px;">오행 분포</div>
+        <div class="ohaeng-bars" id="cmbOhaengBars"></div>
+        <div class="summary-box hidden" id="cmbOhaengDeepDive" style="margin-top:12px;"></div>
+      </details>
+
+      <details class="report-accordion">
+        <summary>3️⃣ AI가 판단한 관상</summary>
+        <div id="cmbAiFaceExtra" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+      </details>
+
+      <details class="report-accordion">
+        <summary>4️⃣ AI가 판단한 사주</summary>
+        <div id="cmbAiSajuSection" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+      </details>
+
+      <details class="report-accordion">
+        <summary>5️⃣ 총평 · 관상×사주 매칭 · 올해의 흐름 · 보완점</summary>
+        <div id="cmbFusionSection" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+      </details>
+
+      <div class="card hidden" id="cmbComplementSection" style="margin-top:20px;background:transparent;border:none;padding:0;">
+        <div class="card-title" style="color:var(--jade);">📌 Daily 개운 루틴</div>
+        <div id="cmbComplementCards"></div>
+      </div>
+
+      <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:14px;">print</span> 결과 인쇄</button>
+      <button class="submit-btn" style="margin-top:20px;" onclick="resetUpload('combined')">다른 통합분석하기</button>
+    </div>
+  </div>
+
+  <!-- ===== 관상 패널 ===== -->
+  <div class="panel" id="panel-gwansang">
+    <div class="upload-section" id="gwansangUploadSection">
+      <div class="upload-label">관상 정보</div>
+
+      <div class="reassure-box">
+        <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
+        <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
+      </div>
+
+      <div class="upload-area" id="uploadArea"
+           onclick="document.getElementById('fileInput').click()"
+           ondrop="handleDrop('gwansang', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
+        <strong>사진을 클릭하거나 드래그하여 업로드</strong>
+      </div>
+      <div class="tip-box">
+        <span class="icon material-symbols-outlined">warning</span>
+        <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile('gwansang', event)">
+
+      <div class="thumb-area" id="thumbArea">
+        <img id="thumbImg" class="thumb-img" src="" alt="업로드된 사진">
+        <div class="thumb-info">
+          <div class="thumb-name" id="thumbName">사진 업로드 완료</div>
+          <div class="thumb-sub" id="thumbSub">관상 분석 준비됨</div>
+        </div>
+        <div class="thumb-btns" id="gwansangThumbBtns">
+          <button class="reupload-btn" onclick="toggleMirror('gwansang', this)" title="비대칭 판정이 반대로 나오는 것 같으면 눌러보세요"><span class="material-symbols-outlined" style="font-size:14px;">flip</span> 좌우 반전</button>
+        </div>
+      </div>
+
+      <div class="spinner" id="gwansangSpinner">
+        <div class="spin-ring"></div>
+        <p style="color:var(--text2);font-size:13px;" id="spinnerMsg">얼굴 분석 중...</p>
+      </div>
+      <div class="err-msg" id="gwansangErr"></div>
+    </div>
+
+    <div class="cta-dock hidden" id="gwansangCtaDock">
+      <button class="submit-btn" onclick="startAnalysis('gwansang')">관상 분석하기</button>
+    </div>
+
+    <div class="card hidden" id="canvasCard">
+      <!-- 실제 얼굴 분석용 캔버스는 그대로 유지(내부적으로 계속 사용) — 화면에는 안 보이게만 숨긴다 -->
+      <div style="text-align:center;display:none;"><div class="canvas-wrap"><canvas id="gwansangCanvas"></canvas></div></div>
+      <div id="gwansangCharacterCard"></div>
+    </div>
+    <div class="card hidden" id="gwansangResult">
+      <div class="card-title" id="gwansangResultTitle">🔮 AI 관상 개운 리포트</div>
+      <div class="headline-quote" id="gwansangHeadline"></div>
+      <div class="hidden err-msg" id="gwansangForeheadNotice" style="margin-bottom:12px;"></div>
+      <div class="hidden" id="gwansangDeepReport" style="margin-bottom:16px;"></div>
+      <div class="hidden" id="gwansangArchetype" style="margin-bottom:16px;"></div>
+
+      <div class="snapshot-box" id="gwansangSnapshot"></div>
+
+      <div class="card-title">📊 나만의 관상 오행 능력치</div>
+      <div class="ohaeng-bars" id="gwansangFaceOhaeng" style="margin-bottom:8px;"></div>
+
+      <details class="report-accordion">
+        <summary>부위별 상세 리포트 전체 보기 (11개 부위 · 정규화 지표 · 좌우 비대칭)</summary>
+        <div class="part-grid" id="gwansangCards"></div>
+
+        <div class="card-title" style="margin-top:20px;">📏 부위별 3단계 정규화</div>
+        <div id="gwansangTier3" style="margin-bottom:16px;"></div>
+
+        <div class="card-title">🎭 좌우 비대칭으로 본 내면 vs 사회적 모습</div>
+        <div id="gwansangAsymmetry" style="margin-bottom:16px;"></div>
+      </details>
+
+      <div class="summary-box" id="gwansangSummary"></div>
+      <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:14px;">print</span> 결과 인쇄</button>
+      <button class="submit-btn" style="margin-top:20px;" onclick="resetUpload('gwansang')">다른 관상 분석하기</button>
+    </div>
+  </div>
+
+  <!-- ===== 사주 패널 ===== -->
+  <div class="panel" id="panel-saju">
+    <div class="upload-section">
+      <div class="upload-label">사주 분석</div>
+
+      <div class="saju-q-block">
+        <div class="saju-q-title">지금의 상황을 알려주세요</div>
+        <div class="saju-chip-row">
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q1','솔로',this)">솔로</button>
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q1','연애중',this)">연애중</button>
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q1','결혼했어요',this)">결혼했어요</button>
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q1','새로운 출발 (돌싱/기타)',this)">새로운 출발 (돌싱/기타)</button>
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q1','직접 입력할게요',this)">직접 입력할게요</button>
+        </div>
+        <input type="text" class="field-input saju-q-custom hidden" id="sajuQ1Custom" placeholder="상황을 입력해주세요" oninput="setSajuCustom('saju','q1', this.value)">
+      </div>
+
+      <div class="saju-divider"></div>
+
+      <div class="saju-q-block">
+        <div class="saju-q-title">주로 어떤 일상을 보내고 계세요</div>
+        <div class="saju-chip-row">
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','학생',this)">학생</button>
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','취업 준비중',this)">취업 준비중</button>
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','주부',this)">주부</button>
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','직장인',this)">직장인</button>
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','자영업/프리랜서',this)">자영업/프리랜서</button>
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','은퇴함',this)">은퇴함</button>
+          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','직접 입력할게요',this)">직접 입력할게요</button>
+        </div>
+        <input type="text" class="field-input saju-q-custom hidden" id="sajuQ2Custom" placeholder="하시는 일을 입력해주세요" oninput="setSajuCustom('saju','q2', this.value)">
+      </div>
+
+      <div class="saju-divider"></div>
+
+      <div class="saju-q-block">
+        <div class="saju-q-title">특별히 더 궁금한 내용이 있나요. <span class="saju-q-optional">(선택사항)</span></div>
+        <textarea class="field-input saju-textarea" id="sajuQ3" maxlength="100" placeholder="예: 올해 이직운이 있는지 궁금해요, 결혼 시기가 언제쯤일지 등" oninput="onSajuQ3Input('saju', this)"></textarea>
+        <div class="saju-char-counter" id="sajuQ3Counter">0/100</div>
+      </div>
+
+      <input type="hidden" id="birthDate" value="">
+      <input type="hidden" id="birthHour" value="-1">
+    </div>
+    <div class="cta-dock hidden" id="sajuCtaDock">
+      <button class="submit-btn" id="sajuSubmitBtn" onclick="Profile.runSaju()">사주 분석하기</button>
+    </div>
+    <div class="card hidden" id="sajuResult">
+      <div class="card-title">사주 원국 (四柱原局)</div>
+      <div class="pillars-table" id="pillarsTable"></div>
+      <div class="hidden" id="sajuUnseongLegend"></div>
+      <div class="card-title" style="margin-top:16px;">🌊 대운(大運) — 10년 단위 인생 흐름</div>
+      <div class="hidden" id="sajuDaeunTable"></div>
+      <div class="card-title" style="margin-top:16px;">오행 분포</div>
+      <div class="ohaeng-bars" id="ohaengBars"></div>
+      <div class="summary-box hidden" id="sajuOhaengDeepDive" style="margin-top:12px;"></div>
+      <div class="result-grid" id="sajuCards" style="margin-top:12px;"></div>
+      <div class="summary-box" id="sajuSummary"></div>
+      <div class="hidden" id="sajuDeepReport" style="margin-top:16px;"></div>
+      <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:14px;">print</span> 결과 인쇄</button>
+    </div>
+
+    <div class="card hidden" id="sajuComplement">
+      <div class="card-title" style="color:var(--jade);">✨ 오행 · 행동 보완 제안</div>
+      <div id="sajuComplementCards" style="display:flex;flex-direction:column;gap:10px;"></div>
+      <button class="submit-btn" style="margin-top:20px;" onclick="resetSajuForm()">다른 사주 분석하기</button>
+    </div>
+  </div>
+
+  <!-- ===== 궁합 패널 ===== -->
+  <div class="panel" id="panel-gungham">
+    <!-- Person A: 대표 프로필 고정 -->
+    <div class="person-block">
+      <div class="person-label">나</div>
+      <div class="mini-profile-chip" id="ggProfileChipA">
+        <span class="mini-profile-empty">헤더에서 프로필을 먼저 등록해주세요</span>
+      </div>
+
+      <div class="upload-section compact">
+        <div class="upload-label">관상 정보</div>
+        <div class="reassure-box">
+          <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
+          <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
+        </div>
+        <div class="upload-area" id="ggUploadA"
+             onclick="document.getElementById('ggFileA').click()"
+             ondrop="handleDrop('gunghamA', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+          <div class="upload-icon-circle small material-symbols-outlined">photo_camera</div>
+          <strong style="font-size:13px;">사진을 클릭하거나 드래그하여 업로드</strong>
+        </div>
+        <div class="tip-box">
+          <span class="icon material-symbols-outlined">warning</span>
+          <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+        </div>
+        <input type="file" id="ggFileA" accept="image/*" style="display:none" onchange="handleFile('gunghamA', event)">
+        <div class="thumb-area" id="ggThumbA" style="margin-top:12px;">
+          <img id="ggImgA" class="thumb-img" src="" alt="">
+          <div class="thumb-info"><div class="thumb-name">나</div></div>
+          <button class="reupload-btn" onclick="resetUpload('gunghamA')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
+        </div>
+        <input type="hidden" id="ggBirthA" value="">
+      </div>
+    </div>
+
+    <!-- Person B: 프로필 선택 -->
+    <div class="person-block">
+      <div class="person-label">상대방</div>
+      <button class="mini-profile-chip select-mode" id="ggProfileChipB" onclick="Profile.openPartnerPicker()">
+        <span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 상대방 프로필 선택</span>
+      </button>
+
+      <div class="upload-section compact">
+        <div class="upload-label">관상 정보</div>
+        <div class="reassure-box">
+          <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
+          <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
+        </div>
+        <div class="upload-area" id="ggUploadB"
+             onclick="document.getElementById('ggFileB').click()"
+             ondrop="handleDrop('gunghamB', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+          <div class="upload-icon-circle small material-symbols-outlined">photo_camera</div>
+          <strong style="font-size:13px;">사진을 클릭하거나 드래그하여 업로드</strong>
+        </div>
+        <div class="tip-box">
+          <span class="icon material-symbols-outlined">warning</span>
+          <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+        </div>
+        <input type="file" id="ggFileB" accept="image/*" style="display:none" onchange="handleFile('gunghamB', event)">
+        <div class="thumb-area" id="ggThumbB" style="margin-top:12px;">
+          <img id="ggImgB" class="thumb-img" src="" alt="">
+          <div class="thumb-info"><div class="thumb-name">상대방</div></div>
+          <button class="reupload-btn" onclick="resetUpload('gunghamB')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
+        </div>
+        <input type="hidden" id="ggBirthB" value="">
+      </div>
+    </div>
+
+    <div class="err-msg" id="ggErr" style="margin:16px 20px 0;"></div>
+    <div class="cta-dock hidden" id="ggCtaDock">
+      <button class="submit-btn" onclick="Profile.runGungham()">궁합 분석하기</button>
+    </div>
+
+    <div class="card hidden" id="ggCanvasCard" style="margin-top:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <p style="font-size:12px;color:var(--jade);font-weight:700;margin-bottom:8px;">나의 관상</p>
+          <div style="text-align:center;"><canvas id="gunghamCanvasA" style="max-width:100%;border-radius:10px;"></canvas></div>
+        </div>
+        <div>
+          <p style="font-size:12px;color:var(--jade);font-weight:700;margin-bottom:8px;">상대방 관상</p>
+          <div style="text-align:center;"><canvas id="gunghamCanvasB" style="max-width:100%;border-radius:10px;"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 궁합 결과 -->
+    <div class="card hidden" id="ggResult" style="margin-top:16px;">
+      <div class="card-title" id="ggResultTitle">👩‍❤️‍👨 AI 관상 &amp; 사주 궁합 리포트</div>
+      <div class="headline-quote" id="ggHeadline"></div>
+
+      <div class="card-title" style="margin-bottom:12px;">🙋 나의 관상 &amp; 사주</div>
+      <div class="summary-box" id="ggPersonACards" style="margin-bottom:12px;"></div>
+      <div class="pillars-table" id="ggPillarsA" style="margin-bottom:8px;"></div>
+      <div class="hidden" id="ggUnseongLegendA"></div>
+      <div class="ohaeng-bars" id="ggOhaengA" style="margin-top:8px;"></div>
+      <div class="summary-box hidden" id="ggOhaengDeepDiveA" style="margin-top:8px;"></div>
+      <div class="hidden" id="ggArchetypeA" style="margin-top:12px;"></div>
+      <div class="summary-box hidden" id="ggGoldenTimeA" style="margin-top:12px;margin-bottom:20px;"></div>
+
+      <div class="card-title" style="margin-bottom:12px;">🙋‍♂️ 상대방의 관상 &amp; 사주</div>
+      <div class="summary-box" id="ggPersonBCards" style="margin-bottom:12px;"></div>
+      <div class="pillars-table" id="ggPillarsB" style="margin-bottom:8px;"></div>
+      <div class="hidden" id="ggUnseongLegendB"></div>
+      <div class="ohaeng-bars" id="ggOhaengB" style="margin-top:8px;"></div>
+      <div class="summary-box hidden" id="ggOhaengDeepDiveB" style="margin-top:8px;"></div>
+      <div class="hidden" id="ggArchetypeB" style="margin-top:12px;"></div>
+      <div class="summary-box hidden" id="ggGoldenTimeB" style="margin-top:12px;margin-bottom:20px;"></div>
+
+      <div class="card-title" style="margin-bottom:12px;">🎭 관상 케미 분석 (두 얼굴의 합)</div>
+      <div id="ggRoleCards"></div>
+
+      <div class="card-title" style="margin-top:20px;margin-bottom:12px;">👥 얼굴형·눈·입·광대 조합으로 보는 궁합</div>
+      <div id="ggFaceComboCards"></div>
+
+      <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 사주 기운의 케미 (에너지의 합)</div>
+      <div id="ggEnergyCards"></div>
+
+      <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🚨 티격태격 모먼트 &amp; 극복 전략</div>
+      <div id="ggMomentCards"></div>
+
+      <div class="card hidden" id="ggComplementSection" style="margin-top:20px;background:transparent;border:none;padding:0;">
+        <div class="card-title" style="color:var(--jade);">🌿 커플 전용 개운 루틴</div>
+        <div id="ggComplementCards"></div>
+      </div>
+
+      <div class="hidden" id="ggAiResult"></div>
+
+      <details style="margin-top:20px;">
+        <summary style="cursor:pointer;font-size:11px;color:var(--text2);">참고용 궁합 점수·오행 분포 보기</summary>
+        <div class="compat-score-box" style="margin-top:12px;">
+          <div class="compat-num" id="ggScore">0</div>
+          <div class="compat-grade" id="ggGrade">분석 중</div>
+          <div class="compat-desc" id="ggDesc"></div>
+        </div>
+        <div class="compat-bars" id="ggBars"></div>
+      </details>
+
+      <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:14px;">print</span> 결과 인쇄</button>
+      <button class="submit-btn" style="margin-top:20px;" onclick="resetGunghamResult()">다른 궁합 분석하기</button>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<nav class="bottom-nav">
+  <button class="tab-btn active" onclick="switchTab('combined', this)"><span class="nav-icon material-symbols-outlined">auto_awesome</span><span>통합분석</span></button>
+  <button class="tab-btn" onclick="switchTab('gwansang', this)"><span class="nav-icon material-symbols-outlined">face</span><span>관상보기</span></button>
+  <button class="tab-btn" onclick="switchTab('saju', this)"><span class="nav-icon material-symbols-outlined">nightlight</span><span>사주보기</span></button>
+  <button class="tab-btn" onclick="switchTab('gungham', this)"><span class="nav-icon material-symbols-outlined">favorite</span><span>궁합보기</span></button>
+</nav>
+
+<div id="profileOverlayRoot"></div>
+
+<!-- 만세력(사주 4기둥) 계산 — 절기(24절기) 기준 월주 산출과 정확한 일주 갑자를 위해 자체 계산식 대신 검증된
+     오픈소스 라이브러리를 사용한다. 자체 계산식은 절기 미반영으로 월주가, 잘못된 기준일(epoch)로 일주가
+     체계적으로 틀리는 문제가 있었다(2026-08-13 버그 리포트로 발견). -->
+<script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
+<script src="https://developers.kakao.com/sdk/js/kakao.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="js/archetype-db.js"></script>
+<script src="js/landmark-engine.js"></script>
+<script src="js/config.js"></script>
+<script src="js/firebase-init.js"></script>
+<script src="js/kakao-auth.js"></script>
+<!-- 16캐릭터 시스템(신규 별도 레이어) — archetype-db.js/landmark-engine.js 다음, app.js보다 먼저 로드 -->
+<script src="js/character/trait-config.js"></script>
+<script src="js/character/face-trait-map.js"></script>
+<script src="js/character/saju-trait-map.js"></script>
+<script src="js/character/character-db.js"></script>
+<script src="js/character/character-engine.js"></script>
+<script src="js/ai-analysis.js"></script>
+<script src="js/app.js"></script>
+<script src="js/profile.js"></script>
+</body>
+</html>

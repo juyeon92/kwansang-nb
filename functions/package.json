@@ -1,0 +1,11 @@
+{
+  "name": "functions",
+  "description": "관상냥반 — 카카오 액세스 토큰을 검증해 Firebase 커스텀 토큰을 발급하는 Cloud Function",
+  "engines": { "node": "22" },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^5.0.0"
+  },
+  "private": true
+}
