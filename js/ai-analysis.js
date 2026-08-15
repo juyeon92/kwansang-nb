@@ -1517,12 +1517,21 @@ function renderShapeDetailsHtml(ids) {
 // 'rule' = 관상보기 탭 전용 — Gemini 실패로 인한 대체가 아니라 애초에 룰베이스가 기본 판정 방식이므로
 // "약식 추정/호출 실패" 문구를 붙이지 않는다(기존 fallback 문구는 "AI가 원래 방법인데 실패해서 대신"
 // 이라는 톤이라 그대로 쓰면 오해를 줌).
-function renderArchetypes(elId, eyeId, faceId, mode, shapeIds, fallbackReason, genderVal) {
+// shapeElId(선택): "🧩 부위별 생김새 유형" 블록만 다른 컨테이너에 따로 렌더한다. 관상보기 탭은 이 블록부터
+// 아래 전부를 접이식 아코디언 안에 넣기로 해서(사용자 요청 2026-08-15), 형상 카드(눈·전체 인상)는 카드
+// 바깥에 그대로 두고 생김새 유형만 아코디언 안으로 옮겨야 하기 때문. 안 넘기면 기존처럼 한 덩어리로 붙는다.
+function renderArchetypes(elId, eyeId, faceId, mode, shapeIds, fallbackReason, genderVal, shapeElId) {
   const el = document.getElementById(elId);
   if (!el) return;
   const eye = EYE_ARCHETYPE_DB[eyeId];
   const face = FACE_ARCHETYPE_DB[faceId];
   const shapeHtml = renderShapeDetailsHtml(shapeIds);
+  const shapeEl = shapeElId ? document.getElementById(shapeElId) : null;
+  if (shapeEl) {
+    shapeEl.innerHTML = shapeHtml
+      ? `<div class="card-title" style="color:var(--purple-light);">🧩 부위별 생김새 유형</div>${shapeHtml}`
+      : '';
+  }
   if (!eye && !face && !shapeHtml) { el.classList.add('hidden'); return; }
   const isFallback = mode === true || mode === 'fallback';
   const isRule = mode === 'rule';
@@ -1536,7 +1545,7 @@ function renderArchetypes(elId, eyeId, faceId, mode, shapeIds, fallbackReason, g
       ? `<div style="font-size:11px;color:var(--text2);margin-top:2px;">※ AI 호출이 실패해서 눈·얼굴 비율만으로 약식 추정했어요. (사유: ${fallbackReason})</div>`
       : `<div style="font-size:11px;color:var(--text2);margin-top:2px;">※ AI 연결 없이 눈·얼굴 비율만으로 약식 추정한 결과예요.</div>`
     : '';
-  const shapeSection = shapeHtml ? `<div class="card-title" style="color:var(--purple-light);margin-top:18px;">🧩 부위별 생김새 유형</div>${shapeHtml}` : '';
+  const shapeSection = (shapeHtml && !shapeEl) ? `<div class="card-title" style="color:var(--purple-light);margin-top:18px;">🧩 부위별 생김새 유형</div>${shapeHtml}` : '';
   el.innerHTML = `<div class="card-title" style="color:var(--purple-light);">${titleTag}</div>`
     + archetypeCardHtml(eye, eyeIconSVG(eyeId), '👁 눈 유형', genderVal)
     + archetypeCardHtml(face, `<span style="font-size:36px;">${FACE_ARCHETYPE_EMOJI[faceId] || '🔮'}</span>`, '🎭 전체 인상 유형', genderVal)
@@ -1578,7 +1587,7 @@ function renderArchetypesFallback(archetypeId, lm, fallbackReason, genderVal) {
 // cardsId는 궁합 탭엔 부위별 카드 그리드가 없어서 실제로 안 쓰이지만(renderPartAdditions가 컨테이너를
 //못 찾으면 조용히 스킵), 나머지 컨텍스트와 동일한 형태를 유지하기 위해 값만 채워둔다.
 const CTX_CONFIG = {
-  gwansang: () => ({ canvasId:'gwansangCanvas', cardsId:'gwansangCards', archetypeId:'gwansangArchetype', deepReportId:'gwansangDeepReport', relVal:state.gwansang.relation, pillars:null, ohaeng:null, genderVal:gender }),
+  gwansang: () => ({ canvasId:'gwansangCanvas', cardsId:'gwansangCards', archetypeId:'gwansangArchetype', shapeDetailId:'gwansangShapeDetails', deepReportId:'gwansangDeepReport', relVal:state.gwansang.relation, pillars:null, ohaeng:null, genderVal:gender }),
   combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', deepReportId:null, aiFaceId:'cmbAiFaceExtra', aiSajuId:'cmbAiSajuSection', fusionId:'cmbFusionSection', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
   gunghamA: () => ({ canvasId:'gunghamCanvasA', cardsId:'ggPersonACards', archetypeId:'ggArchetypeA', deepReportId:null, relVal:'연인/배우자', pillars:state.gunghamA.pillars, ohaeng:state.gunghamA.ohaeng, genderVal:ggGenderA }),
   gunghamB: () => ({ canvasId:'gunghamCanvasB', cardsId:'ggPersonBCards', archetypeId:'ggArchetypeB', deepReportId:null, relVal:'연인/배우자', pillars:state.gunghamB.pillars, ohaeng:state.gunghamB.ohaeng, genderVal:ggGenderB }),
@@ -1737,15 +1746,101 @@ function renderCharacterCard(elId, characterResult) {
   `;
 }
 
+// 16캐릭터 상세 설명 — 일러스트 카드(renderCharacterCard) 바로 아래에 캐릭터별 확정 콘텐츠를 펼친다.
+// 렌더링 로직은 character-db.js의 고정 필드를 템플릿에 끼우는 것뿐이고 AI 호출은 전혀 없다(스펙 §1).
+// 상황 5종은 기획서 §26 원문("일할 때·사람을 만날 때·연애할 때·돈을 다룰 때·힘든 상황에서") 그대로.
+const CHARACTER_SITUATION_FIELDS = [
+  { key: 'work', icon: '💼', label: '일할 때' },
+  { key: 'relationship', icon: '🤝', label: '사람을 만날 때' },
+  { key: 'love', icon: '💗', label: '연애할 때' },
+  { key: 'money', icon: '💰', label: '돈을 다룰 때' },
+  { key: 'growth', icon: '🌱', label: '힘든 상황에서' },
+];
+// 궁합 3분류 표시 톤 — 스펙 §4: "안 맞음/최악"처럼 단정적으로 쓰지 말 것. 색상은 잘 맞음=success,
+// 자극=accent, 부딪힘=danger 계열(.char-tag.is-good/is-spark/is-clash).
+const CHARACTER_COMPAT_GROUPS = [
+  { key: 'good', cls: 'is-good', label: '잘 맞아요' },
+  { key: 'spark', cls: 'is-spark', label: '자극이 돼요' },
+  { key: 'clash', cls: 'is-clash', label: '부딪힐 수 있어요' },
+];
+// 유료(서비스2) 영역의 기본 펼침 여부. 지금은 서비스2 콘텐츠를 눈으로 검증하는 단계라 true로 열어둔다
+// (사용자 요청 2026-08-15: "우선은 서비스2를 검증하기 위해 전체로 보여줘"). 결제 연동 시점에 false로
+// 바꾸면 접힌 상태가 기본이 되고, 그 자리에서 결제 → Gemini 정밀 해석 호출로 연결하면 된다.
+const CHARACTER_PAID_SECTION_OPEN = true;
+
+// 판정 근거(6대 기질 점수·Top2·신뢰도)는 화면에 노출하지 않는다 — 사용자 요청 2026-08-15:
+// "판정 근거는 필요 없어, 그냥 콘솔로만 찍어". 값 자체는 requestPersonalAiRuleBased의 console.log
+// ([16캐릭터] …)로 계속 확인할 수 있고, characterResult로도 state에 그대로 남아 있다.
+function renderCharacterDetail(elId, characterResult) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const character = characterResult && CHARACTER_DB[characterResult.characterId];
+  if (!character) { el.innerHTML = ''; return; }
+
+  const listHtml = (items, cls) => `<ul class="char-detail-list ${cls}">${items.map(s => `<li>${s}</li>`).join('')}</ul>`;
+  const situationHtml = CHARACTER_SITUATION_FIELDS
+    .filter(f => character[f.key])
+    .map(f => `<div class="char-detail-row">
+        <div class="char-detail-row-head">${f.icon} ${f.label}</div>
+        <div class="char-detail-row-text">${character[f.key]}</div>
+      </div>`).join('');
+
+  const tags = getCompatibilityTags(character.id);
+  const compatHtml = tags ? CHARACTER_COMPAT_GROUPS.map(g => {
+    if (!tags[g.key] || !tags[g.key].length) return '';
+    return `<div class="char-tag-group">
+        <span class="char-tag-label">${g.label}</span>
+        ${tags[g.key].map(t => `<span class="char-tag ${g.cls}">${t.name}</span>`).join('')}
+      </div>`;
+  }).join('') : '';
+
+  // 스펙 §2의 서비스1(무료) / 서비스2(유료) 경계를 그대로 UI 경계로 옮겼다 — shadow와 상황별 5종은
+  // "구체적 상황 서사라 안 맞으면 이탈 리스크가 큰" 유료 영역이므로 별도 아코디언으로 분리한다.
+  const paidHtml = `<details class="char-paid" ${CHARACTER_PAID_SECTION_OPEN ? 'open' : ''}>
+      <summary class="char-paid-summary">더 깊은 해석 보기 (그림자 · 상황별 5가지)</summary>
+      <div class="char-paid-body">
+        <div class="char-detail-sec" style="margin-top:4px;">
+          <div class="char-detail-sec-title">이런 점은 조심하면 좋아요</div>
+          ${listHtml(character.shadow, 'is-shadow')}
+        </div>
+        <div class="char-detail-sec">
+          <div class="char-detail-sec-title">상황별로 보면</div>
+          ${situationHtml}
+        </div>
+      </div>
+    </details>`;
+
+  el.innerHTML = `
+    <div class="char-detail">
+      <div class="char-detail-head">
+        <span class="char-detail-role">${character.modernRole}</span>
+        <div class="char-detail-headline">${character.headline}</div>
+      </div>
+      <div class="char-detail-origin">${character.originStory}</div>
+
+      <div class="char-detail-sec">
+        <div class="char-detail-sec-title">이런 점이 강해요</div>
+        ${listHtml(character.strengths, 'is-strength')}
+      </div>
+
+      ${compatHtml ? `<div class="char-detail-sec">
+        <div class="char-detail-sec-title">다른 관상과의 궁합</div>
+        ${compatHtml}
+      </div>` : ''}
+
+      ${paidHtml}
+
+      <div class="char-detail-note">※ 전통 관상학을 바탕으로 한 문화·엔터테인먼트 해석이며, 얼굴 실측값으로 판별한 유형에 맞춰 미리 준비된 설명이에요.</div>
+    </div>`;
+}
+
 function requestPersonalAiRuleBased(ctx, cfg, lm) {
   const { ids, confidences } = classifyAllFeaturesRuleBased(lm);
   state[ctx].archetypeAnalysis = extractArchetypeAnalysis(ids);
   state[ctx].ruleBasedConfidences = confidences;
 
-  renderArchetypes(cfg.archetypeId, ids.eye_archetype_id, ids.face_archetype_id, 'rule', ids, null, cfg.genderVal);
+  renderArchetypes(cfg.archetypeId, ids.eye_archetype_id, ids.face_archetype_id, 'rule', ids, null, cfg.genderVal, cfg.shapeDetailId);
 
-  // 16캐릭터 시스템 — Phase 1(엔진만) 단계라 UI 카드는 아직 없다. 결과 자체는 이미 결정론적으로
-  // 나오므로 지금은 state에 붙여만 두고 콘솔로 확인 가능하게 한다(다음 단계에서 Hero Card로 연결).
   const ratios = getGwansangRatios(lm);
   const partStatusMap = judgePartStatus(ratios);
   const characterResult = computeCharacterResult({
@@ -1762,7 +1857,11 @@ function requestPersonalAiRuleBased(ctx, cfg, lm) {
   if (characterResult) console.log(`[16캐릭터] ${ctx}:`, characterResult);
 
   // #canvasCard 자리를 캐릭터 일러스트 카드로 쓰기로 함(사용자 요청 2026-08-14) — 관상보기 탭 한정.
-  if (ctx === 'gwansang') renderCharacterCard('gwansangCharacterCard', characterResult);
+  // 그 아래 리포트 안에는 같은 캐릭터의 상세 설명을 펼친다(사용자 요청 2026-08-15).
+  if (ctx === 'gwansang') {
+    renderCharacterCard('gwansangCharacterCard', characterResult);
+    renderCharacterDetail('gwansangCharacterDetail', characterResult);
+  }
 
   // requestDeepReport가 뒤이어 getOrRequestPersonalAiData(Gemini 분류 호출)로 이 값을 덮어쓰지
   // 못하게 막는 플래그 — 안 막으면 방금 만든 룰베이스 결과가 Gemini 재호출로 다시 흔들린다.

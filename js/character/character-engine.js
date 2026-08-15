@@ -118,12 +118,28 @@ function computeSajuTraitRaw(pillars, ohaengCounts, sinsalList, gwiinList) {
   return { raw, evidence };
 }
 
+// ── 리스크1(분포 쏠림) 대응 — 도메인별 z-score 정규화 ──────────────────────────
+// raw(0~1 가중평균)를 그대로 융합하면 두 가지가 깨진다: ①관상 feature 벡터 자체가
+// drive/social/stability 쪽으로 구조적으로 후하게 설계돼 있어 그 방향 기질이 항상 높게 나옴,
+// ②관상 raw의 스케일(mean 0.22~0.32)이 사주 raw 스케일(mean 0.12~0.19)보다 커서, 단순
+// 가중합을 하면 "관상 70%: 사주 30%"라는 의도보다 사주 실제 기여도가 더 쪼그라든다(약 81:19로
+// 왜곡). z-score(기질별·도메인별 baseline 대비 정규화)로 바꾸면 두 문제가 동시에 해결된다 —
+// 정규화 후에는 두 도메인 모두 "평균 0, 표준편차 1" 기준이라 그 다음 가중합이 실제로 의도한
+// 비율대로 반영된다. baseline 값은 trait-config.js의 FACE_TRAIT_BASELINE/SAJU_TRAIT_BASELINE
+// 참고(현재는 실사용자 데이터가 없어 시뮬레이션 기반 근사치 — §37 데이터 축적 후 교체 예정).
+function zScoreNormalize(raw, baseline) {
+  const z = {};
+  TRAITS.forEach(t => { z[t] = (raw[t] - baseline[t].mean) / baseline[t].stdev; });
+  return z;
+}
+
 // ── 관상×사주 최종 통합 (기획서 §12) ──────────────────────────────────────────
 // hasFace/hasSaju/hasHour: 어떤 데이터가 있는지에 따라 FUSION_WEIGHT 중 하나를 고른다.
-// 반환하는 traitScores는 0~100 범위이되, 균형형(군자상) 판정이 유효하려면 원점수의 "상대적 퍼짐"을
-// 그대로 보존해야 한다 — 그래서 calcFaceOhaeng처럼 화면용 대비 강조(순위 기반 스케일업)를 절대 하지
-// 않는다. 그런 보정을 넣으면 실제로 고르게 나온 사람도 인위적으로 벌어져 버려 GUNJA_STDEV_MAX/
-// GUNJA_RANGE_MAX 임계값 자체가 무의미해진다(이번 검토에서 확인한 리스크 — 아래 응답 설명 참고).
+// z-score로 정규화한 뒤 가중합하고, 화면/판정용으로 T-score 변환(평균 50, ±1표준편차 15점)해
+// 0~100 범위로 옮긴다. 이 변환은 순수 선형(score = 50 + z×15)이라 상대적 분산 구조를 그대로
+// 보존한다 — calcFaceOhaeng류의 "대비 강조"(순위 기반으로 인위적으로 벌리는 방식)와는 다르다.
+// 그런 방식을 쓰면 실제로 고르게 나온 사람도 강제로 벌어져 버려 GUNJA_STDEV_MAX/GUNJA_RANGE_MAX
+// 임계값 자체가 무의미해진다(이전 검토에서 확인한 안티패턴 — 절대 재도입 금지).
 function combineFinalTraitScore(faceResult, sajuResult, hasHour) {
   let weight;
   let basisLabel;
@@ -139,11 +155,14 @@ function combineFinalTraitScore(faceResult, sajuResult, hasHour) {
   } else {
     return null;
   }
+  const zFace = faceResult ? zScoreNormalize(faceResult.raw, FACE_TRAIT_BASELINE) : null;
+  const zSaju = sajuResult ? zScoreNormalize(sajuResult.raw, SAJU_TRAIT_BASELINE) : null;
   const traitScores = {};
   TRAITS.forEach(t => {
-    const faceV = faceResult ? faceResult.raw[t] : 0;
-    const sajuV = sajuResult ? sajuResult.raw[t] : 0;
-    traitScores[t] = Math.max(0, Math.min(100, Math.round((faceV * weight.face + sajuV * weight.saju) * 100)));
+    const zf = zFace ? zFace[t] : 0;
+    const zs = zSaju ? zSaju[t] : 0;
+    const zCombined = zf * weight.face + zs * weight.saju;
+    traitScores[t] = Math.max(0, Math.min(100, Math.round(T_SCORE_CENTER + zCombined * T_SCORE_SPREAD)));
   });
   return { traitScores, basisLabel };
 }
