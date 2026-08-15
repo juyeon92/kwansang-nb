@@ -192,8 +192,8 @@
   }
 
   // ── 헤더 Info box 렌더 ────────────────────────────────────────────────
-  // 비로그인 상태에서는 프로필 등록으로 보내지 않고 로그인부터 유도한다 — 지금은 로그인 수단이
-  // 카카오뿐이라 바로 KakaoAuth.login()을 연결한다(다른 로그인 수단이 추가되면 선택 화면으로 교체).
+  // 비로그인 상태에서는 프로필 등록으로 보내지 않고 로그인부터 유도한다 —
+  // 헤더 아이콘과 동일하게 로그인 팝업(KakaoAuth.openLoginPopup)을 띄운다.
   function renderHeader() {
     const box = document.getElementById('profileInfoBox');
     if (!box) return;
@@ -202,7 +202,7 @@
       box.innerHTML = `
         <span class="profile-name profile-empty">로그인하고 프로필을 등록해주세요</span>
         <span class="profile-edit-icon material-symbols-outlined">edit</span>`;
-      box.onclick = function () { if (window.KakaoAuth) KakaoAuth.login(); };
+      box.onclick = function () { if (window.KakaoAuth) KakaoAuth.openLoginPopup(); };
       return;
     }
     const rep = getRepresentative();
@@ -251,8 +251,12 @@
   function closeOverlay() { const r = root(); if (r) r.innerHTML = ''; document.body.classList.remove('overlay-open'); }
 
   // ── 프로필 전환 바텀시트 ─────────────────────────────────────────────
+  // opts.onDone: 선택/취소 후 오버레이를 닫는 대신 실행할 콜백 — 마이페이지처럼
+  // "프로필 변경 후 원래 팝업으로 돌아가야" 하는 화면이 자기 화면을 다시 그릴 수 있게 해준다.
+  let switcherOpts = {};
   function openSwitcher(opts) {
     opts = opts || {};
+    switcherOpts = opts;
     const list = loadProfiles();
     if (list.length === 0) { openForm(null, opts); return; }
     const rep = getRepresentative();
@@ -274,11 +278,11 @@
     }).join('');
 
     root().innerHTML = `
-      <div class="overlay-backdrop" onclick="Profile.close()"></div>
+      <div class="overlay-backdrop" onclick="Profile._dismissSwitcher()"></div>
       <div class="bottomsheet">
         <div class="bottomsheet-header">
           <span>${forPartner ? '상대방 프로필 선택' : '사주 관리'}</span>
-          <button class="overlay-close" onclick="Profile.close()"><span class="material-symbols-outlined">close</span></button>
+          <button class="overlay-close" onclick="Profile._dismissSwitcher()"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="profile-row-list">${rows}</div>
         <button class="btn-solid-primary btn-add" onclick="Profile._openAdd(${forPartner})"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px;">add</span> 사주 추가하기</button>
@@ -295,10 +299,17 @@
     } else {
       setRepresentative(id);
     }
-    closeOverlay();
+    finishSwitcher();
   }
-  function editRow(id, forPartner) { openForm(getProfile(id), { forPartner: forPartner }); }
-  function openAdd(forPartner) { openForm(null, { forPartner: forPartner }); }
+  // 선택을 끝냈거나(닫기/배경 클릭 포함) 취소했을 때 — 호출자가 돌아갈 화면을 지정했으면 그 화면으로,
+  // 아니면 지금처럼 오버레이를 완전히 닫는다.
+  function finishSwitcher() {
+    const onDone = switcherOpts.onDone;
+    switcherOpts = {};
+    if (onDone) onDone(); else closeOverlay();
+  }
+  function editRow(id, forPartner) { openForm(getProfile(id), { forPartner: forPartner, onDone: switcherOpts.onDone }); }
+  function openAdd(forPartner) { openForm(null, { forPartner: forPartner, onDone: switcherOpts.onDone }); }
 
   // ── 등록/수정 폼 팝업 ────────────────────────────────────────────────
   let draft = null;
@@ -311,6 +322,7 @@
     };
     draft._forPartner = !!opts.forPartner;
     draft._onSavedRun = opts.onSavedRun || null;
+    draft._onDone = opts.onDone || null;
     renderForm();
   }
 
@@ -319,11 +331,11 @@
     const dateText = (d.birthYear && d.birthMonth && d.birthDay) ? fmtYmd(d.birthYear, d.birthMonth, d.birthDay) : '';
     const hourText = hourLabel(d.birthHour);
     root().innerHTML = `
-      <div class="overlay-backdrop" onclick="Profile.close()"></div>
+      <div class="overlay-backdrop" onclick="Profile._dismissForm()"></div>
       <div class="form-popup">
         <div class="popup-header">
           <span>${d.id ? '사주 수정' : '사주 등록'}</span>
-          <button class="overlay-close" onclick="Profile.close()"><span class="material-symbols-outlined">close</span></button>
+          <button class="overlay-close" onclick="Profile._dismissForm()"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="popup-body">
           <div class="field-group">
@@ -368,7 +380,7 @@
           </div>
         </div>
         <div class="popup-footer">
-          <button class="btn-outline-primary" onclick="Profile.close()">취소</button>
+          <button class="btn-outline-primary" onclick="Profile._dismissForm()">취소</button>
           <button class="btn-solid-primary" onclick="Profile._save()">저장하기</button>
         </div>
       </div>`;
@@ -380,6 +392,13 @@
   function setCalendarType(t) { draft.calendarType = t; renderForm(); }
   function setGender(g) { draft.gender = g; renderForm(); }
 
+  // 폼을 저장하지 않고 닫을 때 — 호출자가 돌아갈 화면(onDone)을 지정했으면 그 화면으로 되돌린다.
+  function dismissForm() {
+    const onDone = draft && draft._onDone;
+    draft = null;
+    if (onDone) onDone(); else closeOverlay();
+  }
+
   function saveDraft() {
     if (!draft.name || !draft.name.trim()) { alert('이름을 입력해주세요.'); return; }
     if (!draft.birthYear) { alert('생년월일을 선택해주세요.'); return; }
@@ -388,11 +407,13 @@
     draft.solarDate = solar;
     const forPartner = draft._forPartner;
     const onSavedRun = draft._onSavedRun;
+    const onDone = draft._onDone;
     delete draft._forPartner;
     delete draft._onSavedRun;
+    delete draft._onDone;
     const savedId = upsertProfile(draft);
     if (forPartner) { gunghamPartnerId = savedId; renderGunghamB(getProfile(savedId)); }
-    closeOverlay();
+    if (onDone) onDone(); else closeOverlay();
     if (onSavedRun === 'saju') runSaju();
     else if (onSavedRun === 'combined') runCombinedWrapped();
   }
@@ -514,8 +535,21 @@
   else init();
 
   // ── 외부 노출 ────────────────────────────────────────────────────────
+  // 마이페이지 등 외부 화면이 대표 프로필을 표시할 때 쓰는 요약 정보
+  function describeProfile(p) {
+    if (!p) return null;
+    return {
+      name: p.name,
+      relation: p.relationDetail || p.relation,
+      birth: `${fmtYmd(...String(p.solarDate || '').split('-'))} · ${hourShort(p.birthHour)}`,
+    };
+  }
+
   window.Profile = {
     openSwitcher, close: closeOverlay,
+    getRepresentative, describe: describeProfile,
+    getGunghamPartner: function () { return gunghamPartnerId ? getProfile(gunghamPartnerId) : null; },
+    _dismissSwitcher: finishSwitcher, _dismissForm: dismissForm,
     runSaju, runCombined: runCombinedWrapped, runGungham: runGunghamWrapped,
     openPartnerPicker: () => openSwitcher({ forPartner: true }),
     _pickRow: pickRow, _editRow: editRow, _openAdd: openAdd,

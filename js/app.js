@@ -270,6 +270,7 @@ async function startAnalysis(ctx) {
     hideSpinner(m.spinner);
     document.getElementById('gwansangResult').classList.remove('hidden');
     markAnalyzed('gwansang');
+    if (window.Archive) Archive.save('gwansang'); // 보관함 — 리포트가 완성된 이 지점에서 스냅샷
   } else if (ctx === 'combined') {
     document.getElementById('cmbCanvasCard').classList.remove('hidden');
   }
@@ -1150,7 +1151,14 @@ async function calcSaju(ctx) {
   renderComplementCards(complementItems, 'sajuComplementCards', 'sajuComplement');
 
   // 사진이 없는 탭이라 requestPersonalAi/requestDeepReport(사진 전제)를 못 쓰므로 별도 함수로 연결.
-  await requestSajuDeepReport(pillars, count, 'sajuDeepReport', state.saju.relation);
+  // AI 해설이 실패해도(프록시 장애·한도 초과 등) 사주 원국·오행 등 로컬 계산 결과는 이미 완성돼 있으므로
+  // 보관까지는 반드시 도달해야 한다 — 여기서 예외를 흡수한다.
+  try {
+    await requestSajuDeepReport(pillars, count, 'sajuDeepReport', state.saju.relation);
+  } catch (e) {
+    console.error('[saju] AI 해설 실패 — 보관은 계속 진행', e);
+  }
+  if (window.Archive) Archive.save('saju'); // 보관함 — AI 해설까지 끝난 뒤에 스냅샷
 }
 
 // ═══ COMBINED ═══
@@ -1203,8 +1211,14 @@ async function runCombined() {
       const ext = renderExtendedAnalysis(lm, { asymmetry:'cmbAsymmetry', faceOhaeng:'cmbFaceOhaeng' });
       renderGoldenTime('cmbGoldenTime', ext.samjeong, calcAge(dateVal), pillars[2].stem);
       renderSnapshotHighlights(ext.ratios, 'cmbSnapshot');
-      await requestPersonalAi('combined'); // 키가 없어도 룰베이스 약식 추정으로 대체됨 — 로컬+AI(or 약식)가 다 끝난 뒤에 사진 섹션을 공개
-      await requestDeepReport('combined');
+      // AI가 실패해도 사주·관상 로컬 분석 결과는 이미 완성돼 있다 — 예외로 함수가 중단되면 아래
+      // 개운 루틴 렌더와 보관함 저장까지 통째로 건너뛰므로, 여기서 흡수하고 진행한다.
+      try {
+        await requestPersonalAi('combined'); // 키가 없어도 룰베이스 약식 추정으로 대체됨 — 로컬+AI(or 약식)가 다 끝난 뒤에 사진 섹션을 공개
+        await requestDeepReport('combined');
+      } catch (e) {
+        console.error('[combined] AI 해설 실패 — 나머지 렌더와 보관은 계속 진행', e);
+      }
       document.getElementById('cmbPhotoLoading').classList.add('hidden');
       document.getElementById('cmbPhotoSection').classList.remove('hidden');
     } else {
@@ -1223,6 +1237,7 @@ async function runCombined() {
     renderComplementCards(items, 'cmbComplementCards', null);
   }
   document.getElementById('cmbComplementSection').classList.remove('hidden');
+  if (window.Archive) Archive.save('combined'); // 보관함 — 사진 분석·AI 해설까지 끝난 뒤에 스냅샷
 }
 
 // ═══ GUNGHAM ═══
@@ -1312,6 +1327,7 @@ async function runGungham() {
 
   // ⑤ Gemini 정밀 해석 자동 요청(수동 버튼 없음) — 키가 없으면 requestCoupleAi 내부에서 조용히 스킵된다.
   await requestCoupleAi();
+  if (window.Archive) Archive.save('gungham'); // 보관함 — AI 해석까지 끝난 뒤에 스냅샷
 }
 
 // ── 나이 → 인생 시기(초년/중년/말년) 및 골든타임 서술 (설계문서 §3-2,3) ──
