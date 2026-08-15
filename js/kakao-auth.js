@@ -168,17 +168,23 @@
       closeDialog();
       goToMain();
     };
-    if (window.Profile) Profile.clearLocal(); // 계정에 연결된 프로필이 로그아웃 후 화면에 남지 않도록 즉시 비운다
-    if (window.Archive) Archive.clearLocal();
-    if (window.fbAuth && fbAuth.currentUser) fbAuth.signOut().catch(e => console.error('Firebase 로그아웃 실패', e));
-    // 카카오 토큰이 이미 만료됐으면 logout 요청이 401로 끝나고 콜백이 오지 않을 수 있다 —
-    // 로딩이 영영 안 걷히지 않도록 타임아웃을 함께 건다.
-    if (window.Kakao && Kakao.Auth.getAccessToken()) {
-      Kakao.Auth.logout(finish);
-      setTimeout(finish, 3000);
-    } else {
-      setTimeout(finish, 500); // 최소 노출 시간 — 로딩이 깜빡이고 사라지지 않도록
-    }
+    // 방금 등록한 프로필의 클라우드 동기화가 아직 전송 중일 수 있다. 그 상태로 signOut()을 부르면
+    // Firestore가 미전송 쓰기를 버려서, 다시 로그인했을 때 프로필이 사라진 것처럼 보인다.
+    // 로딩을 이미 띄워둔 참이니 여기서 기다렸다가 로그아웃한다.
+    const flush = (window.Profile && Profile.flushPending) ? Profile.flushPending() : Promise.resolve();
+    flush.then(function () {
+      if (window.fbAuth && fbAuth.currentUser) fbAuth.signOut().catch(e => console.error('Firebase 로그아웃 실패', e));
+      if (window.Profile) Profile.clearLocal(); // 계정에 연결된 프로필이 로그아웃 후 화면에 남지 않도록 비운다
+      if (window.Archive) Archive.clearLocal();
+      // 카카오 토큰이 이미 만료됐으면 logout 요청이 401로 끝나고 콜백이 오지 않을 수 있다 —
+      // 로딩이 영영 안 걷히지 않도록 타임아웃을 함께 건다.
+      if (window.Kakao && Kakao.Auth.getAccessToken()) {
+        Kakao.Auth.logout(finish);
+        setTimeout(finish, 3000);
+      } else {
+        setTimeout(finish, 500); // 최소 노출 시간 — 로딩이 깜빡이고 사라지지 않도록
+      }
+    });
   }
 
   // 메인(통합분석) 탭으로 이동 — 보관함 페이지에 있었다면 여기서 함께 빠져나온다.

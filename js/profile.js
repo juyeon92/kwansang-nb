@@ -49,13 +49,23 @@
   }
 
   // ── Firebase 동기화 (로그인 상태일 때만 동작 — 비로그인이면 지금처럼 localStorage에만 남는다) ──
+  // 진행 중인 쓰기를 붙잡아 둔다 — 저장 직후 로그아웃하면 signOut()이 아직 전송되지 않은 쓰기를
+  // 버려서 "등록한 프로필이 다시 로그인하면 사라지는" 문제가 생긴다(flushPending으로 기다린다).
+  let pendingCloudWrite = null;
   function syncProfilesToCloud(list) {
-    if (!window.fbAuth || !fbAuth.currentUser || !window.fbDb) return;
-    fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
+    if (!window.fbAuth || !fbAuth.currentUser || !window.fbDb) return Promise.resolve();
+    const uid = fbAuth.currentUser.uid;
+    console.log('[profile] 클라우드 저장 시도', { uid: uid, count: list.length });
+    pendingCloudWrite = fbDb.collection('users').doc(uid).set({
       profiles: list,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true }).catch(e => console.error('프로필 클라우드 저장 실패', e));
+    }, { merge: true })
+      .then(function () { console.log('[profile] 클라우드 저장 완료', { uid: uid, count: list.length }); })
+      .catch(function (e) { console.error('프로필 클라우드 저장 실패', e); });
+    return pendingCloudWrite;
   }
+  // 로그아웃 전에 kakao-auth.js가 호출 — 저장 중이던 동기화가 끝날 때까지 기다린다.
+  function flushPendingSync() { return pendingCloudWrite || Promise.resolve(); }
   // 로그인 직후 kakao-auth.js가 호출 — 클라우드에 저장된 프로필을 이 기기로 가져온다.
   async function loadProfilesFromCloud() {
     if (!window.fbAuth || !fbAuth.currentUser || !window.fbDb) {
@@ -72,7 +82,11 @@
         renderGunghamB(null);
       } else {
         // 클라우드에 저장된 게 없으면(첫 로그인) 지금 로컬에 있는 프로필을 그대로 올려둔다.
-        syncProfilesToCloud(loadProfiles());
+        // 단, 로컬까지 비어 있으면 아무것도 올리지 않는다 — 빈 배열을 올리는 건 클라우드를 지우는
+        // 것과 같아서, 조회가 잠깐 어긋난 상황에서 멀쩡한 프로필을 날려버릴 수 있다.
+        const local = loadProfiles();
+        if (local.length) syncProfilesToCloud(local);
+        else console.log('[profile] 클라우드·로컬 모두 비어 있음 — 업로드 생략');
       }
       // 클라우드에 프로필이 있었든 없었든, 로그인 상태가 화면(헤더)에는 반드시 반영돼야 한다 —
       // 이전엔 이 호출이 if 분기 안에만 있어서, 클라우드가 비어있으면 로그인해도 헤더가 "로그인하고
@@ -559,5 +573,6 @@
     _openHourList: openHourList, _pickHour: pickHour,
     loadFromCloud: loadProfilesFromCloud,
     clearLocal: clearLocalProfiles,
+    flushPending: flushPendingSync,
   };
 })();
