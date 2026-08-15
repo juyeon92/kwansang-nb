@@ -225,14 +225,10 @@
     renderPage();
   }
 
-  // 로그아웃/탈퇴 시 이 기기에 남은 흔적을 지운다(클라우드 기록은 그대로 — 다시 로그인하면 복원된다).
+  // 로그아웃 시 화면만 정리한다. 저장소는 계정(uid)별로 나뉘어 있어 로그아웃 상태에서는 어차피
+  // 조회되지 않고, 사본을 남겨둬야 클라우드 조회가 어긋나도 재로그인 시 그대로 복원된다.
   function clearLocal() {
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && (k.indexOf(IDX_PREFIX) === 0 || k.indexOf(REPORT_PREFIX) === 0)) keys.push(k);
-    }
-    keys.forEach(k => localStorage.removeItem(k));
+    if (isOpen()) renderPage();
   }
 
   function fmtWhen(iso) {

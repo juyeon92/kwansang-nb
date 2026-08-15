@@ -39,13 +39,54 @@
   }
 
   // ── STORAGE ──────────────────────────────────────────────────────────
-  function loadProfiles() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  // 프로필은 계정(uid)별 키에 담는다. 예전에는 계정과 무관한 단일 키를 쓰고 로그아웃 때 그 키를
+  // 통째로 지웠는데, 그러면 클라우드 조회가 한 번만 어긋나도 로컬 사본까지 없어서 복구할 길이
+  // 사라진다("등록했는데 재로그인하면 프로필이 사라지는" 증상). 계정별로 남겨두면 클라우드가
+  // 비어 보여도 이 기기의 사본으로 즉시 복원된다.
+  function currentUid() {
+    return (window.fbAuth && fbAuth.currentUser) ? fbAuth.currentUser.uid : null;
+  }
+  function storageKey() {
+    const uid = currentUid();
+    return uid ? STORAGE_KEY + ':' + uid : STORAGE_KEY; // 비로그인 상태는 기존 키(게스트)를 그대로 쓴다
+  }
+  function readKey(key) {
+    try { return JSON.parse(localStorage.getItem(key)) || []; }
     catch (e) { return []; }
   }
+  function loadProfiles() {
+    const key = storageKey();
+    const list = readKey(key);
+    if (list.length || key === STORAGE_KEY) return list;
+    // 계정별 키로 나누기 전에 저장된 기존 프로필을 한 번 넘겨받는다(마이그레이션).
+    const legacy = readKey(STORAGE_KEY);
+    if (legacy.length) {
+      console.log('[profile] 기존 프로필을 계정별 저장소로 이관', { count: legacy.length });
+      localStorage.setItem(key, JSON.stringify(legacy));
+      localStorage.removeItem(STORAGE_KEY);
+      return legacy;
+    }
+    return [];
+  }
   function saveProfiles(list) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    localStorage.setItem(storageKey(), JSON.stringify(list));
     syncProfilesToCloud(list);
+  }
+
+  // 클라우드본과 로컬본을 합친다 — 어느 한쪽이 비어 보여도 다른 쪽 내용이 사라지지 않도록.
+  // 같은 id면 이 기기에서 방금 만진 로컬본을 우선한다.
+  function mergeProfiles(localList, cloudList) {
+    const merged = localList.slice();
+    const seen = {};
+    merged.forEach(function (p) { seen[p.id] = true; });
+    (cloudList || []).forEach(function (p) { if (p && !seen[p.id]) { merged.push(p); seen[p.id] = true; } });
+    // 대표 프로필은 하나만 남긴다(양쪽에서 각각 지정됐을 수 있다).
+    let repSeen = false;
+    merged.forEach(function (p) {
+      if (!p.isDefault) return;
+      if (repSeen) p.isDefault = false; else repSeen = true;
+    });
+    return merged;
   }
 
   // ── Firebase 동기화 (로그인 상태일 때만 동작 — 비로그인이면 지금처럼 localStorage에만 남는다) ──
@@ -73,21 +114,27 @@
       return;
     }
     try {
-      const doc = await fbDb.collection('users').doc(fbAuth.currentUser.uid).get();
-      const cloudProfiles = doc.exists ? doc.data().profiles : null;
-      console.log('[profile] 클라우드 조회 결과', { uid: fbAuth.currentUser.uid, exists: doc.exists, count: Array.isArray(cloudProfiles) ? cloudProfiles.length : 0 });
-      if (Array.isArray(cloudProfiles) && cloudProfiles.length) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudProfiles));
-        applyRepresentativeEverywhere();
-        renderGunghamB(null);
-      } else {
-        // 클라우드에 저장된 게 없으면(첫 로그인) 지금 로컬에 있는 프로필을 그대로 올려둔다.
-        // 단, 로컬까지 비어 있으면 아무것도 올리지 않는다 — 빈 배열을 올리는 건 클라우드를 지우는
-        // 것과 같아서, 조회가 잠깐 어긋난 상황에서 멀쩡한 프로필을 날려버릴 수 있다.
-        const local = loadProfiles();
-        if (local.length) syncProfilesToCloud(local);
-        else console.log('[profile] 클라우드·로컬 모두 비어 있음 — 업로드 생략');
-      }
+      const uid = fbAuth.currentUser.uid;
+      const doc = await fbDb.collection('users').doc(uid).get();
+      const raw = doc.exists ? doc.data().profiles : undefined;
+      const cloudProfiles = Array.isArray(raw) ? raw : [];
+      const local = loadProfiles();
+      // profiles 필드가 아예 없는 것과 빈 배열인 것을 구분해 찍는다 — 둘은 원인이 다르다.
+      console.log('[profile] 클라우드 조회 결과', {
+        uid: uid, exists: doc.exists,
+        field: raw === undefined ? '없음' : (Array.isArray(raw) ? '배열' : typeof raw),
+        cloud: cloudProfiles.length, local: local.length,
+      });
+
+      const merged = mergeProfiles(local, cloudProfiles);
+      localStorage.setItem(storageKey(), JSON.stringify(merged));
+      applyRepresentativeEverywhere();
+      renderGunghamB(null);
+      // 합친 결과가 클라우드본과 다르면(로컬에만 있던 게 있으면) 올려서 양쪽을 맞춘다.
+      // 반대로 합친 결과가 비어 있으면 아무것도 올리지 않는다 — 빈 배열 업로드는 클라우드를
+      // 지우는 것과 같아서, 조회가 한 번 어긋난 상황에서 멀쩡한 프로필을 날릴 수 있다.
+      if (merged.length && merged.length !== cloudProfiles.length) syncProfilesToCloud(merged);
+      else if (!merged.length) console.log('[profile] 클라우드·로컬 모두 비어 있음 — 업로드 생략');
       // 클라우드에 프로필이 있었든 없었든, 로그인 상태가 화면(헤더)에는 반드시 반영돼야 한다 —
       // 이전엔 이 호출이 if 분기 안에만 있어서, 클라우드가 비어있으면 로그인해도 헤더가 "로그인하고
       // 프로필을 등록해주세요"에 머물러 마치 로그인이 안 된 것처럼 보이는 버그가 있었다.
@@ -96,9 +143,12 @@
       console.error('프로필 클라우드 불러오기 실패', e);
     }
   }
-  // 로그아웃 시 kakao-auth.js가 호출 — 계정에 연결된 프로필이 로그아웃 후에도 화면에 남지 않도록 지운다.
+  // 로그아웃 시 kakao-auth.js가 호출 — 계정에 연결된 프로필이 로그아웃 후 화면에 남지 않게 한다.
+  // 계정별 저장소(gwansang_profiles_v1:<uid>)는 지우지 않는다. 로그아웃 상태에서는 loadProfiles()가
+  // 게스트 키를 보므로 화면에는 어차피 안 나오고, 사본을 남겨둬야 클라우드 조회가 어긋나도 재로그인
+  // 시 복원된다. 이전에는 여기서 통째로 지워서 유실되면 되돌릴 방법이 없었다.
   function clearLocalProfiles() {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY); // 게스트(비로그인) 사본만 정리
     renderHeader();
     renderGunghamB(null);
   }

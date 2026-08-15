@@ -173,8 +173,14 @@
     // 로딩을 이미 띄워둔 참이니 여기서 기다렸다가 로그아웃한다.
     const flush = (window.Profile && Profile.flushPending) ? Profile.flushPending() : Promise.resolve();
     flush.then(function () {
-      if (window.fbAuth && fbAuth.currentUser) fbAuth.signOut().catch(e => console.error('Firebase 로그아웃 실패', e));
-      if (window.Profile) Profile.clearLocal(); // 계정에 연결된 프로필이 로그아웃 후 화면에 남지 않도록 비운다
+      // signOut이 끝나야 계정별 저장소가 아닌 게스트 저장소를 보게 된다 — 먼저 기다린 뒤 화면을 비운다.
+      // (기다리지 않으면 로그아웃 직후에도 헤더에 이전 계정의 프로필이 남는다.)
+      const signedOut = (window.fbAuth && fbAuth.currentUser)
+        ? fbAuth.signOut().catch(e => console.error('Firebase 로그아웃 실패', e))
+        : Promise.resolve();
+      return signedOut;
+    }).then(function () {
+      if (window.Profile) Profile.clearLocal(); // 화면 정리 — 계정별 사본은 남겨둔다(재로그인 시 복원용)
       if (window.Archive) Archive.clearLocal();
       // 카카오 토큰이 이미 만료됐으면 logout 요청이 401로 끝나고 콜백이 오지 않을 수 있다 —
       // 로딩이 영영 안 걷히지 않도록 타임아웃을 함께 건다.
