@@ -1,0 +1,743 @@
+// ═══════════════════════════════════════════════════════════════════════
+// 인연도감 — 내 관상 캐릭터를 중심으로 친구들을 모아 궁합 랭킹을 쌓는 영역.
+//
+// ■ 명세서(인연도감_정책및개발명세서.md)와 실제 구현의 차이 — 확인 후 반영
+//   명세서는 "생년월일 + 사주"를 전제로 쓰여 있지만, 실제 인연도감(관상보기 탭)은
+//   ai-analysis.js CTX_CONFIG.gwansang이 pillars:null 로 호출해 **얼굴 랜드마크만으로**
+//   캐릭터를 산출한다. 생년월일은 수집하지도, 쓰지도 않는다.
+//   → 명세서 §1.1의 생년월일 수집·§2의 AES 암호화/해시 인증·§1.3의 "생년월일 재입력 삭제"는
+//     이 구현에 해당하지 않아 제외했고, 대신 실제로 다루는 정보(사진·이름/별명·캐릭터 결과)
+//     기준으로 보관·삭제 정책을 다시 썼다(DOGAM_POLICY).
+//
+// ■ 실제로 다루는 개인정보
+//   - 사진: 브라우저에서만 분석하고 서버로 보내지 않는다. 저장하지 않는다.
+//   - 이름/별명: 도감에 표시되고, 도감을 공유하면 다른 참여자에게 보인다 → 별명 권장 고지 필요.
+//   - 관상 캐릭터 결과(캐릭터 ID·궁합 점수): 비식별 결과값만 저장한다.
+//
+// ■ 저장 구조 (Firestore)
+//   dogam/{slug}                  오너 정보 + TTL 기준 시각 (공개 읽기)
+//   dogam/{slug}/entries/{uid}    친구 참여 기록. 문서 id = 친구 uid라 본인 삭제 권한이 규칙에서 명확해진다.
+//   users/{uid}.dogamSlug         내 도감을 찾아가는 역인덱스
+//
+// ■ 인증 전제 (명세서 §1과 다른 선택)
+//   명세서는 비로그인 진입을 원칙으로 두지만, 비로그인 쓰기를 허용하려면 Firebase 익명 인증을
+//   켜거나 규칙을 열어야 한다(어뷰징 노출). 지금은 **쓰기에만 로그인을 요구**한다 — 요청받은
+//   버튼 분기("비로그인: 로그인하고 도감 보관하기")와도 맞고, 콘솔 설정 변경 없이 동작한다.
+//   나중에 익명 인증으로 바꾸려면 currentUid()와 firestore.rules만 손보면 된다.
+// ═══════════════════════════════════════════════════════════════════════
+(function () {
+  const RETENTION_DAYS = 30; // 보관 기간 — 정책 문구(DOGAM_POLICY)와 expiresAt 계산이 모두 이 값을 따른다
+  const SLUG_KEY = 'dogamMySlug';        // 내 도감 slug (로그인 전에도 기억해두기 위한 로컬 사본)
+  const MATCH_KEY = 'dogamLastMatch';    // 방금 맺은 인연(초대해준 사람) — 등록 직후 매칭 결과를 보여주기 위해
+  const PARAM = 'dogam';                 // 공유 링크 쿼리 파라미터 (?dogam=<slug>)
+  let enteredViaShare = false;           // 공유 링크로 들어온 세션인지 — 뒤로 갈 화면이 없으므로 뒤로가기를 숨긴다
+
+  // 화면에 그대로 노출하는 정책 문구 — 명세서를 관상 기준으로 다시 쓴 것.
+  const DOGAM_POLICY = [
+    { q: '어떤 정보를 저장하나요?',
+      a: '이름(별명)과 관상 캐릭터 결과, 궁합 점수만 저장해요. <b>사진은 브라우저에서만 분석하고 서버로 보내지 않으며 저장하지도 않아요.</b> 생년월일은 받지 않아요 — 인연도감은 관상만으로 계산해요.' },
+    { q: '얼마나 보관하나요?',
+      a: '마지막으로 도감을 연 날부터 <b>' + RETENTION_DAYS + '일</b>간 보관해요. 그 사이에 다시 열면 기간이 다시 늘어나요. ' + RETENTION_DAYS + '일 동안 한 번도 열지 않으면 도감과 참여 기록이 함께 삭제돼요.' },
+    { q: '삭제하고 싶어요',
+      a: '친구는 자기가 등록한 기기에서 자기 기록을 지울 수 있어요. 도감 주인은 언제든 참여 기록을 지우거나 도감 전체를 삭제할 수 있고, 삭제하면 참여 기록도 함께 사라져요. <b>삭제한 내용은 되돌릴 수 없어요.</b>' },
+    { q: '이름은 누구에게 보이나요?',
+      a: '도감에 등록한 이름은 도감을 여는 사람 모두에게 보여요. 실명 대신 <b>별명</b>을 권해요.' },
+    { q: '등록하면 서로의 도감에 올라가나요?',
+      a: '네. 인연은 <b>양쪽에 함께 등록돼요</b> — 친구가 내 도감에 올라오는 동시에, 나도 그 친구의 도감에 올라가요. 그래서 서로의 인연 도감에서 상대의 캐릭터와 매칭 점수를 볼 수 있어요. 원하지 않으면 언제든 내 기록을 삭제할 수 있어요.' },
+  ];
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+  function currentUid() {
+    return (window.fbAuth && fbAuth.currentUser) ? fbAuth.currentUser.uid : null;
+  }
+
+  // 인연 등록에는 로그인을 요구하지 않는다 — 로그인은 "내 도감을 계정에 묶어 오래 보관"하는
+  // 용도(후킹)이지 등록 조건이 아니다. 다만 Firestore에 글을 쓰려면 신원이 있어야 보안 규칙으로
+  // 어뷰징을 막을 수 있어서, 로그인하지 않은 사람에게는 Firebase 익명 인증으로 uid만 발급한다.
+  async function ensureAuthUid() {
+    const uid = currentUid();
+    if (uid) return uid;
+    if (!window.fbAuth || !fbAuth.signInAnonymously) return null;
+    console.log('[dogam] 익명 인증으로 uid 발급');
+    const cred = await fbAuth.signInAnonymously();
+    return cred && cred.user ? cred.user.uid : null;
+  }
+  function isAnonymousUser() {
+    return !!(window.fbAuth && fbAuth.currentUser && fbAuth.currentUser.isAnonymous);
+  }
+  function makeSlug() {
+    // 추측 불가한 공개 URL용 문자열 (명세서 §2 "랜덤 slug")
+    const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+    let s = '';
+    for (let i = 0; i < 12; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+    return s;
+  }
+  function sharedSlugFromUrl() {
+    return new URLSearchParams(location.search).get(PARAM);
+  }
+  function shareUrl(slug) {
+    return location.origin + location.pathname + '?' + PARAM + '=' + slug;
+  }
+
+  // ── 궁합 점수 ────────────────────────────────────────────────────────
+  // 캐릭터 6기질 벡터(compatibility-engine.js)의 코사인 유사도를 0~100으로 편 뒤,
+  // 같은 파일의 good/spark/clash 분류로 보정한다. U자형 규칙이라 "너무 닮음"도 clash다.
+  function compatScore(idA, idB) {
+    if (typeof CHARACTER_VECTOR === 'undefined' || !CHARACTER_VECTOR[idA] || !CHARACTER_VECTOR[idB]) return null;
+    const traits = Object.keys(CHARACTER_VECTOR[idA]);
+    let dot = 0, na = 0, nb = 0;
+    traits.forEach(function (t) {
+      const a = CHARACTER_VECTOR[idA][t], b = CHARACTER_VECTOR[idB][t];
+      dot += a * b; na += a * a; nb += b * b;
+    });
+    const sim = dot / Math.sqrt(na * nb);          // 대체로 0.5~1.0 범위
+    let score = Math.round((sim - 0.5) * 200);     // 0~100으로 편다
+    const rel = (typeof COMPATIBILITY_DB !== 'undefined' && COMPATIBILITY_DB[idA]) || null;
+    if (rel) {
+      if ((rel.good || []).indexOf(idB) >= 0) score += 18;
+      else if ((rel.spark || []).indexOf(idB) >= 0) score += 8;
+      else if ((rel.clash || []).indexOf(idB) >= 0) score -= 15;
+    }
+    return Math.max(5, Math.min(99, score));
+  }
+  function relationLabel(idA, idB) {
+    const rel = (typeof COMPATIBILITY_DB !== 'undefined' && COMPATIBILITY_DB[idA]) || null;
+    if (!rel) return '';
+    if ((rel.good || []).indexOf(idB) >= 0) return '귀인';
+    if ((rel.spark || []).indexOf(idB) >= 0) return '단짝';
+    if ((rel.clash || []).indexOf(idB) >= 0) return '호랑이 선생';
+    return '내 사람';
+  }
+
+  // ── 저장소 ───────────────────────────────────────────────────────────
+  let myDogam = null;      // { slug, ownerName, ownerCharacterId, entries: [] }
+  let guestDogam = null;   // 공유 링크로 들어왔을 때 보고 있는 남의 도감
+
+  function myCharacterId() {
+    const saved = (typeof state !== 'undefined' && state.gwansang && state.gwansang.characterResult) || null;
+    if (saved && saved.characterId) return saved.characterId;
+    try { return (JSON.parse(localStorage.getItem('inyeonLastCharacter') || 'null') || {}).characterId || null; }
+    catch (e) { return null; }
+  }
+  function myName() {
+    const rep = window.Profile ? Profile.getRepresentative() : null;
+    return (rep && rep.name) || '나';
+  }
+
+  async function loadDogam(slug) {
+    if (!window.fbDb || !slug) return null;
+    const doc = await fbDb.collection('dogam').doc(slug).get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    const snap = await fbDb.collection('dogam').doc(slug).collection('entries').get();
+    const entries = [];
+    snap.forEach(function (d) { entries.push(d.data()); });
+    // 점수 높은 순으로 위에서부터 노출 (요청 사항)
+    entries.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
+    return { slug: slug, ownerUid: data.ownerUid, ownerName: data.ownerName, ownerCharacterId: data.ownerCharacterId, entries: entries };
+  }
+
+  // 도감을 열 때마다 TTL 기준 시각을 갱신한다 — 명세서 §4의 last_accessed_at 연장에 해당.
+  function touchDogam(slug, ownerUid) {
+    if (!window.fbDb || currentUid() !== ownerUid) return;
+    const now = new Date();
+    const expires = new Date(now.getTime() + RETENTION_DAYS * 86400000);
+    fbDb.collection('dogam').doc(slug).set({
+      lastAccessedAt: now.toISOString(), expiresAt: expires.toISOString(),
+    }, { merge: true }).catch(e => console.error('[dogam] TTL 갱신 실패', e));
+  }
+
+  async function ensureMyDogam() {
+    const uid = currentUid();
+    if (!uid || !window.fbDb) return null;
+    let slug = localStorage.getItem(SLUG_KEY);
+    if (!slug) {
+      // 기기를 바꿨을 수 있으니 계정 문서에서 역인덱스를 먼저 확인한다.
+      try {
+        const u = await fbDb.collection('users').doc(uid).get();
+        slug = (u.exists && u.data().dogamSlug) || null;
+      } catch (e) { console.error('[dogam] slug 조회 실패', e); }
+    }
+    if (slug) {
+      const found = await loadDogam(slug);
+      if (found && found.ownerUid === uid) {
+        localStorage.setItem(SLUG_KEY, slug);
+        touchDogam(slug, uid);
+        return found;
+      }
+    }
+    return null;
+  }
+
+  // nameOverride: 친구 도감에 등록하며 방금 입력한 이름 — 그 이름으로 내 도감도 만들어야 표기가 어긋나지 않는다.
+  async function createMyDogam(nameOverride) {
+    const uid = currentUid();
+    const charId = myCharacterId();
+    if (!uid || !charId || !window.fbDb) return null;
+    const ownerName = (nameOverride && nameOverride.trim()) || myName();
+    const slug = makeSlug();
+    const now = new Date();
+    await fbDb.collection('dogam').doc(slug).set({
+      ownerUid: uid, ownerName: ownerName, ownerCharacterId: charId,
+      createdAt: now.toISOString(), lastAccessedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + RETENTION_DAYS * 86400000).toISOString(),
+    });
+    await fbDb.collection('users').doc(uid).set({ dogamSlug: slug }, { merge: true });
+    localStorage.setItem(SLUG_KEY, slug);
+    console.log('[dogam] 내 도감 생성', { slug: slug, ownerName: ownerName, character: charId });
+    return { slug: slug, ownerUid: uid, ownerName: ownerName, ownerCharacterId: charId, entries: [] };
+  }
+
+  // ── 화면 ─────────────────────────────────────────────────────────────
+  function host() { return document.getElementById('dogamSection'); }
+
+  // 공유받은 친구 화면은 관상 리포트 안(#dogamSection)이 아니라 관상 탭 맨 위에 그린다 —
+  // "나를 초대한 사람의 도감 → 내 인연 등록" 순서로 읽혀야 하기 때문.
+  function guestHost() {
+    let el = document.getElementById('dogamGuestSection');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'dogamGuestSection';
+      const panel = document.getElementById('panel-gwansang');
+      if (!panel) return null;
+      panel.insertBefore(el, panel.firstChild);
+    }
+    return el;
+  }
+
+  // 사진 업로드 UI는 이미 화면에 있는 진짜 DOM(드래그·클릭 핸들러가 붙어 있는)을 그대로 옮겨 쓴다.
+  // 새로 만들어 붙이면 fileInput 연결이 끊겨 업로드 자체가 동작하지 않는다.
+  let uploadNodes = null;
+  function captureUploadNodes() {
+    if (uploadNodes) return uploadNodes;
+    const sec = document.getElementById('gwansangUploadSection');
+    if (!sec) return [];
+    const skip = { gwansangHero: 1, gwansangRevisitLabel: 1, gwansangRevisitCard: 1 };
+    uploadNodes = Array.prototype.filter.call(sec.children, function (n) { return !skip[n.id]; });
+    return uploadNodes;
+  }
+  function stashUploadNodes() {
+    const sec = document.getElementById('gwansangUploadSection');
+    if (!sec) return;
+    captureUploadNodes().forEach(function (n) { if (n.parentElement !== sec) sec.appendChild(n); });
+  }
+  function setDisplay(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = value;
+  }
+
+  // render()는 여러 곳에서 각각 호출된다 — 로그인 상태 확정(kakao-auth), 관상 분석 완료(app.js),
+  // 보관함 삭제(archive.js), 등록 직후 등. 전부 async라 서로 겹쳐 돌 수 있는데, 예전엔 마지막에
+  // "끝난" 호출이 화면을 덮어썼다. 그래서 캐릭터가 나오기 전에 시작된 렌더(도감 없음)가 캐릭터가
+  // 나온 뒤 시작된 렌더(도감 있음)보다 늦게 끝나면, 방금 만든 도감이 화면에서 사라졌다
+  // — 새로고침해야 보이던 증상의 원인(사용자 리포트 2026-08-17).
+  // 해결: 호출마다 번호를 매기고, DOM에 쓰기 직전에 "내가 아직 최신 호출인지" 확인한다.
+  // 최신이 아니면 조용히 물러나 더 늦게 시작된 렌더의 결과를 남긴다.
+  let renderSeq = 0;
+  async function render() {
+    const el = host();
+    if (!el) return;
+    const mySeq = ++renderSeq;
+    const stale = function () { return mySeq !== renderSeq; };
+    const sharedSlug = sharedSlugFromUrl();
+    // 공유 링크로 들어왔고 아직 그 도감에 등록하지 않았다면 "공유받은 친구" 화면을 먼저 보여준다.
+    if (sharedSlug) {
+      enteredViaShare = true;
+      guestDogam = await loadDogam(sharedSlug).catch(function (e) { console.error('[dogam] 공유 도감 조회 실패', e); return null; });
+      if (stale()) return;
+      if (guestDogam && guestDogam.ownerUid !== currentUid()) {
+        const already = guestDogam.entries.some(function (x) { return x.uid === currentUid(); });
+        if (!already) { showGuestView(guestDogam); el.innerHTML = ''; return; }
+      }
+    }
+    // 게스트 모드에서 빠져나온 경우 원래 화면으로 되돌린다.
+    const gh = document.getElementById('dogamGuestSection');
+    if (gh) { stashUploadNodes(); gh.remove(); }
+    setDisplay('gwansangHero', '');
+    setDisplay('gwansangCtaDock', '');
+    // "인연도감 메인으로"는 돌아갈 이전 화면이 있을 때만 의미가 있다. 공유 링크로 바로 들어온
+    // 세션에는 그 화면 자체가 없었으므로 숨긴다.
+    setDisplay('gwansangBackBtn', enteredViaShare ? 'none' : '');
+    const mine = await ensureMyDogam().catch(function (e) { console.error('[dogam] 내 도감 조회 실패', e); return null; });
+    if (stale()) return;
+    myDogam = mine;
+    // 공유 버튼을 누른 뒤에 도감을 만들면 그 통신 때문에 클립보드 복사가 막힌다 —
+    // 화면을 그리는 이 시점에 미리 만들어 두고, 버튼은 복사만 하도록 한다.
+    if (!myDogam && currentUid() && myCharacterId()) {
+      const created = await createMyDogam().catch(function (e) { console.error('[dogam] 도감 생성 실패', e); return null; });
+      // 도감 생성은 되돌릴 수 없는 쓰기라, 뒤늦게 끝났더라도 결과 자체는 캐시에 반영해둔다.
+      // 다만 화면은 최신 렌더에 맡긴다(아래 stale 체크).
+      if (created) myDogam = created;
+      if (stale()) return;
+    }
+    el.innerHTML = renderOwnerView(myDogam);
+    syncLiveBlocks(); // 보관함에서 열어둔 도감 영역도 같은 내용으로 맞춘다(등록·삭제 직후 등)
+  }
+
+  // 보관함 리포트에 덧붙여둔 도감 영역들 — 메인 화면이 다시 그려질 때 함께 갱신한다.
+  function syncLiveBlocks() {
+    document.querySelectorAll('.arc-live-dogam').forEach(function (el) {
+      el.innerHTML = renderOwnerView(myDogam);
+    });
+  }
+
+  // 보관함에서 연 인연도감 리포트에도 같은 도감 영역(인연 목록·보관 안내·공유·통합분석 CTA)을 붙인다
+  // (사용자 요청 2026-08-18). 도감은 친구가 계속 등록되는 실시간 데이터라 리포트 스냅샷에 담지 않고,
+  // 열 때마다 지금 상태를 그린다 — 그래서 저장 시점이 아니라 "지금" 등록된 인연이 보인다.
+  // #dogamSection(메인 화면)을 건드리지 않으므로 render()와 서로 덮어쓰지 않는다.
+  async function renderIntoEl(el) {
+    if (!el) return;
+    const mine = await ensureMyDogam().catch(function (e) {
+      console.error('[dogam] 보관함 도감 영역 조회 실패', e);
+      return null;
+    });
+    if (!el.isConnected) return; // 불러오는 사이에 화면을 떠난 경우
+    myDogam = mine;
+    el.innerHTML = renderOwnerView(mine);
+  }
+
+  // 1) 공유자(오너) 입장
+  function renderOwnerView(dogam) {
+    const entries = (dogam && dogam.entries) || [];
+    const count = entries.length;
+    // 익명 인증은 "로그인"이 아니다 — 기기/브라우저에 묶인 임시 신원이라 보관 안내는 계속 띄운다.
+    const loggedIn = !!currentUid() && !isAnonymousUser();
+
+    const list = count
+      ? entries.map(function (e) { return entryRow(e); }).join('')
+      : '<p class="dogam-empty">아직 어떤 인연도 등록되지 않았어요.<br>친구들과 공유해서 내 인연을 등록해보세요.</p>';
+
+    return '' +
+      matchedBlock() +
+      '<div class="dogam-block">' +
+        '<div class="dogam-head">' +
+          '<span class="dogam-title">인연 도감</span>' +
+          '<span class="dogam-count">' + count + '명</span>' +
+        '</div>' +
+        '<div class="dogam-list">' + list + '</div>' +
+        keepNotice(loggedIn) +
+      '</div>' +
+      policyBlock(!!dogam) +
+      actionButtons(dogam, loggedIn);
+  }
+
+  // 등록 직후 — 나를 초대해준 사람과의 매칭 결과. 내 캐릭터 리포트 바로 아래에 붙어
+  // "누구와 어떻게 맺어졌는지"를 먼저 보여주고, 그 다음에 인연 도감이 이어진다.
+  function matchedBlock() {
+    let m = null;
+    try { m = JSON.parse(localStorage.getItem(MATCH_KEY) || 'null'); } catch (e) { m = null; }
+    if (!m || !m.characterId) return '';
+    const ch = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[m.characterId]) || null;
+    const img = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(m.characterId) : '';
+    return '' +
+      '<div class="dogam-block dogam-matched">' +
+        '<div class="dogam-head"><span class="dogam-title">방금 맺은 인연</span></div>' +
+        '<p class="dogam-guide">' + esc(m.name) + '님과 서로의 인연도감에 등록됐어요.</p>' +
+        '<div class="dogam-match-row">' +
+          '<img class="dogam-match-thumb" src="' + esc(img) + '" alt="' + esc(ch ? ch.name : '') + '">' +
+          '<div class="dogam-match-body">' +
+            '<div class="dogam-row-name">' + esc(m.name) +
+              '<span class="dogam-row-tag">' + esc(m.relation || '') + '</span></div>' +
+            '<div class="dogam-row-desc">' + esc(ch ? ch.name + ' · ' + ch.headline : '') + '</div>' +
+          '</div>' +
+          '<div class="dogam-match-score"><b>' + (m.score == null ? '-' : m.score) + '</b><span>매칭</span></div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // 비로그인은 익명 신원이라 이 기기/브라우저에만 묶인다 — 기록을 지우거나 기기를 바꾸면 도감을 잃는다.
+  // 그 사실을 인연 목록 바로 아래(같은 카드 안)에서 알린다. 쌓인 인연을 눈으로 본 직후라야
+  // "이걸 잃을 수 있다"가 와닿는다. 스타일은 업로드 화면의 안심 안내(.reassure-box)를 그대로 쓴다.
+  function keepNotice(loggedIn) {
+    if (loggedIn) return '';
+    return '' +
+      '<div class="reassure-box dogam-keep">' +
+        '<div class="reassure-head">' +
+          '<span class="icon material-symbols-outlined">info</span>' +
+          '<span class="label">이 기기에만 저장돼 있어요</span>' +
+        '</div>' +
+        '<p class="reassure-sub">브라우저 기록을 지우거나 기기를 바꾸면 지금까지 쌓은 인연이 사라질 수 있어요.</p>' +
+        '<button class="submit-btn" onclick="Dogam.loginAndKeep()">로그인하고 내 인연도감 유지하기</button>' +
+      '</div>';
+  }
+
+  function entryRow(e) {
+    const ch = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[e.characterId]) || null;
+    const img = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(e.characterId) : '';
+    return '' +
+      '<div class="dogam-row">' +
+        '<img class="dogam-row-thumb" src="' + esc(img) + '" alt="' + esc(ch ? ch.name : '') + '">' +
+        '<div class="dogam-row-body">' +
+          '<div class="dogam-row-name">' + esc(e.name) +
+            '<span class="dogam-row-tag">' + esc(e.relation || '') + '</span></div>' +
+          '<div class="dogam-row-desc">' + esc(ch ? ch.name + ' · ' + ch.headline : '') + '</div>' +
+        '</div>' +
+        '<div class="dogam-row-score"><b>' + (e.score == null ? '-' : e.score) + '</b><span>점</span></div>' +
+      '</div>';
+  }
+
+  function policyBlock(showDelete) {
+    return '' +
+      '<details class="dogam-policy">' +
+        '<summary>도감 보관·삭제 안내</summary>' +
+        DOGAM_POLICY.map(function (p) {
+          return '<div class="dogam-policy-item"><b>' + esc(p.q) + '</b><p>' + p.a + '</p></div>';
+        }).join('') +
+        // 안내문에 "도감 전체를 삭제할 수 있어요"라고 써놓고 실제 삭제 수단이 없으면 고지와 실제가 어긋난다.
+        (showDelete ? '<button class="dogam-delete-btn" onclick="Dogam.deleteMyDogam()">내 인연도감 삭제하기</button>' : '') +
+      '</details>';
+  }
+
+  // 도감 전체 삭제 — 참여 기록(entries)을 먼저 지운다. Firestore는 상위 문서를 지워도 하위 컬렉션이
+  // 남아 접근 불가능한 데이터가 되기 때문(만료 배치 cleanupExpiredDogam과 같은 순서).
+  async function deleteMyDogam() {
+    // 클라우드에 도감이 없더라도(예전 버전에서 만들어져 로컬 흔적만 남은 경우) 이 기기 흔적은 지운다.
+    // 그렇지 않으면 "이미 만드신 도감이 있어요" 카드만 영원히 남아 삭제가 안 되는 것처럼 보인다.
+    const mine = myDogam || (await ensureMyDogam().catch(function () { return null; }));
+    if (!mine) {
+      if (!confirm('이 기기에 남아 있는 도감 기록을 지울까요?')) return;
+      forgetLocalDogam();
+      myDogam = null;
+      await render();
+      toast('도감 기록을 지웠어요');
+      return;
+    }
+    if (!confirm('내 인연도감을 삭제할까요?\n등록된 인연 ' + (mine.entries || []).length + '명도 함께 사라지고, 되돌릴 수 없어요.')) return;
+    try {
+      // 내 도감에 등록된 친구 기록(entries)을 먼저 다 지우고 도감 문서를 지운다 — 이래야 도감을
+      // 새로 만들었을 때 빈 상태로 시작한다.
+      // ⚠️ 상대 도감에 남아 있는 "내 기록"은 일부러 건드리지 않는다(사용자 확인 2026-08-17).
+      // 그건 상대의 도감이고, 지우고 싶으면 본인이 자기 기기에서 지울 수 있다(정책 문구 §삭제).
+      const col = fbDb.collection('dogam').doc(mine.slug).collection('entries');
+      const snap = await col.get();
+      for (const d of snap.docs) await d.ref.delete();
+      await fbDb.collection('dogam').doc(mine.slug).delete();
+      const uid = currentUid();
+      if (uid) {
+        await fbDb.collection('users').doc(uid)
+          .set({ dogamSlug: firebase.firestore.FieldValue.delete() }, { merge: true })
+          .catch(function (e) { console.warn('[dogam] dogamSlug 정리 실패', e); });
+      }
+      forgetLocalDogam();
+      myDogam = null;
+      console.log('[dogam] 도감 삭제 완료', { slug: mine.slug, entries: snap.size });
+      await render();
+      toast('인연도감을 삭제했어요');
+    } catch (e) {
+      console.error('[dogam] 도감 삭제 실패', e);
+      alert('삭제 중 오류가 발생했어요.\n' + ((e && e.message) || e));
+    }
+  }
+
+  // 이 기기에 남은 도감 흔적 정리 — 도감을 지웠는데 "이미 만드신 도감이 있어요" 카드가 남으면
+  // 사용자 눈에는 삭제가 안 된 것으로 보인다(실제로 그런 신고가 있었다).
+  function forgetLocalDogam() {
+    localStorage.removeItem(SLUG_KEY);
+    localStorage.removeItem(MATCH_KEY);
+    localStorage.removeItem('inyeonLastCharacter');
+    localStorage.removeItem('gwansangReportOpen'); // 도감을 지웠으니 새로고침 시 리포트도 되살리지 않는다
+    if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
+  }
+
+  // 요청받은 버튼 분기: ① 비로그인이면 로그인 유도 ② 친구에게 공유 ③ 통합분석 이동
+  // 로그인은 "도감을 계정에 묶어 오래 보관"하는 후킹일 뿐이라, 비로그인이어도 공유는 막지 않는다.
+  function actionButtons(dogam, loggedIn) {
+    // 공유 버튼은 마이페이지 "변경" 버튼(.mypage-rep-change)과 같은 그레이 라인 디자인.
+    const shareBtn = '<button class="dogam-share-btn" onclick="Dogam.share()">' +
+      '<span class="material-symbols-outlined">link</span>친구에게 공유하기</button>';
+    const primary = shareBtn;
+    // 노출스펙 §4 A안 — "더 자세히"가 아니라 "지금 건 반쪽이었다"로 후킹한다.
+    // 사주를 더하면 Face 100% → 70/30으로 실제로 재계산돼 캐릭터가 바뀔 수 있으므로 빈말이 아니다.
+    // 배치도 스펙대로 맨 아래, 공유 버튼 다음(공유가 1순위).
+    const charId = myCharacterId();
+    const charName = (charId && typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[charId])
+      ? CHARACTER_DB[charId].name : '지금 이 캐릭터';
+    return '' +
+      '<div class="dogam-actions">' +
+        primary +
+      '</div>' +
+      '<div class="dogam-cta">' +
+        '<div class="dogam-cta-head">' +
+          '<span class="dogam-cta-thumb"><img src="images/Logo.png" alt=""></span>' +
+          '<div class="dogam-cta-text">' +
+            '<div class="dogam-cta-title">지금 결과는 <b>얼굴만</b> 본 거예요</div>' +
+            '<p class="dogam-cta-copy">태어난 시간까지 더하면 <b>' + esc(charName) + '</b> 그대로일까요? ' +
+              '아니면 전혀 다른 상이 나올까요?</p>' +
+          '</div>' +
+        '</div>' +
+        '<button class="dogam-cta-btn" onclick="Dogam.goCombined()">관상 + 사주로 다시 보기' +
+          '<span class="material-symbols-outlined">chevron_right</span></button>' +
+      '</div>';
+  }
+
+  // 초대한 사람 소개 — 리포트 상세(renderCharacterDetail)와 같은 클래스를 쓰되
+  // 배지·한줄평·유래·"이런 점이 강해요"까지만 자른다. 그 아래(궁합/조심할 점/상황별)는
+  // 등록을 결정하는 데 필요 없고, 길어지면 등록 폼이 화면 밖으로 밀린다.
+  function renderOwnerBrief(elId, characterId) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const c = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[characterId]) || null;
+    if (!c) { el.innerHTML = ''; return; }
+    el.innerHTML =
+      '<div class="char-detail">' +
+        '<div class="char-detail-head">' +
+          // 배지는 내 리포트(renderCharacterDetail)와 같은 근거 표기를 쓴다 — 여기만 modernRole을
+          // 넣으면 같은 캐릭터인데 화면마다 배지가 달라 보인다(실제로 그렇게 보였다).
+          '<span class="char-detail-role">관상 기반 유형</span>' +
+          '<div class="char-detail-headline">' + esc(c.headline) + '</div>' +
+        '</div>' +
+        // 노출스펙 §3-3 — 두 필드를 한 문장으로 합치지 않고 각각 노출한다(합성안은 폐기).
+        '<div class="char-detail-sec"><div class="char-detail-sec-title">조선시대의 나</div>' +
+          '<div class="char-detail-origin">' + esc(c.historical_role) + '</div></div>' +
+        '<div class="char-detail-sec"><div class="char-detail-sec-title">지금의 나</div>' +
+          '<div class="char-detail-origin">' + esc(c.modernRole) + '</div></div>' +
+        '<div class="char-detail-sec">' +
+          '<div class="char-detail-sec-title">이런 점이 강해요</div>' +
+          '<ul class="char-detail-list is-strength">' +
+            (c.strengths || []).map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') +
+          '</ul>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // 2) 공유받은 친구 입장
+  //    ① 나를 초대한 사람의 도감(캐릭터 카드)을 맨 위에
+  //    ② 그 아래 "내 인연 등록하기" 안에 관상 사진 등록까지 함께 묶는다 — 등록 버튼과 한 덩어리로 읽히도록.
+  function showGuestView(dogam) {
+    const el = guestHost();
+    if (!el) return;
+    stashUploadNodes();                 // innerHTML로 지워지지 않도록 원래 자리로 잠시 되돌린다
+    setDisplay('gwansangHero', 'none'); // "내 얼굴 주변엔 어떤 인연이 있을까?" 히어로는 이 화면에선 방해된다
+    setDisplay('gwansangRevisitLabel', 'none');
+    setDisplay('gwansangRevisitCard', 'none');
+    // 하단 고정 CTA("내 관상 캐릭터 뽑기")는 스스로 들어온 사람을 위한 것 —
+    // 초대받은 사람은 "도감에 인연 등록하기" 하나로 분석과 등록이 함께 끝나야 버튼이 겹치지 않는다.
+    setDisplay('gwansangCtaDock', 'none');
+
+    const myChar = myCharacterId();
+    const myName2 = myChar && CHARACTER_DB[myChar] ? CHARACTER_DB[myChar].name : '';
+
+    el.innerHTML = '' +
+      '<div class="dogam-block">' +
+        '<div class="dogam-head"><span class="dogam-title">' + esc(dogam.ownerName) + '님의 인연도감</span></div>' +
+        '<p class="dogam-guide">' + esc(dogam.ownerName) + '님이 나를 인연도감에 초대했어요.</p>' +
+        '<div id="dogamOwnerCard"></div>' +
+        '<div id="dogamOwnerDetail"></div>' +
+      '</div>' +
+
+      '<div class="dogam-block">' +
+        '<div class="dogam-head"><span class="dogam-title">내 인연 등록하기</span></div>' +
+        (myChar
+          ? '<p class="dogam-guide">내 관상 캐릭터 <b>' + esc(myName2) + '</b>으로 등록해요.</p>'
+          : '<p class="dogam-guide">사진을 올리고 등록하면 관상 분석까지 한번에 진행돼요.</p>') +
+        '<div id="dogamUploadSlot"></div>' +
+        '<label class="field-label" style="display:block;margin:16px 0 8px;">이름 또는 별명</label>' +
+        '<input type="text" class="field-input" id="dogamGuestName" maxlength="12" placeholder="이름 또는 별명">' +
+        '<p class="dogam-notice">' +
+          '개인정보 보호를 위해 <b>실명 대신 별명</b>을 권해요. 입력한 이름은 이 도감에 표시되고, ' +
+          '도감을 여는 다른 사람에게도 보여요. 전화번호·주소 등 다른 개인정보는 입력하지 마세요.<br>' +
+          '<b>사진은 브라우저에서만 분석하고 서버에 저장하지 않아요.</b> 생년월일은 받지 않아요 — 관상만으로 계산해요.<br>' +
+          '등록한 기록은 이 기기에서 언제든 직접 삭제할 수 있고, 도감 주인도 삭제할 수 있어요.' +
+        '</p>' +
+        '<label class="dogam-check"><input type="checkbox" id="dogamAgree">' +
+          '<span>이름과 관상 캐릭터 결과를 인연도감 표시·궁합 계산에 이용하는 데 동의해요. <b>(필수)</b></span></label>' +
+        // 사진 업로드는 렌더 이후에 일어나므로 disabled로 막지 않는다 — 누른 시점에 검사해 안내한다.
+        '<button class="submit-btn" onclick="Dogam.registerEntry()">도감에 인연 등록하기</button>' +
+      '</div>' +
+      policyBlock();
+
+    // 초대한 사람의 캐릭터는 일러스트 카드 + "이런 점이 강해요"까지만 보여준다.
+    // (renderCharacterDetail은 궁합·조심할 점·상황별까지 전부 펼쳐서 등록 폼이 한참 아래로 밀린다)
+    if (typeof renderCharacterCard === 'function') {
+      renderCharacterCard('dogamOwnerCard', { characterId: dogam.ownerCharacterId });
+    }
+    renderOwnerBrief('dogamOwnerDetail', dogam.ownerCharacterId);
+    // 사진 등록은 항상 "내 인연 등록하기" 안에 묶는다 — 등록 버튼과 한 덩어리로 읽혀야 한다.
+    // 예전에 분석한 캐릭터가 남아 있어도 마찬가지다(다른 사진으로 다시 찍을 수 있어야 하고,
+    // 업로드 영역만 카드 밖에 떨어져 있으면 흐름이 끊긴다).
+    const slot = document.getElementById('dogamUploadSlot');
+    if (slot) captureUploadNodes().forEach(function (n) { slot.appendChild(n); });
+  }
+
+  // ── 동작 ─────────────────────────────────────────────────────────────
+  async function registerEntry() {
+    if (!guestDogam) return;
+    let uid;
+    try {
+      uid = await ensureAuthUid();
+    } catch (e) {
+      console.error('[dogam] 익명 인증 실패', e);
+      if (e && e.code === 'auth/operation-not-allowed') {
+        alert('로그인 없이 등록하려면 Firebase 콘솔에서 "익명" 로그인을 켜야 해요.\n(Authentication → Sign-in method → 익명)');
+      } else {
+        alert('등록 준비 중 오류가 발생했어요.\n' + ((e && e.message) || e));
+      }
+      return;
+    }
+    if (!uid) { alert('등록을 처리할 수 없어요. 잠시 후 다시 시도해주세요.'); return; }
+    const nameEl = document.getElementById('dogamGuestName');
+    const name = (nameEl && nameEl.value || '').trim();
+    if (!name) { alert('이름 또는 별명을 입력해주세요.'); return; }
+    const agree = document.getElementById('dogamAgree');
+    if (!agree || !agree.checked) { alert('필수 동의 항목에 체크해주세요.'); return; }
+
+    // 초대받은 사람에게는 "내 관상 캐릭터 뽑기" 버튼을 띄우지 않는다 — 이 버튼 하나로 분석까지 끝낸다.
+    // 아래 render 과정에서 폼이 다시 그려지므로, 입력값은 이 시점에 이미 name에 담아뒀다.
+    let charId = myCharacterId();
+    if (!charId) {
+      const hasPhoto = (typeof state !== 'undefined' && state.gwansang && state.gwansang.file);
+      if (!hasPhoto) { alert('먼저 사진을 올려주세요.'); return; }
+      if (typeof startAnalysis !== 'function') { alert('분석 기능을 불러오지 못했어요. 새로고침 후 다시 시도해주세요.'); return; }
+      console.log('[dogam] 관상 분석부터 실행');
+      await startAnalysis('gwansang');
+      charId = myCharacterId();
+      if (!charId) return; // 얼굴 인식 실패 — startAnalysis가 이미 사유를 화면에 표시한다
+    }
+
+    const score = compatScore(guestDogam.ownerCharacterId, charId);
+    const inviter = guestDogam; // 아래에서 guestDogam을 비우므로 미리 붙잡아 둔다
+    try {
+      // ① 친구 도감에 나를 등록 — 문서 id를 내 uid로 둬서 중복 등록을 막고 본인 삭제 권한을 명확히 한다.
+      await fbDb.collection('dogam').doc(inviter.slug).collection('entries').doc(uid).set({
+        uid: uid, name: name, characterId: charId, score: score,
+        relation: relationLabel(inviter.ownerCharacterId, charId),
+        createdAt: new Date().toISOString(),
+      });
+      console.log('[dogam] 상대 도감에 등록 완료', { slug: inviter.slug, entry: uid, score: score });
+
+      // ② 내 도감이 없으면 이때 함께 만들어진다(요청: 등록과 동시에 내 인연도감 생성).
+      //    방금 입력한 이름으로 만들어야 상대가 보는 내 이름과 어긋나지 않는다.
+      let mine = await ensureMyDogam();
+      if (!mine) mine = await createMyDogam(name);
+      if (!mine) throw new Error('내 인연도감을 만들지 못했어요.');
+
+      // ③ 인연은 양쪽에 함께 등록된다 — 방금 초대해준 사람도 내 도감에 올린다.
+      const myScore = compatScore(charId, inviter.ownerCharacterId);
+      await fbDb.collection('dogam').doc(mine.slug).collection('entries').doc(inviter.ownerUid).set({
+        uid: inviter.ownerUid, name: inviter.ownerName, characterId: inviter.ownerCharacterId,
+        score: myScore, relation: relationLabel(charId, inviter.ownerCharacterId),
+        createdAt: new Date().toISOString(),
+      });
+      console.log('[dogam] 내 도감에 상대 등록 완료', { slug: mine.slug, entry: inviter.ownerUid, score: myScore });
+
+      // 등록 직후 화면에 "방금 맺은 인연"을 보여주기 위해 기억해둔다.
+      localStorage.setItem(MATCH_KEY, JSON.stringify({
+        uid: inviter.ownerUid, name: inviter.ownerName,
+        characterId: inviter.ownerCharacterId, score: myScore,
+        relation: relationLabel(charId, inviter.ownerCharacterId),
+      }));
+      myDogam = null; // 다음 render에서 방금 쓴 항목까지 포함해 다시 읽도록 캐시를 비운다
+      // ④ 등록이 끝나면 "공유받은 사람"이 아니라 "내 도감 주인" 화면으로 전환한다.
+      history.replaceState(null, '', location.origin + location.pathname);
+      guestDogam = null;
+      const gh = document.getElementById('dogamGuestSection');
+      if (gh) { stashUploadNodes(); gh.remove(); }
+      setDisplay('gwansangHero', '');
+        await render();
+      alert('인연도감에 등록됐어요. 내 인연도감도 함께 만들어졌어요.');
+    } catch (e) {
+      console.error('[dogam] 등록 실패', e);
+      alert('등록 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+    }
+  }
+
+  // 공유 링크는 내 도감 문서의 slug 하나로 고정된다 — 한 번 만들어지면 계속 같은 주소이고,
+  // 이 주소로 들어온 사람에게는 "내 도감"이 열린다(renderGuestView).
+  async function share() {
+    // async 함수라 안에서 던져진 예외는 onclick 밖으로 새어나가 조용히 사라진다 —
+    // 그러면 사용자에겐 "버튼이 안 눌린다"로만 보인다. 모든 실패를 여기서 붙잡아 화면에 알린다.
+    console.log('[dogam] 공유 링크 준비 시작');
+    // slug를 이미 알고 있으면 어떤 await보다 먼저 복사한다 — await를 한 번이라도 거치면
+    // 브라우저의 "사용자 조작 중" 판정이 풀려 클립보드 쓰기가 거부된다(복사가 조용히 실패).
+    if (myDogam && myDogam.slug) {
+      const ready = shareUrl(myDogam.slug);
+      if (await copyText(ready)) { toast('초대 링크를 복사했어요'); console.log('[dogam] 공유 링크', ready); return; }
+      prompt('아래 링크를 복사해서 친구에게 보내주세요.', ready);
+      return;
+    }
+    toast('링크를 준비하고 있어요…');
+    try {
+      await ensureAuthUid(); // 비로그인이어도 공유는 된다(익명 신원 발급)
+      let mine = myDogam || await ensureMyDogam();
+      if (!mine) mine = await createMyDogam();
+      if (!mine) { toast('먼저 관상 분석을 완료해주세요'); return; }
+      myDogam = mine;
+      const url = shareUrl(mine.slug);
+      if (await copyText(url)) toast('초대 링크를 복사했어요');
+      else prompt('아래 링크를 복사해서 친구에게 보내주세요.', url); // 클립보드를 못 쓰는 브라우저 대비
+      console.log('[dogam] 공유 링크', url);
+    } catch (e) {
+      console.error('[dogam] 공유 링크 생성 실패', e);
+      hideToast();
+      if (e && e.code === 'permission-denied') {
+        alert('도감을 저장할 권한이 없어요.\nFirestore 보안 규칙(dogam)을 배포했는지 확인해주세요.\n\nfirebase deploy --only firestore:rules');
+      } else {
+        alert('링크를 만들지 못했어요.\n' + ((e && e.message) || e));
+      }
+    }
+  }
+
+  async function copyText(text) {
+    try {
+      // navigator.clipboard는 보안 컨텍스트(HTTPS·localhost)에서만 동작한다.
+      if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0;';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) { return false; }
+  }
+
+  let toastTimer = null;
+  function hideToast() {
+    const el = document.getElementById('dogamToast');
+    if (el) el.classList.remove('show');
+    clearTimeout(toastTimer);
+  }
+  function toast(message) {
+    let el = document.getElementById('dogamToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'dogamToast';
+      el.className = 'dogam-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2000);
+  }
+
+  function loginAndKeep() { if (window.KakaoAuth) KakaoAuth.openLoginPopup(); }
+  function goCombined() {
+    const btns = Array.prototype.slice.call(document.querySelectorAll('.tab-btn'));
+    const btn = btns.filter(function (b) { return (b.getAttribute('onclick') || '').indexOf("'combined'") >= 0; })[0];
+    if (btn) btn.click();
+    window.scrollTo(0, 0);
+  }
+
+  // 공유 링크(?dogam=...)로 들어온 경우엔 관상 탭을 열고 등록 화면을 바로 띄운다.
+  function initFromShareLink() {
+    if (!sharedSlugFromUrl()) return;
+    const btns = Array.prototype.slice.call(document.querySelectorAll('.tab-btn'));
+    const btn = btns.filter(function (b) { return (b.getAttribute('onclick') || '').indexOf("'gwansang'") >= 0; })[0];
+    if (btn) btn.click();
+    const result = document.getElementById('gwansangResult');
+    if (result) result.classList.remove('hidden'); // 리포트 카드 안에 도감 영역이 들어있다
+    render();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initFromShareLink);
+  else initFromShareLink();
+
+  window.Dogam = {
+    render: render, renderInto: renderIntoEl, share: share, registerEntry: registerEntry,
+    loginAndKeep: loginAndKeep, goCombined: goCombined, deleteMyDogam: deleteMyDogam,
+    _score: compatScore, _policy: DOGAM_POLICY,
+  };
+})();

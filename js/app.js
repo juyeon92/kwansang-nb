@@ -26,12 +26,63 @@ window.addEventListener('afterprint', () => {
 });
 
 // ═══ TABS ═══
+// 마지막으로 보던 탭을 기억한다 — 새로고침할 때마다 첫 탭(통합분석)으로 튕기면
+// 인연도감에서 사진 올리고 작업하던 흐름이 그대로 끊긴다.
+const LAST_TAB_KEY = 'gwansangLastTab';
+// 인연도감 리포트를 보고 있었는지 — 탭만 복원하면 새로고침 시 리포트가 닫혀 업로드 화면으로 돌아간다.
+// "인연도감 메인으로"로 직접 닫은 경우와 구분해야 해서 별도 플래그로 남긴다.
+const GWANSANG_REPORT_OPEN_KEY = 'gwansangReportOpen';
+
 function switchTab(tab, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
   btn.classList.add('active');
+  try { localStorage.setItem(LAST_TAB_KEY, tab); } catch (e) { /* 프라이빗 브라우징 등 */ }
+  // 인연도감은 캐릭터 결과·도감 생성 여부에 따라 내용이 달라지는데, 탭을 옮기는 것만으로는 다시
+  // 그려지지 않아 "캐릭터를 뽑고 인연도감으로 돌아왔는데 새로 만든 도감이 안 보이고 새로고침해야
+  // 뜨는" 상태가 됐다(사용자 리포트 2026-08-17). 들어올 때마다 최신 상태로 다시 그린다.
+  if (tab === 'gwansang' && window.Dogam) Dogam.render();
 }
+
+function restoreLastTab() {
+  // 공유 링크(?dogam=)로 들어온 경우엔 인연도감으로 가야 하므로 복원하지 않는다
+  // (js/inyeon-dogam.js의 initFromShareLink가 그 탭을 연다).
+  if (new URLSearchParams(location.search).get('dogam')) return;
+  let last = null;
+  try { last = localStorage.getItem(LAST_TAB_KEY); } catch (e) { return; }
+  if (!last || last === 'combined') return; // 통합분석은 이미 기본으로 열려 있다
+  const panel = document.getElementById('panel-' + last);
+  if (!panel) return; // 탭 구성이 바뀐 뒤 남은 옛 값
+  const btn = Array.prototype.slice.call(document.querySelectorAll('.tab-btn'))
+    .filter(b => (b.getAttribute('onclick') || '').indexOf("'" + last + "'") >= 0)[0];
+  if (btn) btn.click();
+}
+
+// 인연도감 리포트를 보던 중이었다면 그 화면까지 되살린다 — 탭만 돌아오고 리포트가 닫혀 있으면
+// 사용자 입장에선 "새로고침했더니 처음으로 돌아갔다"와 똑같다.
+// 저장해둔 캐릭터로 다시 그리는 것이라 사진을 다시 올리거나 재분석하지 않는다.
+function restoreGwansangReport() {
+  if (new URLSearchParams(location.search).get('dogam')) return; // 공유 링크는 초대 화면이 우선
+  let open = null, saved = null;
+  try {
+    open = localStorage.getItem(GWANSANG_REPORT_OPEN_KEY);
+    saved = JSON.parse(localStorage.getItem('inyeonLastCharacter') || 'null');
+  } catch (e) { return; }
+  if (!open || !saved || !saved.characterId) return;
+  if (typeof reopenSavedCharacter !== 'function') return;
+  reopenSavedCharacter(saved.characterId);
+  window.scrollTo(0, 0); // reopenSavedCharacter는 스크롤을 옮기지만, 복원은 맨 위에서 시작하는 게 자연스럽다
+}
+
+function restoreOnLoad() {
+  restoreLastTab();
+  if (document.querySelector('.panel.active') && document.querySelector('.panel.active').id === 'panel-gwansang') {
+    restoreGwansangReport();
+  }
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restoreOnLoad);
+else restoreOnLoad();
 
 // ═══ RELATION ═══
 function setRelation(ctx, rel, btn) {
@@ -178,9 +229,14 @@ function resetUpload(ctx) {
   if (ctx === 'gwansang') {
     document.getElementById('canvasCard').classList.add('hidden');
     document.getElementById('gwansangResult').classList.add('hidden');
+    // 리포트를 닫고 메인으로 돌아온 상태 — 새로고침해도 리포트를 다시 열지 않는다.
+    try { localStorage.removeItem(GWANSANG_REPORT_OPEN_KEY); } catch (e) {}
   } else if (ctx === 'combined') {
     document.getElementById('cmbCanvasCard').classList.add('hidden');
     document.getElementById('cmbResult').classList.add('hidden');
+    // "다른 (사람으로) 통합분석하기"로 들어온 자리 — 보관된 리포트 대신 사진 등록 단계부터 다시 시작한다.
+    cmbWantsNewAnalysis = true;
+    showCombinedPhotoStep();
     state.combined.q1 = ''; state.combined.q2 = ''; state.combined.q3 = '';
     document.querySelectorAll('#panel-combined .rel-chip').forEach(b => b.classList.remove('on'));
     ['cmbQ1Custom', 'cmbQ2Custom'].forEach(id => {
@@ -193,6 +249,115 @@ function resetUpload(ctx) {
     if (cmbQ3Counter) cmbQ3Counter.textContent = '0/100';
   }
   updateCtaDock(ctx);
+}
+
+// ═══ 통합분석 첫 화면 — 보관함에 쌓인 분석 내역 재노출 ═══
+// 로그인 상태에서 통합분석 기록이 있으면(보관함 = js/archive.js), 사진 등록 단계
+// (#cmbPhotoStep: "관상 정보" 라벨·안심 안내·업로드 드롭존)를 감추고 그 자리에 보관된 내역 목록
+// (#cmbSavedStep)을 보여준다. 기록이 몇 개든 전부 나열한다(사용자 요청 2026-08-18).
+// 행을 누르면 그 리포트를 #cmbSavedReport에 펼친다 — 보관함 스냅샷을 그대로 끼워 넣을 뿐이라
+// 재분석·AI 호출·냥 차감이 일어나지 않는다.
+// 최초 진입(비로그인이거나 기록 없음)은 지금까지처럼 사진 등록 화면 그대로다.
+// 호출 시점: 보관 목록이 바뀔 때마다 archive.js가 부른다(저장·삭제·로그인·로그아웃).
+let cmbWantsNewAnalysis = false; // "다른 사람으로 통합분석하기"를 눌러 새 분석을 진행 중인지
+let cmbViewingReportId = null;   // 내역에서 펼쳐 본 리포트 id
+
+// 진입 배너(#cmbHero)는 "사진 올려보세요"를 권하는 후킹 카드라, 저장된 리포트를 펼쳐 읽는 화면에서는
+// 맥락에 맞지 않아 감춘다(사용자 요청 2026-08-18). 목록·사진 등록 화면에서는 그대로 보인다.
+function setCmbHeroVisible(on) {
+  const hero = document.getElementById('cmbHero');
+  if (hero) hero.classList.toggle('hidden', !on);
+}
+
+function showCombinedPhotoStep() {
+  const photo = document.getElementById('cmbPhotoStep');
+  if (photo) photo.classList.remove('hidden');
+  ['cmbSavedStep', 'cmbSavedReport'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+  setCmbHeroVisible(true);
+}
+
+function cmbEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function renderCombinedSavedReport() {
+  const photo = document.getElementById('cmbPhotoStep');
+  const saved = document.getElementById('cmbSavedStep');
+  const list = document.getElementById('cmbSavedList');
+  if (!photo || !saved || !list) return;
+  if (cmbWantsNewAnalysis) { showCombinedPhotoStep(); return; }
+  if (state.combined.file) return; // 사진을 올리는 중이면 화면을 갈아끼우지 않는다
+  const rows = (window.Archive && Archive.listOf) ? Archive.listOf('combined') : [];
+  if (!rows.length) { showCombinedPhotoStep(); return; }
+
+  list.innerHTML = rows.map(rec =>
+    '<div class="revisit-row" role="button" tabindex="0" onclick="openCombinedSavedReport(\'' + rec.id + '\')">' +
+      '<span class="revisit-mark material-symbols-outlined">description</span>' +
+      '<div class="revisit-body">' +
+        '<div class="revisit-name">' + cmbEsc(rec.title) + '</div>' +
+        '<div class="revisit-desc">' + [rec.sub, rec.when].filter(Boolean).map(cmbEsc).join(' · ') + '</div>' +
+      '</div>' +
+      '<button type="button" class="revisit-del" aria-label="삭제" title="삭제" ' +
+        'onclick="event.stopPropagation();Archive.remove(\'' + rec.id + '\')">' +
+        '<span class="material-symbols-outlined">delete</span></button>' +
+      '<span class="revisit-arrow material-symbols-outlined">chevron_right</span>' +
+    '</div>').join('');
+
+  // 리포트를 펼쳐 보던 중에 목록이 갱신된 경우(삭제 등) — 그 기록이 남아 있으면 보던 화면을 유지한다.
+  const report = document.getElementById('cmbSavedReport');
+  const viewingGone = cmbViewingReportId && !rows.some(r => r.id === cmbViewingReportId);
+  if (report && !report.classList.contains('hidden') && !viewingGone) {
+    photo.classList.add('hidden');
+    setCmbHeroVisible(false);
+    return;
+  }
+  cmbViewingReportId = null;
+  if (report) report.classList.add('hidden');
+  photo.classList.add('hidden');
+  saved.classList.remove('hidden');
+  setCmbHeroVisible(true);
+}
+
+// 내역 행 클릭 — 보관된 스냅샷을 그대로 펼친다.
+async function openCombinedSavedReport(id) {
+  const body = document.getElementById('cmbSavedBody');
+  const meta = document.getElementById('cmbSavedMeta');
+  const rec = (window.Archive && Archive.listOf) ? Archive.listOf('combined').find(r => r.id === id) : null;
+  if (!body || !rec) return;
+  if (meta) meta.textContent = [rec.title, rec.sub, rec.when].filter(Boolean).join(' · ');
+  body.innerHTML = '<div class="arc-empty">리포트를 불러오는 중…</div>';
+  document.getElementById('cmbSavedStep').classList.add('hidden');
+  document.getElementById('cmbSavedReport').classList.remove('hidden');
+  setCmbHeroVisible(false); // 상세 리포트에는 진입 배너를 띄우지 않는다
+  cmbViewingReportId = id;
+  window.scrollTo(0, 0);
+  // 본문은 로컬에 없으면 클라우드에서 받아온다 — 못 찾으면 보관함 상세와 같은 문구를 보여준다.
+  const ok = await Archive.renderInto(body, id);
+  if (!ok) body.innerHTML = '<div class="arc-empty">저장된 리포트를 찾을 수 없습니다. 분석을 다시 실행해주세요.</div>';
+}
+
+function closeCombinedSavedReport() {
+  cmbViewingReportId = null;
+  document.getElementById('cmbSavedReport').classList.add('hidden');
+  document.getElementById('cmbSavedStep').classList.remove('hidden');
+  setCmbHeroVisible(true);
+  window.scrollTo(0, 0);
+}
+
+// "다른 사람으로 통합분석하기" — 사주(프로필)를 먼저 고르게 하고, 고른 뒤에 사진 등록부터 다시 시작한다.
+// 닫기·배경 클릭으로 나가면(onPick 미호출) 보고 있던 리포트 화면이 그대로 남는다.
+function startCombinedForOther() {
+  if (!window.Profile || !Profile.openSwitcher) return;
+  Profile.openSwitcher({
+    title: '분석할 사주 선택',
+    onPick: function () {
+      resetUpload('combined'); // 안에서 cmbWantsNewAnalysis를 세우고 사진 등록 단계를 되살린다
+      window.scrollTo(0, 0);
+    },
+  });
 }
 
 // ═══ 사주보기 재입력 — "다른 사주 분석하기" ═══
@@ -270,7 +435,9 @@ async function startAnalysis(ctx) {
     hideSpinner(m.spinner);
     document.getElementById('gwansangResult').classList.remove('hidden');
     markAnalyzed('gwansang');
+    try { localStorage.setItem(GWANSANG_REPORT_OPEN_KEY, '1'); } catch (e) {} // 새로고침해도 이 화면에 머무르도록
     if (window.Archive) Archive.save('gwansang'); // 보관함 — 리포트가 완성된 이 지점에서 스냅샷
+    if (window.Dogam) Dogam.render();             // 인연도감 영역 — 캐릭터가 정해진 뒤에 그린다
   } else if (ctx === 'combined') {
     document.getElementById('cmbCanvasCard').classList.remove('hidden');
   }
@@ -1094,6 +1261,74 @@ const FACE_OHAENG_TITLE = {
   금: '칼같이 정리하는, 금형(金形) 관상',
   수: '깊고 지혜로운, 수형(水形) 관상',
 };
+
+// ── Zone3 헤드 — 관상 오행 전용 문구 (스펙 §4-A, A안 확정) ────────────────────────
+// 기존 OHAENG_VIBE는 사주 기준 문구라 Zone4에 그대로 두고, 얼굴 인상 톤에 맞춘 5종을 따로 뒀다.
+// 두 Zone을 나란히 읽었을 때 "얼굴은 볕, 사주는 들판" 식의 대비가 살아나도록 문형을 맞췄다.
+// ⚠️ Zone3/4 헤드는 "~기운"으로 영역을 묘사할 뿐 사람을 지칭하지 않는다 — 사람을 지칭하는 건
+// Zone1(캐릭터명)뿐이라는 게 스펙 원칙 2다. "~상" 어미를 여기에 쓰면 캐릭터명과 충돌한다.
+const FACE_OHAENG_HEAD = {
+  목: '곧게 뻗은 나무처럼 새로 자라는 기운',
+  화: '볕이 잘 드는 자리처럼 환하게 퍼지는 기운',
+  토: '넓은 들처럼 묵직하게 자리 잡은 기운',
+  금: '잘 벼려진 날처럼 또렷하게 정리된 기운',
+  수: '깊은 물처럼 조용히 가라앉은 기운',
+};
+// ── Zone 아코디언 — 한 번에 하나만 (사용자 요청 2026-08-18) ─────────────────────
+// 리포트가 길어서 Zone을 여러 개 펼쳐두면 지금 어디를 읽고 있는지 놓친다. 하나를 열면 나머지를 닫는다.
+// .zone-accordion만 대상으로 잡는다 — Zone4 안에 중첩된 "사주 분석 근거 보기" 같은 하위 아코디언까지
+// 닫아버리면 방금 편 걸 스스로 접는 꼴이 된다.
+function initZoneAccordions() {
+  const zones = Array.prototype.slice.call(document.querySelectorAll('details.zone-accordion'));
+  zones.forEach((z) => {
+    z.addEventListener('toggle', () => {
+      if (!z.open) return;
+      zones.forEach((other) => { if (other !== z) other.open = false; });
+    });
+  });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initZoneAccordions);
+else initZoneAccordions();
+
+// ── AI 로딩 스켈레톤 (Zone2~4) ───────────────────────────────────────────────
+// Zone1은 엔진+DB라 분석 직후 바로 뜨지만 Zone2~4는 Gemini 왕복을 기다려야 한다. 그 사이를
+// "사진 분석이 끝나면 표시돼요" 같은 한 줄로 두면, 사용자가 이미 다 뜬 화면으로 착각하고
+// "별거 없네" 하고 넘겨버린다(사용자 리포트 2026-08-17). 글줄 모양의 자리를 미리 깔아
+// "여기에 내용이 더 들어온다"는 걸 형태로 알린다.
+// elId → 로딩 중임을 표시할 상위 Zone(없으면 스켈레톤만 그린다).
+// 사주·궁합 탭은 Zone 래퍼가 없어 매핑에서 빠지지만, 스켈레톤 자체는 동일하게 그려진다 —
+// 예전엔 이 두 탭만 "🧠 AI 정밀 리포트 생성 중..." 한 줄이라 통합분석과 로딩 경험이 달랐다.
+const AI_ZONE_SKELETON = { cmbFusionSection: 'cmbZone2', cmbAiFaceExtra: 'cmbZone3', cmbAiSajuSection: 'cmbZone4' };
+function showAiSkeleton(elId, label) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = `<div class="ai-skeleton">
+      <div class="ai-skeleton-note"><span class="ai-skeleton-dot"></span>${label}</div>
+      <div class="sk-line"></div><div class="sk-line w90"></div><div class="sk-line w70"></div>
+      <div class="sk-line w80"></div><div class="sk-line w50"></div>
+    </div>`;
+  const zone = document.getElementById(AI_ZONE_SKELETON[elId]);
+  if (zone) zone.classList.add('is-loading');
+}
+// AI 문단이 실제로 채워지면 스켈레톤과 "불러오는 중" 표시를 함께 걷는다.
+function clearAiSkeleton(elId) {
+  const zone = document.getElementById(AI_ZONE_SKELETON[elId]);
+  if (zone) zone.classList.remove('is-loading');
+}
+function showAllAiSkeletons() {
+  showAiSkeleton('cmbFusionSection', '관상과 사주를 함께 읽는 중이에요');
+  showAiSkeleton('cmbAiFaceExtra', '얼굴 부위를 자세히 보는 중이에요');
+  showAiSkeleton('cmbAiSajuSection', '사주 풀이를 쓰는 중이에요');
+}
+
+// Zone3/4 헤드 렌더 — 형태: "{영역}에서 보이는 기운 — {문구}"
+function renderZoneHead(elId, areaLabel, line) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!line) { el.innerHTML = ''; return; }
+  el.innerHTML = `<span class="zone-head-area">${areaLabel}에서 보이는 기운</span>`
+    + `<span class="zone-head-line">${line}</span>`;
+}
 function renderFaceOhaengBars(count, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -1162,14 +1397,70 @@ async function calcSaju(ctx) {
 }
 
 // ═══ COMBINED ═══
-async function runCombined() {
+// preloadedLm: 냥 차감 전에 이미 얼굴 인식을 끝내둔 경우 그 결과를 그대로 받아 재사용한다
+// (profile.js의 runCombinedWrapped 참고). MediaPipe detect를 두 번 돌리지 않기 위한 것이고,
+// 안 넘기면 예전처럼 여기서 직접 runFaceAnalysis를 호출한다.
+// 리포트는 "다 만들어진 뒤" 한 번에 공개한다(사용자 요청 2026-08-18). 예전엔 사주 계산이 끝나는
+// 즉시 결과 카드를 열고 Zone2~4를 "불러오는 중"으로 채워서, 완성되지 않은 리포트가 먼저 보였다.
+// 진행 상황은 리포트 대신 #cmbAnalyzing(스피너 + 단계 문구)으로 알린다.
+function showCmbAnalyzing(msg) {
+  const box = document.getElementById('cmbAnalyzing');
+  if (box) box.classList.remove('hidden');
+  setCmbAnalyzingMsg(msg);
+}
+function setCmbAnalyzingMsg(msg) {
+  const el = document.getElementById('cmbAnalyzingMsg');
+  if (el && msg) el.textContent = msg;
+}
+function hideCmbAnalyzing() {
+  const box = document.getElementById('cmbAnalyzing');
+  if (box) box.classList.add('hidden');
+}
+
+// AI가 끝내 못 채운 영역이 "불러오는 중"·스켈레톤 상태로 완성 리포트에 섞이지 않게 정리한다.
+function finalizeAiSections() {
+  ['cmbFusionSection', 'cmbAiFaceExtra', 'cmbAiSajuSection'].forEach(id => {
+    clearAiSkeleton(id);
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.querySelector('.ai-skeleton') || !el.textContent.trim()) {
+      el.innerHTML = '<div style="color:var(--text2);font-size:13px;">이번엔 AI 해설을 불러오지 못했어요. 다시 분석하면 채워집니다.</div>';
+    }
+  });
+}
+
+async function runCombined(preloadedLm) {
   const dateVal = document.getElementById('cmbBirthDate').value;
   if (!dateVal) { alert('생년월일을 입력해주세요.'); return; }
 
   hideErr('cmbErr');
   document.getElementById('cmbResult').classList.add('hidden');
   document.getElementById('cmbCanvasCard').classList.add('hidden');
+  markAnalyzed('combined');                  // 사진 등록 화면·CTA를 먼저 접고
+  showCmbAnalyzing('사주를 뽑는 중이에요');    // 진행 화면만 남긴다
 
+  let lm = null;
+  try {
+    lm = await buildCombinedReport(dateVal, preloadedLm);
+  } catch (e) {
+    // 리포트가 완성되지 않았으므로 열지 않는다 — 입력 화면을 되살려 에러 안내가 보이게 한다.
+    console.error('[combined] 분석 실패 — 리포트를 열지 않는다', e);
+    hideCmbAnalyzing();
+    const sec = document.getElementById('cmbUploadSection');
+    if (sec) sec.classList.remove('hidden');
+    showErr('cmbErr', '분석 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+
+  hideCmbAnalyzing();
+  if (lm) document.getElementById('cmbCanvasCard').classList.remove('hidden');
+  document.getElementById('cmbResult').classList.remove('hidden');
+  window.scrollTo(0, 0);
+  if (window.Archive) Archive.save('combined'); // 보관함 — 리포트가 완성된 이 지점에서 스냅샷
+}
+
+// 리포트 본문을 만든다(화면 공개는 하지 않는다). 반환값은 얼굴 랜드마크(사진이 없거나 인식 실패면 null).
+async function buildCombinedReport(dateVal, preloadedLm) {
   const rel = state.combined.relation;
   document.getElementById('cmbResultTitle').textContent = `🔮 AI 관상 X 사주 개운 리포트 (${rel})`;
 
@@ -1180,7 +1471,11 @@ async function runCombined() {
   state.combined.pillars = pillars;
   state.combined.ohaeng = ohaeng;
   renderPillarsTable(pillars, 'cmbPillarsTable');
-  renderUnseongLegend(pillars, 'cmbUnseongLegend');
+  // 스펙 §6 삭제 — 십이운성·십이신살·귀인/살 "목록형" 3종은 용어 정의 나열이라 통합분석에서 뺀다.
+  // 같은 정보의 의미는 Zone4 사주 풀이(AI 종합 서술)가 이미 소화하고, 원국 표의 신살 라벨도 남는다.
+  // 사주보기·궁합보기 탭은 성격이 다른 화면이라 기존대로 유지한다.
+  const cmbLegend = document.getElementById('cmbUnseongLegend');
+  if (cmbLegend) { cmbLegend.innerHTML = ''; cmbLegend.classList.add('hidden'); }
   renderDaeunTable(computeDaeun(dateVal, hourVal, cmbGender), 'cmbDaeunTable');
   renderOhaengBars(ohaeng, 'cmbOhaengBars');
   renderOhaengDeepDive(ohaeng, pillars[2].stem, 'cmbOhaengDeepDive');
@@ -1197,36 +1492,55 @@ async function runCombined() {
     document.getElementById('cmbPhotoLoading').classList.remove('hidden'); // 사진 분석이 끝날 때까지 "관상 분석중~"만 노출
   }
 
-  // 결과 카드 먼저 공개 (사주 정보는 항상 즉시 보임 — 사진 관련 섹션만 위에서 별도로 게이팅)
-  document.getElementById('cmbResult').classList.remove('hidden');
-  markAnalyzed('combined');
+  // Zone4 헤드 — 예전 p1 최상단 헤드라인(OHAENG_TITLE)이 있던 정보다. 근거가 사주 오행 하나뿐이라
+  // 종합 자리에 두면 Zone1 캐릭터와 충돌해서, 어미를 "~기운"으로 바꿔 사주 섹션 헤드로 내렸다(스펙 §5-A).
+  const domSaju = Object.entries(ohaeng).sort((a, b) => b[1] - a[1])[0];
+  renderZoneHead('cmbSajuHead', '사주', domSaju ? (OHAENG_VIBE[domSaju[0]] || {}).line : '');
+
+  if (state.combined.file) showAllAiSkeletons(); // 리포트 안 AI 영역의 자리(공개 전이라 화면엔 아직 안 보인다)
 
   // ③ 사진이 있으면 관상 분석 + 사주 시너지까지 한번에 렌더링
   let lm = null;
   if (state.combined.file) {
-    lm = await runFaceAnalysis('combined');
+    setCmbAnalyzingMsg('얼굴을 살펴보는 중이에요');
+    lm = preloadedLm || await runFaceAnalysis('combined');
     if (lm) {
-      document.getElementById('cmbCanvasCard').classList.remove('hidden');
       renderPersonalReportV2(lm, { headline:'cmbHeadline', cards:'cmbGwansangCards', synergy:'cmbSynergyBox', summary:null, result:'cmbResult' }, pillars, ohaeng);
-      const ext = renderExtendedAnalysis(lm, { asymmetry:'cmbAsymmetry', faceOhaeng:'cmbFaceOhaeng' });
+      const ext = renderExtendedAnalysis(lm, { asymmetry:'cmbAsymmetry', faceOhaeng:'cmbFaceOhaeng', asymmetryDetail:false });
       renderGoldenTime('cmbGoldenTime', ext.samjeong, calcAge(dateVal), pillars[2].stem);
       renderSnapshotHighlights(ext.ratios, 'cmbSnapshot');
+      // Zone3 헤드 — 관상 오행(얼굴)만 근거로 삼는 문구. Zone4(사주)와 문형을 맞춰 나란히 읽히게 한다.
+      // calcFaceOhaeng은 랜드마크 배열을 받는다(비율 객체가 아니다). 여기서 잘못 넘겨 예외가 나면
+      // runCombined가 그대로 중단돼 뒤따르는 AI 호출까지 통째로 날아갔다 — Zone 헤드 하나 때문에
+      // 리포트 전체가 멈추지 않도록 인자도 바로잡고 try로 감쌌다.
+      try {
+        const faceOh = calcFaceOhaeng(lm);
+        const domFace = faceOh ? Object.entries(faceOh).sort((a, b) => b[1] - a[1])[0] : null;
+        renderZoneHead('cmbFaceHead', '얼굴', domFace ? FACE_OHAENG_HEAD[domFace[0]] : '');
+      } catch (e) { console.error('[combined] Zone3 헤드 렌더 실패 — 나머지는 계속 진행', e); }
       // AI가 실패해도 사주·관상 로컬 분석 결과는 이미 완성돼 있다 — 예외로 함수가 중단되면 아래
       // 개운 루틴 렌더와 보관함 저장까지 통째로 건너뛰므로, 여기서 흡수하고 진행한다.
       try {
+        setCmbAnalyzingMsg('관상과 사주를 함께 읽는 중이에요');
         await requestPersonalAi('combined'); // 키가 없어도 룰베이스 약식 추정으로 대체됨 — 로컬+AI(or 약식)가 다 끝난 뒤에 사진 섹션을 공개
+        setCmbAnalyzingMsg('사주 풀이를 쓰는 중이에요');
         await requestDeepReport('combined');
       } catch (e) {
         console.error('[combined] AI 해설 실패 — 나머지 렌더와 보관은 계속 진행', e);
       }
+      finalizeAiSections();
       document.getElementById('cmbPhotoLoading').classList.add('hidden');
       document.getElementById('cmbPhotoSection').classList.remove('hidden');
     } else {
-      document.getElementById('cmbPhotoLoading').classList.add('hidden'); // 얼굴 인식 실패 — 별도 에러 메시지는 이미 표시됨
+      document.getElementById('cmbPhotoLoading').classList.add('hidden');
+      // 얼굴 인식 실패 — 에러 메시지(#cmbErr)는 사진 등록 영역 안에 있어서, 접어둔 채로 두면 보이지 않는다.
+      const sec = document.getElementById('cmbUploadSection');
+      if (sec) sec.classList.remove('hidden');
     }
   }
 
   // ④ Daily 개운 루틴 — 얼굴 사진이 있으면 부위 기반, 없으면 오행 생활 팁으로 대체
+  setCmbAnalyzingMsg('개운 루틴을 고르는 중이에요');
   if (lm) {
     const r = getGwansangRatios(lm);
     const statusMap = judgePartStatus(r);
@@ -1237,7 +1551,7 @@ async function runCombined() {
     renderComplementCards(items, 'cmbComplementCards', null);
   }
   document.getElementById('cmbComplementSection').classList.remove('hidden');
-  if (window.Archive) Archive.save('combined'); // 보관함 — 사진 분석·AI 해설까지 끝난 뒤에 스냅샷
+  return lm;
 }
 
 // ═══ GUNGHAM ═══
@@ -1407,10 +1721,16 @@ function renderExtendedAnalysis(lm, ids) {
   const asymEl = document.getElementById(ids.asymmetry);
   if (asymEl) {
     const leftCount = asym.filter(a => a.leftHigher).length;
-    asymEl.innerHTML = asym.map(a => {
+    const conclusion = leftCount >= 2
+      ? '내면의 성향이 겉으로도 잘 드러나는 솔직한 얼굴이에요.'
+      : '평소 내면과는 조금 다른 모습을 사회적으로 연출하고 있을 수 있어요.';
+    // 스펙 §6 삭제 — 눈/눈썹/입꼬리 %차이 3줄은 사용자 효용이 낮아 결론 한 줄만 남긴다.
+    // 통합분석(ids.asymmetryDetail 미지정)에서만 걷어내고, 관상보기 탭은 기존대로 상세까지 보여준다.
+    const detail = ids.asymmetryDetail === false ? '' : asym.map(a => {
       const side = a.leftHigher ? '왼쪽(내면의 나)' : '오른쪽(사회적으로 보이는 나)';
       return `<div class="part-tip">〔${a.label}〕 ${side} 쪽이 살짝 더 올라가 있어요. (차이 ${(a.diffRatio*100).toFixed(1)}%)</div>`;
-    }).join('') + `<div class="part-tip" style="margin-top:6px;">✨ ${leftCount >= 2 ? '내면의 성향이 겉으로도 잘 드러나는 솔직한 얼굴이에요.' : '평소 내면과는 조금 다른 모습을 사회적으로 연출하고 있을 수 있어요.'}</div>`;
+    }).join('');
+    asymEl.innerHTML = detail + `<div class="part-tip"${detail ? ' style="margin-top:6px;"' : ''}>✨ ${conclusion}</div>`;
   }
   const faceOh = calcFaceOhaeng(lm);
   if (ids.faceOhaeng) renderFaceOhaengBars(faceOh, ids.faceOhaeng);

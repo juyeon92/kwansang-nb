@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- index.html 자체는 매번 서버에 확인한다. js/*.js는 아래 ?v= 로 캐시를 끊는데, 정작 그 태그를 담은
+     이 파일이 캐시되면 옛 ?v= 가 고정돼 낡은 스크립트가 계속 로드된다. 실제로 "친구가 보는 리포트만
+     예전 구조로 나오는" 증상이 이 경로로 생겼다. HTML만 무효화하므로 스크립트 캐시 이득은 유지된다. -->
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <title>관상냥반</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -79,8 +83,8 @@ body {
   min-height: 100dvh;
 }
 .wrap { position: relative; z-index: 1; max-width: var(--frame-w); margin: 0 auto; padding: 0 16px 24px; }
-/* 배너/업로드 섹션은 피그마 상 화면 가장자리까지 꽉 차는 full-bleed 구조 — wrap의 16px 패딩을 상쇄 */
-.top-banner, .upload-section { margin: 0 -16px; }
+/* 업로드 섹션은 피그마 상 화면 가장자리까지 꽉 차는 full-bleed 구조 — wrap의 16px 패딩을 상쇄 */
+.upload-section { margin: 0 -16px; }
 
 /* ── Header (피그마 통합분석 화면 Header 노드 기준) ── */
 .app-header { max-width: var(--frame-w); margin: 0 auto; background: var(--surface); }
@@ -144,57 +148,176 @@ body {
 /* 관상보기 결과(캐릭터 카드 + 리포트)는 카드 껍데기를 벗긴다 — 회색 테두리와 24px 안쪽 패딩을 없애서
    콘텐츠가 .wrap 폭을 그대로 쓰게 함(사용자 요청 2026-08-15). 캐릭터 카드·아코디언 자체가 이미 테두리를
    갖고 있어 바깥 테두리가 이중으로 겹쳐 보이던 문제도 같이 해소된다. .card 공통 규칙은 그대로 두고
-   이 두 개만 덮어쓴다 — 다른 탭(통합분석·사주·궁합)의 카드는 영향 없음. */
-#canvasCard, #gwansangResult { border: none; padding: 0; background: transparent; }
+   이 두 개만 덮어쓴다 — 다른 탭(통합분석·사주·궁합)의 카드는 영향 없음.
+   ⚠️ 2026-08-16: 원래 #canvasCard/#gwansangResult 처럼 id로 걸어뒀었는데, 보관함(archive.js)의
+   snapshot()이 저장 시 모든 [id] 속성을 지우는 바람에 — 되살린 리포트에서는 이 규칙이 안 먹혀서 껍데기
+   패딩/테두리가 다시 나타나고, 그 안의 .char-card 테두리까지 겹쳐서 "카드 속에 카드"(2중 카드)처럼
+   보이는 버그였다(사용자 리포트: "#arcReportBody > div > div > div 바깥 패딩들 빼줘 / 2캐릭터 카드
+   버그"). id 대신 class(.shell-strip, 스냅샷에서도 안 지워짐)로 옮겨서 보관함에서도 그대로 적용되게 함. */
+.shell-strip { border: none; padding: 0; background: transparent; }
 
-/* ── 16캐릭터 일러스트 카드(#gwansangCharacterCard) — MBTI 카드 UI 참고, 실제 카피는 character-db.js에서 옴 ── */
-.char-card { position: relative; background: linear-gradient(160deg, #fdf3d3, #f6dd8c); border: 3px solid #c9a24a; border-radius: 22px; padding: 22px 16px 20px; text-align: center; box-shadow: 0 8px 20px rgba(120,90,20,0.16); overflow: hidden; }
-.char-card::before { content: ''; position: absolute; inset: 9px; border: 1.5px dashed rgba(150,110,30,0.4); border-radius: 15px; pointer-events: none; }
-.char-card-corner { position: absolute; font-size: 13px; color: #b8862f; line-height: 1; }
+/* 뒤로가기(#canvasCard 상단, resetUpload('gwansang') 호출) — .arc-back(보관함)과 같은 언어의
+   텍스트+아이콘 버튼. shell-strip으로 카드 패딩이 없어진 자리라 자체 여백을 둔다. */
+.report-back-btn {
+  display: flex; align-items: center; gap: 4px; margin-bottom: 16px;
+  border: none; background: none; padding: 0; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: var(--text-sub);
+}
+.report-back-btn:hover { color: var(--jade); }
+.report-back-btn .material-symbols-outlined { font-size: 19px; }
+
+/* ── 16캐릭터 일러스트 카드(#gwansangCharacterCard) — MBTI 카드 UI 참고, 실제 카피는 character-db.js에서 옴 ──
+   옥빛(민트) 배경 + 남색 테두리/장식 톤 — 사용자 요청 2026-08-16: 히어로 카드와 같은 색으로 통일
+   ("#gwansangHero > div.char-card 여기 컬러랑 맞춰서 첨부한 이미지의 캐릭터 컬러 바꿔줘"). 원래는 금박
+   톤이었는데 히어로 카드에만 남색을 예외 적용했다가, 이제 기본 스타일 자체를 남색으로 바꾸고 히어로용
+   별도 오버라이드는 없앴다(둘이 같은 색이라 더 이상 필요 없음). */
+.char-card { position: relative; background: linear-gradient(160deg, #f6fdfb, #e6f6f1); border: 3px solid #26375a; border-radius: 22px; padding: 22px 16px 20px; text-align: center; box-shadow: 0 8px 20px rgba(38,55,90,0.14); overflow: hidden; }
+.char-card::before { content: ''; position: absolute; inset: 9px; border: 1.5px dashed rgba(38,55,90,0.35); border-radius: 15px; pointer-events: none; }
+.char-card-corner { position: absolute; font-size: 13px; color: #26375a; line-height: 1; }
 .char-card-corner.tl { top: 14px; left: 16px; } .char-card-corner.tr { top: 14px; right: 16px; }
 .char-card-corner.bl { bottom: 14px; left: 16px; } .char-card-corner.br { bottom: 14px; right: 16px; }
-.char-card-badge { display: inline-block; background: #fff8e6; border: 1px solid #c9a24a; border-radius: 999px; padding: 3px 16px; font-size: 11px; font-weight: 700; color: #8a6a20; letter-spacing: 1.5px; margin-bottom: 12px; }
-.char-card-name { font-size: 25px; font-weight: 900; color: #3a2c12; letter-spacing: 0.3px; margin-bottom: 12px; }
-.char-card-img-wrap { width: 168px; height: 168px; margin: 0 auto 16px; border-radius: 50%; background: rgba(255,255,255,0.55); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid rgba(180,130,40,0.35); }
+.char-card-badge { display: inline-block; background: #eef2f8; border: 1px solid #26375a; border-radius: 999px; padding: 3px 16px; font-size: 11px; font-weight: 700; color: #26375a; letter-spacing: 1.5px; margin-bottom: 12px; }
+.char-card-name { font-size: 25px; font-weight: 900; color: #1c2942; letter-spacing: 0.3px; margin-bottom: 12px; }
+.char-card-img-wrap { width: 168px; height: 168px; margin: 0 auto 16px; border-radius: 50%; background: rgba(255,255,255,0.55); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid rgba(38,55,90,0.3); }
 .char-card-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
-.char-card-ribbon { display: inline-block; background: #3a2c12; color: #fff8e6; font-size: 13px; font-weight: 700; line-height: 1.5; padding: 9px 20px; border-radius: 8px; max-width: 90%; }
+/* 마스코트(Logo.png)는 이미지 자체에 이미 원형 테두리가 그려져 있어서, 위 원형 마스크를 또 씌우면
+   이중으로 잘려 보인다(사용자 요청 2026-08-16: "동그라미 마스크 씌우지 말고 그냥 넣어줘") — 히어로
+   자리에서만 마스크를 없애고 이미지 원본 비율 그대로 보여준다. */
+.char-card-img-wrap.no-mask { border-radius: 0; background: none; border: none; overflow: visible; }
+.char-card-img-wrap.no-mask img { object-fit: contain; }
+.char-card-ribbon { display: inline-block; background: #26375a; color: #f3f7fb; font-size: 13px; font-weight: 700; line-height: 1.5; padding: 9px 20px; border-radius: 8px; max-width: 90%; }
 
 /* ── 16캐릭터 상세 설명(#gwansangCharacterDetail) — 위 일러스트 카드(.char-card)와 같은 한지·금박 톤을
    유지하되, 긴 문장을 읽는 블록이라 배경은 훨씬 옅게 깔고 본문 대비를 확보했다. 문구는 전부
    character-db.js의 확정 콘텐츠이고 이 CSS는 표시 스타일만 담당한다. ── */
 .char-detail { background: linear-gradient(160deg, #fffdf6, #fdf6e3); border: 2px solid #e0c483; border-radius: 18px; padding: 20px 18px; margin-bottom: 16px; box-shadow: 0 4px 14px rgba(120,90,20,0.08); }
 .char-detail-head { text-align: center; margin-bottom: 16px; }
-.char-detail-role { display: inline-block; background: #fff8e6; border: 1px solid #c9a24a; border-radius: 999px; padding: 3px 14px; font-size: 11px; font-weight: 700; color: #8a6a20; letter-spacing: 0.5px; }
-.char-detail-headline { font-size: 15px; font-weight: 800; color: #3a2c12; line-height: 1.55; margin-top: 10px; }
-.char-detail-origin { font-size: 12.5px; line-height: 1.85; color: #5a4a24; background: #fff8e6; border: 1px dashed rgba(150,110,30,0.45); border-radius: 12px; padding: 12px 14px; }
+.char-detail-role { display: inline-block; background: #eef2f8; border: 1px solid #26375a; border-radius: 999px; padding: 3px 14px; font-size: 11px; font-weight: 700; color: #26375a; letter-spacing: 0.5px; }
+.char-detail-headline { font-size: 15px; font-weight: 800; color: #1c2942; line-height: 1.55; margin-top: 10px; }
+.char-detail-origin { font-size: 12.5px; line-height: 1.85; color: #33455f; background: #eef2f8; border: 1px dashed rgba(38,55,90,0.4); border-radius: 12px; padding: 12px 14px; }
 .char-detail-sec { margin-top: 20px; }
-.char-detail-sec-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 800; color: #3a2c12; margin-bottom: 4px; }
-.char-detail-sec-title::before { content: ''; width: 3px; height: 14px; background: #c9a24a; border-radius: 999px; }
+.char-detail-sec-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 800; color: #1c2942; margin-bottom: 4px; }
+.char-detail-sec-title::before { content: ''; width: 3px; height: 14px; background: #26375a; border-radius: 999px; }
 .char-detail-list { list-style: none; padding: 0; margin: 0; }
-.char-detail-list li { position: relative; font-size: 12.5px; line-height: 1.75; color: #4a3c1e; padding-left: 21px; margin-top: 8px; }
+.char-detail-list li { position: relative; font-size: 12.5px; line-height: 1.75; color: #2d3c52; padding-left: 21px; margin-top: 8px; }
 .char-detail-list li::before { position: absolute; left: 2px; top: 0; font-weight: 800; }
 .char-detail-list.is-strength li::before { content: '✓'; color: #2F6F68; }
-.char-detail-list.is-shadow li::before { content: '!'; color: #b8862f; }
-.char-detail-row { border-radius: 12px; background: rgba(255,255,255,0.72); border: 1px solid rgba(201,162,74,0.35); padding: 12px 14px; margin-top: 8px; }
-.char-detail-row-head { font-size: 12.5px; font-weight: 800; color: #8a6a20; margin-bottom: 5px; }
-.char-detail-row-text { font-size: 12.5px; line-height: 1.8; color: #4a3c1e; }
+.char-detail-list.is-shadow li::before { content: '!'; color: #a15c12; }
+.char-detail-row { border-radius: 12px; background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); padding: 12px 14px; margin-top: 8px; }
+.char-detail-row-head { font-size: 12.5px; font-weight: 800; color: #26375a; margin-bottom: 5px; }
+.char-detail-row-text { font-size: 12.5px; line-height: 1.8; color: #2d3c52; }
 .char-tag-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 9px; }
-.char-tag-label { font-size: 11.5px; font-weight: 700; color: #6b5a2e; min-width: 74px; }
+.char-tag-label { font-size: 11.5px; font-weight: 700; color: #3d4f6b; min-width: 74px; }
 .char-tag { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 4px 11px; border: 1px solid; }
 .char-tag.is-good { color: #1f6b5e; background: rgba(85,204,187,0.16); border-color: rgba(47,111,104,0.35); }
 .char-tag.is-spark { color: #a15c12; background: rgba(255,149,51,0.16); border-color: rgba(161,92,18,0.32); }
 .char-tag.is-clash { color: #a63d3d; background: rgba(196,80,80,0.13); border-color: rgba(166,61,61,0.30); }
-.char-detail-note { font-size: 11px; color: #8a7a52; line-height: 1.6; margin-top: 16px; }
+.char-detail-note { font-size: 11px; color: #5f6b7d; line-height: 1.6; margin-top: 16px; }
 
-/* 유료(서비스2) 전환 예정 영역 — 지금은 콘텐츠 검증을 위해 기본 펼침(ai-analysis.js의
-   CHARACTER_PAID_SECTION_OPEN). 결제 연동 시 접힘 기본 + 그 자리에서 Gemini 정밀 해석 호출로 바뀔 자리. */
-.char-paid { margin-top: 20px; border: 1px dashed rgba(150,110,30,0.5); border-radius: 14px; background: rgba(255,248,230,0.65); }
-.char-paid-summary { list-style: none; cursor: pointer; font-size: 12.5px; font-weight: 800; color: #8a6a20; padding: 12px 14px; }
-.char-paid-summary::-webkit-details-marker { display: none; }
-.char-paid-summary::before { content: '▶ '; }
-.char-paid[open] > .char-paid-summary::before { content: '▼ '; }
-.char-paid-body { padding: 0 14px 14px; }
-.char-paid-body .char-detail-sec:first-child { margin-top: 4px; }
+/* ══ 통합분석 Zone 구조 (통합분석 화면_콘텐츠_스펙_260817.md) ══
+   Zone1만 사람을 지칭(캐릭터명)하고, Zone3/4 헤드는 "~기운"으로 영역을 묘사한다.
+   층위가 겹치지 않게 헤드 형태를 다르게 두는 게 스펙 원칙 2다. */
+.zone-label { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; color: var(--text-title); margin: 4px 0 14px; }
+.zone-num {
+  flex: none; padding: 3px 9px; border-radius: 999px; background: var(--jade); color: #fff;
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.5px;
+}
+.zone-head { margin: 4px 0 8px; }
+.zone-head-area { display: block; font-size: 11.5px; color: var(--text-sub); }
+.zone-head-line { display: block; font-size: 16px; font-weight: 800; color: var(--jade); line-height: 1.5; margin-top: 3px; }
+
+/* Zone1 "왜 이 캐릭터가 나왔나요" — 근거 칩은 엔진이 실제 점수에 반영한 항목만 들어간다 */
+.zone-basis { border: 1px solid var(--border); border-radius: 16px; background: var(--card2); padding: 18px 16px; margin-bottom: 16px; }
+.zone-basis-title { font-size: 15px; font-weight: 800; color: var(--text-title); }
+.zone-basis-badge {
+  display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px;
+  background: var(--mint-10); color: var(--jade); font-size: 11px; font-weight: 700;
+}
+.ztrait-bars { margin: 14px 0 6px; }
+.ztrait-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.ztrait-name { flex: none; width: 26px; font-size: 11.5px; color: var(--text-sub); }
+.ztrait-track { flex: 1; height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.ztrait-fill { display: block; height: 100%; border-radius: 999px; background: var(--border-gray); }
+.ztrait-row.is-top .ztrait-name { font-weight: 800; color: var(--text-title); }
+.ztrait-row.is-top .ztrait-fill { background: var(--mint); }
+.ztrait-caption { font-size: 11px; color: var(--text3); margin-bottom: 14px; }
+.zevi { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; }
+.zevi-label { flex: none; width: 52px; font-size: 11.5px; font-weight: 700; color: var(--text-sub); padding-top: 4px; }
+.zevi-chips { flex: 1; display: flex; flex-wrap: wrap; gap: 5px; }
+.zchip { font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 4px 10px; border: 1px solid; }
+.zchip.is-face { color: var(--jade); background: var(--mint-10); border-color: var(--mint-border); }
+.zchip.is-saju { color: #6b5a2e; background: var(--beige-chip-bg); border-color: var(--beige); }
+.zchip.is-more { color: var(--text-sub); background: var(--surface); border-color: var(--border-gray); font-weight: 500; }
+.zone-basis-arrow { text-align: center; color: var(--text3); font-size: 15px; margin: 12px 0 6px; }
+.zone-basis-summary { font-size: 13px; line-height: 1.85; color: var(--text); }
+.zone-basis-summary b { color: var(--jade); }
+.zone-basis-conf { font-size: 12px; color: var(--text-sub); margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+
+/* ══ AI 로딩 스켈레톤 ══
+   Zone2~4는 Gemini 왕복이 있어 Zone1보다 늦게 찬다. 그 사이를 빈 화면으로 두면 사용자가
+   "다 뜬 건데 내용이 별거 없네"로 읽고 넘겨버린다 — 아직 오는 중이라는 걸 형태로 보여준다. */
+.ai-skeleton { padding: 4px 0 2px; }
+.ai-skeleton-note { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-sub); margin-bottom: 12px; }
+.ai-skeleton-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--mint); flex: none;
+  animation: aiPulse 1.1s ease-in-out infinite;
+}
+.sk-line { height: 11px; border-radius: 6px; margin-bottom: 9px; background: var(--card2); overflow: hidden; position: relative; }
+.sk-line::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.85), transparent);
+  animation: skShimmer 1.4s infinite;
+}
+.sk-line.w90 { width: 90%; } .sk-line.w70 { width: 70%; } .sk-line.w80 { width: 80%; } .sk-line.w50 { width: 50%; }
+@keyframes skShimmer { 100% { transform: translateX(100%); } }
+@keyframes aiPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .sk-line::after, .ai-skeleton-dot { animation: none; }
+}
+/* 아직 안 채워진 Zone은 아코디언 제목에도 표시해서, 접힌 상태로도 "로딩 중"이 보이게 한다 */
+.report-accordion.is-loading > summary::after { content: ' · 불러오는 중'; font-size: 11px; color: var(--text-sub); font-weight: 500; }
+
+/* ══ Zone3 부위별 상세 — 부위 1개 = 카드 1장, 안을 3층으로 쌓는다 ══
+   ① AI 해석(그래서 어떤 사람) ② 생김새 유형(무엇인가·DB) ③ 실측 포인트(얼마나·룰)
+   세 소스가 답하는 질문이 달라서 층으로 쌓으면 중복이 아니라 깊이가 된다(스펙 §4-B). */
+.z3-card { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; margin-bottom: 12px; }
+.z3-card-head { padding: 12px 14px; background: var(--card2); font-size: 14px; font-weight: 800; color: var(--text-title); }
+.z3-ai { padding: 14px; border-top: 1px solid var(--border); }
+.z3-ai-title { font-size: 14.5px; font-weight: 800; color: var(--jade); line-height: 1.5; margin-bottom: 9px; }
+.z3-ai-body { font-size: 13px; line-height: 1.85; color: var(--text); }
+.z3-ai-sub { font-size: 12.5px; line-height: 1.75; color: var(--text-sub); margin-top: 9px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
+.z3-ai-sub b { color: var(--jade); }
+.z3-shape { padding: 12px 14px; border-top: 1px solid var(--border); background: var(--mint-05); }
+.z3-shape-head { font-size: 12.5px; color: var(--text-sub); margin-bottom: 6px; }
+.z3-shape-head strong { color: var(--jade); font-weight: 800; }
+.z3-shape-line { font-size: 12.5px; line-height: 1.7; color: var(--text); }
+.z3-shape-line.is-dim { color: var(--text-sub); }
+.z3-measure { padding: 12px 14px; border-top: 1px solid var(--border); }
+.z3-measure-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 6px; }
+.z3-measure-name { font-size: 13px; font-weight: 700; color: var(--text-title); }
+.z3-measure-badge { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
+.z3-measure-badge.is-strong { color: var(--jade); background: var(--mint-10); }
+.z3-measure-badge.is-fill { color: #a15c12; background: rgba(255,149,51,0.14); }
+.z3-measure-level { margin-left: auto; font-size: 11px; color: var(--text3); }
+.z3-measure-text { font-size: 12.5px; line-height: 1.75; color: var(--text); }
+.z3-measure-tip { font-size: 12px; line-height: 1.7; color: var(--text-sub); margin-top: 5px; }
+/* 6대 기질 바 (노출스펙 §3-2) — 숫자는 넣지 않는다. 순위/등수로 읽히지 않도록 Top2만 색으로 구분 */
+.char-trait-bars { margin-top: 10px; }
+.char-trait-row { display: flex; align-items: center; gap: 10px; margin-top: 7px; }
+.char-trait-label { width: 30px; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #6b7789; }
+.char-trait-row.is-top .char-trait-label { color: #26375a; }
+.char-trait-track { flex: 1; height: 9px; background: rgba(38,55,90,0.10); border-radius: 999px; overflow: hidden; }
+.char-trait-fill { display: block; height: 100%; border-radius: 999px; background: #c3cbd8; transition: width .8s ease; }
+.char-trait-row.is-top .char-trait-fill { background: linear-gradient(90deg, #3b5488, #26375a); }
+.char-trait-caption { font-size: 12px; color: #4a5a72; margin-top: 12px; text-align: center; }
+/* 상황별 5종 — 길이가 길어 아코디언으로 접는다 (노출스펙 §3-5) */
+.char-detail-acc { border-radius: 12px; background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); padding: 11px 14px; margin-top: 8px; }
+.char-detail-acc > summary { font-size: 12.5px; font-weight: 800; color: #26375a; cursor: pointer; list-style: none; }
+.char-detail-acc > summary::-webkit-details-marker { display: none; }
+.char-detail-acc > summary::after { content: '＋'; float: right; color: #6b7789; font-weight: 700; }
+.char-detail-acc[open] > summary::after { content: '－'; }
+.char-detail-acc > .char-detail-row-text { margin-top: 8px; }
+
 .card-title {
   font-size: 15px; font-weight: 800; color: var(--jade); letter-spacing: 0.2px;
   margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
@@ -218,15 +341,17 @@ body {
 .mini-profile-placeholder { font-size: 13px; font-weight: 700; color: var(--text-sub2); }
 .mini-profile-empty { font-size: 12px; color: var(--text3); }
 
-/* ── 배너 영역 (피그마 Massage/InfoAlarm 최상단 — 플레이스홀더) ── */
-.top-banner {
-  background: var(--bg-soft2); padding: 16px; display: flex; flex-direction: column; gap: 8px;
-}
-.top-banner-text { font-size: 20px; font-weight: 400; color: var(--text-sub); }
-.top-banner-btn { font-size: 14px; font-weight: 600; color: var(--text-sub); background: none; border: none; cursor: pointer; font-family: inherit; align-self: flex-start; }
 
 /* ── Face Upload Area (피그마 실측 구조: Label → 안심 안내 → 드롭존[아이콘/캡션/노란 팁박스]) ── */
 .upload-section { padding: 28px 20px 40px; }
+
+/* ── 인연도감 첫 진입 히어로(#gwansangHero) ── */
+.hero-section { text-align: center; padding: 8px 4px 28px; }
+/* char-card-name은 원래 3~4자 캐릭터명(1줄)용 크기라, 두 줄짜리 후킹 문구엔 살짝 낮춰서 안 넘치게 함 */
+.hero-hook { font-size: 20px; line-height: 1.35; }
+.hero-subcopy { font-size: 13px; line-height: 1.65; text-align: left; white-space: normal; }
+.hero-note { font-size: 11.5px; color: var(--text-caption); line-height: 1.6; margin-top: 14px; }
+
 .upload-label { font-size: 16px; font-weight: 700; color: var(--text-title); margin-bottom: 16px; }
 .reassure-box { background: var(--bg-soft); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
 .reassure-head { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
@@ -256,13 +381,13 @@ body {
 
 .upload-area {
   border: 2px solid var(--border-gray2); border-radius: var(--r-drop);
-  padding: 40px 20px; text-align: center; cursor: pointer;
+  padding: 24px 20px; text-align: center; cursor: pointer;
   transition: border-color .2s; background: var(--surface);
 }
 .upload-area:hover, .upload-area.drag { border-color: var(--mint); }
 .upload-icon-circle {
-  width: 64px; height: 64px; border-radius: 999px; background: var(--mint-10);
-  display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 26px; color: var(--mint);
+  width: 48px; height: 48px; border-radius: 999px; background: var(--mint-10);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-size: 20px; color: var(--mint);
 }
 .upload-icon-circle.small { width: 44px; height: 44px; font-size: 18px; margin-bottom: 8px; }
 .upload-area strong { display: block; color: var(--text-caption); font-size: 14px; font-weight: 400; margin: 0; }
@@ -311,6 +436,17 @@ body {
 #gwansangCanvas, #combinedCanvas, #gunghamCanvasA, #gunghamCanvasB { max-width: 100%; border-radius: 10px; display: block; }
 
 /* ── Spinner ── */
+/* ── 통합분석 진행 화면 (js/app.js runCombined) ── */
+/* 리포트는 AI 해설까지 전부 끝난 뒤에 한 번에 공개한다(사용자 요청 2026-08-18). 그 전까지 화면에
+   남는 건 이 카드뿐이라, 어디까지 됐는지를 단계 문구로 알린다. */
+.cmb-analyzing {
+  text-align: center; padding: 40px 24px; margin-top: 24px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+}
+.cmb-analyzing-title { font-size: 16px; font-weight: 800; color: var(--text-title); }
+.cmb-analyzing-msg { font-size: 13px; font-weight: 700; color: var(--jade); margin-top: 8px; }
+.cmb-analyzing-note { font-size: 12px; color: var(--text-sub); line-height: 1.7; margin: 14px 0 0; }
+
 .spinner { display: none; text-align: center; padding: 28px; }
 .spinner.show { display: block; }
 .spin-ring { width: 44px; height: 44px; border: 3px solid var(--mint-border); border-top-color: var(--mint); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
@@ -359,6 +495,16 @@ body {
   padding: 14px 18px; border-radius: var(--r-btn); border: 1.5px solid var(--border-lavender);
   background: var(--surface); color: var(--text-sub); font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
 }
+
+/* ── 버튼 사이즈 체계 (2026-08-17) ──────────────────────────────────────────────
+   large  = .submit-btn/.btn-solid-primary의 기본값(약 54px). 화면 하단 CTA처럼 혼자 서는 주요 액션.
+   medium = 44px. 리스트 행이나 폼 줄 안에 들어가는 액션(예: 관리자 "지급하기").
+   small  = 32px. 카드 안 보조 액션(예: 대표프로필 "변경").
+   크기만 바꾸는 modifier라 색·모양은 기존 클래스(.btn-solid-primary 등)가 그대로 결정한다.
+   높이를 padding이 아니라 height로 잡아둬야 폰트 크기를 바꿔도 줄 높이가 흔들리지 않는다. */
+:root { --btn-h-lg: 54px; --btn-h-md: 44px; --btn-h-sm: 32px; }
+.btn-md { height: var(--btn-h-md); padding: 0 18px; font-size: 15px; margin-top: 0; }
+.btn-sm { height: var(--btn-h-sm); padding: 0 14px; font-size: 12px; margin-top: 0; }
 
 /* ── CTA dock: 하단 네비게이션 바로 위 고정 바(피그마 "bottom Group") ── */
 .cta-dock {
@@ -593,6 +739,181 @@ body.overlay-open { overflow: hidden; }
 .mypage-menu-item.is-quiet { color: var(--text-sub); font-weight: 400; }
 .mypage-menu-item.is-danger { color: var(--text-sub2); font-weight: 400; font-size: 13px; }
 
+/* ── 냥(포인트) 지갑 / 관리자 지급 (js/kakao-auth.js) — 관상냥반_냥시스템_기획서.md v2.0 ── */
+.wallet-balance-card {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--card2); border-radius: 12px; padding: 16px 20px;
+}
+/* 대표프로필 이름(.mypage-rep-name)과 같은 크기·굵기·색으로 통일 — 사용자 요청 2026-08-16 */
+.wallet-balance-num { font-size: 14px; font-weight: 700; color: var(--text-strong); }
+.mypage-rep-change[disabled] { opacity: 0.55; cursor: not-allowed; }
+/* .admin-section도 .mypage-section을 같이 달고 있어 padding:16px 20px(공통 가이드)는 그쪽에서 이미
+   상속받는다 — 여기서 배경색만 더한다(전에는 여기서 12px 4px로 덮어써서 가이드값이 깨졌었음). */
+.admin-section { background: rgba(85,204,187,0.06); border-radius: 12px; }
+.admin-search-row { display: flex; gap: 16px; margin-bottom: 16px; }
+.admin-search-row .field-input { flex: 1; }
+.admin-user-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+  background: var(--surface); border: 1px solid var(--border-gray); border-radius: 10px;
+  padding: 16px 20px; margin-top: 16px;
+}
+.admin-user-info { flex: 1; min-width: 140px; }
+.admin-user-name { font-size: 13px; font-weight: 700; color: var(--text-strong); }
+.admin-user-sub { font-size: 11.5px; color: var(--text-sub); margin-top: 2px; }
+.admin-grant-amount { width: 64px; padding: 8px; border: 1px solid var(--border-gray); border-radius: 8px; font-family: inherit; font-size: 12.5px; }
+.admin-grant-reason { padding: 8px; border: 1px solid var(--border-gray); border-radius: 8px; font-family: inherit; font-size: 12px; background: var(--surface); }
+
+/* ══ 인연도감 영역 (js/inyeon-dogam.js) — 관상 리포트 하단 ══ */
+.dogam-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-input); padding: 16px; margin-top: 20px; }
+.dogam-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.dogam-title { font-size: 16px; font-weight: 800; color: var(--text-title); }
+.dogam-count { font-size: 14px; font-weight: 700; color: var(--mint); }
+.dogam-empty { font-size: 13px; line-height: 1.7; color: var(--text-sub2); text-align: center; padding: 18px 4px; }
+.dogam-list { display: flex; flex-direction: column; }
+/* 리스트형 — 친구 도감은 상세 설명이 아니라 캐릭터명 + 한줄평 + 점수만 (요청 사항) */
+.dogam-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; }
+.dogam-row + .dogam-row { border-top: 1px solid var(--border-lavender); }
+.dogam-row-thumb { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--card2); }
+.dogam-row-body { flex: 1; min-width: 0; }
+.dogam-row-name { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: var(--text-strong); }
+.dogam-row-tag { font-size: 10px; font-weight: 500; color: var(--jade); background: var(--mint-10); border-radius: 50px; padding: 1px 8px; }
+.dogam-row-desc { font-size: 11.5px; color: var(--text-sub); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dogam-row-score { text-align: right; flex-shrink: 0; }
+.dogam-row-score b { font-size: 17px; font-weight: 800; color: var(--jade); }
+.dogam-row-score span { font-size: 11px; color: var(--text-sub); margin-left: 1px; }
+
+.dogam-guide { font-size: 13px; color: var(--text-sub2); margin-bottom: 10px; }
+/* 등록 직후 "방금 맺은 인연" — 인연 도감보다 먼저 눈에 들어와야 해서 톤을 한 단계 올린다 */
+.dogam-matched { background: var(--mint-soft); border-color: var(--mint-border); }
+.dogam-match-row { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: var(--r-input); padding: 12px; }
+.dogam-match-thumb { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--card2); }
+.dogam-match-body { flex: 1; min-width: 0; }
+.dogam-match-score { text-align: right; flex-shrink: 0; }
+.dogam-match-score b { display: block; font-size: 22px; font-weight: 800; color: var(--mint); line-height: 1.1; }
+.dogam-match-score span { font-size: 10px; color: var(--text-sub); }
+.dogam-notice { font-size: 11.5px; line-height: 1.7; color: var(--text-sub2); background: var(--bg-soft); border-radius: var(--r-input); padding: 12px; margin: 10px 0; }
+.dogam-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-strong); margin-bottom: 12px; cursor: pointer; }
+.dogam-check input { margin-top: 2px; flex-shrink: 0; }
+.dogam-policy { margin-top: 12px; background: var(--card2); border-radius: var(--r-input); padding: 12px 14px; }
+.dogam-policy > summary { font-size: 13px; font-weight: 700; color: var(--text-strong); cursor: pointer; }
+.dogam-policy-item { margin-top: 12px; }
+.dogam-policy-item b { display: block; font-size: 12.5px; color: var(--text-strong); margin-bottom: 3px; }
+.dogam-policy-item p { font-size: 12px; line-height: 1.7; color: var(--text-sub2); }
+.dogam-actions { margin-top: 16px; }
+/* 공유 버튼 — 마이페이지 "변경"(.mypage-rep-change)과 같은 아웃라인 디자인.
+   그 자리에서는 단독 액션이라 폭만 꽉 채운다. 비로그인일 때는 "로그인하고 도감 보관하기" 아래 놓인다. */
+.dogam-actions { text-align: center; } /* 공유 버튼은 폭을 내용에 맞추고 가운데 둔다 */
+.dogam-share-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  width: auto; padding: 12px 14px; border-radius: var(--r-btn); border: 1px solid var(--border-gray);
+  background: var(--surface); color: var(--text-sub); font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: inherit; margin-top: 8px;
+}
+.dogam-share-btn:hover { border-color: var(--mint); color: var(--mint); }
+.dogam-share-btn .material-symbols-outlined { font-size: 17px; }
+/* 비로그인 후킹 — 인연 목록 바로 아래, 같은 카드 안. 안심 안내(.reassure-box)와 같은 톤을 쓴다 */
+.dogam-keep { margin: 14px 0 0; }
+.dogam-keep .reassure-sub { font-size: 12.5px; }
+.dogam-keep .submit-btn { margin-top: 12px; font-size: 14px; padding: 13px; }
+.dogam-link-btn {
+  display: flex; align-items: center; justify-content: center; gap: 2px; width: 100%;
+  margin-top: 10px; padding: 12px; background: none; border: none; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 500; color: var(--text-sub);
+}
+.dogam-link-btn:hover { color: var(--mint); }
+.dogam-link-btn .material-symbols-outlined { font-size: 18px; }
+/* 통합분석 유도 CTA (노출스펙 §4 A안) — 좌측 원형 이미지 + 제목/설명, 아래 전체폭 버튼 */
+.dogam-cta {
+  background: var(--surface); border: 1px solid var(--border-lavender); border-radius: 16px;
+  padding: 16px; margin-top: 22px; box-shadow: 0 2px 10px rgba(23,32,31,0.05);
+}
+.dogam-cta-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.dogam-cta-thumb {
+  width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  background: var(--mint-10); display: flex; align-items: center; justify-content: center;
+}
+.dogam-cta-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+.dogam-cta-text { flex: 1; min-width: 0; }
+.dogam-cta-title { font-size: 15px; font-weight: 800; color: var(--text-title); }
+.dogam-cta-copy { font-size: 12.5px; line-height: 1.6; color: var(--text-sub); margin-top: 4px; }
+.dogam-cta-btn {
+  display: flex; align-items: center; justify-content: center; gap: 2px; width: 100%;
+  padding: 15px; border: none; border-radius: var(--r-btn); background: var(--mint); color: #fff;
+  font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity .15s;
+}
+.dogam-cta-btn:hover { opacity: .9; }
+.dogam-cta-btn .material-symbols-outlined { font-size: 20px; }
+
+/* ── 통합분석 진입 히어로 카드 — "사주도령" 레퍼런스의 배지+굵은 헤드라인+캐릭터 구도를 따르되
+   배경은 그 노란/한지색 대신 브랜드 민트 톤으로 맞춘다 ── */
+.cmb-hero-card {
+  position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+  background: linear-gradient(160deg, #EEFAF7 0%, #FFFFFF 75%);
+  border: 1px solid var(--mint-border); border-radius: 22px;
+  padding: 22px 20px 20px; margin-bottom: 24px; overflow: hidden;
+  box-shadow: 0 8px 20px rgba(38,55,90,0.06);
+}
+.cmb-hero-text { flex: 1; min-width: 0; position: relative; z-index: 1; }
+.cmb-hero-badge {
+  display: inline-flex; align-items: center; gap: 6px; background: #fff;
+  border: 1px solid var(--mint-border); border-radius: 999px; padding: 5px 14px;
+  font-size: 12px; font-weight: 700; color: var(--jade); margin-bottom: 14px;
+}
+.cmb-hero-title { font-size: 21px; font-weight: 900; line-height: 1.35; color: var(--ink); letter-spacing: -0.2px; }
+.cmb-hero-sub { font-size: 12.5px; line-height: 1.6; color: var(--text2); margin-top: 10px; max-width: 92%; }
+.cmb-hero-img { width: 108px; height: 108px; flex-shrink: 0; }
+.cmb-hero-img img { width: 100%; height: 100%; object-fit: contain; }
+@media (max-width: 360px) { .cmb-hero-img { width: 84px; height: 84px; } }
+/* 도감 전체 삭제 — 정책 안내 안에 두어 우발적 클릭을 줄인다 */
+.dogam-delete-btn { display: block; width: 100%; margin-top: 16px; padding: 11px; border: 1px solid var(--border-gray);
+  border-radius: var(--r-btn); background: var(--surface); color: #b04a4a; font-size: 12.5px; font-weight: 700;
+  cursor: pointer; font-family: inherit; }
+.dogam-delete-btn:hover { border-color: #b04a4a; }
+/* 링크 복사 확인 토스트 — alert처럼 흐름을 끊지 않도록 잠깐 떴다 사라진다 */
+.dogam-toast {
+  position: fixed; z-index: 120; left: 50%; bottom: calc(var(--nav-h) + 24px); transform: translateX(-50%);
+  max-width: calc(var(--frame-w) - 48px); padding: 12px 20px; border-radius: 999px;
+  background: rgba(23,32,31,0.92); color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.dogam-toast.show { opacity: 1; }
+
+/* ── 이미 만든 도감 다시 보기 (js/ai-analysis.js가 내용을 그린다) ── */
+/* 카드 전체가 하나의 이동 링크라 버튼 없이 행 오른쪽 화살표로만 안내한다 — 높이를 줄이는 게 목적 */
+.revisit-card { padding: 12px 14px; }
+.revisit-row { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.revisit-thumb { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.revisit-body { flex: 1; min-width: 0; }
+.revisit-name { font-size: 15px; font-weight: 800; color: var(--text-title); }
+.revisit-desc {
+  font-size: 12.5px; color: var(--text-sub2); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* 인연도감(관상보기)에서는 "사진 업로드 완료" 미리보기 영역을 쓰지 않는다.
+   DOM은 남겨둔다 — app.js의 loadThumb/resetUpload가 이 요소들을 직접 참조하므로 지우면 업로드가 깨진다.
+   업로드 박스는 원래대로 숨겨야 한다. 계속 띄워두면 사진을 올려도 화면이 그대로라 업로드가 안 된 것처럼 보인다.
+   대신 큰 미리보기 자리에 한 줄 확인 문구만 남겨 상태 변화가 보이게 한다. */
+#thumbArea { display: none !important; }
+#gwansangUploadSection:has(#thumbArea.show)::after {
+  content: '사진이 준비됐어요 — 아래 버튼을 눌러 분석해보세요.';
+  display: block; margin-top: 4px; padding: 16px; border-radius: var(--r-input);
+  background: var(--mint-10); color: var(--jade); font-size: 13px; font-weight: 700; text-align: center;
+}
+
+.revisit-arrow { font-size: 22px; color: var(--text-sub); flex-shrink: 0; }
+/* 도감 삭제 — 보관함에서 기록을 지워도 이 카드가 남던 문제 때문에, 카드 자체에 삭제 수단을 둔다 */
+.revisit-del { background: none; border: none; color: var(--text3); cursor: pointer; padding: 6px; flex-shrink: 0; }
+.revisit-del:hover { color: #b04a4a; }
+.revisit-del .material-symbols-outlined { font-size: 19px; }
+.revisit-row:hover .revisit-arrow { color: var(--mint); }
+/* 통합분석 첫 화면의 "이미 분석한 내역이 있어요" 목록(js/app.js) — 도감 카드와 같은 행 구조를 쓰되
+   기록이 여러 개라 행 사이 구분선을 넣고, 캐릭터 일러스트 대신 보관함과 같은 문서 아이콘을 쓴다. */
+#cmbSavedList .revisit-row + .revisit-row { border-top: 1px solid var(--border-lavender); margin-top: 10px; padding-top: 10px; }
+.revisit-mark {
+  width: 34px; height: 34px; border-radius: 50%; background: var(--mint-10); color: var(--jade);
+  display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+}
+
 /* ══ 확인 다이얼로그 / 전환 로딩 (js/kakao-auth.js) ══ */
 /* 마이페이지 팝업(z-index 101) 위에 겹쳐 떠야 하므로 그보다 높은 층에 둔다 */
 .confirm-backdrop { z-index: 102; }
@@ -606,6 +927,149 @@ body.overlay-open { overflow: hidden; }
 .confirm-actions { display: flex; gap: 8px; }
 .confirm-actions .btn-outline-primary { flex: 1; font-size: 15px; }
 .confirm-actions .btn-solid-primary { flex: 1; font-size: 15px; padding: 14px 18px; margin-top: 0; }
+
+/* ══ 토스트 (js/profile.js showToast) — 냥 차감 직후 "구매되었습니다" 통보용 ══ */
+/* 확인 버튼이 없는 알림이라 다이얼로그처럼 흐름을 막지 않는다. 차감 직후 곧바로 분석이 시작되므로
+   화면 하단(탭바 위)에 잠깐 떴다가 스스로 사라지고, 클릭도 통과시킨다(pointer-events:none). */
+.app-toast {
+  position: fixed; z-index: 200; left: 50%; bottom: 92px; transform: translate(-50%, 8px);
+  max-width: calc(var(--frame-w) - 64px); padding: 13px 22px; border-radius: 999px;
+  background: rgba(23,32,31,0.92); color: #fff; font-size: 14px; font-weight: 600; line-height: 1.4;
+  text-align: center; white-space: pre-line; box-shadow: 0 8px 24px rgba(23,32,31,0.28);
+  opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+}
+.app-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ══ 냥 차감 안내 팝업 (js/profile.js confirmSpend) ══ */
+/* 보유/사용 냥을 나란히 보여주고, 모자라면 오른쪽 버튼이 "냥 구매하기"로 바뀐다.
+   레이아웃·z-index는 기존 .confirm-dialog와 동일하게 맞춰 두 팝업이 같은 층에서 같은 크기로 뜬다. */
+.nyang-dialog {
+  position: fixed; z-index: 103; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: calc(var(--frame-w) - 64px); max-width: calc(100vw - 64px);
+  background: var(--surface); border-radius: 16px; padding: 26px 20px 20px;
+  box-shadow: 0 12px 32px rgba(23,32,31,0.22); text-align: center;
+}
+.nyang-dialog-title { font-size: 17px; font-weight: 700; color: var(--text-heading); line-height: 1.45; }
+.nyang-dialog-sub { font-size: 13px; font-weight: 600; color: var(--mint); margin-top: 8px; }
+.nyang-count-box {
+  display: flex; margin: 16px 0 4px; padding: 14px 0; border-radius: 12px; background: var(--card2);
+}
+.nyang-count { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.nyang-count + .nyang-count { border-left: 1px solid var(--border); }
+.nyang-count-label { font-size: 12px; color: var(--text-sub); }
+.nyang-count-num { font-size: 20px; font-weight: 800; color: var(--jade); line-height: 1; }
+.nyang-count-num.is-use { color: var(--icon-orange); }
+.nyang-count-num.is-short { color: #c94a4a; }
+.nyang-dialog-short { font-size: 12.5px; color: #c94a4a; line-height: 1.6; margin: 10px 0 0; }
+.nyang-dialog .confirm-actions { margin-top: 16px; }
+/* 어떤 사주로 분석하는지 확인시키는 줄(사용자 요청 2026-08-18) — 차감 직전이 마지막 확인 지점이라,
+   여기서 대상이 틀리면 냥만 쓰고 처음부터 다시 해야 한다. 눌러서 다른 사주로 바꿀 수 있다. */
+.nyang-dialog-profile-label { font-size: 12px; color: var(--text-sub); text-align: left; margin: 18px 0 6px; }
+.nyang-dialog-profile {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;
+  padding: 12px 14px; border: 1px solid var(--border-gray); border-radius: 12px;
+  background: var(--surface); font-family: inherit;
+}
+.nyang-dialog-profile:hover { border-color: var(--mint); }
+.nyang-dialog-profile .np-body { flex: 1; min-width: 0; }
+.nyang-dialog-profile .np-top { display: flex; align-items: center; gap: 8px; }
+.nyang-dialog-profile .np-name { font-size: 14px; font-weight: 700; color: var(--text-strong); }
+.nyang-dialog-profile .np-badge { font-size: 10px; color: var(--text-sub); background: var(--card2); border: 1px solid var(--border-gray); border-radius: 50px; padding: 1px 8px; }
+.nyang-dialog-profile .np-sub { display: block; font-size: 11.5px; color: var(--text-sub); margin-top: 3px; }
+.nyang-dialog-profile .np-arrow { font-size: 18px; color: var(--text3); flex-shrink: 0; }
+.nyang-dialog-profile-hint { font-size: 11.5px; color: var(--text3); text-align: left; line-height: 1.5; margin: 6px 0 0; }
+
+/* ══ 냥 구매 페이지 (js/nyang-shop.js — #panel-nyangshop) ══ */
+.shop-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 0 8px; }
+.shop-head h2 { font-size: 20px; font-weight: 700; color: var(--text-heading); }
+.shop-close {
+  display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-right: -6px;
+  border: none; background: none; border-radius: 8px; cursor: pointer; color: var(--text-sub); padding: 0;
+}
+.shop-close:hover { background: var(--card2); }
+.shop-balance { font-size: 13px; color: var(--text-sub); padding-bottom: 12px; }
+.shop-balance strong { color: var(--jade); font-weight: 800; }
+/* 가격 배너 — 참고 시안의 MENU 카드를 앱의 민트 톤으로 옮긴 것 */
+.shop-menu-card {
+  border: 2px solid var(--mint-border); border-radius: 16px; background: var(--mint-soft);
+  padding: 20px 16px; text-align: center; margin-bottom: 18px;
+}
+.shop-menu-title { font-size: 13px; font-weight: 800; letter-spacing: 3px; color: var(--jade); }
+.shop-menu-coin { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin-top: 12px; }
+.shop-menu-coin-label {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 46px; padding: 5px 14px;
+  border-radius: 999px; background: var(--surface); border: 1px solid var(--mint-border);
+  font-size: 14px; font-weight: 800; color: var(--jade);
+}
+.shop-menu-coin-price { font-size: 26px; font-weight: 900; color: var(--text-heading); }
+.shop-menu-note { font-size: 12px; color: var(--text-sub); margin-top: 12px; line-height: 1.5; }
+.shop-list { border-top: 1px solid var(--border); }
+.shop-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 18px 8px; text-align: left;
+  border: none; border-bottom: 1px solid var(--border); background: none; cursor: pointer; font-family: inherit;
+}
+.shop-row.is-selected { background: var(--mint-10); }
+.shop-row-info { flex: 1; }
+.shop-row-name { font-size: 15px; font-weight: 700; color: var(--text-title); }
+.shop-row-desc { font-size: 12.5px; color: var(--mint); font-weight: 600; margin-top: 4px; }
+.shop-row-price { font-size: 17px; font-weight: 800; color: var(--text-heading); }
+.shop-cta-dock { padding: 24px 0 8px; }
+.shop-cta-dock .submit-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* ══ 냥 내역 (js/nyang-history.js — #panel-nyanghistory) ══ */
+.admin-history-link { margin-top: 4px; padding-left: 0; padding-right: 0; font-weight: 700; color: var(--jade); }
+.nh-tabs { display: flex; gap: 6px; padding: 4px 0 14px; flex-wrap: wrap; }
+.nh-tab {
+  padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border-gray); background: var(--surface);
+  color: var(--text-sub); font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.nh-tab.is-on { border-color: var(--mint); background: var(--mint-10); color: var(--jade); font-weight: 800; }
+.nh-summary {
+  display: flex; gap: 14px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 10px;
+  border-radius: 12px; background: var(--card2); font-size: 12.5px; font-weight: 700; color: var(--text-sub);
+}
+.nh-summary .is-plus { color: var(--jade); }
+.nh-summary .is-minus { color: var(--icon-orange); }
+.nh-row { padding: 13px 4px; border-bottom: 1px solid var(--border); }
+.nh-row-main { display: flex; align-items: center; gap: 8px; }
+.nh-badge {
+  flex: none; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800;
+  background: var(--card2); color: var(--text-sub);
+}
+.nh-badge.is-plus { background: var(--mint-10); color: var(--jade); }
+.nh-badge.is-minus { background: rgba(255,149,51,0.14); color: #a15c12; }
+.nh-who { flex: 1; font-size: 14px; font-weight: 700; color: var(--text-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nh-amount { flex: none; font-size: 14px; font-weight: 800; }
+.nh-amount.is-plus { color: var(--jade); }
+.nh-amount.is-minus { color: var(--icon-orange); }
+.nh-row-sub { font-size: 12px; color: var(--text-sub); margin-top: 5px; line-height: 1.5; }
+.nh-row-id { font-size: 10.5px; color: var(--text3); margin-top: 3px; word-break: break-all; }
+.nh-empty { font-size: 13px; color: var(--text-sub2); padding: 28px 4px; text-align: center; line-height: 1.7; }
+.nh-search-row-wrap { display: flex; gap: 8px; padding: 4px 0 12px; }
+.nh-search-row-wrap .field-input { flex: 1; min-width: 0; }
+.nh-search-msg { font-size: 12.5px; color: var(--text-sub2); padding: 4px 2px 12px; }
+.nh-search-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+.nh-search-row {
+  display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 11px 14px; text-align: left;
+  border: none; border-bottom: 1px solid var(--border); background: var(--surface); cursor: pointer; font-family: inherit;
+}
+.nh-search-row:last-child { border-bottom: none; }
+.nh-search-row:hover { background: var(--mint-10); }
+.nh-search-name { font-size: 13.5px; font-weight: 700; color: var(--text-title); }
+.nh-search-sub { font-size: 11.5px; color: var(--text-sub); }
+/* 지금 어떤 사용자만 보고 있는지 항상 눈에 띄게 — CS 중에 전체/개인 화면을 헷갈리면 안 된다 */
+.nh-picked {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 11px 14px; margin-bottom: 12px; border-radius: 12px;
+  background: var(--mint-10); border: 1px solid var(--mint-border);
+}
+.nh-picked-name { font-size: 13.5px; font-weight: 800; color: var(--jade); }
+.nh-picked-sub { flex: 1; font-size: 11.5px; color: var(--text-sub); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nh-picked-clear {
+  flex: none; height: var(--btn-h-sm); padding: 0 12px; border-radius: var(--r-btn);
+  border: 1px solid var(--mint); background: var(--surface); color: var(--jade);
+  font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
 
 .transition-loading {
   position: fixed; z-index: 103; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -672,7 +1136,16 @@ body.overlay-open { overflow: hidden; }
 .arc-row-del .material-symbols-outlined { font-size: 19px; }
 
 .arc-report-meta { font-size: 12px; color: var(--text-sub); padding: 0 2px 12px; }
+/* 보관함에서 연 인연도감 리포트 아래에 붙는 실시간 도감 영역(js/archive.js attachLiveDogam) */
+.arc-live-dogam { margin-top: 16px; }
 .arc-report .card { margin-bottom: 16px; }
+/* .shell-strip 클래스가 붙기 전에 저장된 옛 인연도감 리포트(로컬스토리지에 이미 들어있는 스냅샷)는
+   저장 당시 HTML을 그대로 문자열로 갖고 있어서, 클래스를 나중에 추가해도 소급 적용이 안 된다 — 그
+   안에 있던 .card엔 class="shell-strip"이 없기 때문. 그래서 클래스가 아니라 "내용물이 뭔지"로 다시
+   잡는다: 캐릭터 카드(.char-card)나 캐릭터 상세(.char-detail)를 담은 .card는 안에 이미 자기만의
+   테두리/카드 모양이 있으니 바깥 껍데기(.card 자체의 패딩·테두리)는 옛 스냅샷이든 새 스냅샷이든
+   항상 벗긴다. 다른 분석(통합분석·사주·궁합)의 .card는 이 셀렉터에 안 걸리니 그대로 유지됨. */
+.arc-report .card:has(.char-card), .arc-report .card:has(.char-detail) { border: none; padding: 0; background: transparent; }
 
 /* Saju form (레거시 — 현재 미사용, 클래스만 유지) */
 .saju-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -706,12 +1179,24 @@ body.overlay-open { overflow: hidden; }
 
   <!-- ===== 통합 분석 패널 ===== -->
   <div class="panel active" id="panel-combined">
-    <div class="top-banner">
-      <div class="top-banner-text">배너 영역</div>
-      <button class="top-banner-btn">자세히 보기</button>
-    </div>
-
     <div class="upload-section" id="cmbUploadSection">
+      <!-- 진입 후킹 배너 — "사주도령" 레퍼런스 구도(배지 + 굵은 헤드라인 + 캐릭터 일러스트)를 따르되
+           배경은 그 노란/한지색 대신 브랜드 민트 톤으로 맞췄다(사용자 요청 2026-08-17: "전체 터트려서
+           해줄래? 배경색은 저렇게 노랗게 깔지 말고"). markAnalyzed()가 #cmbUploadSection 전체를 숨기는
+           기존 로직에 얹혀서, 분석 후엔 같이 사라진다. -->
+      <div class="cmb-hero-card" id="cmbHero">
+        <div class="cmb-hero-text">
+          <div class="cmb-hero-badge">🐱 관상냥반</div>
+          <div class="cmb-hero-title">냥반이<br>얼굴과 사주를<br>함께 봐드릴게요</div>
+          <p class="cmb-hero-sub">사진 한 장과 생년월일이면, 나만의 캐릭터와 잘 맞는 사람까지 알려드려요.</p>
+        </div>
+        <div class="cmb-hero-img"><img src="images/Logo.png" alt=""></div>
+      </div>
+
+      <!-- 사진 등록 단계 — 최초 진입(보관함에 통합분석 리포트가 없거나 비로그인)일 때만 보인다.
+           보관된 리포트가 있으면 app.js의 renderCombinedSavedReport()가 이 블록을 감추고
+           아래 #cmbSavedStep(저장된 리포트 + 다른 사람으로 통합분석하기)을 대신 노출한다. -->
+      <div id="cmbPhotoStep">
       <div class="upload-label">관상 정보</div>
 
       <div class="reassure-box">
@@ -779,6 +1264,25 @@ body.overlay-open { overflow: hidden; }
           <div class="saju-char-counter" id="cmbQ3Counter">0/100</div>
         </div>
       </div>
+      </div><!-- /#cmbPhotoStep -->
+
+      <!-- 보관함에 쌓인 통합분석 내역 — 로그인 상태에서 기록이 있을 때만 노출된다(기록 수만큼 전부).
+           행을 누르면 그 리포트를 아래 #cmbSavedReport에 그대로 펼친다(보관함 스냅샷 재사용 — 재분석 아님). -->
+      <div class="hidden" id="cmbSavedStep">
+        <div class="upload-label">이미 분석한 내역이 있어요</div>
+        <div class="card revisit-card" id="cmbSavedList"></div>
+        <button class="submit-btn" style="margin-top:20px;" onclick="startCombinedForOther()">다른 사람으로 통합분석하기</button>
+      </div>
+
+      <!-- 내역에서 고른 리포트 한 건 -->
+      <div class="hidden" id="cmbSavedReport">
+        <button type="button" class="report-back-btn" onclick="closeCombinedSavedReport()">
+          <span class="material-symbols-outlined">arrow_back</span>분석 내역으로
+        </button>
+        <div class="arc-report-meta" id="cmbSavedMeta"></div>
+        <div class="arc-report" id="cmbSavedBody"></div>
+        <button class="submit-btn" style="margin-top:20px;" onclick="startCombinedForOther()">다른 사람으로 통합분석하기</button>
+      </div>
 
       <input type="hidden" id="cmbBirthDate" value="">
       <input type="hidden" id="cmbBirthHour" value="-1">
@@ -794,67 +1298,119 @@ body.overlay-open { overflow: hidden; }
       <button class="submit-btn" onclick="Profile.runCombined()">분석하기</button>
     </div>
 
+    <!-- 분석 진행 화면 — 리포트(#cmbResult)는 AI 해설까지 끝난 뒤에야 열린다. 그 전까지는 이 카드만 보인다. -->
+    <div class="cmb-analyzing hidden" id="cmbAnalyzing">
+      <div class="spin-ring"></div>
+      <div class="cmb-analyzing-title">냥반이 리포트를 쓰고 있어요</div>
+      <div class="cmb-analyzing-msg" id="cmbAnalyzingMsg">사주를 뽑는 중이에요</div>
+      <p class="cmb-analyzing-note">관상·사주 AI 해설까지 마치면<br>완성된 리포트를 한 번에 보여드릴게요.</p>
+    </div>
+
     <div class="card hidden" id="cmbCanvasCard">
       <div class="card-title">관상 영역 분석</div>
       <div style="text-align:center;"><div class="canvas-wrap"><canvas id="combinedCanvas"></canvas></div></div>
     </div>
 
-    <div class="card hidden" id="cmbResult">
+    <div class="card hidden shell-strip" id="cmbResult">
       <div class="card-title" id="cmbResultTitle">🔮 AI 관상 X 사주 개운 리포트</div>
-      <div class="headline-quote" id="cmbHeadline"></div>
+      <!-- ⚠️ 스펙 §6 — OHAENG_TITLE 헤드라인은 사주 오행 1개만 보고 만든 문구라 Zone1 캐릭터와
+           정면 충돌한다("이 사람은 누구인가는 Zone1만 말한다"). 화면에서는 감추고, 같은 정보는
+           어미를 "~기운"으로 바꿔 Zone4 헤드(cmbSajuHead)에서 노출한다. -->
+      <div class="headline-quote hidden" id="cmbHeadline"></div>
+
+      <!-- ══ Zone1 · 관상 캐릭터 ══ 관상70 + 사주30 융합 결과. AI를 안 쓰므로 분석 직후 바로 뜬다. -->
+      <!-- Zone1도 다른 Zone과 같은 아코디언으로 맞춘다(사용자 요청 2026-08-18) — 예전엔 일반 div라
+           혼자만 접히지 않아, "하나를 열면 나머지가 접히는" 규칙에서 빠져 있었다. 기본은 열림. -->
+      <details class="report-accordion zone-accordion" open id="cmbZone1">
+        <summary>ZONE 1 · 관상 캐릭터</summary>
+        <div id="cmbCharacterCard"></div>
+        <div id="cmbCharacterBasis"></div>
+        <div id="cmbCharacterDetail"></div>
+      </details>
 
       <div id="cmbPhotoLoading" class="hidden" style="text-align:center;color:var(--text2);font-size:13px;padding:24px 0;">🔮 관상 분석중~</div>
 
-      <details class="report-accordion" open>
-        <summary>1️⃣ 기본 관상 리포트</summary>
-        <div id="cmbPhotoSection" class="hidden">
-          <div class="hidden" id="cmbArchetype" style="margin-bottom:16px;"></div>
-        </div>
-        <div class="snapshot-box hidden" id="cmbSnapshot"></div>
-        <div class="summary-box hidden" id="cmbGoldenTime"></div>
-        <div class="card-title" style="margin-top:12px;">📊 나만의 관상 오행 능력치</div>
-        <div class="ohaeng-bars" id="cmbFaceOhaeng" style="margin-bottom:8px;"></div>
-        <div class="card-title" style="margin-top:12px;margin-bottom:12px;">📷 내 얼굴 관상 포인트</div>
-        <div class="part-grid" id="cmbGwansangCards"></div>
-        <div class="card-title" style="margin-top:20px;">🎭 좌우 비대칭으로 본 내면 vs 사회적 모습</div>
-        <div id="cmbAsymmetry" style="margin-bottom:8px;"></div>
-      </details>
-
-      <details class="report-accordion">
-        <summary>2️⃣ 기본 사주 구성</summary>
-        <div id="cmbInsightSection" style="display:none;margin-bottom:16px;">
-          <div class="card-title" style="color:var(--jade);">💡 타고난 기운 &amp; 성향</div>
-          <div class="summary-box" id="cmbSynergyBox" style="margin-top:0;"></div>
-        </div>
-        <div class="card-title" style="margin-bottom:12px;">☯ 사주 원국</div>
-        <div class="pillars-table" id="cmbPillarsTable"></div>
-        <div class="hidden" id="cmbUnseongLegend"></div>
-        <div class="card-title" style="margin-top:16px;margin-bottom:12px;">🌊 대운(大運) — 10년 단위 인생 흐름</div>
-        <div class="hidden" id="cmbDaeunTable"></div>
-        <div class="card-title" style="margin-bottom:12px;">오행 분포</div>
-        <div class="ohaeng-bars" id="cmbOhaengBars"></div>
-        <div class="summary-box hidden" id="cmbOhaengDeepDive" style="margin-top:12px;"></div>
-      </details>
-
-      <details class="report-accordion">
-        <summary>3️⃣ AI가 판단한 관상</summary>
-        <div id="cmbAiFaceExtra" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-      </details>
-
-      <details class="report-accordion">
-        <summary>4️⃣ AI가 판단한 사주</summary>
-        <div id="cmbAiSajuSection" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-      </details>
-
-      <details class="report-accordion">
-        <summary>5️⃣ 총평 · 관상×사주 매칭 · 올해의 흐름 · 보완점</summary>
+      <!-- ══ Zone2 · 종합 분석 ══ Zone1이 "누구인가"를 가져갔으므로 여기는 관상과 사주가 서로
+           어떤 관계인지를 다룬다. 전부 AI라 로딩 구간이 있다. -->
+      <details class="report-accordion zone-accordion" id="cmbZone2">
+        <summary>ZONE 2 · 종합 분석 — 관상과 사주가 만나면</summary>
         <div id="cmbFusionSection" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
       </details>
 
-      <div class="card hidden" id="cmbComplementSection" style="margin-top:20px;background:transparent;border:none;padding:0;">
-        <div class="card-title" style="color:var(--jade);">📌 Daily 개운 루틴</div>
-        <div id="cmbComplementCards"></div>
-      </div>
+      <!-- ══ Zone3 · 관상 분석 ══ 얼굴만 근거로 삼는 영역. 예전 "1️⃣ 기본 관상 리포트"와
+           "3️⃣ AI가 판단한 관상"이 같은 부위를 두 번 설명하던 걸 한 아코디언으로 합쳤다(스펙 §4). -->
+      <details class="report-accordion zone-accordion" id="cmbZone3">
+        <summary>ZONE 3 · 관상 분석 — 얼굴에서 보이는 기운</summary>
+        <div class="zone-head" id="cmbFaceHead"></div>
+
+        <div class="card-title" style="margin-top:12px;">📊 나만의 관상 오행 능력치</div>
+        <div class="ohaeng-bars" id="cmbFaceOhaeng" style="margin-bottom:8px;"></div>
+
+        <div class="card-title" style="margin-top:16px;">🧠 관상 종합 분석</div>
+        <div id="cmbAiFaceExtra" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+
+        <div class="snapshot-box hidden" id="cmbSnapshot"></div>
+
+        <!-- 전통 형상 2카드(눈 유형·전체 인상)만 남긴다. 이 둘은 눈13·얼굴9종의 전통 물형 축이라
+             아래 7카드(생김새 축)와 계열이 달라 별도로 앞에 둔다(스펙 §4-B). -->
+        <div id="cmbPhotoSection" class="hidden">
+          <div class="hidden" id="cmbArchetype" style="margin-bottom:16px;"></div>
+        </div>
+
+        <!-- 부위별 상세 — 부위 1개 = 카드 1장. AI 해석 + 생김새 유형(DB) + 실측 포인트(룰)를 한 카드에
+             층으로 쌓는다. 예전의 "부위별 생김새 유형" 섹션과 "내 얼굴 관상 포인트" 그리드는 이 안으로
+             흡수돼 사라졌다(사용자 요청 2026-08-17). -->
+        <div class="card-title" style="margin-top:16px;margin-bottom:12px;">🧩 부위별 상세</div>
+        <div id="cmbPartCards"></div>
+        <!-- 아래 두 컨테이너는 화면에 안 보인다. 기존 렌더 함수(renderPersonalReportV2·renderArchetypes)가
+             이 id로 직접 쓰기 때문에 지우면 예외가 나고, 내용은 위 #cmbPartCards로 합쳐져 나간다.
+             app.js 계산 로직을 건드리지 않기 위해 빈 그릇만 남겨두는 방식. -->
+        <div class="part-grid hidden" id="cmbGwansangCards"></div>
+        <div class="hidden" id="cmbShapeDetailsSink"></div>
+
+        <div class="card-title" style="margin-top:20px;">🎭 좌우 비대칭으로 본 내면 vs 사회적 모습</div>
+        <div id="cmbAsymmetry" style="margin-bottom:8px;"></div>
+
+        <div class="summary-box hidden" id="cmbGoldenTime"></div>
+
+        <!-- 스펙 §6 이동 — Daily 루틴은 내용이 전부 Zone3 "채워볼 포인트"에서 파생되므로
+             진단(발달 부위) → 행동(루틴)으로 닫히도록 Zone3 최하단으로 옮겼다. -->
+        <div class="hidden" id="cmbComplementSection" style="margin-top:20px;">
+          <div class="card-title" style="color:var(--jade);">📌 Daily 개운 루틴</div>
+          <div id="cmbComplementCards"></div>
+        </div>
+      </details>
+
+      <!-- ══ Zone4 · 사주 분석 ══ 사주만 근거로 삼는 영역. 예전 "2️⃣ 기본 사주 구성"과
+           "4️⃣ AI가 판단한 사주"를 합쳤다. -->
+      <details class="report-accordion zone-accordion" id="cmbZone4">
+        <summary>ZONE 4 · 사주 분석 — 사주에서 보이는 기운</summary>
+        <div class="zone-head" id="cmbSajuHead"></div>
+
+        <div id="cmbInsightSection" style="display:none;margin-bottom:16px;">
+          <div class="summary-box" id="cmbSynergyBox" style="margin-top:0;"></div>
+        </div>
+
+        <!-- 사용자 요청 2026-08-17 — 풀이(설명)를 먼저 읽히고, 원국·오행·대운 같은 근거는 그 뒤에 둔다.
+             예전엔 한자 표부터 나와서 "이게 무슨 뜻인지" 모른 채 표를 먼저 마주해야 했다. -->
+        <div class="card-title" style="margin-top:12px;">🔮 사주 풀이</div>
+        <div id="cmbAiSajuSection" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+
+        <details class="report-accordion" style="margin-top:18px;">
+          <summary>사주 분석 근거 보기 (원국 · 오행 분포 · 대운)</summary>
+
+          <div class="card-title" style="margin-bottom:12px;">☯ 사주 원국</div>
+          <div class="pillars-table" id="cmbPillarsTable"></div>
+          <div class="hidden" id="cmbUnseongLegend"></div>
+
+          <div class="card-title" style="margin-top:16px;margin-bottom:12px;">오행 분포</div>
+          <div class="ohaeng-bars" id="cmbOhaengBars"></div>
+          <div class="summary-box hidden" id="cmbOhaengDeepDive" style="margin-top:12px;"></div>
+
+          <div class="card-title" style="margin-top:16px;margin-bottom:12px;">🌊 대운(大運) — 10년 단위 인생 흐름</div>
+          <div class="hidden" id="cmbDaeunTable"></div>
+        </details>
+      </details>
 
       <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:14px;">print</span> 결과 인쇄</button>
       <button class="submit-btn" style="margin-top:20px;" onclick="resetUpload('combined')">다른 통합분석하기</button>
@@ -864,6 +1420,32 @@ body.overlay-open { overflow: hidden; }
   <!-- ===== 관상 패널 ===== -->
   <div class="panel" id="panel-gwansang">
     <div class="upload-section" id="gwansangUploadSection">
+      <!-- 인연도감 첫 진입 화면(인연도감_정책및개발명세서.md "화면 구성") — 아무것도 입력 안 한 상태에서만
+           보이고, markAnalyzed()가 이 섹션 전체(#gwansangUploadSection)를 숨기면 같이 사라진다.
+           재방문 카드(3번 항목)는 이 앱에 계정·서버가 없어 "친구 N명 등록" 같은 진행 상황은 실제로
+           추적 불가 — localStorage에 저장된 마지막 결과가 있을 때만 "다시 보기"로 가볍게 대체했다.
+           소셜 프루프(5번, "OO명이 만들었어요")는 실제 집계값이 없어 지어내지 않고 생략함. -->
+      <div class="hero-section" id="gwansangHero">
+        <!-- 캐릭터 결과 카드(.char-card)와 같은 톤으로 통일 — 사용자 요청 2026-08-16: "히어로 일러스트에
+             이런식으로 카드 느낌을 부여해줘". badge/name/이미지/ribbon 구조를 그대로 재사용하되, name은
+             후킹 문구, ribbon은 서브카피(작동 방식 설명)를 담는다. -->
+        <div class="char-card">
+          <span class="char-card-corner tl">✦</span><span class="char-card-corner tr">✦</span>
+          <span class="char-card-corner bl">✦</span><span class="char-card-corner br">✦</span>
+          <div class="char-card-badge">인연도감</div>
+          <div class="char-card-name hero-hook">내 얼굴 주변엔<br>어떤 인연이 있을까?</div>
+          <div class="char-card-img-wrap no-mask"><img src="images/Logo.png" alt="인연도감"></div>
+          <div class="char-card-ribbon hero-subcopy">내 인연도감을 만들고 링크를 친구들과 공유해보세요. 내 주변에 누가 나랑 찰떡궁합인지, 상극인지 확인할 수 있어요.</div>
+        </div>
+        <div class="hero-note">관상 정보는 도감이 삭제되면 함께 사라져요. 언제든 지울 수 있어요.</div>
+      </div>
+
+      <!-- 타이틀은 카드 밖으로 빼서 아래 "관상 정보"(.upload-label)와 같은 계위·스타일로 맞춘다 -->
+      <div class="upload-label" id="gwansangRevisitLabel" style="display:none;">이미 만드신 도감이 있어요</div>
+      <div class="card revisit-card" id="gwansangRevisitCard" style="display:none;">
+        <div id="gwansangRevisitBody"></div>
+      </div>
+
       <div class="upload-label">관상 정보</div>
 
       <div class="reassure-box">
@@ -902,15 +1484,21 @@ body.overlay-open { overflow: hidden; }
     </div>
 
     <div class="cta-dock hidden" id="gwansangCtaDock">
-      <button class="submit-btn" onclick="startAnalysis('gwansang')">관상 분석하기</button>
+      <button class="submit-btn" onclick="startAnalysis('gwansang')">내 관상 캐릭터 뽑기</button>
     </div>
 
-    <div class="card hidden" id="canvasCard">
+    <div class="card hidden shell-strip" id="canvasCard">
+      <!-- 뒤로가기 — 사용자 요청 2026-08-16: "이미 만드신 도감 클릭 > 내 캐릭터 리포트 확인 여기에
+           뒤로가기 버튼이 없어". resetUpload는 이미 있던 "다른 관상 분석하기"(맨 아래) 버튼과 같은
+           함수라 로직 재사용, 리포트 진입 직후 맨 위에서 바로 누를 수 있게 위치만 새로 추가한다. -->
+      <button type="button" class="report-back-btn" id="gwansangBackBtn" onclick="resetUpload('gwansang'); window.scrollTo(0,0);">
+        <span class="material-symbols-outlined">arrow_back</span>인연도감 메인으로
+      </button>
       <!-- 실제 얼굴 분석용 캔버스는 그대로 유지(내부적으로 계속 사용) — 화면에는 안 보이게만 숨긴다 -->
       <div style="text-align:center;display:none;"><div class="canvas-wrap"><canvas id="gwansangCanvas"></canvas></div></div>
       <div id="gwansangCharacterCard"></div>
     </div>
-    <div class="card hidden" id="gwansangResult">
+    <div class="card hidden shell-strip" id="gwansangResult">
       <!-- 16캐릭터 상세 설명 — character-db.js의 확정 콘텐츠를 위 일러스트 카드와 같은 톤으로 펼쳐서 보여준다.
            사용자 요청 2026-08-15: "부위별 생김새 위에다가 각 상마다의 설명이 나와야 할 것 같다".
            이제 리포트 카드의 첫 화면 = 캐릭터 설명이고, 기존 관상 리포트는 전부 아래 아코디언으로 내려갔다. -->
@@ -920,7 +1508,11 @@ body.overlay-open { overflow: hidden; }
            사용자 요청 2026-08-15: "AI 관상 개운 리포트, 당신의 관상 형상도 상세 리포트 전체 보기 쪽
            최상단으로 옮겨줘". 원래 안쪽에 또 하나의 details가 있었지만 "하나의 아코디언"이라 중첩을
            풀고 평평하게 합쳤다. 각 컨테이너 id는 그대로라 app.js/ai-analysis.js 렌더 로직은 무변경. -->
-      <details class="report-accordion" id="gwansangDetailAccordion">
+      <!-- 사용자 요청 2026-08-15: "관상 상세 리포트 전체보기는 빼도 될 것 같다" — 16캐릭터 카드/상세
+           설명(#gwansangCharacterCard·#gwansangCharacterDetail)으로 대체됐으니 구 리포트 전체는 숨긴다.
+           내부 렌더 로직(app.js/ai-analysis.js)은 그대로 두고 화면에만 안 보이게 함 — 값 계산은 계속 되지만
+           비용이 큰 작업이 아니라 굳이 로직까지 걷어내지 않음. -->
+      <details class="report-accordion" id="gwansangDetailAccordion" style="display:none;">
         <summary>관상 상세 리포트 전체 보기 (관상 형상 · 부위별 생김새 · 오행 능력치 · 11개 부위 · Daily 루틴)</summary>
 
         <div class="card-title" id="gwansangResultTitle">🔮 AI 관상 개운 리포트</div>
@@ -947,8 +1539,12 @@ body.overlay-open { overflow: hidden; }
 
         <div class="summary-box" id="gwansangSummary"></div>
       </details>
-      <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:14px;">print</span> 결과 인쇄</button>
-      <button class="submit-btn" style="margin-top:20px;" onclick="resetUpload('gwansang')">다른 관상 분석하기</button>
+
+      <!-- ===== 인연도감 영역 (js/inyeon-dogam.js가 내용을 그린다) ===== -->
+      <div id="dogamSection"></div>
+
+      <!-- "다른 관상 분석하기"는 통합분석 유도 CTA(노출스펙 §4)로 대체됐다 — #dogamSection 안에서
+           공유 버튼 다음(맨 아래)에 그려진다. 다시 찍기는 상단 "인연도감 메인으로"가 같은 일을 한다. -->
     </div>
   </div>
 
@@ -1166,12 +1762,16 @@ body.overlay-open { overflow: hidden; }
 
   <!-- ===== 보관함 패널 (js/archive.js가 내용을 그린다 — 팝업이 아니라 페이지) ===== -->
   <div class="panel" id="panel-archive"></div>
+  <!-- 냥 구매 페이지(js/nyang-shop.js) — 보관함과 같이 .panel을 갈아끼우는 방식의 페이지 -->
+  <div class="panel" id="panel-nyangshop"></div>
+  <!-- 냥 지급·사용 내역(js/nyang-history.js) — 관리자 CS 대응용 -->
+  <div class="panel" id="panel-nyanghistory"></div>
 
 </div><!-- /wrap -->
 
 <nav class="bottom-nav">
   <button class="tab-btn active" onclick="switchTab('combined', this)"><span class="nav-icon material-symbols-outlined">auto_awesome</span><span>통합분석</span></button>
-  <button class="tab-btn" onclick="switchTab('gwansang', this)"><span class="nav-icon material-symbols-outlined">face</span><span>관상보기</span></button>
+  <button class="tab-btn" onclick="switchTab('gwansang', this)"><span class="nav-icon material-symbols-outlined">face</span><span>인연도감</span></button>
   <button class="tab-btn" onclick="switchTab('saju', this)"><span class="nav-icon material-symbols-outlined">nightlight</span><span>사주보기</span></button>
   <button class="tab-btn" onclick="switchTab('gungham', this)"><span class="nav-icon material-symbols-outlined">favorite</span><span>궁합보기</span></button>
 </nav>
@@ -1189,22 +1789,27 @@ body.overlay-open { overflow: hidden; }
 <!-- 로컬 스크립트의 ?v= 는 캐시 무효화용 버전이다. 브라우저(및 Firebase Hosting의 기본 캐시 헤더)가
      수정된 js를 옛 버전 그대로 재사용해 "코드를 고쳤는데 반영이 안 되는" 문제가 반복돼서 붙였다.
      js/*.js 를 수정하고 배포할 때마다 아래 v 값을 모두 함께 올려야 한다(날짜+연번). -->
-<script src="js/archetype-db.js?v=20260815i"></script>
-<script src="js/landmark-engine.js?v=20260815i"></script>
-<script src="js/config.js?v=20260815i"></script>
-<script src="js/firebase-init.js?v=20260815i"></script>
-<script src="js/kakao-auth.js?v=20260815i"></script>
+<script src="js/archetype-db.js?v=20260818z"></script>
+<script src="js/landmark-engine.js?v=20260818z"></script>
+<script src="js/config.js?v=20260818z"></script>
+<script src="js/firebase-init.js?v=20260818z"></script>
+<script src="js/kakao-auth.js?v=20260818z"></script>
+<!-- 냥(포인트) 지갑 — fbAuth/fbDb가 필요해 firebase-init.js 다음, 통합분석/궁합보기에서 써야 해 profile.js보다 먼저 -->
+<script src="js/wallet.js?v=20260818z"></script>
 <!-- 16캐릭터 시스템(신규 별도 레이어) — archetype-db.js/landmark-engine.js 다음, app.js보다 먼저 로드 -->
-<script src="js/character/trait-config.js?v=20260815i"></script>
-<script src="js/character/face-trait-map.js?v=20260815i"></script>
-<script src="js/character/saju-trait-map.js?v=20260815i"></script>
-<script src="js/character/character-db.js?v=20260815i"></script>
-<script src="js/character/character-engine.js?v=20260815i"></script>
+<script src="js/character/trait-config.js?v=20260818z"></script>
+<script src="js/character/face-trait-map.js?v=20260818z"></script>
+<script src="js/character/saju-trait-map.js?v=20260818z"></script>
+<script src="js/character/character-db.js?v=20260818z"></script>
+<script src="js/character/character-engine.js?v=20260818z"></script>
 <!-- 궁합(good/spark/clash) 엔진 — trait-config.js의 TRAITS를 재사용하므로 반드시 그 뒤에 로드할 것 -->
-<script src="js/character/compatibility-engine.js?v=20260815i"></script>
-<script src="js/ai-analysis.js?v=20260815i"></script>
-<script src="js/app.js?v=20260815i"></script>
-<script src="js/profile.js?v=20260815i"></script>
-<script src="js/archive.js?v=20260815i"></script>
+<script src="js/character/compatibility-engine.js?v=20260818z"></script>
+<script src="js/ai-analysis.js?v=20260818z"></script>
+<script src="js/app.js?v=20260818z"></script>
+<script src="js/profile.js?v=20260818z"></script>
+<script src="js/archive.js?v=20260818z"></script>
+<script src="js/inyeon-dogam.js?v=20260818z"></script>
+<script src="js/nyang-shop.js?v=20260818z"></script>
+<script src="js/nyang-history.js?v=20260818z"></script>
 </body>
 </html>

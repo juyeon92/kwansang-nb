@@ -1,4 +1,24 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "//": "냥 내역 화면(js/nyang-history.js)의 타입별 탭 — where(type) + orderBy(createdAt desc) 조합은 Firestore가 복합 인덱스를 요구한다(단일 필드 자동 인덱스로는 못 푼다). '전체' 탭은 orderBy만 쓰므로 인덱스 없이도 동작했고, 관리자 지급/사용/구매 탭에서만 FAILED_PRECONDITION이 났다.",
+      "collectionGroup": "nyangLedger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "특정 사용자의 내역만 뽑는 조회(CS에서 '이 사람 거래만 보기', 그리고 향후 사용자용 결제내역 화면)를 위한 조합. 지금 화면에는 아직 UI가 없지만 같은 원장에 대해 바로 필요해질 쿼리라 함께 만들어 둔다.",
+      "collectionGroup": "nyangLedger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "//": "익명 세션 이관(migrateAnonymousData)이 쓰는 collectionGroup('entries').where('uid','==',…)는 단일 필드 조건이라 Firestore 자동 인덱스로 처리된다 — 여기에 따로 선언하면 'this index is not necessary' 400 에러로 배포가 막힌다.",
   "fieldOverrides": []
 }

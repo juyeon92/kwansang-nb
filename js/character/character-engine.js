@@ -246,6 +246,9 @@ function computeCharacterResult(opts) {
     secondaryTrait: decision.secondaryTrait,
     balanced: decision.balanced,
     traitScores: combined.traitScores,
+    // 정규화 전 원시 벡터 — baseline(FACE_TRAIT_BASELINE) 재보정 때 이 값의 분포가 기준이 된다.
+    // traitScores는 0~100으로 잘리기 때문에(clamp) 역산하면 극단값에서 분산이 왜곡된다.
+    faceRaw: faceResult ? faceResult.raw : null,
     basisLabel: combined.basisLabel, // '관상 + 사주 종합 유형' | '관상 기반 유형' | '사주 기반 유형'
     faceEvidence: faceResult ? faceResult.evidence.map(e => e.id).filter(id => id !== undefined) : [],
     faceEvidenceDetail: faceResult ? faceResult.evidence : [],

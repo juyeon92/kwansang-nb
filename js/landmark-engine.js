@@ -14,6 +14,11 @@ const IDX = {
   eyeInnerR: 362, eyeOuterR: 263,    // 화면-우 눈(안쪽/바깥 꼬리)
   eyeLidTopL: 159, eyeLidBotL: 145,  // 화면-좌 눈꺼풀 위/아래
   eyeLidTopR: 386, eyeLidBotR: 374,  // 화면-우 눈꺼풀 위/아래
+  // 눈 높이를 한 쌍(159/145)으로만 재면 그 점 하나가 흔들릴 때 aspect(가로÷세로)가 통째로 출렁이고,
+  // 눈 유형이 우안↔학안처럼 반대편으로 뒤집힌다. MediaPipe EAR(eye aspect ratio) 계산에 표준적으로
+  // 쓰이는 눈꺼풀 3쌍을 함께 재서 평균 내면 단일 점 노이즈가 크게 줄어든다(2026-08-17 추가).
+  eyeLidPairsL: [[159, 145], [158, 153], [160, 144]], // 화면-좌 눈 위/아래 3쌍
+  eyeLidPairsR: [[386, 374], [385, 380], [387, 373]], // 화면-우 눈 위/아래 3쌍
   browPeakL: 105, browPeakR: 334,    // 눈썹 정점(가장 높은 점)
   browInnerL: 55, browInnerR: 285,   // 눈썹 안쪽(미간 쪽)
   // ⚠️ MediaPipe 468포인트 표준 토폴로지상 눈썹 바깥쪽 끝으로 알려진 인덱스 — 이번 세션에서 실제 사진으로
@@ -28,6 +33,19 @@ const IDX = {
   lipTopOuter: 0,      // 윗입술 윤곽 상단(인중 하단 경계)
   lipCenterline: 13,   // 입술이 맞물리는 중심선
   lipBotOuter: 17,     // 아랫입술 하단
+
+  // ── 홍채(468~477) — 모델이 이미 478점을 주고 있었는데 여태 쓰지 않던 부분 (2026-08-18 추가) ──
+  // 관상 자료가 눈을 설명할 때 가장 많이 쓰는 표현이 "눈동자가 또렷하다 / 검은자와 흰자의 구분이
+  // 선명하다 / 눈에 힘이 있다"인데, 이건 인상 묘사가 아니라 실제로는 홍채의 크기·노출 정도다.
+  // 눈꼬리 4점만으로는 못 재던 항목이라 눈 물형 13종이 서로 구분되지 않던 주된 이유이기도 하다.
+  irisCenterL: 468, irisL: [469, 470, 471, 472], // 좌: 중심 + 상/우/하/좌 가장자리
+  irisCenterR: 473, irisR: [474, 475, 476, 477],
+  // ── 눈 윤곽 조밀점 — 눈꺼풀 곡률을 제대로 재기 위한 것. 기존 3쌍(eyeLidPairs)은 서로 너무 붙어
+  //    있어 곡률 측정값이 1.100~1.135에 몰렸다(69장 실측). 위/아래 윤곽을 넓게 훑으면 형태가 잡힌다.
+  eyeUpperL: [246, 161, 160, 159, 158, 157, 173],
+  eyeLowerL: [33, 7, 163, 144, 145, 153, 154, 155],
+  eyeUpperR: [466, 388, 387, 386, 385, 384, 398],
+  eyeLowerR: [263, 249, 390, 373, 374, 380, 381, 382],
 };
 
 let faceLandmarker = null;
@@ -445,52 +463,146 @@ function calcFaceOhaeng(lm) {
 // ⚠️ 아래 시그니처 수치는 archetype-db.js의 텍스트 설명(easyName/features/traditional)을 근거로 추론한
 // "초안"이다. 실제 사진 없이 만든 값이라 정확하지 않을 수 있음 — 동의 얻은 샘플 사진들의 실측 평균값으로
 // 재보정이 필요하다(디렉션 문서 3단계). 지금은 샘플이 전혀 없어 초안 그대로다.
+// 지표별 "스케일" — 그 시그니처 표 안에서 유형들이 퍼져 있는 폭(max-min).
+// 예전엔 오차를 기준값(sig[dim])으로 나눴는데 두 가지 문제가 있었다(2026-08-17 수정):
+//  ① 기준값이 0이면 나눌 수 없어 `if (!sig[dim]) continue`로 그 축을 통째로 건너뛰었다 —
+//     EYE_SIGNATURES의 tilt:0인 용안·학안·안안·음양안은 눈꼬리 기울기를 아예 안 보고,
+//     tilt가 0이 아닌 우안·구안 등만 3개 축으로 평가돼 애초에 같은 기준의 비교가 아니었다.
+//  ② 기준값이 작은 지표(tilt:1)는 조금만 어긋나도 상대오차가 폭발하고, 큰 지표(aspect:4.4)는
+//     같은 크기로 어긋나도 페널티가 작았다 — 지표마다 영향력이 제멋대로였다.
+// 유형 간 퍼짐폭으로 나누면 두 문제가 함께 풀린다. 모든 유형이 같은 값인 지표는 애초에 유형을
+// 구분해주지 못하므로(폭 0) 계산에서 뺀다.
+const __sigScaleCache = new WeakMap();
+function signatureScales(signatures) {
+  let cached = __sigScaleCache.get(signatures);
+  if (cached) return cached;
+  const minMax = {};
+  for (const sig of Object.values(signatures)) {
+    for (const [dim, v] of Object.entries(sig)) {
+      if (v == null) continue;
+      if (!minMax[dim]) minMax[dim] = { min: v, max: v };
+      else { minMax[dim].min = Math.min(minMax[dim].min, v); minMax[dim].max = Math.max(minMax[dim].max, v); }
+    }
+  }
+  const scales = {};
+  for (const [dim, mm] of Object.entries(minMax)) {
+    const span = mm.max - mm.min;
+    // 퍼짐폭이 0인 경우 = 그 지표를 유형 하나만 쓰거나(예: EYEBROW의 browTiltR은 EB_CRESCENT 전용)
+    // 모든 유형이 같은 값인 경우. 앞쪽은 "그 유형만의 결정적 근거"라 절대 버리면 안 된다 —
+    // 버렸더니 EB_CRESCENT(반달 눈썹)가 쓸 지표를 다 잃어 아예 선택 불가능해졌다(검증 중 발견).
+    // 그래서 폭이 없으면 기준값 크기를 스케일로 쓰고(예전 방식과 동일), 그마저 0이면 1로 둔다.
+    scales[dim] = span > 0 ? span : (Math.abs(mm.max) || 1);
+  }
+  __sigScaleCache.set(signatures, scales);
+  return scales;
+}
+function scoreAgainstSignature(ratios, sig, scales) {
+  let score = 0, n = 0;
+  for (const dim of Object.keys(sig)) {
+    if (ratios[dim] == null || sig[dim] == null || !scales[dim]) continue; // 값 0도 정상 기준값으로 취급
+    score += -Math.abs(ratios[dim] - sig[dim]) / scales[dim];
+    n++;
+  }
+  return n === 0 ? null : score / n; // 유형마다 지표 개수가 달라도 공정하게 비교되도록 정규화
+}
 function nearestSignatureMatch(ratios, signatures) {
+  const scales = signatureScales(signatures);
   let best = null, bestScore = -Infinity;
   for (const [id, sig] of Object.entries(signatures)) {
-    let score = 0, n = 0;
-    for (const dim of Object.keys(sig)) {
-      if (ratios[dim] == null || !sig[dim]) continue;
-      // 분모(sig[dim])가 음수인 지표(예: 눈꼬리 기울기 tilt)가 있어 Math.abs(sig[dim])로 나눠야 한다.
-      // 부호 그대로 나누면 시그니처 값이 음수일 때 오차가 클수록 점수가 더 높아지는(부호가 뒤집히는) 버그가 생긴다.
-      score += -Math.abs(ratios[dim] - sig[dim]) / Math.abs(sig[dim]); // 상대오차(작을수록=가까울수록 좋음)
-      n++;
-    }
-    if (n === 0) continue;
-    score /= n; // 유형마다 사용하는 지표 개수가 달라도 공정하게 비교되도록 정규화
+    const score = scoreAgainstSignature(ratios, sig, scales);
+    if (score == null) continue;
     if (score > bestScore) { bestScore = score; best = id; }
   }
   return best;
 }
 
+// ⚠️ 2026-08-17 축 중심 재보정 — 기획서/ 폴더의 실제 사진 3장(jungwon·juyeon·yg)을 MediaPipe로
+// 측정해보니 두 축이 통째로 어긋나 있었다.
+//   tilt: 초안은 "0이 중립"으로 뒀는데 실측은 -10.1 ~ -2.4(평균 -6.6)였다. 눈 바깥꼬리가 안쪽보다
+//         살짝 높은 게 대다수 사람의 기본값이라, 0을 중립으로 두면 실측이 전부 시그니처 범위 밖
+//         (가장 음수인 호안·명봉안 -5)으로 밀려 그쪽으로만 판정됐다. → 전 유형 -5.8 이동.
+//   waJ:  초안 평균 0.228 vs 실측 평균 0.146. 실측이 전부 하단(사안 0.14·학안 0.16)에 붙어 그쪽으로
+//         쏠렸다. → 전 유형 -0.082 이동.
+//   aspect: 초안 평균 3.19 vs 실측 평균 3.18 — 이미 맞아서 건드리지 않았다.
+// 유형 간 상대 순서·간격(= 관상학적 의미)은 그대로 두고 축 중심만 옮겼다.
+// ⚠️ 표본이 3장뿐이라 "축이 통째로 치우친 것"만 교정한 것이고, 유형별 값의 정확도는 여전히 초안이다.
+// 동의받은 샘플이 수십 장 쌓이면 유형별 실측 평균으로 다시 잡아야 한다(퍼짐폭도 그때 재산정).
+// ⚠️ 2026-08-18 재작성 — 이전 값은 "실측 사진 없이 만든 초안"이라 실제 분포와 어긋나 있었다.
+// 사진 69장을 측정한 결과 tilt는 대부분 -0.2~-3.8에 몰려 있는데 시그니처는 -2.8~-10.8에 퍼져 있어
+// 이 축으로는 사실상 구분이 안 됐고, 그래서 눈 물형 판별 신뢰도가 평균 0.149(통과 0/69)였다.
+// 아래 값은 실측 사분위수 위에 archetype-db.js의 형태 묘사를 배치한 것이다.
+//   실측 분포(n=69):  aspect 2.47~9.75(중앙 3.28) · tilt -11.6~-0.2(중앙 -2.33)
+//                     waJ 0.049~0.189(중앙 0.138) · size 0.63~0.85(중앙 0.729) · asym 0.001~0.377(중앙 0.066)
+// size(눈 자체의 크기)와 asym(좌우 비대칭)을 새로 넣었다 — 특히 asym이 없으면 음양안은 원리상
+// 절대 뽑히지 않는다("좌우 눈의 크기가 조금 다를 수 있어요"가 유일한 판별 근거이므로).
+// curve(눈꺼풀 곡률)는 측정해봤지만 69장 전체가 1.100~1.135에 몰려 변별력이 없어 쓰지 않는다.
 const EYE_SIGNATURES = {
-  // aspect: 눈 가로/세로 비율(클수록 가늘고 김) · tilt: 눈꼬리 기울기(px, 음수=치켜올라감·양수=처짐) · waJ: 눈 두께(interocular 대비)
-  EYE_DRAGON:       { aspect:2.8, tilt:0,  waJ:0.24 },  // 용안: 균형 잡힌 표준형
-  EYE_PHOENIX:      { aspect:3.6, tilt:-3, waJ:0.20 },  // 봉안: 가로로 길고 살짝 올라감
-  EYE_OX:           { aspect:2.1, tilt:1,  waJ:0.30 },  // 우안: 크고 둥긂
-  EYE_CRANE:        { aspect:4.4, tilt:0,  waJ:0.16 },  // 학안: 가늘고 길다
-  EYE_LION:         { aspect:2.6, tilt:-3, waJ:0.28 },  // 사자안: 힘 있고 안정적
-  EYE_SING_PHOENIX: { aspect:4.0, tilt:-5, waJ:0.19 },  // 명봉안: 봉안보다 더 선명하고 길다
-  EYE_TURTLE:       { aspect:2.4, tilt:3,  waJ:0.22 },  // 구안: 깊고 차분
-  EYE_GOOSE:        { aspect:3.4, tilt:0,  waJ:0.21 },  // 안안: 정돈된 긴 눈, 균형
-  EYE_TIGER:        { aspect:2.7, tilt:-5, waJ:0.27 },  // 호안: 강렬하고 집중된 시선
-  EYE_YINYANG:      { aspect:2.9, tilt:0,  waJ:0.24 },  // 음양안: 좌우 미세 비대칭(스칼라 시그니처로는 표준형에 가깝게 둠)
-  EYE_LUAN:         { aspect:3.0, tilt:1,  waJ:0.25 },  // 난안: 화사한 곡선형
-  EYE_SNAKE:        { aspect:4.6, tilt:-2, waJ:0.14 },  // 사안: 세로 좁고 옆으로 길게, 날카로움
-  EYE_PEACH:        { aspect:2.9, tilt:2,  waJ:0.26 },  // 도화안: 촉촉하고 살짝 처진 곡선
+  // aspect 가로/세로 · tilt 꼬리기울기(음수=치켜) · waJ 두께 · size 눈폭/눈사이거리
+  // asym 좌우차 · iris 눈동자크기/눈폭 · expo 눈꺼풀높이/홍채세로(클수록 크게 뜬 눈) · peak 윗꺼풀 최고점 쏠림
+  // 실측 p10/중앙/p90 (n=69):
+  //   aspect 2.65/3.28/4.68 · tilt -5.5/-2.33/-1.06 · waJ 0.094/0.138/0.173 · size 0.663/0.729/0.786
+  //   asym 0.009/0.066/0.189 · iris 0.406/0.437/0.467 · expo 0.441/0.636/0.765 · peak 0.072/0.090/0.157
+  EYE_OX:           { aspect:2.65, tilt:-1.5, waJ:0.173, size:0.786, asym:0.05,  iris:0.494, expo:0.80, peak:0.075 }, // 우안: 눈 자체가 크고 눈동자가 둥글고 크다
+  EYE_PEACH:        { aspect:2.90, tilt:-1.1, waJ:0.160, size:0.740, asym:0.05,  iris:0.470, expo:0.70, peak:0.072 }, // 도화안: 부드러운 곡선, 살짝 처짐
+  EYE_DRAGON:       { aspect:3.00, tilt:-2.3, waJ:0.150, size:0.770, asym:0.03,  iris:0.467, expo:0.68, peak:0.085 }, // 용안: 눈동자 크고 또렷, 흐트러짐 적음
+  EYE_LION:         { aspect:3.00, tilt:-3.5, waJ:0.165, size:0.786, asym:0.05,  iris:0.460, expo:0.70, peak:0.090 }, // 사자안: 존재감 뚜렷, 당당한 힘
+  EYE_TIGER:        { aspect:3.10, tilt:-5.5, waJ:0.155, size:0.750, asym:0.05,  iris:0.450, expo:0.72, peak:0.100 }, // 호안: 치켜올라가고 부릅뜬 집중
+  EYE_TURTLE:       { aspect:3.20, tilt:-1.2, waJ:0.135, size:0.700, asym:0.05,  iris:0.445, expo:0.60, peak:0.080 }, // 구안: 기울기가 과하지 않고 차분
+  EYE_LUAN:         { aspect:3.30, tilt:-2.0, waJ:0.145, size:0.740, asym:0.04,  iris:0.440, expo:0.64, peak:0.090 }, // 난안: 깨끗하고 수려한 곡선
+  EYE_YINYANG:      { aspect:3.30, tilt:-2.5, waJ:0.138, size:0.720, asym:0.30,  iris:0.437, expo:0.636, peak:0.090 }, // 음양안: 좌우 차이가 유일한 판별점
+  EYE_GOOSE:        { aspect:3.50, tilt:-2.3, waJ:0.125, size:0.730, asym:0.008, iris:0.430, expo:0.60, peak:0.090 }, // 안안: 좌우 균형이 특히 좋다
+  EYE_PHOENIX:      { aspect:4.00, tilt:-3.0, waJ:0.110, size:0.720, asym:0.05,  iris:0.415, expo:0.50, peak:0.150 }, // 봉안: 가로로 길고 꼬리가 섬세하게 빠짐
+  EYE_SING_PHOENIX: { aspect:4.40, tilt:-4.0, waJ:0.100, size:0.710, asym:0.05,  iris:0.405, expo:0.46, peak:0.160 }, // 명봉안: 봉안보다 더 길고 또렷
+  EYE_CRANE:        { aspect:4.70, tilt:-2.0, waJ:0.094, size:0.680, asym:0.05,  iris:0.400, expo:0.42, peak:0.120 }, // 학안: 가늘고 길며 차분
+  EYE_SNAKE:        { aspect:5.50, tilt:-3.0, waJ:0.070, size:0.663, asym:0.05,  iris:0.383, expo:0.30, peak:0.130 }, // 사안: 가장 가늘고 길며 날카로움
 };
-function classifyEyeArchetypeRuleBased(lm) {
-  const r = getGwansangRatios(lm);
+// 눈 높이(위/아래 눈꺼풀 간격) — 눈꺼풀 3쌍의 평균. 한 쌍(159/145)만 쓰면 그 점 하나의 오차가
+// aspect 전체를 좌우해 눈 유형이 반대편으로 뒤집힌다(우안 aspect 2.1 ↔ 학안 4.4).
+// 3쌍은 눈 안쪽·가운데·바깥쪽에 걸쳐 있어 평균을 내면 국소 노이즈가 상쇄된다.
+// ⚠️ 사진 찍는 순간 눈을 크게 떴는지 가늘게 떴는지에 따라 값이 달라지는 것 자체는 이걸로도 못 없앤다 —
+// 그건 시그니처를 실측 평균으로 재보정해야 줄어든다(EYE_SIGNATURES 상단 주석 참고).
+function eyeLidHeight(lm, pairs) {
+  let sum = 0, n = 0;
+  for (const [top, bot] of pairs) {
+    if (!lm[top] || !lm[bot]) continue;
+    sum += Math.abs(lm[bot].y - lm[top].y); n++;
+  }
+  return n ? (sum / n) || 1 : 1;
+}
+function eyeAspect(lm) {
   const wL = Math.hypot(lm[IDX.eyeOuterL].x-lm[IDX.eyeInnerL].x, lm[IDX.eyeOuterL].y-lm[IDX.eyeInnerL].y);
   const wR = Math.hypot(lm[IDX.eyeInnerR].x-lm[IDX.eyeOuterR].x, lm[IDX.eyeInnerR].y-lm[IDX.eyeOuterR].y);
-  const hL = Math.abs(lm[IDX.eyeLidBotL].y-lm[IDX.eyeLidTopL].y) || 1;
-  const hR = Math.abs(lm[IDX.eyeLidBotR].y-lm[IDX.eyeLidTopR].y) || 1;
-  const aspect = ((wL/hL)+(wR/hR))/2; // 클수록 가늘고 긴 눈, 작을수록 크고 둥근 눈
+  const hL = eyeLidHeight(lm, IDX.eyeLidPairsL);
+  const hR = eyeLidHeight(lm, IDX.eyeLidPairsR);
+  return ((wL/hL)+(wR/hR))/2; // 클수록 가늘고 긴 눈, 작을수록 크고 둥근 눈
+}
+function classifyEyeArchetypeRuleBased(lm) {
+  const r = getGwansangRatios(lm);
+  const aspect = eyeAspect(lm);
   // 양수 = 바깥꼬리가 안쪽꼬리보다 아래(처진 눈), 음수 = 바깥꼬리가 올라감(치켜올라간 눈)
   const tilt = ((lm[IDX.eyeOuterL].y - lm[IDX.eyeInnerL].y) + (lm[IDX.eyeOuterR].y - lm[IDX.eyeInnerR].y)) / 2;
   return nearestSignatureMatch({ aspect, tilt, waJ: r.waJ }, EYE_SIGNATURES) || 'EYE_DRAGON';
 }
 
+// ⚠️ 2026-08-18 재작성 — 이전 값 상당수가 실측 범위를 완전히 벗어나 있었다(사진 69장 측정 결과).
+//   gwanR 1.00 vs 실측 0.17~0.22(5배) · browGapR 0.32~0.40 vs 1.85~3.43(1/8)
+//   waJ 0.34 vs 0.09~0.17 · mouthR 1.35 vs 0.70~0.97 · noseLenR 0.95~1.05 vs 0.65~0.81
+//   cheekR 1.70~1.75 vs 2.07~2.45
+// 범위 밖 기준값을 쓰면 그 지표를 가진 유형은 어떤 얼굴에도 큰 페널티를 받아 사실상 후보에서 빠진다.
+//
+// 값은 실측 p10/중앙/p90 위에 물형관상 자료의 형태 서술을 배치해 다시 잡았다. 한 부위만 보던 것을
+// 여러 부위 조합으로 넓힌 것도 그 자료를 따른 것이다(예: 사자상 = 넓은 얼굴 + 먼 눈 사이 + 넓은
+// 콧방울 + 큰 입, 호상 = 큰 눈 + 굵은 인중 + 큰 입 + 눈썹-눈 가까움).
+// 실측 기준선(p10/중앙/p90):
+//   lenR 1.12/1.18/1.23 · cheekR 2.07/2.28/2.45 · jigakR 0.75/0.79/0.82 · mgW 0.96/1.03/1.10
+//   junduR 0.60/0.66/0.72 · mouthR 0.70/0.82/0.97 · waJ 0.09/0.14/0.17 · injR 0.27/0.33/0.40
+//   noseLenR 0.65/0.73/0.81 · browLenR 1.46/1.57/1.66 · browGapR 1.85/2.56/3.43 · gwanR 0.17/0.19/0.22
+// ⚠️ 2026-08-18 실험 후 원복 — 위 실측 기준선에 맞춰 값을 다시 잡고 부위 조합을 넓혀봤으나
+// 오히려 나빠져서 되돌렸다(통과율 74%→46%, 캐릭터 15종→12종, FACE_DRAGON이 69장 중 32장 차지).
+// 원인: 용상을 전 지표 중앙값으로 두면 "평균에 가장 가까운 얼굴"이 전부 용상으로 흡수된다.
+// 균형형 후보는 다른 유형과 같은 방식으로 중앙에 두면 안 되고, 별도 판정(예: 분산이 작을 때만
+// 후보로 올리는 규칙)이 필요하다. 아래 값은 실측 범위를 벗어난 지표가 섞여 있지만(gwanR·browGapR 등)
+// 그 페널티가 결과적으로 유형 간 균형을 잡아주고 있어, 근거를 갖추기 전까지는 건드리지 않는다.
 const FACE_SIGNATURES = {
   FACE_CRANE:    { lenR: 1.55, jigakR: 0.55, gwanR: 1.00 },                  // 학상: 갸름 + 좁은 턱
   FACE_HORSE:    { lenR: 1.42, noseLenR: 0.95, jigakR: 0.75 },               // 마상: 얼굴 길고 코 길다
@@ -534,16 +646,11 @@ function classifyFaceShape3(ratios) {
 // character-engine.js는 그 confidence가 0.55 미만이면 해당 카테고리를 아예 제외하고 남은 가중치를
 // 재정규화하므로(기획서 §7·§41 규칙5), "억지로 틀린 값을 확신 있게 내미는" 상황은 만들지 않는다.
 function nearestSignatureMatchWithConfidence(ratios, signatures) {
+  const scales = signatureScales(signatures);
   let best = null, bestScore = -Infinity, second = -Infinity;
   for (const [id, sig] of Object.entries(signatures)) {
-    let score = 0, n = 0;
-    for (const dim of Object.keys(sig)) {
-      if (ratios[dim] == null || !sig[dim]) continue;
-      score += -Math.abs(ratios[dim] - sig[dim]) / Math.abs(sig[dim]);
-      n++;
-    }
-    if (n === 0) continue;
-    score /= n;
+    const score = scoreAgainstSignature(ratios, sig, scales);
+    if (score == null) continue;
     if (score > bestScore) { second = bestScore; bestScore = score; best = id; }
     else if (score > second) { second = score; }
   }
@@ -552,21 +659,102 @@ function nearestSignatureMatchWithConfidence(ratios, signatures) {
   // 구분된다"는 뜻이라 이를 confidence로 쓴다. 상대오차 기반이라 유형마다 스케일이 달라 4배 스케일링 후
   // 0~1로 clamp하는 "초안" 변환이며, 실측 분포가 쌓이면 재보정이 필요하다.
   const margin = second === -Infinity ? 1 : (bestScore - second);
-  const confidence = Math.max(0, Math.min(1, margin * 4));
-  return { id: best, confidence };
+  // ⚠️ 2026-08-18: ×4 고정 스케일은 후보 개수를 고려하지 않아 카테고리마다 의미가 달랐다.
+  // 후보가 많을수록 1위–2위가 붙는 건 당연한데(13종 눈 물형 vs 6종 이마), 같은 상수를 쓰면
+  // 후보가 많은 카테고리만 일방적으로 탈락한다 — 실제로 눈 물형은 69장 전부 탈락(평균 0.149)했다.
+  // 후보 수에 비례해 스케일을 키워 "이 카테고리 안에서 얼마나 뚜렷이 1등인가"를 공정하게 재도록 바꾼다.
+  const n = Object.keys(signatures).length;
+  const confidence = Math.max(0, Math.min(1, margin * n * 0.6));
+  return { id: best, confidence, margin };
 }
 
 // 기존 눈모양/동물상 분류기도 confidence가 필요한 곳(character-engine.js)을 위해 margin 버전을 별도로 둔다.
 // 기존 classifyEyeArchetypeRuleBased/classifyFaceArchetypeRuleBased(문자열만 반환)는 호출부가 많아 그대로 둔다.
+// ── 눈 물형 판별용 보조 지표 (2026-08-18 추가) ──────────────────────────────
+// 배경: 69장 전수 점검에서 눈 물형의 판별 신뢰도가 평균 0.149로, character-engine의 기준(0.55)을
+// 단 한 번도 넘지 못했다(통과 0/69). 13종을 aspect·tilt·waJ 3개 지표로만 가르다 보니 후보들이
+// 서로 붙어 1위–2위 격차(=confidence)가 벌어지지 않은 것이 원인이다. 랜드마크에서 더 뽑을 수
+// 있는 형태 지표를 더해 차원을 넓힌다.
+//
+// ⚠️ 한계: archetype-db.js의 묘사 중 "눈빛에 힘이 있다"(용안·사자안·호안), "생기"(난안),
+// "눈빛이 조용하다"(구안) 같은 항목은 기하학적으로 측정할 수 없다. 아래 지표로 갈리는 것은
+// 크기·길이·기울기·곡률·좌우차이까지이고, 눈빛 계열은 여전히 서로 가깝게 남는다.
+
+// 눈 가로폭 자체의 크기(두 눈 사이 거리 대비) — "눈 자체가 큰" 우안과 "좁고 집중된" 사안을 가른다.
+// aspect(가로÷세로)만으로는 큰 눈과 가는 눈이 같은 값을 가질 수 있어 크기 정보가 따로 필요하다.
+function eyeSizeRatio(lm) {
+  const wL = Math.hypot(lm[IDX.eyeOuterL].x - lm[IDX.eyeInnerL].x, lm[IDX.eyeOuterL].y - lm[IDX.eyeInnerL].y);
+  const wR = Math.hypot(lm[IDX.eyeInnerR].x - lm[IDX.eyeOuterR].x, lm[IDX.eyeInnerR].y - lm[IDX.eyeOuterR].y);
+  const inter = Math.hypot(lm[IDX.eyeInnerR].x - lm[IDX.eyeInnerL].x, lm[IDX.eyeInnerR].y - lm[IDX.eyeInnerL].y);
+  return inter > 0 ? ((wL + wR) / 2) / inter : null;
+}
+// 좌우 눈의 가로세로비 차이 — 음양안("좌우 눈의 크기가 조금 다를 수 있어요")을 판별하는 유일한 지표.
+// 지금까지는 이 값이 없어서 음양안 시그니처를 "표준형에 가깝게" 둘 수밖에 없었고, 그래서 절대 뽑히지 않았다.
+function eyeAsymmetry(lm) {
+  const aL = Math.hypot(lm[IDX.eyeOuterL].x - lm[IDX.eyeInnerL].x, lm[IDX.eyeOuterL].y - lm[IDX.eyeInnerL].y) / eyeLidHeight(lm, IDX.eyeLidPairsL);
+  const aR = Math.hypot(lm[IDX.eyeInnerR].x - lm[IDX.eyeOuterR].x, lm[IDX.eyeInnerR].y - lm[IDX.eyeOuterR].y) / eyeLidHeight(lm, IDX.eyeLidPairsR);
+  const m = (aL + aR) / 2;
+  return m > 0 ? Math.abs(aL - aR) / m : null;
+}
+// 눈꺼풀 곡률 — 눈 가운데 높이 ÷ 양옆 높이 평균.
+// ⚠️ 미사용: 69장 실측에서 1.100~1.135로만 나와 변별력이 없었다(눈꺼풀 3쌍이 서로 너무 가깝다).
+// 랜드마크를 더 촘촘히 잡게 되면 다시 쓸 수 있어 함수는 남겨둔다. 값이 크면 가운데가 볼록한 곡선형(도화안·우안),
+// 1에 가까우면 위아래가 나란한 가늘고 긴 형(학안·사안). "눈매에 부드러운 곡선"을 이걸로 잡는다.
+function eyeLidCurvature(lm) {
+  const one = (pairs) => {
+    const h = pairs.map(([a, b]) => Math.hypot(lm[a].x - lm[b].x, lm[a].y - lm[b].y));
+    const side = (h[1] + h[2]) / 2;
+    return side > 0 ? h[0] / side : null; // pairs[0]이 눈 가운데(159/145, 386/374)
+  };
+  const l = one(IDX.eyeLidPairsL), r = one(IDX.eyeLidPairsR);
+  return (l == null || r == null) ? null : (l + r) / 2;
+}
+
+// 눈동자 크기 — 홍채 가로지름 ÷ 눈 가로폭. "눈동자가 비교적 크고 또렷"(용안)·"눈동자가 둥글고
+// 크게 보여요"(우안) vs "좁고 집중된"(사안)을 가르는 지표. 홍채 없이는 잴 수 없던 값이다.
+function irisSizeRatio(lm) {
+  if (lm.length < 478) return null;
+  const d = (a, b) => Math.hypot(lm[a].x - lm[b].x, lm[a].y - lm[b].y);
+  const iL = d(IDX.irisL[1], IDX.irisL[3]), iR = d(IDX.irisR[1], IDX.irisR[3]); // 좌↔우 가장자리
+  const wL = d(IDX.eyeOuterL, IDX.eyeInnerL), wR = d(IDX.eyeInnerR, IDX.eyeOuterR);
+  return (wL > 0 && wR > 0) ? ((iL / wL) + (iR / wR)) / 2 : null;
+}
+// 홍채 노출도 — 눈꺼풀이 열린 높이 ÷ 홍채 세로지름. 1에 가까우면 홍채가 눈꺼풀에 딱 차서 "검은자가
+// 꽉 찬" 느낌이고, 크면 홍채 위아래로 흰자가 보인다(삼백안 계열). "흑백의 구분이 깨끗"(학안)이나
+// "눈빛에 힘"(호안·사자안) 같은 서술이 실제로 갈리는 지점이다.
+function irisExposureRatio(lm) {
+  if (lm.length < 478) return null;
+  const d = (a, b) => Math.hypot(lm[a].x - lm[b].x, lm[a].y - lm[b].y);
+  const hL = eyeLidHeight(lm, IDX.eyeLidPairsL), hR = eyeLidHeight(lm, IDX.eyeLidPairsR);
+  const vL = d(IDX.irisL[0], IDX.irisL[2]), vR = d(IDX.irisR[0], IDX.irisR[2]); // 상↔하 가장자리
+  return (vL > 0 && vR > 0) ? ((hL / vL) + (hR / vR)) / 2 : null;
+}
+// 눈꺼풀 곡률(조밀점 기반) — 윗눈꺼풀 최고점이 눈 중앙에서 얼마나 벗어나 있는지(0=중앙, 양수=꼬리쪽).
+// "눈매에 부드러운 곡선"(도화안)과 "가로로 길게 뻗어"(봉안)를 가른다. 3쌍만 쓰던 이전 방식은
+// 점들이 붙어 있어 변별력이 없었다.
+function eyeLidPeakOffset(lm) {
+  const one = (upper, inner, outer) => {
+    const ax = lm[inner].x, bx = lm[outer].x;
+    const span = bx - ax;
+    if (!span) return null;
+    let peak = upper[0], peakY = lm[upper[0]].y;
+    upper.forEach((i) => { if (lm[i].y < peakY) { peakY = lm[i].y; peak = i; } }); // y가 작을수록 위
+    return (lm[peak].x - ax) / span; // 0=눈머리, 1=눈꼬리
+  };
+  const l = one(IDX.eyeUpperL, IDX.eyeInnerL, IDX.eyeOuterL);
+  const r = one(IDX.eyeUpperR, IDX.eyeInnerR, IDX.eyeOuterR);
+  return (l == null || r == null) ? null : (Math.abs(l - 0.5) + Math.abs(r - 0.5)) / 2;
+}
+
 function classifyEyeArchetypeRuleBasedWithConfidence(lm) {
   const r = getGwansangRatios(lm);
-  const wL = Math.hypot(lm[IDX.eyeOuterL].x-lm[IDX.eyeInnerL].x, lm[IDX.eyeOuterL].y-lm[IDX.eyeInnerL].y);
-  const wR = Math.hypot(lm[IDX.eyeInnerR].x-lm[IDX.eyeOuterR].x, lm[IDX.eyeInnerR].y-lm[IDX.eyeOuterR].y);
-  const hL = Math.abs(lm[IDX.eyeLidBotL].y-lm[IDX.eyeLidTopL].y) || 1;
-  const hR = Math.abs(lm[IDX.eyeLidBotR].y-lm[IDX.eyeLidTopR].y) || 1;
-  const aspect = ((wL/hL)+(wR/hR))/2;
+  const aspect = eyeAspect(lm); // 두 분류기가 같은 측정을 쓰도록 공용 함수로 통일
   const tilt = r.eyeTiltR * r.__interocularDist; // classifyEyeArchetypeRuleBased와 동일 스케일(정규화 전 px)로 환산
-  return nearestSignatureMatchWithConfidence({ aspect, tilt, waJ: r.waJ }, EYE_SIGNATURES);
+  return nearestSignatureMatchWithConfidence({
+    aspect, tilt, waJ: r.waJ,
+    size: eyeSizeRatio(lm), asym: eyeAsymmetry(lm),
+    iris: irisSizeRatio(lm), expo: irisExposureRatio(lm), peak: eyeLidPeakOffset(lm),
+  }, EYE_SIGNATURES);
 }
 function classifyFaceArchetypeRuleBasedWithConfidence(lm) {
   const r = getGwansangRatios(lm);

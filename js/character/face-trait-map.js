@@ -14,19 +14,19 @@ const FACE_TRAIT_MAP = {
     // 용안: 리더십·존재감·명예·균형
     EYE_DRAGON:       { lead: 1.0, strategy: 0.3, drive: 0.4, social: 0.2, stability: 0.5, sense: 0.1 },
     // 봉안: 총명함·품격·지혜·명예 — 기획서 §5 원문 값
-    EYE_PHOENIX:      { lead: 0.2, strategy: 1.0, drive: 0.1, social: 0.2, stability: 0.5, sense: 0.4 },
+    EYE_PHOENIX:      { lead: 0.2, strategy: 1.0, drive: 0.1, social: 0.2, stability: 0.6, sense: 0.6 },
     // 우안: 신뢰·성실·재복·온화함
     EYE_OX:           { lead: 0.1, strategy: 0.2, drive: 0.3, social: 0.5, stability: 1.0, sense: 0.1 },
     // 학안: 지성·청수함·기품·고고함
     EYE_CRANE:        { lead: 0.2, strategy: 1.0, drive: 0.1, social: 0.1, stability: 0.4, sense: 0.5 },
     // 사자안: 위엄·리더십·절제·안정감
-    EYE_LION:         { lead: 1.0, strategy: 0.2, drive: 0.5, social: 0.2, stability: 0.6, sense: 0.1 },
+    EYE_LION:         { lead: 1.0, strategy: 0.2, drive: 0.3, social: 0.2, stability: 0.7, sense: 0.1 },
     // 명봉안: 지혜·결단력·두각·명예
-    EYE_SING_PHOENIX: { lead: 0.4, strategy: 1.0, drive: 0.5, social: 0.2, stability: 0.3, sense: 0.3 },
+    EYE_SING_PHOENIX: { lead: 0.4, strategy: 1.0, drive: 0.3, social: 0.5, stability: 0.3, sense: 0.3 },
     // 구안: 안정·차분함·장수·복
     EYE_TURTLE:       { lead: 0.1, strategy: 0.3, drive: 0.1, social: 0.2, stability: 1.0, sense: 0.1 },
     // 안안: 의지·의연함·품격·신뢰
-    EYE_GOOSE:        { lead: 0.3, strategy: 0.2, drive: 0.4, social: 0.2, stability: 1.0, sense: 0.2 },
+    EYE_GOOSE:        { lead: 0.3, strategy: 0.2, drive: 0.3, social: 0.2, stability: 1.0, sense: 0.5 },
     // 호안: 위엄·추진력·집중력·기세 — 기획서 §5 원문 값
     EYE_TIGER:        { lead: 1.0, strategy: 0.2, drive: 0.9, social: 0.0, stability: 0.2, sense: 0.0 },
     // 음양안: 개성·복합적매력·비대칭·신비감
@@ -43,11 +43,11 @@ const FACE_TRAIT_MAP = {
     // 용상: 리더십·중심·권위·절제
     FACE_DRAGON:   { lead: 1.0, strategy: 0.3, drive: 0.4, social: 0.2, stability: 0.6, sense: 0.1 },
     // 봉상: 품격·조화·총명함·우아함
-    FACE_PHOENIX:  { lead: 0.2, strategy: 0.8, drive: 0.1, social: 0.3, stability: 0.4, sense: 0.8 },
+    FACE_PHOENIX:  { lead: 0.2, strategy: 0.8, drive: 0.1, social: 0.5, stability: 0.7, sense: 0.8 },
     // 학상: 지성·고고함·청수함·명예
     FACE_CRANE:    { lead: 0.2, strategy: 1.0, drive: 0.1, social: 0.1, stability: 0.4, sense: 0.5 },
     // 사자상: 카리스마·위엄·리더십·풍채
-    FACE_LION:     { lead: 1.0, strategy: 0.2, drive: 0.5, social: 0.3, stability: 0.3, sense: 0.1 },
+    FACE_LION:     { lead: 1.0, strategy: 0.2, drive: 0.3, social: 0.4, stability: 0.4, sense: 0.1 },
     // 기린상: 온화함·덕·안정감·신뢰
     FACE_KIRIN:    { lead: 0.2, strategy: 0.2, drive: 0.1, social: 0.5, stability: 1.0, sense: 0.1 },
     // 호상: 추진력·활동성·위엄·결단력
@@ -64,15 +64,15 @@ const FACE_TRAIT_MAP = {
     FH_ANGULAR:     { lead: 0.2, strategy: 0.6, drive: 0.8, social: 0.0, stability: 0.2, sense: 0.1 }, // 추진력·논리적
     FH_M_SHAPE:     { lead: 0.1, strategy: 0.5, drive: 0.3, social: 0.0, stability: 0.1, sense: 0.8 }, // 독창적·집중력
     FH_NARROW:      { lead: 0.3, strategy: 0.0, drive: 0.7, social: 0.0, stability: 0.0, sense: 0.5 }, // 투쟁적·본능적 감각
-    FH_THREE_SHAPE: { lead: 0.1, strategy: 0.2, drive: 0.1, social: 1.0, stability: 0.3, sense: 0.1 }, // 친화력·중재
+    FH_THREE_SHAPE: { lead: 0.1, strategy: 0.5, drive: 0.1, social: 1.0, stability: 0.3, sense: 0.1 }, // 친화력·중재
     FH_ROUND:       { lead: 0.1, strategy: 0.0, drive: 0.2, social: 1.0, stability: 0.1, sense: 0.4 }, // 사교적·표현력
     FH_WIDE:        { lead: 0.5, strategy: 0.3, drive: 0.2, social: 0.3, stability: 0.7, sense: 0.0 }, // 의리·조직적
   },
 
   eyebrow: {
     EB_THICK:    { lead: 0.5, strategy: 0.1, drive: 1.0, social: 0.1, stability: 0.1, sense: 0.0 }, // 적극적·승부욕
-    EB_RAISED:   { lead: 1.0, strategy: 0.3, drive: 0.5, social: 0.1, stability: 0.2, sense: 0.1 }, // 대범·능력자 기질
-    EB_TRIANGLE: { lead: 0.8, strategy: 0.3, drive: 0.5, social: 0.0, stability: 0.2, sense: 0.0 }, // 결단력·독립적
+    EB_RAISED:   { lead: 1.0, strategy: 0.3, drive: 0.3, social: 0.1, stability: 0.4, sense: 0.1 }, // 대범·능력자 기질
+    EB_TRIANGLE: { lead: 0.8, strategy: 0.5, drive: 0.3, social: 0.0, stability: 0.2, sense: 0.0 }, // 결단력·독립적
     EB_DROOPY:   { lead: 0.0, strategy: 0.1, drive: 0.1, social: 1.0, stability: 0.3, sense: 0.2 }, // 협조적·유쾌
     EB_CRESCENT: { lead: 0.0, strategy: 0.1, drive: 0.1, social: 1.0, stability: 0.3, sense: 0.3 }, // 친절·인기
     EB_THIN:     { lead: 0.0, strategy: 0.3, drive: 0.0, social: 0.5, stability: 0.6, sense: 0.1 }, // 조심성·상냥
@@ -83,7 +83,7 @@ const FACE_TRAIT_MAP = {
     ES_SMALL:     { lead: 0.2, strategy: 0.4, drive: 0.8, social: 0.0, stability: 0.4, sense: 0.2 }, // 의지력·근성
     ES_DROOPY:    { lead: 0.0, strategy: 0.1, drive: 0.0, social: 0.7, stability: 0.3, sense: 0.6 }, // 인자·감수성
     ES_MONOLID:   { lead: 0.1, strategy: 1.0, drive: 0.1, social: 0.0, stability: 0.3, sense: 0.2 }, // 관찰력·이론적
-    ES_UPTURNED:  { lead: 0.8, strategy: 0.2, drive: 0.6, social: 0.0, stability: 0.3, sense: 0.1 }, // 자신감·강직
+    ES_UPTURNED:  { lead: 0.8, strategy: 0.2, drive: 0.3, social: 0.0, stability: 0.6, sense: 0.1 }, // 자신감·강직
     ES_DOUBLE:    { lead: 0.2, strategy: 0.1, drive: 0.3, social: 0.6, stability: 0.0, sense: 0.7 }, // 화려·임기응변
     ES_WIDE_SET:  { lead: 0.1, strategy: 0.0, drive: 0.0, social: 0.5, stability: 0.6, sense: 0.1 }, // 도량·여유 (⚠️ DB 자체가 "벤치마크 추정" 경고)
     ES_CLOSE_SET: { lead: 0.2, strategy: 0.7, drive: 0.6, social: 0.0, stability: 0.1, sense: 0.1 }, // 집중력·몰두 (⚠️ 위와 동일)
@@ -92,11 +92,11 @@ const FACE_TRAIT_MAP = {
   nose: {
     NS_SMALL_SHORT: { lead: 0.0, strategy: 0.2, drive: 0.5, social: 0.2, stability: 0.0, sense: 0.7 }, // 재치·순발력
     NS_WIDE:        { lead: 0.3, strategy: 0.1, drive: 0.8, social: 0.3, stability: 0.2, sense: 0.0 }, // 대외 활동력·생활력
-    NS_AQUILINE:    { lead: 0.3, strategy: 0.8, drive: 0.1, social: 0.2, stability: 0.3, sense: 0.1 }, // 신중·처세술
+    NS_AQUILINE:    { lead: 0.3, strategy: 0.8, drive: 0.1, social: 0.6, stability: 0.3, sense: 0.1 }, // 신중·처세술
     NS_BENT:        { lead: 0.1, strategy: 0.3, drive: 0.1, social: 0.1, stability: 0.0, sense: 0.8 }, // 개성·직감력
     NS_BIG:         { lead: 0.2, strategy: 0.2, drive: 0.7, social: 0.1, stability: 0.3, sense: 0.0 }, // 활동적·현실적
     NS_UPTURNED:    { lead: 0.1, strategy: 0.1, drive: 0.2, social: 0.8, stability: 0.0, sense: 0.4 }, // 사교적·다재다능
-    NS_ALAR_THICK:  { lead: 0.0, strategy: 0.2, drive: 0.1, social: 0.1, stability: 0.7, sense: 0.0 }, // 재물을 지키는 알뜰함
+    NS_ALAR_THICK:  { lead: 0.0, strategy: 0.2, drive: 0.1, social: 0.1, stability: 0.7, sense: 0.4 }, // 재물을 지키는 알뜰함
     NS_ALAR_THIN:   { lead: 0.2, strategy: 0.0, drive: 0.2, social: 0.6, stability: 0.0, sense: 0.3 }, // 통 큼·나눔에 아낌없음
     NS_BOKGO:       { lead: 0.2, strategy: 0.1, drive: 0.1, social: 0.5, stability: 0.6, sense: 0.1 }, // 재물복·원만함
   },
@@ -115,7 +115,7 @@ const FACE_TRAIT_MAP = {
     CS_OVAL:      { lead: 0.0, strategy: 0.6, drive: 0.1, social: 0.1, stability: 0.2, sense: 0.5 }, // 꼼꼼함·직감력
     CS_ROUND:     { lead: 0.1, strategy: 0.0, drive: 0.1, social: 0.7, stability: 0.5, sense: 0.2 }, // 포용력·낙천적
     CS_SQUARE:    { lead: 0.2, strategy: 0.2, drive: 0.4, social: 0.0, stability: 0.8, sense: 0.0 }, // 집념·청렴
-    CS_LONG:      { lead: 0.0, strategy: 0.1, drive: 0.0, social: 0.4, stability: 0.7, sense: 0.1 }, // 원만·온후
+    CS_LONG:      { lead: 0.0, strategy: 0.1, drive: 0.0, social: 0.4, stability: 0.7, sense: 0.4 }, // 원만·온후
     CS_POINTED:   { lead: 0.0, strategy: 0.1, drive: 0.0, social: 0.2, stability: 0.0, sense: 1.0 }, // 예술적·감각적
   },
 
@@ -125,7 +125,7 @@ const FACE_TRAIT_MAP = {
     FS_TRIANGLE:     { lead: 0.1, strategy: 1.0, drive: 0.1, social: 0.0, stability: 0.3, sense: 0.1 }, // 냉철·이성적·분석적
     FS_INV_TRIANGLE: { lead: 0.2, strategy: 0.3, drive: 0.1, social: 0.1, stability: 0.0, sense: 1.0 }, // 창조적·예술적·아이디어
     FS_ROUND:        { lead: 0.1, strategy: 0.0, drive: 0.1, social: 1.0, stability: 0.3, sense: 0.2 }, // 외향적·사교적·따뜻함
-    FS_OVAL:         { lead: 0.1, strategy: 0.3, drive: 0.2, social: 0.6, stability: 0.1, sense: 0.5 }, // 다재다능·순발력·중재
+    FS_OVAL:         { lead: 0.1, strategy: 0.6, drive: 0.2, social: 0.6, stability: 0.1, sense: 0.5 }, // 다재다능·순발력·중재
   },
 };
 

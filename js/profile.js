@@ -317,6 +317,9 @@
   // ── 프로필 전환 바텀시트 ─────────────────────────────────────────────
   // opts.onDone: 선택/취소 후 오버레이를 닫는 대신 실행할 콜백 — 마이페이지처럼
   // "프로필 변경 후 원래 팝업으로 돌아가야" 하는 화면이 자기 화면을 다시 그릴 수 있게 해준다.
+  // opts.onPick: 실제로 사주를 "고른" 경우에만 실행되는 콜백(닫기·배경 클릭으로 나가면 실행 안 됨).
+  //   onDone과 달리 취소와 선택을 구분해야 하는 호출부(통합분석의 "다른 사람으로 통합분석하기")용.
+  // opts.title: 바텀시트 제목 문구(기본 '사주 관리').
   let switcherOpts = {};
   function openSwitcher(opts) {
     opts = opts || {};
@@ -345,7 +348,7 @@
       <div class="overlay-backdrop" onclick="Profile._dismissSwitcher()"></div>
       <div class="bottomsheet">
         <div class="bottomsheet-header">
-          <span>${forPartner ? '상대방 프로필 선택' : '사주 관리'}</span>
+          <span>${forPartner ? '상대방 프로필 선택' : esc(opts.title || '사주 관리')}</span>
           <button class="overlay-close" onclick="Profile._dismissSwitcher()"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="profile-row-list">${rows}</div>
@@ -355,6 +358,7 @@
   }
 
   function pickRow(id, forPartner) {
+    const onPick = switcherOpts.onPick; // finishSwitcher가 switcherOpts를 비우므로 먼저 잡아둔다
     if (forPartner) {
       gunghamPartnerId = id;
       const p = getProfile(id);
@@ -364,6 +368,7 @@
       setRepresentative(id);
     }
     finishSwitcher();
+    if (onPick) onPick(id);
   }
   // 선택을 끝냈거나(닫기/배경 클릭 포함) 취소했을 때 — 호출자가 돌아갈 화면을 지정했으면 그 화면으로,
   // 아니면 지금처럼 오버레이를 완전히 닫는다.
@@ -372,8 +377,10 @@
     switcherOpts = {};
     if (onDone) onDone(); else closeOverlay();
   }
-  function editRow(id, forPartner) { openForm(getProfile(id), { forPartner: forPartner, onDone: switcherOpts.onDone }); }
-  function openAdd(forPartner) { openForm(null, { forPartner: forPartner, onDone: switcherOpts.onDone }); }
+  // 수정/추가로 넘어갈 때도 onPick을 들고 간다 — 바텀시트에서 "사주 추가하기"로 새 사주를 만든 것도
+  // 사용자 입장에선 "그 사주를 고른 것"이라, 저장 후 호출부의 다음 단계로 이어져야 한다.
+  function editRow(id, forPartner) { openForm(getProfile(id), { forPartner: forPartner, onDone: switcherOpts.onDone, onPick: switcherOpts.onPick }); }
+  function openAdd(forPartner) { openForm(null, { forPartner: forPartner, onDone: switcherOpts.onDone, onPick: switcherOpts.onPick }); }
 
   // ── 등록/수정 폼 팝업 ────────────────────────────────────────────────
   let draft = null;
@@ -387,6 +394,7 @@
     draft._forPartner = !!opts.forPartner;
     draft._onSavedRun = opts.onSavedRun || null;
     draft._onDone = opts.onDone || null;
+    draft._onPick = opts.onPick || null;
     renderForm();
   }
 
@@ -472,12 +480,18 @@
     const forPartner = draft._forPartner;
     const onSavedRun = draft._onSavedRun;
     const onDone = draft._onDone;
+    const onPick = draft._onPick;
     delete draft._forPartner;
     delete draft._onSavedRun;
     delete draft._onDone;
+    delete draft._onPick;
     const savedId = upsertProfile(draft);
     if (forPartner) { gunghamPartnerId = savedId; renderGunghamB(getProfile(savedId)); }
     if (onDone) onDone(); else closeOverlay();
+    if (onPick && !forPartner) {
+      setRepresentative(savedId); // 방금 만든/고친 사주로 분석을 이어가는 흐름이라 대표로 세운다
+      onPick(savedId);
+    }
     if (onSavedRun === 'saju') runSaju();
     else if (onSavedRun === 'combined') runCombinedWrapped();
   }
@@ -572,21 +586,220 @@
     applyToContext('saju', rep);
     calcSaju('saju');
   }
-  function runCombinedWrapped() {
+  // 냥(포인트) 시스템 — 통합분석·궁합보기는 유료(냥 1개) 상품이다(관상냥반_냥시스템_기획서.md v2.0 §3.2).
+  // "확인 → 차감 → 실행" 순서를 반드시 지킨다 — 차감 성공(서버가 확인해준 뒤)에만 실제 분석을 시작한다.
+  // 차감 실패 이유가 로그인 필요/잔액 부족 둘 다 있을 수 있어 code로 구분해서 안내 문구를 다르게 보여준다.
+  // 차감 전 확인 다이얼로그 — 냥은 유료 재화라 "눌렀더니 그냥 빠져나갔다"가 되면 안 된다.
+  // kakao-auth.js의 앱 공용 확인 다이얼로그를 그대로 쓰되(브라우저 기본 confirm은 톤이 안 맞음),
+  // 콜백 방식이라 await로 쓰기 편하게 Promise로 감싼다. 취소하면 false → 차감도 분석도 하지 않는다.
+  // 보유 냥 / 사용 냥을 함께 보여주는 차감 안내 팝업. 잔액이 모자라면 오른쪽 버튼이 "확인" 대신
+  // "냥 구매하기"로 바뀌어 구매 페이지로 넘어간다(사용자 요청 2026-08-16).
+  // 반환: 'ok'(진행) | 'cancel'(취소·배경 클릭) | 'buy'(구매 페이지로)
+  let pendingSpendResolve = null;
+  let spendView = null; // 팝업을 다시 그릴 때 필요한 값 — {title, need, balance, pickProfile}
+  function spendDialogRoot() {
+    let r = document.getElementById('nyangSpendRoot');
+    if (!r) { r = document.createElement('div'); r.id = 'nyangSpendRoot'; document.body.appendChild(r); }
+    return r;
+  }
+  function closeSpendDialog(result) {
+    spendView = null;
+    spendDialogRoot().innerHTML = '';
+    if (!document.querySelector('.confirm-dialog, .bottomsheet')) document.body.classList.remove('overlay-open');
+    const fn = pendingSpendResolve;
+    pendingSpendResolve = null;
+    if (fn) fn(result);
+  }
+  // 분석 대상 사주를 한 번 더 확인시키는 줄 — 사주가 여러 개면 대표 사주가 무엇인지 모른 채
+  // 확인을 눌러 엉뚱한 사람으로 분석되는 일이 생긴다(사용자 요청 2026-08-18). 여기서 바로 바꿀 수 있다.
+  function spendProfileRowHtml() {
+    const d = describeProfile(getRepresentative());
+    if (!d) return '';
+    return '<p class="nyang-dialog-profile-label">분석할 사주</p>' +
+      '<button type="button" class="nyang-dialog-profile" onclick="Profile._changeSpendProfile()">' +
+        '<span class="np-body">' +
+          '<span class="np-top">' +
+            '<span class="np-name">' + esc(d.name) + '</span>' +
+            '<span class="np-badge">' + esc(d.relation) + '</span>' +
+          '</span>' +
+          '<span class="np-sub">' + esc(d.birth) + '</span>' +
+        '</span>' +
+        '<span class="material-symbols-outlined np-arrow">chevron_right</span>' +
+      '</button>' +
+      '<p class="nyang-dialog-profile-hint">이 사주로 분석해요. 다른 사주라면 눌러서 바꿔주세요.</p>';
+  }
+
+  // 팝업을 그린다(사주를 바꾼 뒤 다시 그릴 때도 이 함수를 쓴다 — 대기 중인 Promise는 그대로 유지).
+  function renderSpendDialog() {
+    const v = spendView;
+    if (!v) return;
+    const enough = v.balance >= v.need;
+    spendDialogRoot().innerHTML =
+      '<div class="overlay-backdrop confirm-backdrop" onclick="Profile._closeSpend(\'cancel\')"></div>' +
+      '<div class="nyang-dialog" role="alertdialog">' +
+        '<p class="nyang-dialog-title">' + v.title + '</p>' +
+        '<p class="nyang-dialog-sub">' + v.need + '냥이 사용됩니다</p>' +
+        (v.pickProfile ? spendProfileRowHtml() : '') +
+        '<div class="nyang-count-box">' +
+          '<div class="nyang-count"><span class="nyang-count-label">보유 냥</span>' +
+            '<span class="nyang-count-num' + (enough ? '' : ' is-short') + '">' + v.balance + '</span></div>' +
+          '<div class="nyang-count"><span class="nyang-count-label">사용 냥</span>' +
+            '<span class="nyang-count-num is-use">' + v.need + '</span></div>' +
+        '</div>' +
+        (enough ? '' : '<p class="nyang-dialog-short">냥이 부족해요 — 구매 후 이용해주세요.</p>') +
+        '<div class="confirm-actions">' +
+          '<button class="btn-outline-primary" onclick="Profile._closeSpend(\'cancel\')">취소</button>' +
+          (enough
+            ? '<button class="btn-solid-primary" onclick="Profile._closeSpend(\'ok\')">확인</button>'
+            : '<button class="btn-solid-primary" onclick="Profile._closeSpend(\'buy\')">냥 구매하기</button>') +
+        '</div>' +
+      '</div>';
+    document.body.classList.add('overlay-open');
+  }
+
+  // 팝업의 "분석할 사주"를 누른 경우 — 차감은 일어나지 않는다. 사주 선택 시트가 팝업(z-index 103)보다
+  // 아래층(101)이라 겹쳐 띄우면 시트가 가려지므로, 고르는 동안만 팝업을 감췄다가 끝나면 다시 그린다.
+  // 대기 중인 Promise(pendingSpendResolve)는 건드리지 않으므로 흐름은 그대로 이어진다.
+  function changeSpendProfile() {
+    if (!spendView) return;
+    spendDialogRoot().innerHTML = '';
+    openSwitcher({
+      title: '분석할 사주 선택',
+      onDone: function () { closeOverlay(); renderSpendDialog(); },
+      onPick: function () { renderSpendDialog(); }, // 새로 추가한 사주가 대표로 잡히게 하는 역할도 겸한다
+    });
+  }
+
+  // opts.pickProfile: 팝업 안에서 분석 대상 사주를 보여주고 바꿀 수 있게 한다(통합분석 전용).
+  function confirmSpend(title, need, opts) {
+    return new Promise(async resolve => {
+      // 잔액은 팝업을 띄우기 전에 서버에서 새로 받아온다 — 캐시만 믿으면 다른 기기에서 쓴 뒤
+      // "보유 1냥"이라고 잘못 안내하고 확인을 누르게 만들 수 있다.
+      const balance = window.Wallet ? await Wallet.fetchBalance() : null;
+      if (balance == null) { // 비로그인(지갑 자체가 없음) — 차감 안내 대신 로그인부터
+        alert('로그인 후 이용할 수 있어요.');
+        if (window.KakaoAuth) KakaoAuth.openLoginPopup();
+        resolve('cancel');
+        return;
+      }
+      pendingSpendResolve = resolve;
+      spendView = { title: title, need: need, balance: balance, pickProfile: !!(opts && opts.pickProfile) };
+      renderSpendDialog();
+    });
+  }
+  // 팝업 결과 처리 — 'buy'면 구매 페이지로 보내고, 진행 여부(boolean)만 호출부에 돌려준다.
+  async function askSpend(title, need, opts) {
+    const r = await confirmSpend(title, need, opts);
+    if (r === 'buy' && window.NyangShop) NyangShop.open();
+    return r === 'ok';
+  }
+
+  // 토스트 — 차감이 끝난 직후 "구매되었습니다"를 알려주는 용도. 확인 버튼이 필요 없는 통보라
+  // 다이얼로그가 아니라 잠깐 떴다 사라지는 형태로 띄운다(분석이 바로 이어서 시작되므로 흐름을 막으면 안 됨).
+  let toastTimer = null;
+  function showToast(message) {
+    let el = document.getElementById('appToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'appToast';
+      el.className = 'app-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('is-on'), 2200);
+  }
+
+  async function chargeNyangOrAlert(feature) {
+    if (!window.Wallet) return true; // wallet.js 로딩 실패 등 — 있을 수 없는 상황이라 막지 않고 통과
+    const result = await Wallet.spend(feature);
+    if (result.ok) {
+      showToast(result.skipped ? '분석을 시작합니다.' : '구매되었습니다.');
+      return true;
+    }
+    if (result.code === 'LOGIN_REQUIRED') {
+      alert('로그인 후 이용할 수 있어요.');
+      if (window.KakaoAuth) KakaoAuth.openLoginPopup();
+    } else if (result.code === 'INSUFFICIENT_BALANCE') {
+      alert('냥이 부족해요 — 구매 후 이용해주세요.\n(냥 구매 기능은 준비 중이에요.)');
+    } else {
+      alert(result.error || '냥 차감에 실패했어요. 잠시 후 다시 시도해주세요.');
+    }
+    return false;
+  }
+
+  // 분석 요청이 왕복하는 동안 "분석하기"를 다시 누르면 그 횟수만큼 냥이 차감된다(기획서 §1 동시성 —
+  // 서버 트랜잭션은 각 요청을 정확히 처리할 뿐, "같은 사람이 연타했다"는 건 막아주지 않는다).
+  // 그래서 클라이언트에서 진행 중 플래그로 재진입을 막고 버튼도 같이 비활성화한다.
+  let analysisInFlight = false;
+  // 버튼 라벨이 탭마다 다르므로(통합분석 "분석하기" / 궁합 "궁합 분석하기") 원래 문구를 기억했다가
+  // 되돌린다 — 하드코딩하면 궁합 버튼이 "분석하기"로 바뀌어 버린다.
+  function setCtaBusy(dockId, busy) {
+    const btn = document.querySelector('#' + dockId + ' .submit-btn');
+    if (!btn) return;
+    if (busy && !btn.dataset.label) btn.dataset.label = btn.textContent;
+    btn.disabled = busy;
+    btn.textContent = busy ? '분석 중...' : (btn.dataset.label || btn.textContent);
+  }
+
+  async function runCombinedWrapped() {
+    if (analysisInFlight) return;
     const rep = getRepresentative();
     if (!rep) { openForm(null, { onSavedRun: 'combined' }); return; }
+
+    // 차감보다 먼저 입력값을 채우고 검증한다 — 예전엔 차감 뒤에 applyToContext를 해서, 프로필에
+    // 생년월일이 비어 있으면 runCombined가 "생년월일을 입력해주세요"로 바로 빠져나가면서 냥만 사라졌다.
     applyToContext('combined', rep);
-    runCombined();
+    if (!document.getElementById('cmbBirthDate').value) { alert('생년월일을 입력해주세요.'); return; }
+
+    // 확인 다이얼로그는 눌린 직후 바로 띄운다(얼굴 인식 스피너보다 먼저) — 사용자 입장에선
+    // "분석하기를 눌렀다 → 차감 안내가 떴다 → 확인했다 → 시작됐다"로 읽혀야 자연스럽다.
+    // inFlight는 다이얼로그가 떠 있는 동안에도 걸어둬 다이얼로그가 두 개 겹치는 걸 막는다.
+    analysisInFlight = true;
+    try {
+      // 팝업에서 분석 대상 사주를 확인하고 바꿀 수 있다 — 실제 차감은 "확인"을 누른 뒤부터다.
+      if (!(await askSpend('통합분석을 시작할까요?', 1, { pickProfile: true }))) return;
+      // 팝업 안에서 사주를 바꿨을 수 있으니, 확인을 누른 시점의 대표 사주로 값을 다시 채운다.
+      const target = getRepresentative();
+      applyToContext('combined', target);
+      if (!document.getElementById('cmbBirthDate').value) { alert('생년월일을 입력해주세요.'); return; }
+      setCtaBusy('cmbCtaDock', true);
+      // 사진이 있으면 얼굴 인식까지 성공시켜 놓고 차감한다. 인식 실패(정면 아님·흐림 등)는 실제로 자주
+      // 나는데, 차감을 먼저 하면 결과는 사주만 나오고 냥은 그대로 빠진다 — 환불(refund)은 기획서 §6
+      // 향후 스코프라, 지금은 "차감 전에 실패할 수 있는 걸 미리 확인"하는 쪽으로 막는다(§3.2 확인→차감→실행).
+      let lm = null;
+      if (state.combined.file) {
+        lm = await runFaceAnalysis('combined');
+        if (!lm) return; // 실패 안내는 runFaceAnalysis가 이미 화면에 띄움 — 냥 차감 없이 종료
+      }
+      if (!(await chargeNyangOrAlert('combined'))) return;
+      await runCombined(lm); // 위에서 인식한 결과를 넘겨 MediaPipe를 두 번 돌리지 않는다
+    } finally {
+      analysisInFlight = false;
+      setCtaBusy('cmbCtaDock', false);
+    }
   }
-  function runGunghamWrapped() {
+  async function runGunghamWrapped() {
+    if (analysisInFlight) return;
     const rep = getRepresentative();
     if (!rep) { alert('헤더에서 나의 프로필을 먼저 등록해주세요.'); openForm(null); return; }
     if (!gunghamPartnerId) { alert('상대방 프로필을 선택해주세요.'); return; }
     const partner = getProfile(gunghamPartnerId);
     if (!partner) { alert('상대방 프로필을 다시 선택해주세요.'); return; }
-    applyToGunghamA(rep);
-    applyToGunghamB(partner);
-    runGungham();
+
+    analysisInFlight = true;
+    try {
+      if (!(await askSpend('궁합 분석을 시작할까요?', 1))) return;
+      setCtaBusy('ggCtaDock', true);
+      if (!(await chargeNyangOrAlert('gungham'))) return;
+      applyToGunghamA(rep);
+      applyToGunghamB(partner);
+      await runGungham();
+    } finally {
+      analysisInFlight = false;
+      setCtaBusy('ggCtaDock', false);
+    }
   }
 
   // ── 초기화 ───────────────────────────────────────────────────────────
@@ -614,6 +827,7 @@
     getRepresentative, describe: describeProfile,
     getGunghamPartner: function () { return gunghamPartnerId ? getProfile(gunghamPartnerId) : null; },
     _dismissSwitcher: finishSwitcher, _dismissForm: dismissForm,
+    _closeSpend: closeSpendDialog, _changeSpendProfile: changeSpendProfile,
     runSaju, runCombined: runCombinedWrapped, runGungham: runGunghamWrapped,
     openPartnerPicker: () => openSwitcher({ forPartner: true }),
     _pickRow: pickRow, _editRow: editRow, _openAdd: openAdd,

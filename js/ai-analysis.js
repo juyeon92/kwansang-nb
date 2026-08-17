@@ -706,8 +706,25 @@ function buildDeepReportUserPrompt(
   sajuInsight,
   relLabel,
   archetypeAnalysis = null,
-  sewoonInfo = null
+  sewoonInfo = null,
+  characterResult = null
 ) {
+  // 스펙 §8-2 — Zone1(16캐릭터) 결과를 프롬프트에 넣고 "이것과 어긋나게 쓰지 말 것"을 못박는다.
+  // 안 넣으면 AI가 "우직한 신뢰가형" 같은 새 유형명을 만들어 Zone1 캐릭터명과 화면에서 충돌한다
+  // ("이 사람이 누구인가는 Zone1만 말한다"는 스펙 원칙 1).
+  const characterBlock = characterResult && characterResult.characterId
+    ? `[확정된 캐릭터 유형 — 절대 바꾸지 말 것]
+※ 관상+사주를 융합한 룰 엔진이 이미 확정한 결과입니다. 화면 최상단에 이 이름으로 이미 표시돼 있습니다.
+유형명: ${(CHARACTER_DB[characterResult.characterId] || {}).name || ''}
+판정 근거: ${characterResult.basisLabel || ''}
+가장 높은 두 기질: ${TRAIT_LABEL_KO[characterResult.primaryTrait] || ''} · ${TRAIT_LABEL_KO[characterResult.secondaryTrait] || ''}
+
+작성 규칙:
+1) "OO형", "OO상" 같은 **새로운 유형명을 만들지 마세요.** 사람을 유형화하는 이름은 위 유형명 하나뿐입니다.
+2) 총평은 "당신은 ~형이에요"(정체성 선언)로 쓰지 말고 "그래서 지금은 ~하면 좋아요"(방향 제시)로 마무리하세요.
+3) 위 두 기질과 어긋나는 성격 서술을 하지 마세요.`
+    : '';
+
   const sajuBlock = pillars
     ? `사주 8자(년/월/일/시): ${
         pillars
@@ -836,6 +853,9 @@ ${faceBlock}
 
 
 ${archetypeBlock}
+
+
+${characterBlock}
 
 
 [사주 정보]
@@ -1197,6 +1217,112 @@ function renderAiFaceSection(elId, data) {
   el.innerHTML = partHtml || `<div style="color:var(--text2);font-size:13px;">사진이 있어야 볼 수 있는 섹션이에요.</div>`;
 }
 
+// "관상 종합 분석" 자리 — 부위 카드가 아래로 분리됐으므로 여기엔 전체를 훑는 요약만 남긴다.
+// 부위별 문단을 여기서도 보여주면 바로 아래 병합 카드와 같은 내용이 두 번 나온다.
+function renderFaceSummaryOnly(elId, data) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const overall = data.face_overall || data.face_reading || '';
+  el.innerHTML = overall
+    ? `<div style="font-size:13px;line-height:1.85;color:var(--text);">${overall}</div>`
+    : `<div style="font-size:12.5px;color:var(--text2);">부위별 해석은 아래 <b>부위별 상세</b>에서 볼 수 있어요.</div>`;
+}
+
+// ═══ Zone3 부위별 상세 — 3층 병합 (스펙 §4-B, 사용자 요청 2026-08-17) ═══
+// 예전엔 같은 부위가 세 곳에 흩어져 있었다: ①"부위별 생김새 유형"(DB) ②"내 얼굴 관상 포인트"(실측)
+// ③"관상 종합 분석"의 AI 심층 카드. 사용자는 이마 하나를 알기 위해 세 군데를 오가며 같은 부위를
+// 세 번 읽어야 했다. 이제 부위 1개 = 카드 1장으로 합치고, 카드 안을 층으로 쌓는다.
+// 세 소스가 답하는 질문이 서로 달라서(무엇인가/얼마나인가/그래서 어떤 사람인가) 층으로 쌓으면
+// 중복이 아니라 깊이가 된다.
+//
+// 11개 실측 부위가 7개 카드에 전부 흡수되도록 묶었다 — 하나도 버려지지 않는다.
+// 배열 순서 = 화면 노출 순서. 얼굴을 위에서 아래로 훑는 순서로 두고, 전체를 보는 얼굴형을 마지막에
+// 둔다(사용자 요청 2026-08-18) — 부위를 눈으로 따라 내려가며 읽을 수 있어야 한다.
+//   이마 → 눈썹 → 눈 → 코 → 입 → 턱 → 얼굴형
+const ZONE3_PART_CARDS = [
+  { key: 'forehead',   label: '📍 이마',  shapeIdField: 'forehead_type_id',    shapeDb: () => FOREHEAD_TYPE_DB,    measures: ['forehead'] },
+  { key: 'eyebrow',    label: '🌿 눈썹',  shapeIdField: 'eyebrow_type_id',     shapeDb: () => EYEBROW_TYPE_DB,     measures: ['eyebrow', 'midbrow'] },
+  { key: 'eye_shape',  label: '👁 눈',    shapeIdField: 'eye_shape_id',        shapeDb: () => EYE_SHAPE_DB,        measures: ['undereye'] },
+  { key: 'nose',       label: '👃 코',    shapeIdField: 'nose_shape_id',       shapeDb: () => NOSE_SHAPE_DB,       measures: ['nosebridge', 'nosetip'] },
+  { key: 'mouth',      label: '👄 입',    shapeIdField: 'mouth_shape_id',      shapeDb: () => MOUTH_SHAPE_DB,      measures: ['mouth', 'philtrum', 'smilelines'] },
+  { key: 'chin',       label: '📍 턱',    shapeIdField: 'chin_shape_id',       shapeDb: () => CHIN_SHAPE_DB,       measures: ['jaw'] },
+  { key: 'face_shape', label: '⬡ 얼굴형', shapeIdField: 'face_shape_type_id', shapeDb: () => FACE_SHAPE_TYPE_DB, measures: ['cheekbone'] },
+];
+// AI가 세부 부위(미간·코끝 등)로 따로 써준 문단은 그 부위를 품은 카드로 흡수한다 — 안 그러면
+// 병합해놓고 옆에 같은 내용이 또 붙는다.
+const ZONE3_MEASURE_OWNER = {};
+ZONE3_PART_CARDS.forEach(c => c.measures.forEach(m => { ZONE3_MEASURE_OWNER[m] = c.key; }));
+
+function zone3MeasureRowHtml(partKey, ratios, statusMap) {
+  const def = (typeof PART_DEF !== 'undefined') && PART_DEF.find(p => p.key === partKey);
+  if (!def) return '';
+  const st = statusMap[partKey];
+  const c = PART_CONTENT[partKey] && PART_CONTENT[partKey][st];
+  if (!c) return '';
+  const measureKey = PART_KEY_TO_MEASURE[partKey];
+  const level = gwansangLevel(measureKey, ratios[measureKey]);
+  const strong = st === 'strength';
+  return `<div class="z3-measure">
+      <div class="z3-measure-head">
+        <span class="z3-measure-name">${def.icon} ${def.label}</span>
+        <span class="z3-measure-badge ${strong ? 'is-strong' : 'is-fill'}">${strong ? '탁월한 강점' : '채워볼 포인트'}</span>
+        <span class="z3-measure-level">${level}/100</span>
+      </div>
+      <div class="z3-measure-text">${c.meaning}</div>
+      <div class="z3-measure-tip">💄 ${c.makeup}</div>
+      <div class="z3-measure-tip">🌿 ${c.lifestyle}</div>
+    </div>`;
+}
+
+// deepDive: data.part_deep_dive · shapeIds: 룰베이스 분류 결과(state[ctx].archetypeAnalysis)
+function renderZone3PartCards(elId, deepDive, shapeIds, ratios, statusMap) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+
+  // AI 문단을 카드별로 모은다. 7카드에 속하지 않는 key(전통 형상 등)는 여기서 제외한다.
+  const aiByCard = {};
+  (deepDive || []).forEach(p => {
+    const owner = ZONE3_MEASURE_OWNER[p.section_key] || (ZONE3_PART_CARDS.some(c => c.key === p.section_key) ? p.section_key : null);
+    if (!owner) return;
+    (aiByCard[owner] = aiByCard[owner] || []).push(p);
+  });
+
+  const cards = ZONE3_PART_CARDS.map(card => {
+    const shapeId = shapeIds && shapeIds[card.shapeIdField];
+    const shape = shapeId && card.shapeDb()[shapeId];
+    const ai = aiByCard[card.key] || [];
+    // 세 층이 모두 비면 카드 자체를 만들지 않는다(사진 없이 사주만 본 경우 등).
+    if (!shape && !ai.length && !(ratios && statusMap)) return '';
+
+    // 필드명은 part_deep_dive 스키마 그대로 — title / interpretation / analysis_basis / principle / reality_tip
+    const aiHtml = ai.map(p => `<div class="z3-ai">
+        ${p.title ? `<div class="z3-ai-title">${p.title}</div>` : ''}
+        ${p.interpretation ? `<div class="z3-ai-body">${p.interpretation}</div>` : ''}
+        ${p.analysis_basis ? `<div class="z3-ai-sub"><b>관상 분석</b> · ${p.analysis_basis}</div>` : ''}
+        ${p.principle ? `<div class="z3-ai-sub"><b>전통 관상 원리</b> · ${p.principle}</div>` : ''}
+        ${p.reality_tip ? `<div class="z3-ai-sub"><b>현실 조언</b> · ${p.reality_tip}</div>` : ''}
+      </div>`).join('');
+
+    const shapeHtml = shape ? `<div class="z3-shape">
+        <div class="z3-shape-head">생김새 유형 · <strong>${shape.nameKo}</strong></div>
+        <div class="z3-shape-line">✅ ${shape.strength}</div>
+        <div class="z3-shape-line">⚠️ ${shape.weakness}</div>
+        ${shape.detail ? `<div class="z3-shape-line is-dim">📝 ${shape.detail}</div>` : ''}
+      </div>` : '';
+
+    const measureHtml = (ratios && statusMap)
+      ? card.measures.map(m => zone3MeasureRowHtml(m, ratios, statusMap)).filter(Boolean).join('')
+      : '';
+
+    return `<div class="z3-card">
+        <div class="z3-card-head">${card.label}</div>
+        ${aiHtml}${shapeHtml}${measureHtml}
+      </div>`;
+  }).filter(Boolean).join('');
+
+  el.innerHTML = cards || `<div style="color:var(--text2);font-size:13px;">사진이 있어야 볼 수 있는 섹션이에요.</div>`;
+}
+
 function renderAiSajuSection(elId, data) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -1350,7 +1476,8 @@ async function requestDeepReport(ctx) {
         sajuInsight,
         cfg.relVal,
         archetypeAnalysis,
-        sewoonInfo
+        sewoonInfo,
+        state[ctx] && state[ctx].characterResult // Zone1 결과를 넣어 AI가 다른 유형명을 만들지 못하게 한다
       );
 
 
@@ -1371,9 +1498,19 @@ async function requestDeepReport(ctx) {
 
 
     if (splitIds.length) {
-      if (cfg.aiFaceId) renderAiFaceSection(cfg.aiFaceId, data);
-      if (cfg.aiSajuId) renderAiSajuSection(cfg.aiSajuId, data);
-      if (cfg.fusionId) renderFusionSection(cfg.fusionId, data);
+      if (cfg.aiFaceId) {
+        // 통합분석은 부위 카드를 3층으로 병합해 따로 그리고, "관상 종합 분석" 자리에는 전체 요약만 둔다.
+        if (cfg.partCardsId) {
+          const r = getGwansangRatios(state[ctx].lm);
+          renderZone3PartCards(cfg.partCardsId, data.part_deep_dive, state[ctx].archetypeAnalysis, r, judgePartStatus(r));
+          renderFaceSummaryOnly(cfg.aiFaceId, data);
+        } else {
+          renderAiFaceSection(cfg.aiFaceId, data);
+        }
+        clearAiSkeleton(cfg.aiFaceId);
+      }
+      if (cfg.aiSajuId) { renderAiSajuSection(cfg.aiSajuId, data); clearAiSkeleton(cfg.aiSajuId); }
+      if (cfg.fusionId) { renderFusionSection(cfg.fusionId, data); clearAiSkeleton(cfg.fusionId); }
     } else {
       renderDeepReport(
         cfg.deepReportId,
@@ -1403,7 +1540,9 @@ async function requestSajuDeepReport(pillars, ohaeng, elId, relLabel) {
   const sajuInsight = collectSajuInsightSummary(pillars);
 
   const el = document.getElementById(elId);
-  if (el) { el.innerHTML = `<div style="font-size:12px;color:var(--text2);">🧠 AI 정밀 리포트 생성 중...</div>`; el.classList.remove('hidden'); }
+  // 통합분석과 같은 스켈레톤을 쓴다 — 한 줄짜리 "생성 중" 문구는 이미 다 뜬 화면처럼 보여서
+  // 사용자가 기다리지 않고 넘겨버린다(통합분석에서 같은 이유로 스켈레톤을 도입했다).
+  if (el) { el.classList.remove('hidden'); showAiSkeleton(elId, 'AI가 사주 풀이를 쓰는 중이에요'); }
   try {
     const sys = buildDeepReportSystemInstruction();
     const userText = buildDeepReportUserPrompt(null, null, pillars, ohaeng, sajuInsight, relLabel);
@@ -1588,7 +1727,9 @@ function renderArchetypesFallback(archetypeId, lm, fallbackReason, genderVal) {
 //못 찾으면 조용히 스킵), 나머지 컨텍스트와 동일한 형태를 유지하기 위해 값만 채워둔다.
 const CTX_CONFIG = {
   gwansang: () => ({ canvasId:'gwansangCanvas', cardsId:'gwansangCards', archetypeId:'gwansangArchetype', shapeDetailId:'gwansangShapeDetails', deepReportId:'gwansangDeepReport', relVal:state.gwansang.relation, pillars:null, ohaeng:null, genderVal:gender }),
-  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', deepReportId:null, aiFaceId:'cmbAiFaceExtra', aiSajuId:'cmbAiSajuSection', fusionId:'cmbFusionSection', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
+  // shapeDetailId를 안 보이는 그릇으로 돌려, "부위별 생김새 유형" 블록이 전통 형상 카드(cmbArchetype)에
+  // 붙지 않게 한다 — 그 내용은 이제 부위별 병합 카드(#cmbPartCards) 안에서만 보인다.
+  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', deepReportId:null, aiFaceId:'cmbAiFaceExtra', aiSajuId:'cmbAiSajuSection', fusionId:'cmbFusionSection', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
   gunghamA: () => ({ canvasId:'gunghamCanvasA', cardsId:'ggPersonACards', archetypeId:'ggArchetypeA', deepReportId:null, relVal:'연인/배우자', pillars:state.gunghamA.pillars, ohaeng:state.gunghamA.ohaeng, genderVal:ggGenderA }),
   gunghamB: () => ({ canvasId:'gunghamCanvasB', cardsId:'ggPersonBCards', archetypeId:'ggArchetypeB', deepReportId:null, relVal:'연인/배우자', pillars:state.gunghamB.pillars, ohaeng:state.gunghamB.ohaeng, genderVal:ggGenderB }),
 };
@@ -1705,8 +1846,14 @@ async function getOrRequestPersonalAiData(
     if (ctxState.personalAiLmRef === lm) {
       ctxState.personalAiData = data;
 
-      ctxState.archetypeAnalysis =
-        extractArchetypeAnalysis(data);
+      // ⚠️ 룰베이스로 이미 분류를 확정한 컨텍스트(관상보기·통합분석)에서는 Gemini의 분류로
+      // 덮어쓰지 않는다. 덮어쓰면 화면 형상 카드는 룰베이스(호안)인데 그 아래 AI 문단은 Gemini가
+      // 고른 유형(우안)을 설명하는, 같은 눈을 두고 두 유형이 동시에 적힌 리포트가 나온다
+      // (사용자 리포트 2026-08-17). archetypeAnalysis는 심층 리포트 프롬프트의 입력이기도 해서
+      // 여기서 갈리면 뒤따르는 모든 AI 문장이 다른 유형을 기준으로 쓰인다.
+      if (!ctxState.archetypeIsRuleBased) {
+        ctxState.archetypeAnalysis = extractArchetypeAnalysis(data);
+      }
     }
 
     return data;
@@ -1738,7 +1885,7 @@ function renderCharacterCard(elId, characterResult) {
     <div class="char-card">
       <span class="char-card-corner tl">✦</span><span class="char-card-corner tr">✦</span>
       <span class="char-card-corner bl">✦</span><span class="char-card-corner br">✦</span>
-      <div class="char-card-badge">관상 캐릭터</div>
+      <div class="char-card-badge">${characterResult.basisLabel || '관상 기반 유형'}</div>
       <div class="char-card-name">${character.name}</div>
       <div class="char-card-img-wrap"><img src="${img}" alt="${character.name}"></div>
       <div class="char-card-ribbon">${character.headline}</div>
@@ -1751,40 +1898,135 @@ function renderCharacterCard(elId, characterResult) {
 // 상황 5종은 기획서 §26 원문("일할 때·사람을 만날 때·연애할 때·돈을 다룰 때·힘든 상황에서") 그대로.
 const CHARACTER_SITUATION_FIELDS = [
   { key: 'work', icon: '💼', label: '일할 때' },
-  { key: 'relationship', icon: '🤝', label: '사람을 만날 때' },
+  { key: 'relationship', icon: '🤝', label: '사람 만날 때' },
   { key: 'love', icon: '💗', label: '연애할 때' },
   { key: 'money', icon: '💰', label: '돈을 다룰 때' },
+  // 노출스펙 §3-5 주의: DB 키는 growth("성장")지만 실제 콘텐츠는 힘든 상황 대처라 화면 라벨만 다르다.
   { key: 'growth', icon: '🌱', label: '힘든 상황에서' },
+];
+// 노출스펙 §3-2 — 6대 기질 바. 라벨은 스펙 표기(주도/지략/실행/관계/신뢰/감각)를 쓴다.
+// TRAIT_LABEL_KO(주도력/지략/…)와 다른 이유: 바 6개가 나란히 놓이는 자리라 짧은 표기가 스펙 확정안.
+const CHARACTER_TRAIT_AXES = [
+  { key: 'lead', label: '주도' }, { key: 'strategy', label: '지략' }, { key: 'drive', label: '실행' },
+  { key: 'social', label: '관계' }, { key: 'stability', label: '신뢰' }, { key: 'sense', label: '감각' },
 ];
 // 궁합 3분류 표시 톤 — 스펙 §4: "안 맞음/최악"처럼 단정적으로 쓰지 말 것. 색상은 잘 맞음=success,
 // 자극=accent, 부딪힘=danger 계열(.char-tag.is-good/is-spark/is-clash).
+// 노출스펙 §3-6 확정안 — 축은 "좋다/나쁘다"가 아니라 "편하다/불편하다"다.
+// spark를 "좋은 궁합"으로 쓰면 good과 구분이 사라지고, "무난한 관계"로 쓰면 원 의미가 죽는다.
 const CHARACTER_COMPAT_GROUPS = [
-  { key: 'good', cls: 'is-good', label: '잘 맞아요' },
-  { key: 'spark', cls: 'is-spark', label: '자극이 돼요' },
-  { key: 'clash', cls: 'is-clash', label: '부딪힐 수 있어요' },
+  { key: 'good', cls: 'is-good', label: '잘 맞는 관상' },
+  { key: 'spark', cls: 'is-spark', label: '서로 자극을 주는 관상' },
+  { key: 'clash', cls: 'is-clash', label: '부딪히기 쉬운 관상' },
 ];
-// 유료(서비스2) 영역의 기본 펼침 여부. 지금은 서비스2 콘텐츠를 눈으로 검증하는 단계라 true로 열어둔다
-// (사용자 요청 2026-08-15: "우선은 서비스2를 검증하기 위해 전체로 보여줘"). 결제 연동 시점에 false로
-// 바꾸면 접힌 상태가 기본이 되고, 그 자리에서 결제 → Gemini 정밀 해석 호출로 연결하면 된다.
-const CHARACTER_PAID_SECTION_OPEN = true;
+// ═══ Zone1 · "왜 이 캐릭터가 나왔나요" (스펙 §2-A / §2-C / §2-D) ═══
+// 통합분석 전용. 관상보기 탭에서는 이 블록을 쓰지 않는다(사용자 요청 2026-08-15로 그쪽은 콘솔만).
+//
+// 준수 사항 3가지 — 스펙 §2-D
+//  ① 칩은 엔진이 실제로 점수에 반영한 항목만 노출한다. faceEvidenceDetail은 confidence 0.55 미만이라
+//     판정에서 빠진 부위를 이미 걸러낸 배열이라, "화면 근거 = 계산 근거"가 그대로 일치한다.
+//     임의로 항목을 더하거나 순서를 바꾸지 않는다.
+//  ② 마지막 한 줄은 confidence 숫자 대신 §2-C 치환 문구를 쓴다. 0.84 같은 값은 어떤 형태로도 안 나간다.
+//  ③ 중간 요약 문장은 primaryTrait/secondaryTrait 기반 고정 템플릿이다. AI로 만들면 매번 문장이
+//     달라져 결정론 원칙이 깨진다.
+const TRAIT_FACE_PHRASE = {
+  lead: '앞에 서서 방향을 정하는 힘',
+  strategy: '한발 앞서 읽고 계산하는 힘',
+  drive: '정하면 바로 밀고 나가는 힘',
+  social: '사람을 편하게 만들고 끌어당기는 힘',
+  stability: '중심을 잡고 오래 버티는 힘',
+  sense: '결을 알아채는 감각',
+};
+// §2-C — confidence를 문장으로 치환한다(숫자 미노출).
+function characterConfidenceLine(characterResult) {
+  const name = (CHARACTER_DB[characterResult.characterId] || {}).name || '';
+  const c = characterResult.confidence || 0;
+  if (c >= 0.75) return `${name}의 특징이 뚜렷한 편이에요.`;
+  if (c >= 0.5) {
+    const sorted = characterResult.sortedNames || null;
+    return sorted && sorted[1]
+      ? `${name}과 ${sorted[1]}의 특징이 함께 보여요.`
+      : `${name}의 특징이 비교적 뚜렷하게 보여요.`;
+  }
+  return `${name}의 결이 은은하게 나타나요.`;
+}
+function renderCharacterBasis(elId, characterResult) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const character = characterResult && CHARACTER_DB[characterResult.characterId];
+  if (!character) { el.innerHTML = ''; return; }
+
+  const { traitScores, primaryTrait, secondaryTrait, balanced, faceEvidenceDetail, sajuEvidence, basisLabel } = characterResult;
+
+  // §2-A — 6대 기질은 바만, 숫자는 노출하지 않는다.
+  // 이유: traitScores의 기준선(FACE_TRAIT_BASELINE 등)이 아직 실사용자 분포가 아닌 근사치라
+  // "관계 38" 같은 숫자가 백분위처럼 읽히는 해상도를 보장할 수 없고, 낮은 숫자는 결함으로 읽혀
+  // "약점은 shadow로만 표현한다"는 원칙과도 부딪힌다.
+  const top = [primaryTrait, secondaryTrait];
+  const bars = TRAITS.map(t => `<div class="ztrait-row${top.includes(t) ? ' is-top' : ''}">
+        <span class="ztrait-name">${TRAIT_LABEL_KO[t].slice(0, 2)}</span>
+        <span class="ztrait-track"><span class="ztrait-fill" style="width:${Math.max(4, Math.min(100, traitScores[t]))}%;"></span></span>
+      </div>`).join('');
+
+  // 칩 표시 상한 — 실제 판정에는 근거가 20개 넘게 들어가기도 하는데(신살·귀인이 많은 사주),
+  // 그대로 다 펴면 근거 영역이 캐릭터 설명보다 길어져 읽히지 않는다. 스펙 §2-D는 "임의로 항목을
+  // 추가하거나 순서를 바꾸지 말 것"을 요구하므로 순서는 그대로 두고 앞에서부터 자르되,
+  // 몇 개가 더 있는지는 숨기지 않고 밝힌다(엔진이 쓴 근거를 축소해 보이게 하면 안 되므로).
+  const CHIP_LIMIT = 8;
+  const chips = (list, cls) => {
+    const shown = list.slice(0, CHIP_LIMIT).map(v => `<span class="zchip ${cls}">${v}</span>`).join('');
+    const rest = list.length - CHIP_LIMIT;
+    return rest > 0 ? shown + `<span class="zchip is-more">+${rest}개 더</span>` : shown;
+  };
+  // part_status 근거는 엔진이 "강점 부위: forehead·eyebrow…"처럼 영문 키로 만들어 둔다(내부 로그용
+  // 문자열). 화면에는 PART_DEF의 한글 라벨로 바꿔 부위 하나씩 칩으로 편다 — 다른 칩(우안·복코 등)과
+  // 결이 맞고, 사용자가 영문 키를 볼 이유가 없다.
+  const partLabel = k => {
+    const d = (typeof PART_DEF !== 'undefined') && PART_DEF.find(p => p.key === k);
+    return d ? d.label : k;
+  };
+  const faceChips = [];
+  (faceEvidenceDetail || []).forEach(e => {
+    if (e.category === 'part_status') {
+      String(e.id || '').split(',').filter(Boolean).forEach(k => faceChips.push(partLabel(k.trim()) + ' 발달'));
+      return;
+    }
+    if (e.nameKo) faceChips.push(e.nameKo);
+  });
+  const sajuChips = (sajuEvidence || []).filter(Boolean);
+
+  const summary = balanced
+    ? '얼굴과 사주 어느 한쪽으로 치우치지 않고 여섯 가지 힘이 고르게 나타났어요. 그래서 균형형인 군자상이 됐어요.'
+    : `${TRAIT_FACE_PHRASE[primaryTrait]}과 ${TRAIT_FACE_PHRASE[secondaryTrait]}이 함께 나타났어요.<br>`
+      + `이 두 가지가 만나 <b>${character.name}</b>이 돼요.`;
+
+  el.innerHTML = `
+    <div class="zone-basis">
+      <div class="zone-basis-title">왜 ${character.name}이 나왔나요?</div>
+      ${basisLabel ? `<div class="zone-basis-badge">${basisLabel}</div>` : ''}
+
+      <div class="ztrait-bars">${bars}</div>
+      <div class="ztrait-caption">진하게 표시된 두 가지가 이 캐릭터를 만든 축이에요</div>
+
+      ${faceChips.length ? `<div class="zevi"><div class="zevi-label">관상에서</div><div class="zevi-chips">${chips(faceChips, 'is-face')}</div></div>` : ''}
+      ${sajuChips.length ? `<div class="zevi"><div class="zevi-label">사주에서</div><div class="zevi-chips">${chips(sajuChips, 'is-saju')}</div></div>` : ''}
+
+      <div class="zone-basis-arrow">↓</div>
+      <div class="zone-basis-summary">${summary}</div>
+      <div class="zone-basis-conf">${characterConfidenceLine(characterResult)}</div>
+    </div>`;
+}
 
 // 판정 근거(6대 기질 점수·Top2·신뢰도)는 화면에 노출하지 않는다 — 사용자 요청 2026-08-15:
 // "판정 근거는 필요 없어, 그냥 콘솔로만 찍어". 값 자체는 requestPersonalAiRuleBased의 console.log
 // ([16캐릭터] …)로 계속 확인할 수 있고, characterResult로도 state에 그대로 남아 있다.
-function renderCharacterDetail(elId, characterResult) {
+function renderCharacterDetail(elId, characterResult, opts) {
   const el = document.getElementById(elId);
   if (!el) return;
   const character = characterResult && CHARACTER_DB[characterResult.characterId];
   if (!character) { el.innerHTML = ''; return; }
 
   const listHtml = (items, cls) => `<ul class="char-detail-list ${cls}">${items.map(s => `<li>${s}</li>`).join('')}</ul>`;
-  const situationHtml = CHARACTER_SITUATION_FIELDS
-    .filter(f => character[f.key])
-    .map(f => `<div class="char-detail-row">
-        <div class="char-detail-row-head">${f.icon} ${f.label}</div>
-        <div class="char-detail-row-text">${character[f.key]}</div>
-      </div>`).join('');
-
   const tags = getCompatibilityTags(character.id);
   const compatHtml = tags ? CHARACTER_COMPAT_GROUPS.map(g => {
     if (!tags[g.key] || !tags[g.key].length) return '';
@@ -1794,33 +2036,62 @@ function renderCharacterDetail(elId, characterResult) {
       </div>`;
   }).join('') : '';
 
-  // 스펙 §2의 서비스1(무료) / 서비스2(유료) 경계를 그대로 UI 경계로 옮겼다 — shadow와 상황별 5종은
-  // "구체적 상황 서사라 안 맞으면 이탈 리스크가 큰" 유료 영역이므로 별도 아코디언으로 분리한다.
-  const paidHtml = `<details class="char-paid" ${CHARACTER_PAID_SECTION_OPEN ? 'open' : ''}>
-      <summary class="char-paid-summary">더 깊은 해석 보기 (그림자 · 상황별 5가지)</summary>
-      <div class="char-paid-body">
-        <div class="char-detail-sec" style="margin-top:4px;">
-          <div class="char-detail-sec-title">이런 점은 조심하면 좋아요</div>
-          ${listHtml(character.shadow, 'is-shadow')}
+  // 노출스펙 §3-2 — 6대 기질 바. 숫자는 화면에 쓰지 않는다(T-score라 백분위로 오독되고,
+  // 낮은 값이 결함으로 읽혀 "약점은 shadow로만 표현" 원칙과 충돌한다). Top2만 색으로 강조한다.
+  // 통합분석은 판정 근거 영역(renderCharacterBasis)에서 같은 바를 이미 그리므로 여기선 생략한다 —
+  // 안 그러면 한 화면에 기질 바가 두 번 나온다(opts.skipTraitBars).
+  const scores = (opts && opts.skipTraitBars) ? null : (characterResult.traitScores || null);
+  const top2 = [characterResult.primaryTrait, characterResult.secondaryTrait].filter(Boolean);
+  const traitHtml = scores ? `
+      <div class="char-detail-sec">
+        <div class="char-detail-sec-title">당신을 만든 6가지 힘</div>
+        <div class="char-trait-bars">
+          ${CHARACTER_TRAIT_AXES.map(a => {
+            const on = top2.indexOf(a.key) >= 0;
+            const pct = Math.max(6, Math.min(100, Number(scores[a.key]) || 0));
+            return `<div class="char-trait-row${on ? ' is-top' : ''}">
+              <span class="char-trait-label">${a.label}</span>
+              <span class="char-trait-track"><span class="char-trait-fill" style="width:${pct}%"></span></span>
+            </div>`;
+          }).join('')}
         </div>
-        <div class="char-detail-sec">
-          <div class="char-detail-sec-title">상황별로 보면</div>
-          ${situationHtml}
-        </div>
-      </div>
-    </details>`;
+        ${top2.length === 2 ? `<div class="char-trait-caption">이 두 가지가 만나 ${character.name}이 돼요</div>` : ''}
+      </div>` : '';
 
   el.innerHTML = `
     <div class="char-detail">
       <div class="char-detail-head">
-        <span class="char-detail-role">${character.modernRole}</span>
+        <span class="char-detail-role">${characterResult.basisLabel || '관상 기반 유형'}</span>
         <div class="char-detail-headline">${character.headline}</div>
       </div>
-      <div class="char-detail-origin">${character.originStory}</div>
+
+      ${traitHtml}
+
+      <div class="char-detail-sec">
+        <div class="char-detail-sec-title">조선시대의 나</div>
+        <div class="char-detail-origin">${character.historical_role}</div>
+      </div>
+      <div class="char-detail-sec">
+        <div class="char-detail-sec-title">지금의 나</div>
+        <div class="char-detail-origin">${character.modernRole}</div>
+      </div>
 
       <div class="char-detail-sec">
         <div class="char-detail-sec-title">이런 점이 강해요</div>
         ${listHtml(character.strengths, 'is-strength')}
+      </div>
+      <div class="char-detail-sec">
+        <div class="char-detail-sec-title">이 힘이 너무 강해지면</div>
+        ${listHtml(character.shadow, 'is-shadow')}
+      </div>
+
+      <div class="char-detail-sec">
+        <div class="char-detail-sec-title">상황별로 보면</div>
+        ${CHARACTER_SITUATION_FIELDS.filter(f => character[f.key]).map(f => `
+          <details class="char-detail-acc">
+            <summary>${f.icon} ${f.label}</summary>
+            <div class="char-detail-row-text">${character[f.key]}</div>
+          </details>`).join('')}
       </div>
 
       ${compatHtml ? `<div class="char-detail-sec">
@@ -1828,13 +2099,94 @@ function renderCharacterDetail(elId, characterResult) {
         ${compatHtml}
       </div>` : ''}
 
-      ${paidHtml}
-
       <div class="char-detail-note">※ 전통 관상학을 바탕으로 한 문화·엔터테인먼트 해석이며, 얼굴 실측값으로 판별한 유형에 맞춰 미리 준비된 설명이에요.</div>
     </div>`;
 }
 
-function requestPersonalAiRuleBased(ctx, cfg, lm) {
+// ═══ 인연도감 "재방문 시 기존 도감 카드" (정책명세서 §3) ═══
+// 이 프로젝트엔 서버·계정이 없어서 명세서가 말하는 "친구 N명 등록" 진행 상황은 실제로 추적할 수 없다.
+// 대신 이 브라우저에 남은 마지막 결과만 localStorage로 가볍게 기억해뒀다가 "다시 보기"로 보여준다 —
+// 사진·생년월일 등 원본 개인정보는 저장하지 않고 캐릭터 ID/이름/시각만 남긴다(명세서의 "최소 보관" 원칙).
+const INYEON_LAST_CHARACTER_KEY = 'inyeonLastCharacter';
+function saveLastCharacterToStorage(characterResult) {
+  if (!characterResult || !characterResult.characterId) return;
+  try {
+    localStorage.setItem(INYEON_LAST_CHARACTER_KEY, JSON.stringify({
+      characterId: characterResult.characterId,
+      characterName: characterResult.characterName,
+      // 6대 기질 바(노출스펙 §3-2)를 "다시 보기"에서도 그리려면 점수까지 남겨야 한다 —
+      // 캐릭터 ID만 저장하던 때는 재방문 화면에서 기질 바 섹션이 통째로 빠졌다.
+      // 얼굴 실측값이 아니라 계산된 지표라 사진·랜드마크를 저장하지 않는 원칙과 어긋나지 않는다.
+      traitScores: characterResult.traitScores || null,
+      primaryTrait: characterResult.primaryTrait || null,
+      secondaryTrait: characterResult.secondaryTrait || null,
+      basisLabel: characterResult.basisLabel || null,
+      ts: Date.now(),
+    }));
+  } catch (e) { /* 프라이빗 브라우징 등으로 localStorage를 못 쓰면 조용히 스킵 */ }
+}
+function renderGwansangRevisitCard() {
+  const card = document.getElementById('gwansangRevisitCard');
+  const body = document.getElementById('gwansangRevisitBody');
+  const label = document.getElementById('gwansangRevisitLabel');
+  if (!card || !body) return;
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(INYEON_LAST_CHARACTER_KEY) || 'null'); } catch (e) { saved = null; }
+  const character = saved && CHARACTER_DB[saved.characterId];
+  if (!character) {
+    card.style.display = 'none';
+    if (label) label.style.display = 'none';
+    return;
+  }
+
+  // "다시 보기" 버튼 대신 행 전체를 눌러 이동한다 — 오른쪽 화살표로만 이동 가능함을 알린다.
+  body.innerHTML = `
+    <div class="revisit-row" role="button" tabindex="0" onclick="reopenSavedCharacter('${character.id}')">
+      <img class="revisit-thumb" src="${getCharacterIllustration(character.id)}" alt="${character.name}">
+      <div class="revisit-body">
+        <div class="revisit-name">${character.name}</div>
+        <div class="revisit-desc">${character.headline}</div>
+      </div>
+      <button type="button" class="revisit-del" aria-label="도감 삭제" title="도감 삭제"
+              onclick="event.stopPropagation();Dogam.deleteMyDogam()">
+        <span class="material-symbols-outlined">delete</span>
+      </button>
+      <span class="revisit-arrow material-symbols-outlined">chevron_right</span>
+    </div>
+  `;
+  card.style.display = '';
+  if (label) label.style.display = '';
+}
+// localStorage에 저장된 캐릭터 ID만으로 카드·상세 설명을 다시 그린다 — 원본 사진/랜드마크가 없어도
+// character-db.js 데이터만으로 완성되는 화면이라 재분석 없이 그대로 재현 가능하다.
+function reopenSavedCharacter(characterId) {
+  // 저장해둔 기질 점수까지 함께 복원한다 — 없으면 6대 기질 바가 빠져 최초 결과 화면과 구조가 달라진다.
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(INYEON_LAST_CHARACTER_KEY) || 'null'); } catch (e) { saved = null; }
+  const restored = (saved && saved.characterId === characterId) ? saved : {};
+  const fake = {
+    characterId: characterId,
+    characterName: restored.characterName || null,
+    traitScores: restored.traitScores || null,
+    primaryTrait: restored.primaryTrait || null,
+    secondaryTrait: restored.secondaryTrait || null,
+    basisLabel: restored.basisLabel || null,
+  };
+  renderCharacterCard('gwansangCharacterCard', fake);
+  renderCharacterDetail('gwansangCharacterDetail', fake);
+  document.getElementById('canvasCard').classList.remove('hidden');
+  document.getElementById('gwansangResult').classList.remove('hidden');
+  markAnalyzed('gwansang');
+  try { localStorage.setItem(GWANSANG_REPORT_OPEN_KEY, '1'); } catch (e) {} // 새로고침해도 이 화면 유지
+  if (window.Dogam) Dogam.render();
+  document.getElementById('canvasCard').scrollIntoView({ behavior: 'smooth' });
+}
+renderGwansangRevisitCard();
+
+// 룰베이스 분류 → 16캐릭터 판정까지. 관상보기(사주 없음)와 통합분석(사주 포함)이 같은 엔진을 쓰도록
+// 공용으로 뺐다. cfg.pillars가 있으면 그대로 융합되므로 통합분석은 "관상70 + 사주30" 캐릭터가 나온다
+// (통합분석 화면_콘텐츠_스펙_260817.md Zone1).
+function classifyAndBuildCharacter(ctx, cfg, lm) {
   const { ids, confidences } = classifyAllFeaturesRuleBased(lm);
   state[ctx].archetypeAnalysis = extractArchetypeAnalysis(ids);
   state[ctx].ruleBasedConfidences = confidences;
@@ -1854,13 +2206,22 @@ function requestPersonalAiRuleBased(ctx, cfg, lm) {
     hasHour: cfg.pillars ? cfg.pillars[3].stem >= 0 : false,
   });
   state[ctx].characterResult = characterResult;
+  // 이 시점부터 형상 분류는 확정이다 — 뒤이어 도는 Gemini 호출이 자기 분류로 덮어쓰지 못하게 막는다.
+  // (getOrRequestPersonalAiData가 이 플래그를 보고 archetypeAnalysis 갱신을 건너뛴다)
+  state[ctx].archetypeIsRuleBased = true;
   if (characterResult) console.log(`[16캐릭터] ${ctx}:`, characterResult);
+  return { ids, confidences, characterResult };
+}
+
+function requestPersonalAiRuleBased(ctx, cfg, lm) {
+  const { characterResult } = classifyAndBuildCharacter(ctx, cfg, lm);
 
   // #canvasCard 자리를 캐릭터 일러스트 카드로 쓰기로 함(사용자 요청 2026-08-14) — 관상보기 탭 한정.
   // 그 아래 리포트 안에는 같은 캐릭터의 상세 설명을 펼친다(사용자 요청 2026-08-15).
   if (ctx === 'gwansang') {
     renderCharacterCard('gwansangCharacterCard', characterResult);
     renderCharacterDetail('gwansangCharacterDetail', characterResult);
+    saveLastCharacterToStorage(characterResult);
   }
 
   // requestDeepReport가 뒤이어 getOrRequestPersonalAiData(Gemini 분류 호출)로 이 값을 덮어쓰지
@@ -1881,8 +2242,23 @@ async function requestPersonalAi(ctx) {
     return;
   }
 
+  // ── 통합분석: 형상 분류와 캐릭터 판정은 룰베이스로 통일한다 (스펙 §8-1) ──
+  // 예전엔 Gemini가 9종을 분류했는데, 그 결과는 재현되지 않아 같은 사진을 다시 분석하면 유형이
+  // 바뀔 수 있었다(§38 QA 기준 "동일 사진 재분석 시 캐릭터 ID 동일률 ≥95%" 미충족 위험).
+  // Zone1 캐릭터가 그 위에 서는 순간 캐릭터까지 흔들리므로 관상보기 탭과 같은 룰베이스로 맞췄다.
+  // Gemini는 아래에서 계속 호출하되 "부위별 한 문장 보완"만 담당하고 분류는 덮어쓰지 않는다.
+  let ruleBased = null;
+  if (ctx === 'combined') {
+    ruleBased = classifyAndBuildCharacter(ctx, cfg, lm);
+    renderCharacterCard('cmbCharacterCard', ruleBased.characterResult);
+    renderCharacterBasis('cmbCharacterBasis', ruleBased.characterResult);
+    // 기질 바는 바로 위 renderCharacterBasis가 이미 그린다 — 중복 노출 방지
+    renderCharacterDetail('cmbCharacterDetail', ruleBased.characterResult, { skipTraitBars: true });
+  }
+
   // Gemini가 없으면 기존 룰베이스 fallback 유지.
   if (!isGeminiConfigured()) {
+    if (ruleBased) return; // 통합분석은 이미 룰베이스로 그렸다
     renderArchetypesFallback(
       cfg.archetypeId,
       lm,
@@ -1935,6 +2311,10 @@ async function requestPersonalAi(ctx) {
       data.face_shape_type_id;
 
 
+    // 통합분석은 위에서 룰베이스로 이미 그렸다 — Gemini 분류로 덮어쓰면 Zone1 캐릭터의 근거와
+    // Zone3 형상 카드가 서로 다른 유형을 가리키게 된다(스펙 원칙 1 위반).
+    if (ruleBased) return;
+
     if (hasAnyArchetype) {
       renderArchetypes(
         cfg.archetypeId,
@@ -1960,6 +2340,7 @@ async function requestPersonalAi(ctx) {
       e
     );
 
+    if (ruleBased) return; // 분류는 이미 룰베이스로 확보돼 있어 fallback 문구가 필요 없다
     renderArchetypesFallback(
       cfg.archetypeId,
       lm,
@@ -1983,8 +2364,8 @@ async function requestCoupleAi() {
   if (state.gunghamB.lm && canvasB.width) images.push(getCleanImageDataUrl('gunghamB', 'gunghamCanvasB'));
 
   const resultEl = document.getElementById('ggAiResult');
-  resultEl.innerHTML = `<div style="font-size:12px;color:var(--text2);">🧠 AI 정밀 해석 중...</div>`;
   resultEl.classList.remove('hidden');
+  showAiSkeleton('ggAiResult', 'AI가 두 사람의 궁합을 읽는 중이에요');
   try {
     const sys = buildCoupleSystemInstruction();
     const userText = buildCoupleUserPrompt(cache);

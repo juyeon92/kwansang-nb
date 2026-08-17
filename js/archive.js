@@ -18,13 +18,15 @@
   const SECTIONS = [
     { type: 'combined', label: '통합분석' },
     { type: 'gungham',  label: '궁합보기' },
-    { type: 'gwansang', label: '관상보기' },
+    { type: 'gwansang', label: '인연도감' },
     { type: 'saju',     label: '사주보기' },
   ];
   // 각 분석 결과가 그려지는 컨테이너 — 이 DOM을 그대로 떠서 보관한다.
   const CONTAINERS = {
     combined: ['cmbResult'],
-    gwansang: ['gwansangResult'],
+    // canvasCard = 16캐릭터 일러스트 카드(#gwansangCharacterCard). 원래 이 목록에 없어서 보관함에는
+    // 캐릭터 카드 없이 상세 리포트만 저장되고 있었다(사용자 리포트 2026-08-16) — 추가해서 같이 스냅샷.
+    gwansang: ['canvasCard', 'gwansangResult'],
     saju: ['sajuResult', 'sajuComplement'],
     gungham: ['ggResult'],
   };
@@ -92,8 +94,17 @@
       .catch(e => console.error('[archive] 리포트 삭제 실패', e));
   }
 
+  // 보관 목록이 바뀌었을 때(저장·삭제·로그인·로그아웃) 보관함 밖에서 이 목록을 쓰는 화면에도 알린다.
+  // 지금은 통합분석 첫 화면이 "저장된 리포트가 있으면 사진 등록 대신 그 리포트를 보여주는" 용도로 쓴다.
+  function notifyChanged() {
+    if (typeof renderCombinedSavedReport === 'function') renderCombinedSavedReport();
+  }
+
   // 로그인 직후 — 다른 기기에서 만든 목록을 이 기기로 가져온다(본문은 열람할 때 개별로 받는다).
   async function loadFromCloud() {
+    // 이 기기에 이미 있는 목록만으로 먼저 화면을 맞춘다 — 클라우드 응답을 기다리는 동안
+    // 통합분석 첫 화면이 "기록 없음"으로 보이지 않게 한다.
+    notifyChanged();
     const uid = currentUid();
     if (!uid || !window.fbDb) return;
     try {
@@ -105,6 +116,7 @@
         saveIndex(loadIndex()); // 클라우드가 비어 있으면(첫 로그인) 이 기기 기록을 올려둔다
       }
       if (isOpen()) renderPage();
+      notifyChanged();
     } catch (e) {
       console.error('[archive] 목록 불러오기 실패', e);
     }
@@ -113,6 +125,18 @@
   // ── 리포트 스냅샷 ────────────────────────────────────────────────────
   // 화면에 그려진 결과 카드를 그대로 복제해 보관한다. 다시 열었을 때 앱의 살아있는 DOM과
   // 충돌하지 않도록 id/onclick을 떼고, 직렬화되지 않는 canvas와 script는 제거한다.
+  // 보관함에는 리포트 "내용"만 남긴다. 뒤로가기·공유·CTA 같은 조작 요소가 함께 저장되면
+  // 저장된 리포트를 열었을 때 보관함 자체의 뒤로가기와 겹쳐 두 개로 보이고, 눌러도 아무 일이
+  // 일어나지 않는다(복원 시 id·onclick을 떼기 때문). 인연 도감처럼 실시간 데이터도 스냅샷에 맞지 않는다.
+  const REPORT_CHROME = [
+    '.report-back-btn', '.cta-dock', '.submit-btn', '.print-btn',
+    '.dogam-block', '.dogam-actions', '.dogam-cta', '.dogam-cta-label', '.dogam-keep', '.dogam-policy',
+    '.dogam-share-btn', '.dogam-link-btn', '.dogam-delete-btn',
+  ].join(', ');
+  function stripChrome(rootEl) {
+    rootEl.querySelectorAll(REPORT_CHROME).forEach(n => n.remove());
+  }
+
   function snapshot(type) {
     const wrap = document.createElement('div');
     (CONTAINERS[type] || []).forEach(function (id) {
@@ -121,6 +145,7 @@
       wrap.appendChild(el.cloneNode(true));
     });
     if (!wrap.children.length) return null;
+    stripChrome(wrap);
     wrap.querySelectorAll('canvas, script').forEach(n => n.remove());
     wrap.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
     wrap.querySelectorAll('[onclick]').forEach(n => n.removeAttribute('onclick'));
@@ -189,6 +214,7 @@
       saveIndex(list);
       console.log('[archive] 리포트 보관 완료', { type: type, id: id, bytes: html.length, uid: uid });
       if (isOpen()) renderPage();
+      notifyChanged();
     } catch (e) {
       console.error('[archive] 리포트 보관 실패', type, e);
     }
@@ -214,21 +240,48 @@
     return info;
   }
 
-  function remove(id) {
+  async function remove(id) {
     const uid = currentUid();
     if (!uid) return;
     const rec = loadIndex().find(r => r.id === id);
     if (!confirm('이 리포트를 삭제할까요?\n' + (rec ? rec.title + ' · ' + fmtWhen(rec.createdAt) : '') + '\n삭제하면 되돌릴 수 없습니다.')) return;
     removeReportHtml(uid, id);
-    saveIndex(loadIndex().filter(r => r.id !== id));
+    const left = loadIndex().filter(r => r.id !== id);
+    saveIndex(left);
+
+    // 인연도감(type:'gwansang') 마지막 기록을 지운 경우 — 도감 본체까지 정리한다.
+    // 예전엔 로컬 흔적(inyeonLastCharacter)만 지우고 도감 본체·친구 기록은 그대로 뒀는데, 사용자
+    // 입장에선 보관함에서 "인연도감"을 지웠는데 인연도감 화면은 멀쩡히 남아 삭제가 안 된 것처럼 보였다
+    // (사용자 요청 2026-08-17: "삭제되면 인연도감에서도 삭제 처리해줘").
+    // ⚠️ 도감 삭제는 친구들이 남긴 참여 기록까지 함께 사라지는 되돌릴 수 없는 작업이라, 여기서 조용히
+    // 지우지 않고 Dogam.deleteMyDogam()을 부른다 — 그 안에서 "인연 N명도 함께 사라진다"는 확인을
+    // 다시 받는다. 사용자가 거기서 취소하면 보관함 기록만 지워지고 도감은 남는다.
+    if (rec && rec.type === 'gwansang' && !left.some(r => r.type === 'gwansang')) {
+      localStorage.removeItem('inyeonLastCharacter');
+      if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
+      console.log('[archive] 관상 기록이 모두 삭제돼 재방문 카드도 정리');
+      if (window.Dogam && Dogam.deleteMyDogam) {
+        try { await Dogam.deleteMyDogam(); }
+        catch (e) { console.error('[archive] 인연도감 삭제 실패 — 보관함 기록만 지워졌다', e); }
+      }
+    }
+
     if (viewingId === id) viewingId = null;
     renderPage();
+    notifyChanged(); // 마지막 통합분석 기록을 지우면 첫 화면도 사진 등록 단계로 되돌아가야 한다
+    // 삭제 결과를 화면 전체에 반영한다 — 보관함만 다시 그리면 인연도감 섹션은 지운 상태가 그대로
+    // 남아 있어 "삭제가 안 됐다"로 보인다. Dogam.render()는 클라우드에서 다시 읽어오므로
+    // 도감을 지우지 않은 경우(사용자가 확인창에서 취소)에도 최신 상태로 맞춰진다.
+    if (window.Dogam && Dogam.render) {
+      try { await Dogam.render(); } catch (e) { console.error('[archive] 인연도감 갱신 실패', e); }
+    }
   }
 
   // 로그아웃 시 화면만 정리한다. 저장소는 계정(uid)별로 나뉘어 있어 로그아웃 상태에서는 어차피
   // 조회되지 않고, 사본을 남겨둬야 클라우드 조회가 어긋나도 재로그인 시 그대로 복원된다.
   function clearLocal() {
     if (isOpen()) renderPage();
+    notifyChanged(); // 로그아웃 — 저장된 리포트를 감추고 다시 사진 등록 화면으로
   }
 
   function fmtWhen(iso) {
@@ -366,10 +419,46 @@
     const body = document.getElementById('arcReportBody');
     if (!body) return; // 불러오는 사이에 화면을 떠난 경우
     body.innerHTML = html || '<div class="arc-empty">저장된 리포트를 찾을 수 없습니다. 분석을 다시 실행해주세요.</div>';
+    // 이미 저장돼 있던 리포트에도 조작 요소가 섞여 있을 수 있어 여는 시점에도 한 번 걷어낸다.
+    stripChrome(body);
+    attachLiveDogam(body, rec);
+  }
+
+  // 인연도감 리포트에는 도감 영역(인연 목록·보관 안내·공유·통합분석 CTA)을 살아있는 상태로 덧붙인다.
+  // 스냅샷에 넣지 않는 이유는 그대로다 — 친구가 계속 등록되는 실시간 데이터라 저장 시점에 얼어붙으면
+  // 실제 도감과 어긋난다. 대신 열 때마다 지금 상태로 다시 그린다(사용자 요청 2026-08-18).
+  // stripChrome 뒤에 붙여야 방금 걷어낸 선택자(.dogam-*)에 다시 걸리지 않는다.
+  function attachLiveDogam(body, rec) {
+    if (!rec || rec.type !== 'gwansang') return;
+    if (!window.Dogam || !Dogam.renderInto) return;
+    const live = document.createElement('div');
+    live.className = 'arc-live-dogam';
+    body.appendChild(live);
+    Dogam.renderInto(live);
+  }
+
+  // ── 보관함 밖에서 저장된 리포트를 쓰기 위한 창구 ─────────────────────
+  // 해당 분석의 기록 전체(최신순). 비로그인·기록 없음이면 빈 배열.
+  function listOf(type) {
+    return loadIndex()
+      .filter(r => r.type === type)
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)) // 항상 최신순 — 목록 화면의 정렬 토글과 무관하게
+      .map(r => ({ id: r.id, type: r.type, title: r.title, sub: r.sub, createdAt: r.createdAt, when: fmtWhen(r.createdAt) }));
+  }
+  function latestOf(type) { return listOf(type)[0] || null; }
+  // 저장된 리포트 본문을 임의의 컨테이너에 그린다. 보관함 상세와 같은 정리(조작 요소 제거)를 거친다.
+  async function renderInto(el, id) {
+    if (!el) return false;
+    const html = await loadReportHtml(id);
+    if (!html) { el.innerHTML = ''; return false; }
+    el.innerHTML = html;
+    stripChrome(el);
+    return true;
   }
 
   window.Archive = {
     openPage: openPage, closePage: closePage,
+    latestOf: latestOf, listOf: listOf, renderInto: renderInto,
     save: save, remove: remove, debug: debug,
     toggle: toggle, toggleSort: toggleSort,
     openReport: openReport, backToList: backToList,
