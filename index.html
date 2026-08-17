@@ -95,6 +95,10 @@ body {
 .header-topbar h1 {
   font-size: 20px; font-weight: 500; color: var(--text-heading); letter-spacing: -0.2px;
 }
+/* 헤더 타이틀은 글자 대신 가로형 로고를 쓴다(사용자 요청 2026-08-18).
+   h1 태그는 그대로 두고 alt로 서비스명을 남긴다 — 이미지가 안 뜨거나 스크린리더로 읽을 때를 위해. */
+.header-topbar h1.app-logo { font-size: 0; line-height: 0; }
+.header-topbar h1.app-logo img { display: block; height: 28px; width: auto; }
 .header-topbar .topbar-icon { font-size: 18px; color: var(--icon-purple-gray); background: none; border: none; cursor: default; line-height: 1; }
 .header-topbar p { display:none; }
 .kakao-auth-box { display: flex; align-items: center; gap: 8px; }
@@ -401,13 +405,11 @@ body {
 .tip-box p { font-size: 12px !important; font-weight: 500; color: var(--text-sub2) !important; margin: 0 !important; }
 .upload-hint { display: none; } /* 레거시 클래스 — 신규 마크업에서는 tip-box로 대체 */
 
-/* 궁합 탭처럼 좁은 칼럼에서 동일 구조를 축소 적용할 때 쓰는 보정 클래스 */
-.upload-section.compact { padding: 20px 16px 24px; }
-.upload-section.compact .upload-label { font-size: 14px; margin-bottom: 12px; }
-.upload-section.compact .reassure-box { padding: 12px; }
-.upload-section.compact .reassure-head .label { font-size: 14px; }
-.upload-section.compact .reassure-sub { font-size: 12px; }
-.upload-section.compact .upload-area { padding: 24px 16px; }
+/* 궁합 탭 — 예전엔 .compact로 글자·여백을 줄여 "나/상대방"보다 작게 표시했는데, 같은 화면 안에서
+   글자 크기가 두 종류로 갈려 촘촘하고 답답해 보였다(사용자 요청 2026-08-18). 글자 크기는 다른 탭과
+   똑같이 두고, 한 사람의 영역("나/상대방" + 프로필 + 관상 정보)을 테두리 카드 하나로 묶는다
+   (.person-block 쪽 규칙). 안쪽 업로드 영역은 카드 여백을 그대로 쓰도록 자체 여백·음수 마진을 푼다. */
+#panel-gungham .upload-section { border: 0; padding: 0; margin: 16px 0 0; }
 
 /* ── Thumbnail area ── */
 .thumb-area { display: none; align-items: center; gap: 16px; padding: 16px; background: var(--card2); border: 1px solid var(--border); border-radius: var(--r-drop); margin-bottom: 0; }
@@ -556,8 +558,19 @@ body {
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
 .person-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
-.person-block { padding: 20px 16px 0; }
-.person-block + .person-block { border-top: 8px solid var(--bg-soft2); margin: 20px -16px 0; padding: 20px 32px 0; }
+/* 한 사람 = 카드 하나. 예전엔 회색 띠(8px)로만 나눠서 "나"의 영역이 어디까지인지 흐릿했다
+   (사용자 요청 2026-08-18: 이름·프로필도 관상 정보와 같은 테두리 안에 넣기). */
+/* 바깥 여백은 다른 탭의 사진 등록 영역(.upload-section — 화면 기준 좌우 20px · 위 28px · 아래 40px)에
+   맞춘다. .wrap이 이미 16px을 주고 있어 여기서는 4px만 더한다(사용자 요청 2026-08-18). */
+/* 위쪽 28px은 패널 패딩으로 준다 — 카드에 margin-top으로 주면 부모(.panel)와 마진이 합쳐져(margin
+   collapsing) 실제로는 여백이 생기지 않는다. */
+#panel-gungham { padding-top: 28px; }
+.person-block {
+  border: 1px solid var(--border); border-radius: var(--r);
+  padding: 16px; margin: 0 4px;
+}
+.person-block + .person-block { margin-top: 12px; }
+.person-block:last-of-type { margin-bottom: 40px; }
 .person-label { font-size: 16px; font-weight: 700; color: var(--text-title); margin-bottom: 12px; }
 
 .combined-layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -1166,7 +1179,7 @@ body.overlay-open { overflow: hidden; }
 
 <div class="app-header">
   <div class="header-topbar">
-    <h1>관상냥반</h1>
+    <h1 class="app-logo"><img src="images/Logo_H.png" alt="관상냥반"></h1>
     <div class="kakao-auth-box" id="kakaoAuthBox"></div>
   </div>
   <div class="info-box" id="profileInfoBox">
@@ -1626,7 +1639,7 @@ body.overlay-open { overflow: hidden; }
         <span class="mini-profile-empty">헤더에서 프로필을 먼저 등록해주세요</span>
       </div>
 
-      <div class="upload-section compact">
+      <div class="upload-section">
         <div class="upload-label">관상 정보</div>
         <div class="reassure-box">
           <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
@@ -1635,8 +1648,8 @@ body.overlay-open { overflow: hidden; }
         <div class="upload-area" id="ggUploadA"
              onclick="document.getElementById('ggFileA').click()"
              ondrop="handleDrop('gunghamA', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-          <div class="upload-icon-circle small material-symbols-outlined">photo_camera</div>
-          <strong style="font-size:13px;">사진을 클릭하거나 드래그하여 업로드</strong>
+          <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
+          <strong>사진을 클릭하거나 드래그하여 업로드</strong>
         </div>
         <div class="tip-box">
           <span class="icon material-symbols-outlined">warning</span>
@@ -1659,7 +1672,7 @@ body.overlay-open { overflow: hidden; }
         <span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 상대방 프로필 선택</span>
       </button>
 
-      <div class="upload-section compact">
+      <div class="upload-section">
         <div class="upload-label">관상 정보</div>
         <div class="reassure-box">
           <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
@@ -1668,8 +1681,8 @@ body.overlay-open { overflow: hidden; }
         <div class="upload-area" id="ggUploadB"
              onclick="document.getElementById('ggFileB').click()"
              ondrop="handleDrop('gunghamB', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-          <div class="upload-icon-circle small material-symbols-outlined">photo_camera</div>
-          <strong style="font-size:13px;">사진을 클릭하거나 드래그하여 업로드</strong>
+          <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
+          <strong>사진을 클릭하거나 드래그하여 업로드</strong>
         </div>
         <div class="tip-box">
           <span class="icon material-symbols-outlined">warning</span>
@@ -1685,7 +1698,8 @@ body.overlay-open { overflow: hidden; }
       </div>
     </div>
 
-    <div class="err-msg" id="ggErr" style="margin:16px 20px 0;"></div>
+    <!-- 좌우 여백은 위 카드(.person-block)와 같은 선에 맞춘다 — .wrap의 16px + 4px = 화면 기준 20px -->
+    <div class="err-msg" id="ggErr" style="margin:16px 4px 0;"></div>
     <div class="cta-dock hidden" id="ggCtaDock">
       <button class="submit-btn" onclick="Profile.runGungham()">궁합 분석하기</button>
     </div>
