@@ -149,24 +149,41 @@
     }, { merge: true }).catch(e => console.error('[dogam] TTL 갱신 실패', e));
   }
 
+  // ⚠️ 버그 수정(2026-08-18 사용자 리포트: 친구가 등록한 인연이 안 보이고, 로그인한 같은 계정을
+  // 다른 기기/브라우저에서 열면 안 보임) — 두 가지가 겹쳐서 난 문제였다.
+  //   ① localStorage의 SLUG_KEY는 "이 브라우저가 마지막으로 다룬" 도감일 뿐, 지금 로그인된 uid의
+  //      것이라는 보장이 없다. 인연도감은 비로그인(익명 인증)으로도 만들어지는데, 같은 브라우저에서
+  //      나중에 진짜 카카오 계정으로 로그인하면 uid가 바뀌면서도 SLUG_KEY는 그대로 익명 uid의
+  //      도감을 가리킨다. 예전 코드는 "SLUG_KEY가 있으면" Firestore 역인덱스(users/{uid}.dogamSlug)
+  //      조회를 건너뛰어서, 소유자가 안 맞는 걸 확인한 뒤에도 진짜 내 도감을 다시 찾지 않고 그냥
+  //      포기했다(return null) — 그 상태에서 새 도감을 만들면 원래 도감(과 그 안의 친구 기록)이
+  //      통째로 미아가 된다.
+  //   ② 조회 자체가 실패(네트워크 등)해도 그냥 삼켜서 null을 리턴했는데, 호출부(render)는 null을
+  //      "정말 도감이 없다"로 오해해 새 도감을 만들어버렸다 — 그래서 아래에서는 실패를 삼키지 않고
+  //      그대로 던져서, 호출부가 "확인 못 함"과 "확인했는데 없음"을 구분할 수 있게 한다.
   async function ensureMyDogam() {
     const uid = currentUid();
     if (!uid || !window.fbDb) return null;
-    let slug = localStorage.getItem(SLUG_KEY);
-    if (!slug) {
-      // 기기를 바꿨을 수 있으니 계정 문서에서 역인덱스를 먼저 확인한다.
-      try {
-        const u = await fbDb.collection('users').doc(uid).get();
-        slug = (u.exists && u.data().dogamSlug) || null;
-      } catch (e) { console.error('[dogam] slug 조회 실패', e); }
-    }
-    if (slug) {
-      const found = await loadDogam(slug);
-      if (found && found.ownerUid === uid) {
-        localStorage.setItem(SLUG_KEY, slug);
-        touchDogam(slug, uid);
-        return found;
+
+    // 캐시된 slug가 있으면 먼저 시도해보되, 지금 uid의 도감이 아니면 버리고 아래에서 다시 찾는다.
+    const cachedSlug = localStorage.getItem(SLUG_KEY);
+    if (cachedSlug) {
+      const cachedFound = await loadDogam(cachedSlug);
+      if (cachedFound && cachedFound.ownerUid === uid) {
+        touchDogam(cachedSlug, uid);
+        return cachedFound;
       }
+    }
+
+    // 캐시가 없거나 다른 uid의 것이었다면, 계정 문서의 역인덱스로 "진짜 내 도감"을 확인한다.
+    const u = await fbDb.collection('users').doc(uid).get();
+    const slug = (u.exists && u.data().dogamSlug) || null;
+    if (!slug) return null;
+    const found = await loadDogam(slug);
+    if (found && found.ownerUid === uid) {
+      localStorage.setItem(SLUG_KEY, slug);
+      touchDogam(slug, uid);
+      return found;
     }
     return null;
   }
@@ -260,11 +277,22 @@
     // "인연도감 메인으로"는 돌아갈 이전 화면이 있을 때만 의미가 있다. 공유 링크로 바로 들어온
     // 세션에는 그 화면 자체가 없었으므로 숨긴다.
     setDisplay('gwansangBackBtn', enteredViaShare ? 'none' : '');
-    const mine = await ensureMyDogam().catch(function (e) { console.error('[dogam] 내 도감 조회 실패', e); return null; });
+    // ⚠️ ensureMyDogam이 "확인했는데 없음"(null)과 "확인 자체가 실패함"(throw)을 구분해서 던지므로,
+    // 여기서도 실패는 그냥 null로 뭉개면 안 된다 — 뭉개면 조회 한 번 실패했을 뿐인데 "도감이 없다"로
+    // 오해해서 아래 자동 생성 분기가 새 도감을 만들어버리고, 원래 도감(과 친구 기록)이 미아가 된다.
+    let mine;
+    try {
+      mine = await ensureMyDogam();
+    } catch (e) {
+      console.error('[dogam] 내 도감 조회 실패 — 확인이 안 된 상태라 새로 만들지 않고 중단', e);
+      if (!stale()) el.innerHTML = '<p class="dogam-empty">인연도감을 불러오지 못했어요. 새로고침해서 다시 시도해주세요.</p>';
+      return;
+    }
     if (stale()) return;
     myDogam = mine;
     // 공유 버튼을 누른 뒤에 도감을 만들면 그 통신 때문에 클립보드 복사가 막힌다 —
     // 화면을 그리는 이 시점에 미리 만들어 두고, 버튼은 복사만 하도록 한다.
+    // (여기 도달했다는 건 ensureMyDogam이 "확인했는데 정말 없음"을 리턴한 경우뿐이다.)
     if (!myDogam && currentUid() && myCharacterId()) {
       const created = await createMyDogam().catch(function (e) { console.error('[dogam] 도감 생성 실패', e); return null; });
       // 도감 생성은 되돌릴 수 없는 쓰기라, 뒤늦게 끝났더라도 결과 자체는 캐시에 반영해둔다.
