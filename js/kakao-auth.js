@@ -51,9 +51,8 @@
         Profile.loadFromCloud();
         if (window.Archive) {
           Archive.loadFromCloud();
-          // 비로그인 상태에서 분석을 끝내 보관을 건너뛴 리포트가 있으면(그 결과 화면이 아직
-          // DOM에 남아 있는 동안) 지금 재시도한다.
-          Archive.retryPending();
+          // 비로그인 동안 기기에 임시 보관해둔 리포트(인연도감 등)를 지금 로그인한 계정으로 편입한다.
+          Archive.commitPending();
         }
         resolveAccountInfo(user.uid);
         // 냥 잔액·관리자 여부는 마이페이지를 열기 전에 미리 받아둔다 — 열자마자 바로 보이도록.

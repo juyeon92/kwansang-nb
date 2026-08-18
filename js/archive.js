@@ -14,6 +14,11 @@
 (function () {
   const IDX_PREFIX = 'gwansang_archive_v1:';
   const REPORT_PREFIX = 'gwansang_report_v1:';
+  // 인연도감은 원래 비로그인으로 만드는 게 기본 경로다(30일 기기 보관 정책과 같은 전제) — 그래서
+  // 로그인 전에 완성된 리포트는 uid가 없어 계정에 못 붙이는 대신, 완성된 스냅샷 자체를 uid 없이
+  // "이 기기"에 저장해둔다. 나중에 언제 로그인하든(새로고침·기기 재방문 다 포함) 그 순간 로그인한
+  // uid로 그대로 편입한다 — Dogam이 로컬 slug를 계정에 편입하는 것과 같은 구조.
+  const PENDING_KEY = 'gwansang_archive_pending_v1';
 
   const SECTIONS = [
     { type: 'combined', label: '통합분석' },
@@ -35,18 +40,19 @@
   let openState = null;  // 아코디언 펼침 상태 (첫 렌더 때 기록 유무로 초기화)
   let viewingId = null;  // 리포트 상세를 보고 있으면 그 기록 id
   let prevTab = 'combined';
-  // ⚠️ 사용자 리포트(2026-08-18): 비로그인 상태에서 분석을 끝내고 나중에 로그인해도 그 리포트가
-  // 보관함에 안 보임. save()는 그 순간 uid가 없으면 그냥 건너뛰는데, Dogam(migrateLocalOnLogin)과
-  // 달리 Archive에는 로그인 후 재시도하는 경로가 없었다 — 그 화면 DOM은 로그인 시점까지도(새로고침만
-  // 없었다면) 그대로 남아 있으므로, 로그인 직후 같은 type으로 한 번 더 save()를 시도하면 된다.
-  // 페이지를 새로고침한 뒤라면 이 DOM 자체가 사라져 스냅샷할 게 없으니 그 경우까지 살리진 않는다.
-  let pendingSaveTypes = [];
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   }
   function currentUid() {
     return (window.fbAuth && fbAuth.currentUser) ? fbAuth.currentUser.uid : null;
+  }
+  // 인연도감이 비로그인 등록을 위해 발급하는 익명 인증(Firebase Anonymous Auth)은 실계정이 아니다
+  // — Dogam의 loggedIn 판정(inyeon-dogam.js)과 같은 기준. 저장 대상 uid로 실계정만 인정해야
+  // "임시 보관 → 로그인 시 편입" 흐름이 익명 uid에 새는 걸 막는다.
+  function isRealUid() {
+    const u = window.fbAuth && fbAuth.currentUser;
+    return (u && !u.isAnonymous) ? u.uid : null;
   }
 
   // ── 목록 저장소 ──────────────────────────────────────────────────────
@@ -186,18 +192,36 @@
     return true; // TODO(결제 연동): 해당 분석 건의 결제 완료 여부로 교체
   }
 
+  // 실제 저장 — uid가 확정된 뒤에만 부른다(로그인 직후 save()에서, 또는 나중에 commitPending()에서).
+  function commitSave(uid, type, html, label) {
+    const id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    saveReportHtml(uid, id, html);
+    const list = loadIndex();
+    list.push({
+      id: id, type: type, title: label.title, sub: label.sub,
+      paid: PAID_TYPES.indexOf(type) >= 0, // 결제 상품 여부 — 결제내역 화면에서 재사용할 수 있게 남긴다
+      createdAt: new Date().toISOString(),
+    });
+    saveIndex(list);
+    console.log('[archive] 리포트 보관 완료', { type: type, id: id, bytes: html.length, uid: uid });
+    if (isOpen()) renderPage();
+    notifyChanged();
+  }
+
+  function loadPending() {
+    try { return JSON.parse(localStorage.getItem(PENDING_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function savePendingList(list) {
+    try { localStorage.setItem(PENDING_KEY, JSON.stringify(list)); }
+    catch (e) { console.warn('[archive] 임시 보관 저장 실패(로컬 저장소 용량 등)', e); }
+  }
+
   // 분석이 완전히 끝난 지점에서 app.js가 호출한다.
   // 보관에 실패해도 분석 화면 자체는 영향을 받으면 안 되므로 모든 실패를 여기서 흡수하고 로그만 남긴다.
   function save(type) {
     try {
       if (!CONTAINERS[type]) { console.warn('[archive] 저장 대상이 아닌 분석', type); return; }
-      const uid = currentUid();
-      if (!uid) {
-        console.warn('[archive] 비로그인 상태 — 리포트를 보관하지 않는다', type);
-        if (pendingSaveTypes.indexOf(type) < 0) pendingSaveTypes.push(type); // 로그인하면 재시도
-        return;
-      }
-      if (!hasPaidFor(type)) { console.warn('[archive] 미결제 — 리포트를 보관하지 않는다', type); return; }
 
       const html = snapshot(type);
       if (!html) {
@@ -211,34 +235,37 @@
         });
         return;
       }
-
       const label = buildLabel(type);
-      const id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      saveReportHtml(uid, id, html);
-      const list = loadIndex();
-      list.push({
-        id: id, type: type, title: label.title, sub: label.sub,
-        paid: PAID_TYPES.indexOf(type) >= 0, // 결제 상품 여부 — 결제내역 화면에서 재사용할 수 있게 남긴다
-        createdAt: new Date().toISOString(),
-      });
-      saveIndex(list);
-      pendingSaveTypes = pendingSaveTypes.filter(t => t !== type);
-      console.log('[archive] 리포트 보관 완료', { type: type, id: id, bytes: html.length, uid: uid });
-      if (isOpen()) renderPage();
-      notifyChanged();
+
+      const uid = isRealUid();
+      if (!uid) {
+        // 인연도감은 원래 비로그인이 기본 경로라, 여기서 포기하지 않고 완성된 스냅샷을 기기에
+        // 남겨둔다. 같은 type이 또 완성되면(사진을 다시 찍는 등) 최신 것으로 덮어쓴다.
+        const pending = loadPending().filter(function (p) { return p.type !== type; });
+        pending.push({ type: type, html: html, title: label.title, sub: label.sub, ts: Date.now() });
+        savePendingList(pending);
+        console.warn('[archive] 비로그인 상태 — 리포트를 기기에 임시 보관(로그인 시 편입)', type);
+        return;
+      }
+      if (!hasPaidFor(type)) { console.warn('[archive] 미결제 — 리포트를 보관하지 않는다', type); return; }
+      commitSave(uid, type, html, label);
     } catch (e) {
       console.error('[archive] 리포트 보관 실패', type, e);
     }
   }
 
-  // 로그인 확정 직후 kakao-auth.js가 호출한다 — 비로그인이라 건너뛴 저장을 그 자리에 남아있는
-  // 결과 화면 DOM으로 한 번 더 시도한다. 실패(스냅샷 없음 등)해도 save()가 다시 pending에 넣으므로
-  // 여기서 따로 예외 처리할 필요는 없다.
-  function retryPending() {
-    if (!pendingSaveTypes.length) return;
-    const list = pendingSaveTypes.slice();
-    pendingSaveTypes = [];
-    list.forEach(save);
+  // 로그인 확정 시 kakao-auth.js가 호출한다 — 비로그인 동안 기기에 임시 보관해둔 리포트를
+  // 지금 로그인한 계정으로 편입한다. 새로고침이나 기기 재방문을 거쳤어도(로컬 저장소라) 그대로 남아있다.
+  function commitPending() {
+    const uid = isRealUid();
+    if (!uid) return;
+    const pending = loadPending();
+    if (!pending.length) return;
+    pending.forEach(function (p) {
+      commitSave(uid, p.type, p.html, { title: p.title, sub: p.sub });
+    });
+    localStorage.removeItem(PENDING_KEY);
+    console.log('[archive] 임시 보관 리포트 편입 완료', { count: pending.length });
   }
 
   // 콘솔에서 상태를 바로 확인하기 위한 진단용 — Archive.debug()
@@ -492,7 +519,7 @@
   window.Archive = {
     openPage: openPage, closePage: closePage,
     latestOf: latestOf, listOf: listOf, renderInto: renderInto,
-    save: save, retryPending: retryPending, remove: remove, removeReportsByType: removeReportsByType, debug: debug,
+    save: save, commitPending: commitPending, remove: remove, removeReportsByType: removeReportsByType, debug: debug,
     toggle: toggle, toggleSort: toggleSort,
     openReport: openReport, backToList: backToList,
     loadFromCloud: loadFromCloud, clearLocal: clearLocal,
