@@ -757,6 +757,10 @@
       if (gh) { stashUploadNodes(); gh.remove(); }
       setDisplay('gwansangHero', '');
         await render();
+      // 등록 버튼을 누른 자리(폼 아래쪽)에 그대로 머물러 있으면 방금 만들어진 내 캐릭터 리포트가
+      // 화면 밖에 있어 안 보인다 — 캐릭터 카드 위치부터 다시 읽을 수 있게 스크롤한다.
+      const card = document.getElementById('canvasCard');
+      if (card) card.scrollIntoView({ behavior: 'smooth' });
       alert('인연도감에 등록됐어요. 내 인연도감도 함께 만들어졌어요.');
     } catch (e) {
       console.error('[dogam] 등록 실패', e);
