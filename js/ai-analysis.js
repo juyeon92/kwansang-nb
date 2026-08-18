@@ -1929,91 +1929,164 @@ const CHARACTER_COMPAT_GROUPS = [
 //  ② 마지막 한 줄은 confidence 숫자 대신 §2-C 치환 문구를 쓴다. 0.84 같은 값은 어떤 형태로도 안 나간다.
 //  ③ 중간 요약 문장은 primaryTrait/secondaryTrait 기반 고정 템플릿이다. AI로 만들면 매번 문장이
 //     달라져 결정론 원칙이 깨진다.
+// 사용자 요청 2026-08-19c: "-고"를 반복해서 나열식으로 읽히면 안 된다 — 인접 여부와 무관하게 한
+// 문장(관상 절/사주 절 각각)에 "-고"가 두 번 이상 나오면 안 됨. 그래서 아래 네 사전 모두 "-고"로
+// 끝나는 동사나 "-고"로 이어지는 내부 연결형을 전부 없앴다(가능하면 "-며"/"-아"/"-해"로 대체).
 const TRAIT_FACE_PHRASE = {
   lead: '앞에 서서 방향을 정하는 힘',
-  strategy: '한발 앞서 읽고 계산하는 힘',
-  drive: '정하면 바로 밀고 나가는 힘',
-  social: '사람을 편하게 만들고 끌어당기는 힘',
-  stability: '중심을 잡고 오래 버티는 힘',
+  strategy: '한발 앞서 상황을 읽어내는 힘',
+  drive: '정하면 곧장 밀어붙이는 힘',
+  social: '사람을 편안하게 끌어당기는 힘',
+  stability: '중심을 잡아 오래 버티는 힘',
   sense: '결을 알아채는 감각',
 };
-// §2-C — confidence를 문장으로 치환한다(숫자 미노출).
+// 사주 쪽 표현 — 같은 6기질이지만 "사주에서는~" 문장에 쓰는 어투라 TRAIT_FACE_PHRASE와 별도로 둔다
+// (사용자 요청 2026-08-18b: 관상 근거·사주 근거를 각각 풀어서 설명해달라).
+const TRAIT_SAJU_PHRASE = {
+  lead: '스스로 판을 짜서 이끌어가려는 기운',
+  strategy: '앞뒤를 재어 신중하게 판단하는 기운',
+  drive: '한번 정하면 밀어붙이는 추진력',
+  social: '사람과 잘 어우러지는 친화력',
+  stability: '믿음직하게 꾸준히 버티는 기운',
+  sense: '남다른 감각과 직관',
+};
+// 위 두 사전은 전부 "~하는 힘/기운" 식 명사형이라, primary+secondary를 그냥 "~과 ~이"로 이어붙이면
+// "힘과 힘이", "기운과 기운의"처럼 같은 명사가 겹쳐 어색해진다(사용자 요청 2026-08-19: "무슨 말인지
+// 모르겠다"). 그래서 앞에 놓일 항목(primaryTrait)은 명사 없이 "~하며"로 끝나는 연결형을 따로 두고,
+// 뒤에 놓일 항목(secondaryTrait)만 위 사전의 "~하는 힘/기운"을 그대로 써서 명사가 한 번만 나오게 한다.
+// 연결형은 "-고"가 아니라 "-며"로 끝낸다 — 위 PHRASE들도 이제 내부에 "-고"가 없어서, 한 문장 전체에
+// "-고"가 한 번도 나오지 않는다(사용자 요청 2026-08-19c 검증: 6x6 전 조합 스크립트로 확인 완료).
+const TRAIT_FACE_LINK = {
+  lead: '앞에 서서 방향을 정하며',
+  strategy: '한발 앞서 상황을 읽어내며',
+  drive: '정하면 곧장 밀어붙이며',
+  social: '사람을 편안하게 끌어당기며',
+  stability: '중심을 잡아 오래 버티며',
+  sense: '결을 알아채며',
+};
+const TRAIT_SAJU_LINK = {
+  lead: '스스로 판을 짜서 이끌어가며',
+  strategy: '앞뒤를 재어 신중하게 판단하며',
+  drive: '한번 정하면 밀어붙이며',
+  social: '사람과 잘 어우러지며',
+  stability: '믿음직하게 꾸준히 버티며',
+  sense: '남다른 감각과 직관을 발휘하며',
+};
+// 요약 문장에 "{닉네임}님"으로 부르기 위한 이름 — 로그인+유료 서비스라 대표 프로필은 항상 존재한다.
+// 사용자가 직접 입력한 값이라 innerHTML에 꽂기 전에 이스케이프한다.
+function currentDisplayNickname() {
+  const rep = window.Profile && Profile.getRepresentative ? Profile.getRepresentative() : null;
+  const name = (rep && rep.name) || '';
+  return String(name).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+// §2-C — confidence를 문장으로 치환한다(숫자 미노출). 사용자 요청 2026-08-18b: "~해요" 평서형 대신
+// "{닉네임}님!"으로 부르는 형태로 바꾸고, 요약 맨 앞으로 옮겨 첫 문장이 되게 한다(renderCharacterBasis).
 function characterConfidenceLine(characterResult) {
   const name = (CHARACTER_DB[characterResult.characterId] || {}).name || '';
+  const nickname = currentDisplayNickname();
   const c = characterResult.confidence || 0;
-  if (c >= 0.75) return `${name}의 특징이 뚜렷한 편이에요.`;
+  if (c >= 0.75) return `${name}의 특징이 뚜렷하게 나타나는 ${nickname}님!`;
   if (c >= 0.5) {
     const sorted = characterResult.sortedNames || null;
     return sorted && sorted[1]
-      ? `${name}과 ${sorted[1]}의 특징이 함께 보여요.`
-      : `${name}의 특징이 비교적 뚜렷하게 보여요.`;
+      ? `${name}과 ${sorted[1]}의 특징이 함께 나타나는 ${nickname}님!`
+      : `${name}의 특징이 비교적 뚜렷하게 나타나는 ${nickname}님!`;
   }
-  return `${name}의 결이 은은하게 나타나요.`;
+  return `${name}의 결이 은은하게 나타나는 ${nickname}님!`;
 }
+// 인연도감(관상보기 탭, 얼굴만)에서 이미 뽑은 캐릭터가 있으면 반환한다 — Zone1 비교 블록용.
+// localStorage 키 'inyeonLastCharacter'는 inyeon-dogam.js의 myCharacterId()와 같은 저장소를 본다.
+function getGwansangOnlyCharacterId() {
+  const live = (typeof state !== 'undefined' && state.gwansang && state.gwansang.characterResult) || null;
+  if (live && live.characterId) return live.characterId;
+  try {
+    const saved = JSON.parse(localStorage.getItem('inyeonLastCharacter') || 'null');
+    return (saved && saved.characterId) || null;
+  } catch (e) { return null; }
+}
+
+// §2-A(신규) — "관상만 봤을 때 vs 관상+사주를 더했을 때" 비교. 사용자 요청 2026-08-18: 인연도감에서
+// 이미 뽑은 캐릭터가 사주를 더해 바뀌었다면 그 차이를 후킹포인트로 보여준다. 결과가 같으면(바뀐 게
+// 없으면) 후킹 효과가 없으므로 블록 자체를 숨긴다.
+function characterCompareBlock(characterResult) {
+  const gwansangId = getGwansangOnlyCharacterId();
+  if (!gwansangId || gwansangId === characterResult.characterId) return '';
+  const faceOnly = CHARACTER_DB[gwansangId];
+  const combined = CHARACTER_DB[characterResult.characterId];
+  if (!faceOnly || !combined) return '';
+  return `
+    <div class="zbasis-compare">
+      <div class="zbasis-compare-item">
+        <span class="zbasis-compare-tag">관상 유형</span>
+        <span class="zbasis-compare-name">${faceOnly.name}</span>
+      </div>
+      <span class="zbasis-compare-arrow material-symbols-outlined">arrow_forward</span>
+      <div class="zbasis-compare-item is-final">
+        <span class="zbasis-compare-tag">관상+사주 유형</span>
+        <span class="zbasis-compare-name">${combined.name}</span>
+      </div>
+    </div>`;
+}
+
+// 헤드 타이틀 3분기(사용자 요청 2026-08-18b) — 인연도감(관상만)에서 이미 뽑은 캐릭터가 있는지,
+// 있다면 이번 관상+사주 결과와 같은지에 따라 문구가 달라진다.
+//  · 관상 캐릭터 없음            → "왜 OOO이 나왔을까요?"
+//  · 관상 캐릭터 있음 + 같은 결과 → "사주를 더해도 여전히 OOO이에요!"
+//  · 관상 캐릭터 있음 + 다른 결과 → "사주를 더하니 OOO이 되었어요!"
+function characterBasisTitle(characterResult, gwansangId) {
+  const name = (CHARACTER_DB[characterResult.characterId] || {}).name || '';
+  if (!gwansangId) return `왜 ${name}이 나왔을까요?`;
+  return gwansangId === characterResult.characterId
+    ? `사주를 더해도 여전히 ${name}이에요!`
+    : `사주를 더하니 ${name}이 되었어요!`;
+}
+
+// §2-A — 관상 근거와 사주 근거를 각각 풀어서 설명한다(사용자 요청 2026-08-18b: "관상의 어떤 특징과
+// 사주의 어떤 특징 때문에 이 캐릭터가 됐는지 설명이 부족하다"). confidence 줄을 맨 앞 문장으로 옮긴다.
+// 구체적인 DB 근거 라벨(용안·귀인성 등)은 여전히 노출하지 않고, TRAIT_FACE_PHRASE/TRAIT_SAJU_PHRASE로
+// 풀어쓴 문장만 쓴다 — 결정론 원칙(고정 템플릿, AI 미사용)은 그대로 유지.
+function characterBasisSummary(characterResult, character) {
+  const { primaryTrait, secondaryTrait, balanced } = characterResult;
+  const confidenceLine = characterConfidenceLine(characterResult);
+  if (balanced) {
+    return `${confidenceLine}<br>` +
+      `얼굴과 사주 어느 한쪽으로 치우치지 않고 여섯 가지 힘이 고르게 나타났어요. 그래서 균형형인 <b>${character.name}</b>이 됐어요.`;
+  }
+  const fusionLine = `${TRAIT_FACE_LINK[primaryTrait]} ${TRAIT_FACE_PHRASE[secondaryTrait]}이 느껴지는 관상과, ` +
+    `${TRAIT_SAJU_LINK[primaryTrait]} ${TRAIT_SAJU_PHRASE[secondaryTrait]}의 사주가 만나 <b>${character.name}</b>이 되었어요!`;
+  return `${confidenceLine}<br>${fusionLine}`;
+}
+
 function renderCharacterBasis(elId, characterResult) {
   const el = document.getElementById(elId);
   if (!el) return;
   const character = characterResult && CHARACTER_DB[characterResult.characterId];
   if (!character) { el.innerHTML = ''; return; }
 
-  const { traitScores, primaryTrait, secondaryTrait, balanced, faceEvidenceDetail, sajuEvidence, basisLabel } = characterResult;
+  const { traitScores, primaryTrait, secondaryTrait } = characterResult;
+  const gwansangId = getGwansangOnlyCharacterId();
 
   // §2-A — 6대 기질은 바만, 숫자는 노출하지 않는다.
   // 이유: traitScores의 기준선(FACE_TRAIT_BASELINE 등)이 아직 실사용자 분포가 아닌 근사치라
   // "관계 38" 같은 숫자가 백분위처럼 읽히는 해상도를 보장할 수 없고, 낮은 숫자는 결함으로 읽혀
   // "약점은 shadow로만 표현한다"는 원칙과도 부딪힌다.
+  // 사용자 요청 2026-08-18: 점수 높은 순으로 정렬한다 — 어차피 가장 진한(top2) 두 줄이 그대로 위로
+  // 올라오니 "진하게 표시된 두 가지가 위에 있다"는 게 화면에서도 바로 보인다.
   const top = [primaryTrait, secondaryTrait];
-  const bars = TRAITS.map(t => `<div class="ztrait-row${top.includes(t) ? ' is-top' : ''}">
+  const sortedTraits = TRAITS.slice().sort((a, b) => (traitScores[b] || 0) - (traitScores[a] || 0));
+  const bars = sortedTraits.map(t => `<div class="ztrait-row${top.includes(t) ? ' is-top' : ''}">
         <span class="ztrait-name">${TRAIT_LABEL_KO[t].slice(0, 2)}</span>
         <span class="ztrait-track"><span class="ztrait-fill" style="width:${Math.max(4, Math.min(100, traitScores[t]))}%;"></span></span>
       </div>`).join('');
 
-  // 칩 표시 상한 — 실제 판정에는 근거가 20개 넘게 들어가기도 하는데(신살·귀인이 많은 사주),
-  // 그대로 다 펴면 근거 영역이 캐릭터 설명보다 길어져 읽히지 않는다. 스펙 §2-D는 "임의로 항목을
-  // 추가하거나 순서를 바꾸지 말 것"을 요구하므로 순서는 그대로 두고 앞에서부터 자르되,
-  // 몇 개가 더 있는지는 숨기지 않고 밝힌다(엔진이 쓴 근거를 축소해 보이게 하면 안 되므로).
-  const CHIP_LIMIT = 8;
-  const chips = (list, cls) => {
-    const shown = list.slice(0, CHIP_LIMIT).map(v => `<span class="zchip ${cls}">${v}</span>`).join('');
-    const rest = list.length - CHIP_LIMIT;
-    return rest > 0 ? shown + `<span class="zchip is-more">+${rest}개 더</span>` : shown;
-  };
-  // part_status 근거는 엔진이 "강점 부위: forehead·eyebrow…"처럼 영문 키로 만들어 둔다(내부 로그용
-  // 문자열). 화면에는 PART_DEF의 한글 라벨로 바꿔 부위 하나씩 칩으로 편다 — 다른 칩(우안·복코 등)과
-  // 결이 맞고, 사용자가 영문 키를 볼 이유가 없다.
-  const partLabel = k => {
-    const d = (typeof PART_DEF !== 'undefined') && PART_DEF.find(p => p.key === k);
-    return d ? d.label : k;
-  };
-  const faceChips = [];
-  (faceEvidenceDetail || []).forEach(e => {
-    if (e.category === 'part_status') {
-      String(e.id || '').split(',').filter(Boolean).forEach(k => faceChips.push(partLabel(k.trim()) + ' 발달'));
-      return;
-    }
-    if (e.nameKo) faceChips.push(e.nameKo);
-  });
-  const sajuChips = (sajuEvidence || []).filter(Boolean);
-
-  const summary = balanced
-    ? '얼굴과 사주 어느 한쪽으로 치우치지 않고 여섯 가지 힘이 고르게 나타났어요. 그래서 균형형인 군자상이 됐어요.'
-    : `${TRAIT_FACE_PHRASE[primaryTrait]}과 ${TRAIT_FACE_PHRASE[secondaryTrait]}이 함께 나타났어요.<br>`
-      + `이 두 가지가 만나 <b>${character.name}</b>이 돼요.`;
-
   el.innerHTML = `
     <div class="zone-basis">
-      <div class="zone-basis-title">왜 ${character.name}이 나왔나요?</div>
-      ${basisLabel ? `<div class="zone-basis-badge">${basisLabel}</div>` : ''}
+      <div class="zone-basis-title">${characterBasisTitle(characterResult, gwansangId)}</div>
+      ${characterCompareBlock(characterResult)}
 
       <div class="ztrait-bars">${bars}</div>
-      <div class="ztrait-caption">진하게 표시된 두 가지가 이 캐릭터를 만든 축이에요</div>
 
-      ${faceChips.length ? `<div class="zevi"><div class="zevi-label">관상에서</div><div class="zevi-chips">${chips(faceChips, 'is-face')}</div></div>` : ''}
-      ${sajuChips.length ? `<div class="zevi"><div class="zevi-label">사주에서</div><div class="zevi-chips">${chips(sajuChips, 'is-saju')}</div></div>` : ''}
-
-      <div class="zone-basis-arrow">↓</div>
-      <div class="zone-basis-summary">${summary}</div>
-      <div class="zone-basis-conf">${characterConfidenceLine(characterResult)}</div>
+      <div class="zone-basis-summary">${characterBasisSummary(characterResult, character)}</div>
     </div>`;
 }
 
@@ -2060,11 +2133,7 @@ function renderCharacterDetail(elId, characterResult, opts) {
 
   el.innerHTML = `
     <div class="char-detail">
-      <div class="char-detail-head">
-        <span class="char-detail-role">${characterResult.basisLabel || '관상 기반 유형'}</span>
-        <div class="char-detail-headline">${character.headline}</div>
-      </div>
-
+      <div class="char-detail-headline">${character.headline}</div>
       ${traitHtml}
 
       <div class="char-detail-sec">
@@ -2098,8 +2167,6 @@ function renderCharacterDetail(elId, characterResult, opts) {
         <div class="char-detail-sec-title">다른 관상과의 궁합</div>
         ${compatHtml}
       </div>` : ''}
-
-      <div class="char-detail-note">※ 전통 관상학을 바탕으로 한 문화·엔터테인먼트 해석이며, 얼굴 실측값으로 판별한 유형에 맞춰 미리 준비된 설명이에요.</div>
     </div>`;
 }
 
@@ -2159,10 +2226,7 @@ function renderGwansangRevisitCard() {
 }
 // localStorage에 저장된 캐릭터 ID만으로 카드·상세 설명을 다시 그린다 — 원본 사진/랜드마크가 없어도
 // character-db.js 데이터만으로 완성되는 화면이라 재분석 없이 그대로 재현 가능하다.
-// Dogam.render()가 이미 진행 중인 곳(예: 공유 링크로 재방문했을 때)에서도 안전하게 쓸 수 있도록,
-// Dogam.render() 호출은 이 함수 밖(reopenSavedCharacter)으로 뺐다 — 안에서 부르면 서로가 서로를
-// 부르는 무한 재귀가 된다.
-function populateGwansangReportFromSaved(characterId) {
+function reopenSavedCharacter(characterId) {
   // 저장해둔 기질 점수까지 함께 복원한다 — 없으면 6대 기질 바가 빠져 최초 결과 화면과 구조가 달라진다.
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(INYEON_LAST_CHARACTER_KEY) || 'null'); } catch (e) { saved = null; }
@@ -2180,9 +2244,6 @@ function populateGwansangReportFromSaved(characterId) {
   document.getElementById('canvasCard').classList.remove('hidden');
   document.getElementById('gwansangResult').classList.remove('hidden');
   markAnalyzed('gwansang');
-}
-function reopenSavedCharacter(characterId) {
-  populateGwansangReportFromSaved(characterId);
   try { localStorage.setItem(GWANSANG_REPORT_OPEN_KEY, '1'); } catch (e) {} // 새로고침해도 이 화면 유지
   if (window.Dogam) Dogam.render();
   document.getElementById('canvasCard').scrollIntoView({ behavior: 'smooth' });
