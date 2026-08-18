@@ -180,6 +180,9 @@ function updateCtaDock(ctx) {
       : !!state[ctx].file;
   const el = document.getElementById(id);
   if (el) el.classList.toggle('hidden', !show);
+  if (ctx === 'gunghamA' || ctx === 'gunghamB') {
+    if (window.Profile && Profile.syncGgAccordion) Profile.syncGgAccordion();
+  }
 }
 
 // 사진 등록 영역(라벨·안심 안내·업로드 드롭존·썸네일·좌우 반전) 전체 — 관상보기/통합분석 전용

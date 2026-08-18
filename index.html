@@ -330,18 +330,24 @@ body {
   content: ''; width: 3px; height: 16px; background: var(--mint); border-radius: 999px;
 }
 
-/* ── Mini profile chip (궁합 탭) ── */
+/* ── Mini profile chip (궁합 탭) — 이름+관계 배지는 한 줄, 생년월일은 그 아래,
+   우측엔 화살표(사용자 요청 2026-08-18: 첨부 이미지의 프로필 요약 행 레이아웃) ── */
 .mini-profile-chip {
-  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
-  background: var(--mint-10); border: none; border-radius: 8px;
-  padding: 12px; margin-bottom: 12px; width: 100%; text-align: left;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border-gray); border-radius: var(--r-input);
+  padding: 14px 16px; margin-bottom: 12px; width: 100%; text-align: left;
   font-family: inherit; cursor: default;
 }
 .mini-profile-chip.select-mode { cursor: pointer; }
-.mini-profile-chip.select-mode:hover { background: rgba(85,204,187,0.16); }
-.mini-profile-name { font-size: 14px; font-weight: 500; color: var(--text-strong); }
+.mini-profile-chip.select-mode:hover { background: var(--mint-10); }
+/* [나]는 궁합 탭에서 대표 프로필로 고정이라 선택 동작이 없다 — 살짝 그레이 배경으로 비활성 느낌만 준다 */
+.mini-profile-chip.is-fixed { background: var(--bg-soft); }
+.mini-profile-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mini-profile-top { display: flex; align-items: center; gap: 8px; }
+.mini-profile-name { font-size: 14px; font-weight: 700; color: var(--text-strong); }
 .mini-profile-badge { font-size: 10px; color: var(--text-sub); background: var(--surface); border: 1px solid var(--border-gray); border-radius: 50px; padding: 0 8px; }
-.mini-profile-sub { font-size: 11px; color: var(--text-sub); }
+.mini-profile-sub { font-size: 12px; color: var(--text-sub); }
+.mini-profile-chevron { font-size: 20px; color: var(--text-sub2); flex-shrink: 0; }
 .mini-profile-placeholder { font-size: 13px; font-weight: 700; color: var(--text-sub2); }
 .mini-profile-empty { font-size: 12px; color: var(--text3); }
 
@@ -567,11 +573,27 @@ body {
 #panel-gungham { padding-top: 28px; }
 .person-block {
   border: 1px solid var(--border); border-radius: var(--r);
-  padding: 16px; margin: 0 4px;
+  margin: 0 4px;
 }
 .person-block + .person-block { margin-top: 12px; }
 .person-block:last-of-type { margin-bottom: 40px; }
 .person-label { font-size: 16px; font-weight: 700; color: var(--text-title); margin-bottom: 12px; }
+
+/* 궁합 탭 나/상대 아코디언 — 헤더(타이틀+아이콘)는 person-label 자리를 그대로 대신하고,
+   접히면 프로필칩·업로드 영역(person-acc-body)을 통째로 숨긴다. */
+.person-acc-head {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; background: var(--mint-10); border: 0; border-radius: var(--r);
+  padding: 16px; cursor: pointer; font-family: inherit; text-align: left;
+}
+/* .person-block에 padding이 없어져 헤더 배경이 카드 테두리에 바로 붙기 때문에, 라운드 값을
+   카드(var(--r))와 맞춰야 모서리가 겹쳐 보이지 않는다. 펼쳐진 상태는 헤더 아래로 본문이 이어지니
+   하단(좌우 포함) 라운드를 0으로 깎고, 접힌 상태는 헤더가 카드의 전체 모양 그대로라 원래 라운드를 되살린다. */
+.person-block.is-open .person-acc-head { border-radius: var(--r) var(--r) 0 0; }
+.person-acc-head .person-label { margin-bottom: 0; }
+.person-acc-icon { font-size: 20px; color: var(--jade); flex-shrink: 0; }
+.person-block:not(.is-open) .person-acc-body { display: none; }
+#ggBodyA, #ggBodyB { padding: 16px; }
 
 .combined-layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
 
@@ -1632,69 +1654,79 @@ body.overlay-open { overflow: hidden; }
 
   <!-- ===== 궁합 패널 ===== -->
   <div class="panel" id="panel-gungham">
-    <!-- Person A: 대표 프로필 고정 -->
-    <div class="person-block">
-      <div class="person-label">나</div>
-      <div class="mini-profile-chip" id="ggProfileChipA">
-        <span class="mini-profile-empty">헤더에서 프로필을 먼저 등록해주세요</span>
-      </div>
+    <!-- Person A: 대표 프로필 고정 — 최초 열림, 프로필+사진 다 채워지면 자동으로 접힌다 -->
+    <div class="person-block is-open" id="ggBlockA">
+      <button type="button" class="person-acc-head" onclick="Profile.toggleGgAcc('A')">
+        <span class="person-label" id="ggLabelA">나</span>
+        <span class="person-acc-icon material-symbols-outlined" id="ggAccIconA">remove</span>
+      </button>
+      <div class="person-acc-body" id="ggBodyA">
+        <div class="mini-profile-chip is-fixed" id="ggProfileChipA">
+          <span class="mini-profile-empty">헤더에서 프로필을 먼저 등록해주세요</span>
+        </div>
 
-      <div class="upload-section">
-        <div class="upload-label">관상 정보</div>
-        <div class="reassure-box">
-          <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
-          <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
+        <div class="upload-section">
+          <div class="upload-label">관상 정보</div>
+          <div class="reassure-box">
+            <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
+            <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
+          </div>
+          <div class="upload-area" id="ggUploadA"
+               onclick="document.getElementById('ggFileA').click()"
+               ondrop="handleDrop('gunghamA', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+            <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
+            <strong>사진을 클릭하거나 드래그하여 업로드</strong>
+          </div>
+          <div class="tip-box">
+            <span class="icon material-symbols-outlined">warning</span>
+            <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+          </div>
+          <input type="file" id="ggFileA" accept="image/*" style="display:none" onchange="handleFile('gunghamA', event)">
+          <div class="thumb-area" id="ggThumbA" style="margin-top:12px;">
+            <img id="ggImgA" class="thumb-img" src="" alt="">
+            <div class="thumb-info"><div class="thumb-name">나</div></div>
+            <button class="reupload-btn" onclick="resetUpload('gunghamA')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
+          </div>
+          <input type="hidden" id="ggBirthA" value="">
         </div>
-        <div class="upload-area" id="ggUploadA"
-             onclick="document.getElementById('ggFileA').click()"
-             ondrop="handleDrop('gunghamA', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-          <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
-          <strong>사진을 클릭하거나 드래그하여 업로드</strong>
-        </div>
-        <div class="tip-box">
-          <span class="icon material-symbols-outlined">warning</span>
-          <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
-        </div>
-        <input type="file" id="ggFileA" accept="image/*" style="display:none" onchange="handleFile('gunghamA', event)">
-        <div class="thumb-area" id="ggThumbA" style="margin-top:12px;">
-          <img id="ggImgA" class="thumb-img" src="" alt="">
-          <div class="thumb-info"><div class="thumb-name">나</div></div>
-          <button class="reupload-btn" onclick="resetUpload('gunghamA')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
-        </div>
-        <input type="hidden" id="ggBirthA" value="">
       </div>
     </div>
 
-    <!-- Person B: 프로필 선택 -->
-    <div class="person-block">
-      <div class="person-label">상대방</div>
-      <button class="mini-profile-chip select-mode" id="ggProfileChipB" onclick="Profile.openPartnerPicker()">
-        <span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 상대방 프로필 선택</span>
+    <!-- Person B: 프로필 선택 — 최초 닫힘, A가 완료되면 자동으로 열린다 -->
+    <div class="person-block" id="ggBlockB">
+      <button type="button" class="person-acc-head" onclick="Profile.toggleGgAcc('B')">
+        <span class="person-label" id="ggLabelB">상대</span>
+        <span class="person-acc-icon material-symbols-outlined" id="ggAccIconB">add</span>
       </button>
+      <div class="person-acc-body" id="ggBodyB">
+        <button class="mini-profile-chip select-mode" id="ggProfileChipB" onclick="Profile.openPartnerPicker()">
+          <span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 상대방 프로필 선택</span>
+        </button>
 
-      <div class="upload-section">
-        <div class="upload-label">관상 정보</div>
-        <div class="reassure-box">
-          <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
-          <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
+        <div class="upload-section">
+          <div class="upload-label">관상 정보</div>
+          <div class="reassure-box">
+            <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
+            <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
+          </div>
+          <div class="upload-area" id="ggUploadB"
+               onclick="document.getElementById('ggFileB').click()"
+               ondrop="handleDrop('gunghamB', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+            <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
+            <strong>사진을 클릭하거나 드래그하여 업로드</strong>
+          </div>
+          <div class="tip-box">
+            <span class="icon material-symbols-outlined">warning</span>
+            <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+          </div>
+          <input type="file" id="ggFileB" accept="image/*" style="display:none" onchange="handleFile('gunghamB', event)">
+          <div class="thumb-area" id="ggThumbB" style="margin-top:12px;">
+            <img id="ggImgB" class="thumb-img" src="" alt="">
+            <div class="thumb-info"><div class="thumb-name">상대방</div></div>
+            <button class="reupload-btn" onclick="resetUpload('gunghamB')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
+          </div>
+          <input type="hidden" id="ggBirthB" value="">
         </div>
-        <div class="upload-area" id="ggUploadB"
-             onclick="document.getElementById('ggFileB').click()"
-             ondrop="handleDrop('gunghamB', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-          <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
-          <strong>사진을 클릭하거나 드래그하여 업로드</strong>
-        </div>
-        <div class="tip-box">
-          <span class="icon material-symbols-outlined">warning</span>
-          <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
-        </div>
-        <input type="file" id="ggFileB" accept="image/*" style="display:none" onchange="handleFile('gunghamB', event)">
-        <div class="thumb-area" id="ggThumbB" style="margin-top:12px;">
-          <img id="ggImgB" class="thumb-img" src="" alt="">
-          <div class="thumb-info"><div class="thumb-name">상대방</div></div>
-          <button class="reupload-btn" onclick="resetUpload('gunghamB')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
-        </div>
-        <input type="hidden" id="ggBirthB" value="">
       </div>
     </div>
 

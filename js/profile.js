@@ -285,29 +285,67 @@
   }
 
   function renderGunghamA(rep) {
+    const label = document.getElementById('ggLabelA');
+    if (label) label.textContent = rep ? rep.name : '나';
     const chip = document.getElementById('ggProfileChipA');
-    if (!chip) return;
-    if (!rep) { chip.innerHTML = `<span class="mini-profile-empty">헤더에서 프로필을 먼저 등록해주세요</span>`; return; }
+    if (!chip) { syncGgAccordion(); return; }
+    if (!rep) { chip.innerHTML = `<span class="mini-profile-empty">헤더에서 프로필을 먼저 등록해주세요</span>`; syncGgAccordion(); return; }
     chip.innerHTML = `
-      <span class="mini-profile-name">${esc(rep.name)}</span>
-      <span class="mini-profile-badge">${esc(rep.relationDetail || rep.relation)}</span>
-      <span class="mini-profile-sub">${esc(fmtYmd(...String(rep.solarDate||'').split('-')))} · ${esc(hourShort(rep.birthHour))}</span>`;
+      <span class="mini-profile-body">
+        <span class="mini-profile-top">
+          <span class="mini-profile-name">${esc(rep.name)}</span>
+          <span class="mini-profile-badge">${esc(rep.relationDetail || rep.relation)}</span>
+        </span>
+        <span class="mini-profile-sub">${esc(fmtYmd(...String(rep.solarDate||'').split('-')))} · ${esc(hourShort(rep.birthHour))}</span>
+      </span>`;
+    syncGgAccordion();
   }
 
   let gunghamPartnerId = null;
   function renderGunghamB(profile) {
+    const label = document.getElementById('ggLabelB');
+    if (label) label.textContent = profile ? profile.name : '상대';
     const chip = document.getElementById('ggProfileChipB');
-    if (!chip) return;
+    if (!chip) { syncGgAccordion(); return; }
     if (!profile) {
       chip.innerHTML = `<span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 상대방 프로필 선택</span>`;
       chip.classList.add('select-mode');
+      syncGgAccordion();
       return;
     }
     chip.classList.remove('select-mode');
     chip.innerHTML = `
-      <span class="mini-profile-name">${esc(profile.name)}</span>
-      <span class="mini-profile-badge">${esc(profile.relationDetail || profile.relation)}</span>
-      <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourShort(profile.birthHour))}</span>`;
+      <span class="mini-profile-body">
+        <span class="mini-profile-top">
+          <span class="mini-profile-name">${esc(profile.name)}</span>
+          <span class="mini-profile-badge">${esc(profile.relationDetail || profile.relation)}</span>
+        </span>
+        <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourShort(profile.birthHour))}</span>
+      </span>
+      <span class="mini-profile-chevron material-symbols-outlined">chevron_right</span>`;
+    syncGgAccordion();
+  }
+
+  // ── 궁합 탭 나/상대 아코디언 ──────────────────────────────────────────
+  // 클릭으로는 언제든 열고 닫을 수 있고(toggleGgAcc), "프로필 확정 + 사진 업로드"가 모두 끝나는
+  // 순간에만 자동으로 A를 접고 B를 연다. syncGgAccordion은 프로필·사진이 바뀔 때마다 불려서 완료
+  // 여부를 다시 계산하는데, 이미 완료된 상태에서 또 불려도(다른 이유로 재렌더될 때마다) 매번
+  // 접어버리면 "클릭해서 다시 열기"가 무의미해지므로, false→true로 "막 완료된" 순간에만 접고/연다.
+  const ggOpen = { A: true, B: false };
+  const ggWasComplete = { A: false, B: false };
+  function setGgAccOpen(who, open) {
+    ggOpen[who] = open;
+    const block = document.getElementById('ggBlock' + who);
+    const icon = document.getElementById('ggAccIcon' + who);
+    if (block) block.classList.toggle('is-open', open);
+    if (icon) icon.textContent = open ? 'remove' : 'add';
+  }
+  function toggleGgAcc(who) { setGgAccOpen(who, !ggOpen[who]); }
+  function syncGgAccordion() {
+    const completeA = !!(getRepresentative() && state.gunghamA && state.gunghamA.file);
+    if (completeA && !ggWasComplete.A) { setGgAccOpen('A', false); setGgAccOpen('B', true); }
+    ggWasComplete.A = completeA;
+    ggWasComplete.B = !!(gunghamPartnerId && state.gunghamB && state.gunghamB.file);
   }
 
   // ── 오버레이(팝업/바텀시트) 루트 ──────────────────────────────────────
@@ -358,8 +396,17 @@
   }
 
   function pickRow(id, forPartner) {
-    const onPick = switcherOpts.onPick; // finishSwitcher가 switcherOpts를 비우므로 먼저 잡아둔다
+    const opts = switcherOpts; // finishSwitcher가 switcherOpts를 비우므로, 재오픈에 쓸 옵션도 먼저 잡아둔다
+    const onPick = opts.onPick;
     if (forPartner) {
+      // 상대방으로 나(대표 프로필)와 같은 프로필을 고르면 궁합 자체가 성립하지 않으니 막고,
+      // 같은 옵션으로 시트를 다시 띄워 재선택하게 한다.
+      const rep = getRepresentative();
+      if (rep && rep.id === id) {
+        alert('상대방은 나와 다른 프로필을 선택해주세요.');
+        openSwitcher(opts);
+        return;
+      }
       gunghamPartnerId = id;
       const p = getProfile(id);
       applyToGunghamB(p);
@@ -830,6 +877,7 @@
     _closeSpend: closeSpendDialog, _changeSpendProfile: changeSpendProfile,
     runSaju, runCombined: runCombinedWrapped, runGungham: runGunghamWrapped,
     openPartnerPicker: () => openSwitcher({ forPartner: true }),
+    toggleGgAcc, syncGgAccordion,
     _pickRow: pickRow, _editRow: editRow, _openAdd: openAdd,
     _draftSet: draftSet, _setRelation: setRelation, _setCalendarType: setCalendarType, _setGender: setGender,
     _save: saveDraft, _openCalendar: openCalendar, _closeSub: closeSub,
