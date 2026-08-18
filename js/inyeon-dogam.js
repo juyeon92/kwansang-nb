@@ -749,14 +749,21 @@
     // 초대받은 사람에게는 "내 관상 캐릭터 뽑기" 버튼을 띄우지 않는다 — 이 버튼 하나로 분석까지 끝낸다.
     // 아래 render 과정에서 폼이 다시 그려지므로, 입력값은 이 시점에 이미 name에 담아뒀다.
     let charId = myCharacterId();
-    if (!charId) {
-      const hasPhoto = (typeof state !== 'undefined' && state.gwansang && state.gwansang.file);
-      if (!hasPhoto) { alert('먼저 사진을 올려주세요.'); return; }
+    const hasPhoto = (typeof state !== 'undefined' && state.gwansang && state.gwansang.file);
+    // ⚠️ 버그 리포트(2026-08-18): 이 브라우저로 이미 한 번 등록해본 적이 있으면(캐릭터가 캐시돼 있으면)
+    // 새 사진을 올려도 무시하고 예전 캐릭터로 그대로 등록됐다 — "다른 사진으로 다시 찍을 수 있어야
+    // 한다"는 업로드 UI의 의도(showGuestView 주석)와 어긋난다. 새 사진이 올라와 있으면 캐릭터가
+    // 이미 있어도 그 사진으로 다시 분석해서 inyeonLastCharacter를 갱신한다 — 사진 없이 등록 버튼만
+    // 다시 누른 경우에만(hasPhoto=false) 기존 캐릭터를 그대로 쓴다.
+    if (hasPhoto) {
       if (typeof startAnalysis !== 'function') { alert('분석 기능을 불러오지 못했어요. 새로고침 후 다시 시도해주세요.'); return; }
-      console.log('[dogam] 관상 분석부터 실행');
+      console.log('[dogam] 새 사진으로 관상 분석 실행');
       await startAnalysis('gwansang');
       charId = myCharacterId();
       if (!charId) return; // 얼굴 인식 실패 — startAnalysis가 이미 사유를 화면에 표시한다
+    } else if (!charId) {
+      alert('먼저 사진을 올려주세요.');
+      return;
     }
 
     const score = compatScore(guestDogam.ownerCharacterId, charId);
