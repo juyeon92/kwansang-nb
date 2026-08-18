@@ -732,6 +732,10 @@
 
     const myChar = myCharacterId();
     const myName2 = myChar && CHARACTER_DB[myChar] ? CHARACTER_DB[myChar].name : '';
+    // 로그인 상태면 카카오 닉네임을 기본값으로 채워둔다(사용자 요청 2026-08-18) — 매번 직접 타이핑
+    // 안 해도 되고, 원치 않으면 그대로 지우고 다른 별명으로 바꿀 수 있다.
+    const rep = window.Profile ? Profile.getRepresentative() : null;
+    const prefillName = (rep && rep.name) || '';
 
     el.innerHTML = '' +
       '<div class="dogam-block">' +
@@ -748,7 +752,7 @@
           : '<p class="dogam-guide">사진을 올리고 등록하면 관상 분석까지 한번에 진행돼요.</p>') +
         '<div id="dogamUploadSlot"></div>' +
         '<label class="field-label" style="display:block;margin:16px 0 8px;">이름 또는 별명</label>' +
-        '<input type="text" class="field-input" id="dogamGuestName" maxlength="12" placeholder="이름 또는 별명">' +
+        '<input type="text" class="field-input" id="dogamGuestName" maxlength="12" placeholder="이름 또는 별명" value="' + esc(prefillName) + '">' +
         '<p class="dogam-notice">' +
           '개인정보 보호를 위해 <b>실명 대신 별명</b>을 권해요. 입력한 이름은 이 도감에 표시되고, ' +
           '도감을 여는 다른 사람에게도 보여요. 전화번호·주소 등 다른 개인정보는 입력하지 마세요.<br>' +
