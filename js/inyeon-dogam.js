@@ -115,6 +115,35 @@
   let myDogam = null;      // { slug, ownerName, ownerCharacterId, entries: [] }
   let guestDogam = null;   // 공유 링크로 들어왔을 때 보고 있는 남의 도감
 
+  // ── 실시간 갱신 ──────────────────────────────────────────────────────
+  // 친구가 다른 기기/브라우저에서 등록해도(사용자 요청 2026-08-18) 지금 열어둔 화면이 새로고침 없이
+  // 갱신되도록, 내 도감의 entries를 구독해둔다. slug가 안 바뀌면 재구독하지 않는다 — render()는
+  // 로그인 상태 변화·탭 전환 등으로 자주 다시 불리는데, 매번 새로 구독하면 리스너가 계속 쌓인다.
+  let watchedSlug = null;
+  let entriesUnsub = null;
+  function stopWatchingEntries() {
+    if (entriesUnsub) { entriesUnsub(); entriesUnsub = null; }
+    watchedSlug = null;
+  }
+  function watchEntries(slug) {
+    if (!window.fbDb || !slug || watchedSlug === slug) return;
+    stopWatchingEntries();
+    watchedSlug = slug;
+    entriesUnsub = fbDb.collection('dogam').doc(slug).collection('entries')
+      .onSnapshot(function (snap) {
+        if (!myDogam || myDogam.slug !== slug) return; // 그 사이 도감이 바뀌었거나 사라짐 — 무시
+        const entries = [];
+        snap.forEach(function (d) { entries.push(d.data()); });
+        entries.sort(function (a, b) { return (b.score || 0) - (a.score || 0); }); // 점수 높은 순
+        myDogam.entries = entries;
+        const el = host();
+        if (el) el.innerHTML = renderOwnerView(myDogam);
+        syncLiveBlocks();
+      }, function (e) {
+        console.error('[dogam] 실시간 구독 실패', e);
+      });
+  }
+
   function myCharacterId() {
     const saved = (typeof state !== 'undefined' && state.gwansang && state.gwansang.characterResult) || null;
     if (saved && saved.characterId) return saved.characterId;
@@ -371,6 +400,7 @@
     }
     el.innerHTML = renderOwnerView(myDogam);
     syncLiveBlocks(); // 보관함에서 열어둔 도감 영역도 같은 내용으로 맞춘다(등록·삭제 직후 등)
+    if (myDogam && myDogam.slug) watchEntries(myDogam.slug); else stopWatchingEntries();
   }
 
   // 보관함 리포트에 덧붙여둔 도감 영역들 — 메인 화면이 다시 그려질 때 함께 갱신한다.
