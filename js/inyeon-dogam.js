@@ -218,14 +218,41 @@
     // 캐시가 없거나 다른 uid의 것이었다면, 계정 문서의 역인덱스로 "진짜 내 도감"을 확인한다.
     const u = await fbDb.collection('users').doc(uid).get();
     const slug = (u.exists && u.data().dogamSlug) || null;
-    if (!slug) return null;
-    const found = await loadDogam(slug);
-    if (found && found.ownerUid === uid) {
-      localStorage.setItem(SLUG_KEY, slug);
-      touchDogam(slug, uid);
-      return found;
+    if (slug) {
+      const found = await loadDogam(slug);
+      if (found && found.ownerUid === uid) {
+        localStorage.setItem(SLUG_KEY, slug);
+        touchDogam(slug, uid);
+        return found;
+      }
     }
-    return null;
+    // ⚠️ 사고 리포트(2026-08-18): users/{uid}.dogamSlug 참조가 (버그로) 다른 값으로 덮어써지거나
+    // 아예 없어도, 이 uid가 실제 소유한 도감 문서 자체는 Firestore에 그대로 남아있을 수 있다.
+    // 여기서 포기하고 호출부가 createMyDogam()으로 새 빈 도감을 만들게 하면, 원래 도감(과 친구
+    // 기록)이 참조를 잃고 미아가 된다 — 실제로 같은 계정 밑에 도감이 11개까지 쌓인 사고가 있었다.
+    // 마지막으로 ownerUid로 직접 검색해서 있으면 그걸 되살리고, 끊어진 참조를 다시 이어준다.
+    return await recoverDogamByOwner(uid);
+  }
+
+  async function recoverDogamByOwner(uid) {
+    try {
+      const snap = await fbDb.collection('dogam').where('ownerUid', '==', uid).limit(1).get();
+      if (snap.empty) return null;
+      const doc = snap.docs[0];
+      const data = doc.data();
+      const recovered = { slug: doc.id, ownerUid: data.ownerUid, ownerName: data.ownerName, ownerCharacterId: data.ownerCharacterId, entries: [] };
+      const entriesSnap = await fbDb.collection('dogam').doc(doc.id).collection('entries').get();
+      entriesSnap.forEach(function (d) { recovered.entries.push(d.data()); });
+      recovered.entries.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
+      console.warn('[dogam] 끊어진 참조를 도감 직접 검색으로 복구', { uid: uid, slug: doc.id, entries: recovered.entries.length });
+      await fbDb.collection('users').doc(uid).set({ dogamSlug: doc.id }, { merge: true });
+      localStorage.setItem(SLUG_KEY, doc.id);
+      touchDogam(doc.id, uid);
+      return recovered;
+    } catch (e) {
+      console.error('[dogam] 소유자 기준 도감 복구 실패', e);
+      return null;
+    }
   }
 
   // nameOverride: 친구 도감에 등록하며 방금 입력한 이름 — 그 이름으로 내 도감도 만들어야 표기가 어긋나지 않는다.
