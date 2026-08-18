@@ -163,17 +163,24 @@
   //      그대로 던져서, 호출부가 "확인 못 함"과 "확인했는데 없음"을 구분할 수 있게 한다.
   async function ensureMyDogam() {
     const uid = currentUid();
-    if (!uid || !window.fbDb) return null;
+    if (!window.fbDb) return null;
 
-    // 캐시된 slug가 있으면 먼저 시도해보되, 지금 uid의 도감이 아니면 버리고 아래에서 다시 찾는다.
+    // 캐시된 slug가 있으면 먼저 시도한다. dogam 문서는 read:true(공개 읽기)라 uid 없이도(비로그인)
+    // 조회 자체는 늘 가능하다 — 인연도감은 원칙적으로 "이 기기" 기준(비로그인 기준)이라, 로그인
+    // 안 한 상태에서는 소유자 uid를 대조할 대상이 없으니 이 기기가 마지막으로 다룬 도감을 그대로
+    // 믿고 보여준다(사용자 요청 2026-08-18: 로그아웃하면 등록된 리스트가 사라짐 — 그러면 안 된다).
+    // 로그인 상태에서는 여전히 소유자가 지금 uid와 맞는지 확인한다(다른 계정/익명 도감을 내 것처럼
+    // 보여주지 않기 위해).
     const cachedSlug = localStorage.getItem(SLUG_KEY);
     if (cachedSlug) {
       const cachedFound = await loadDogam(cachedSlug);
-      if (cachedFound && cachedFound.ownerUid === uid) {
-        touchDogam(cachedSlug, uid);
+      if (cachedFound && (!uid || cachedFound.ownerUid === uid)) {
+        if (uid) touchDogam(cachedSlug, uid);
         return cachedFound;
       }
     }
+
+    if (!uid) return null; // 비로그인이고 이 기기에 도감 흔적도 없으면 정말 없는 상태
 
     // 캐시가 없거나 다른 uid의 것이었다면, 계정 문서의 역인덱스로 "진짜 내 도감"을 확인한다.
     const u = await fbDb.collection('users').doc(uid).get();
@@ -205,6 +212,51 @@
     localStorage.setItem(SLUG_KEY, slug);
     console.log('[dogam] 내 도감 생성', { slug: slug, ownerName: ownerName, character: charId });
     return { slug: slug, ownerUid: uid, ownerName: ownerName, ownerCharacterId: charId, entries: [] };
+  }
+
+  // ⚠️ 사용자 요청(2026-08-18): "인연도감은 비로그인(이 기기) 기준이고, 로그인하면 그 데이터를
+  // 계정으로 이관해야 한다." 지금까지 이 기기에서 비로그인(또는 다른 계정)으로 쌓아온 도감이
+  // 있는데 방금 실제 계정으로 로그인했다면, 그 도감에 등록된 참여 기록(entries)을 계정의 진짜
+  // 도감으로 복사해온다.
+  //
+  // ownerUid 자체는 바꾸지 않는다 — Firestore 규칙상 도감 문서는 "지금 그 도감의 주인으로 인증된
+  // 사람만" ownerUid를 바꿀 수 있는데, 익명 세션에서 실계정으로 전환되는 순간 이미 그 익명 uid로는
+  // 인증할 수 없어서(로그인은 한 번에 한 신원) 애초에 불가능하다. 대신 계정이 소유한 "진짜" 도감
+  // 쪽에 참여 기록만 복사해 넣는다 — 그건 계정이 자기 도감의 주인이라 항상 허용된다.
+  // 원본(로컬 도감)은 그대로 둔다 — 이미 공유된 링크일 수 있어 삭제하면 그 링크로 들어온 사람들이
+  // 보던 화면이 깨진다.
+  async function migrateLocalOnLogin() {
+    const uid = currentUid();
+    if (!uid || isAnonymousUser() || !window.fbDb) return;
+    const localSlug = localStorage.getItem(SLUG_KEY);
+    if (!localSlug) return;
+    const local = await loadDogam(localSlug).catch(function (e) {
+      console.error('[dogam] 이관 대상 조회 실패', e);
+      return null;
+    });
+    if (!local || local.ownerUid === uid) return; // 이미 내 것이면 이관할 게 없다
+
+    let mine = await ensureMyDogam().catch(function () { return null; });
+    if (!mine) {
+      // 계정에 아직 도감이 없으면 이 기기의 캐릭터/이름으로 새로 만든다 — 등록만 해뒀지 계정을
+      // 안 만든 상태였다는 뜻이라, 이 기기의 도감을 그대로 계정의 도감으로 승격시키는 셈이다.
+      mine = await createMyDogam(local.ownerName).catch(function (e) {
+        console.error('[dogam] 이관용 내 도감 생성 실패', e);
+        return null;
+      });
+    }
+    if (!mine || mine.slug === local.slug) return;
+
+    let migrated = 0;
+    for (const entry of (local.entries || [])) {
+      try {
+        await fbDb.collection('dogam').doc(mine.slug).collection('entries').doc(entry.uid).set(entry, { merge: true });
+        migrated++;
+      } catch (e) { console.error('[dogam] 참여 기록 이관 실패', entry.uid, e); }
+    }
+    if (migrated) console.log('[dogam] 로컬 도감 참여 기록 이관 완료', { from: local.slug, to: mine.slug, count: migrated });
+    localStorage.setItem(SLUG_KEY, mine.slug);
+    myDogam = null; // 다음 render()가 이관된 결과를 새로 읽도록 캐시를 비운다
   }
 
   // ── 화면 ─────────────────────────────────────────────────────────────
@@ -290,6 +342,23 @@
     }
     if (stale()) return;
     myDogam = mine;
+    // ⚠️ 사용자 리포트(2026-08-18): 보관함(Archive, 클라우드 동기화)엔 인연도감 리포트가 있는데
+    // 인연도감 탭엔 없어 보임 — myCharacterId()는 이 기기의 localStorage(inyeonLastCharacter)만
+    // 보기 때문에, 다른 기기에서 만든 도감을 이 기기(로그인은 같은 계정)에서 열면 "처음 온 사람"처럼
+    // 사진 업로드부터 다시 시켰다. 클라우드 도감(dogam.ownerCharacterId)이 이미 있으면 그 캐릭터로
+    // "다시 보기" 카드(renderGwansangRevisitCard, ai-analysis.js)를 이 기기에도 채워서 두 화면이
+    // 어긋나지 않게 한다 — 계산 로직은 그대로, 저장된 결과를 복원만 하는 것이라 재분석은 안 일어난다.
+    if (myDogam && myDogam.ownerCharacterId && !myCharacterId()) {
+      try {
+        localStorage.setItem('inyeonLastCharacter', JSON.stringify({
+          characterId: myDogam.ownerCharacterId,
+          characterName: (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[myDogam.ownerCharacterId])
+            ? CHARACTER_DB[myDogam.ownerCharacterId].name : null,
+          ts: Date.now(),
+        }));
+      } catch (e) { /* 프라이빗 브라우징 등 localStorage 불가 — 조용히 스킵 */ }
+      if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
+    }
     // 공유 버튼을 누른 뒤에 도감을 만들면 그 통신 때문에 클립보드 복사가 막힌다 —
     // 화면을 그리는 이 시점에 미리 만들어 두고, 버튼은 복사만 하도록 한다.
     // (여기 도달했다는 건 ensureMyDogam이 "확인했는데 정말 없음"을 리턴한 경우뿐이다.)
@@ -428,8 +497,10 @@
       if (!confirm('이 기기에 남아 있는 도감 기록을 지울까요?')) return;
       forgetLocalDogam();
       myDogam = null;
-      await render();
-      toast('도감 기록을 지웠어요');
+      // 인연도감에서 지웠으면 보관함의 "인연도감" 리포트도 같이 없어져야 한다(사용자 요청
+      // 2026-08-18) — Archive.remove(id)와 달리 확인창 없이 조용히 지우는 캐스케이드용 함수다.
+      if (window.Archive && Archive.removeReportsByType) Archive.removeReportsByType('gwansang');
+      location.reload(); // 부분 재렌더 대신 새로고침으로 확실하게 반영(사용자 요청 2026-08-18)
       return;
     }
     if (!confirm('내 인연도감을 삭제할까요?\n등록된 인연 ' + (mine.entries || []).length + '명도 함께 사라지고, 되돌릴 수 없어요.')) return;
@@ -451,8 +522,9 @@
       forgetLocalDogam();
       myDogam = null;
       console.log('[dogam] 도감 삭제 완료', { slug: mine.slug, entries: snap.size });
-      await render();
-      toast('인연도감을 삭제했어요');
+      // 인연도감 삭제 → 보관함의 "인연도감" 리포트도 함께 삭제(사용자 요청 2026-08-18).
+      if (window.Archive && Archive.removeReportsByType) Archive.removeReportsByType('gwansang');
+      location.reload(); // 부분 재렌더 대신 새로고침으로 확실하게 반영(사용자 요청 2026-08-18)
     } catch (e) {
       console.error('[dogam] 도감 삭제 실패', e);
       alert('삭제 중 오류가 발생했어요.\n' + ((e && e.message) || e));
@@ -574,6 +646,7 @@
         // 사진 업로드는 렌더 이후에 일어나므로 disabled로 막지 않는다 — 누른 시점에 검사해 안내한다.
         '<button class="submit-btn" onclick="Dogam.registerEntry()">도감에 인연 등록하기</button>' +
       '</div>' +
+      guestEntriesBlock(dogam) +
       policyBlock();
 
     // 초대한 사람의 캐릭터는 일러스트 카드 + "이런 점이 강해요"까지만 보여준다.
@@ -587,6 +660,26 @@
     // 업로드 영역만 카드 밖에 떨어져 있으면 흐름이 끊긴다).
     const slot = document.getElementById('dogamUploadSlot');
     if (slot) captureUploadNodes().forEach(function (n) { slot.appendChild(n); });
+  }
+
+  // 등록 폼 바로 아래에 "이 도감에 이미 몇 명이 등록했는지"를 보여준다(사용자 요청 2026-08-18:
+  // 재미를 위해 등록 전에도 다른 사람들이 얼마나 등록·매칭했는지 보여달라). entries는 public read라
+  // 오너 화면(renderOwnerView)과 똑같은 데이터·같은 entryRow 렌더러를 그대로 재사용한다 — 등록하기
+  // 전인 손님에게도 "내 사람"/점수까지 그대로 보인다는 뜻이라, 새로운 정보 노출은 아니다.
+  function guestEntriesBlock(dogam) {
+    const entries = dogam.entries || [];
+    const count = entries.length;
+    const list = count
+      ? entries.map(function (e) { return entryRow(e); }).join('')
+      : '<p class="dogam-empty">아직 등록된 인연이 없어요. 첫 번째로 등록해보세요!</p>';
+    return '' +
+      '<div class="dogam-block">' +
+        '<div class="dogam-head">' +
+          '<span class="dogam-title">인연 도감</span>' +
+          '<span class="dogam-count">' + count + '명</span>' +
+        '</div>' +
+        '<div class="dogam-list">' + list + '</div>' +
+      '</div>';
   }
 
   // ── 동작 ─────────────────────────────────────────────────────────────
@@ -766,6 +859,7 @@
   window.Dogam = {
     render: render, renderInto: renderIntoEl, share: share, registerEntry: registerEntry,
     loginAndKeep: loginAndKeep, goCombined: goCombined, deleteMyDogam: deleteMyDogam,
+    migrateLocalOnLogin: migrateLocalOnLogin,
     _score: compatScore, _policy: DOGAM_POLICY,
   };
 })();

@@ -42,6 +42,12 @@
         const email = localStorage.getItem(EMAIL_KEY_PREFIX + user.uid) || '';
         currentUser = { uid: user.uid, nickname: nickname, account: account, email: email };
         renderLoggedIn(currentUser);
+        // 실계정 로그인 확정 시점 — 이 기기가 비로그인(또는 익명)으로 쌓아둔 인연도감 참여 기록을
+        // 계정의 진짜 도감으로 옮긴다. 위에서 이미 한 번 Dogam.render()가 돌았지만 그건 이관 전
+        // 상태라, 이관이 끝난 뒤 다시 그려야 화면에 반영된다.
+        if (window.Dogam && Dogam.migrateLocalOnLogin) {
+          Dogam.migrateLocalOnLogin().then(function () { if (window.Dogam) Dogam.render(); });
+        }
         Profile.loadFromCloud();
         if (window.Archive) Archive.loadFromCloud();
         resolveAccountInfo(user.uid);

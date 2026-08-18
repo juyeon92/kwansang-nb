@@ -267,14 +267,26 @@
     }
 
     if (viewingId === id) viewingId = null;
-    renderPage();
-    notifyChanged(); // 마지막 통합분석 기록을 지우면 첫 화면도 사진 등록 단계로 되돌아가야 한다
-    // 삭제 결과를 화면 전체에 반영한다 — 보관함만 다시 그리면 인연도감 섹션은 지운 상태가 그대로
-    // 남아 있어 "삭제가 안 됐다"로 보인다. Dogam.render()는 클라우드에서 다시 읽어오므로
-    // 도감을 지우지 않은 경우(사용자가 확인창에서 취소)에도 최신 상태로 맞춰진다.
-    if (window.Dogam && Dogam.render) {
-      try { await Dogam.render(); } catch (e) { console.error('[archive] 인연도감 갱신 실패', e); }
-    }
+    // 삭제 후 화면 곳곳(보관함 목록·인연도감 섹션·재방문 카드 등)을 부분적으로 다시 그리는 대신
+    // 새로고침 한 번으로 확실하게 맞춘다(사용자 요청 2026-08-18) — 이 세션에서 render 순서·캐시
+    // 어긋남으로 여러 번 "삭제했는데 화면엔 남아있다"가 났던 걸 반복하지 않기 위함.
+    location.reload();
+  }
+
+  // 인연도감 쪽(Dogam.deleteMyDogam)에서 도감을 지웠을 때 보관함의 해당 리포트도 함께 정리하기 위한
+  // 조용한 캐스케이드용 함수 — remove(id)와 달리 확인창을 띄우지 않는다. 호출부(Dogam)가 이미
+  // "인연도감을 삭제할까요?" 확인을 한 번 받은 뒤에 부르는 것이라, 여기서 또 물으면 두 번 확인받는다.
+  function removeReportsByType(type) {
+    const uid = currentUid();
+    if (!uid) return;
+    const list = loadIndex();
+    const toRemove = list.filter(r => r.type === type);
+    if (!toRemove.length) return;
+    toRemove.forEach(r => removeReportHtml(uid, r.id));
+    const left = list.filter(r => r.type !== type);
+    saveIndex(left);
+    if (viewingId && toRemove.some(r => r.id === viewingId)) viewingId = null;
+    console.log('[archive] 캐스케이드 삭제(type)', { type: type, count: toRemove.length });
   }
 
   // 로그아웃 시 화면만 정리한다. 저장소는 계정(uid)별로 나뉘어 있어 로그아웃 상태에서는 어차피
@@ -459,7 +471,7 @@
   window.Archive = {
     openPage: openPage, closePage: closePage,
     latestOf: latestOf, listOf: listOf, renderInto: renderInto,
-    save: save, remove: remove, debug: debug,
+    save: save, remove: remove, removeReportsByType: removeReportsByType, debug: debug,
     toggle: toggle, toggleSort: toggleSort,
     openReport: openReport, backToList: backToList,
     loadFromCloud: loadFromCloud, clearLocal: clearLocal,
