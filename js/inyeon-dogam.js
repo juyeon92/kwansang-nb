@@ -167,6 +167,10 @@
     const uid = currentUid();
     return uid ? '익명' + uid.slice(-4) : '나';
   }
+  // myName()이 실제 이름 대신 내놓은 안전망 값인지 — 공유하기 시점에 이 상태면 진짜 닉네임을 물어본다.
+  function isPlaceholderName(name) {
+    return !name || name === '나' || /^익명/.test(name);
+  }
   // 닉네임을 취소 없이 받을 때까지 반복한다 — 빈 값으로 도감을 만들면 결국 같은 문제(전부 "나")로
   // 되돌아간다. 사용자가 취소를 누르면 null을 돌려주고, 부른 곳에서 공유 자체를 중단한다.
   function promptForNickname() {
@@ -895,6 +899,18 @@
     // slug를 이미 알고 있으면 어떤 await보다 먼저 복사한다 — await를 한 번이라도 거치면
     // 브라우저의 "사용자 조작 중" 판정이 풀려 클립보드 쓰기가 거부된다(복사가 조용히 실패).
     if (myDogam && myDogam.slug) {
+      // ⚠️ 사용자 요청(2026-08-18): render()가 미리 만들어둔 도감은 실제 닉네임이 아니라 안전망
+      // 이름("나"/"익명xxxx")일 수 있다 — 공유받는 사람 입장에서는 "나"든 "익명xxxx"든 똑같이
+      // 누군지 알 수 없다. prompt()는 동기(화면이 멈춘 채 기다리는) 방식이라 await와 달리 "방금
+      // 클릭했다" 판정을 깨지 않으므로, 복사 직전에 여기서 물어봐도 클립보드 복사가 안전하다.
+      if (isPlaceholderName(myDogam.ownerName)) {
+        const nickname = promptForNickname();
+        if (nickname) {
+          myDogam.ownerName = nickname;
+          fbDb.collection('dogam').doc(myDogam.slug).set({ ownerName: nickname }, { merge: true })
+            .catch(function (e) { console.error('[dogam] 이름 갱신 실패', e); });
+        }
+      }
       const ready = shareUrl(myDogam.slug);
       if (await copyText(ready)) { toast('초대 링크를 복사했어요'); console.log('[dogam] 공유 링크', ready); return; }
       prompt('아래 링크를 복사해서 친구에게 보내주세요.', ready);
@@ -904,14 +920,24 @@
     try {
       await ensureAuthUid(); // 비로그인이어도 공유는 된다(익명 신원 발급)
       let mine = myDogam || await ensureMyDogam();
-      if (!mine) {
-        // ⚠️ 사용자 요청(2026-08-18): 프로필 이름이 없는 상태(비로그인 등)에서 공유하기로 도감을
-        // 처음 만들면 닉네임 입력 과정이 없어 다 "나"로 저장돼, 서로 다른 사람이 남의 도감에서
-        // 똑같은 이름으로 뭉개져 보였다. 여기서 먼저 닉네임을 받아서 만든다.
+      // ⚠️ 사용자 요청(2026-08-18): 프로필 이름이 없는 상태(비로그인 등)에서 도감이 새로 만들어지거나
+      // (안전망 이름 "나"/"익명xxxx"로) 이미 그렇게 만들어져 있으면, 공유하는 이 시점에 진짜
+      // 닉네임을 물어서 채운다 — 공유받는 사람 입장에서는 안전망 이름도 "나"와 마찬가지로 누군지
+      // 알 수 없다.
+      if (!mine || isPlaceholderName(mine.ownerName)) {
         const rep = window.Profile ? Profile.getRepresentative() : null;
         const nickname = (rep && rep.name) || promptForNickname();
-        if (!nickname) { hideToast(); return; } // 닉네임 입력을 취소함
-        mine = await createMyDogam(nickname);
+        if (nickname) {
+          if (mine) {
+            mine.ownerName = nickname;
+            fbDb.collection('dogam').doc(mine.slug).set({ ownerName: nickname }, { merge: true })
+              .catch(function (e) { console.error('[dogam] 이름 갱신 실패', e); });
+          } else {
+            mine = await createMyDogam(nickname);
+          }
+        } else if (!mine) {
+          hideToast(); return; // 도감이 아예 없는데 닉네임 입력도 취소함 — 공유 중단
+        } // 이미 있는 도감인데 이름만 취소했으면 안전망 이름 그대로 공유는 계속한다.
       }
       if (!mine) { toast('먼저 관상 분석을 완료해주세요'); return; }
       myDogam = mine;
