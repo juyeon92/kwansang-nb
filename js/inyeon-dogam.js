@@ -349,7 +349,13 @@
       enteredViaShare = true;
       guestDogam = await loadDogam(sharedSlug).catch(function (e) { console.error('[dogam] 공유 도감 조회 실패', e); return null; });
       if (stale()) return;
-      if (guestDogam && guestDogam.ownerUid !== currentUid()) {
+      // ⚠️ 사용자 리포트(2026-08-18): 익명 인증 세션이 새로고침 사이에 유지되지 않으면(브라우저
+      // 저장소 정책 등으로 실제로 벌어짐), 내가 만든 내 공유 링크를 다시 열어도 uid가 달라져 있어
+      // "낯선 사람"으로 오판되고 친구 등록 폼이 떴다. 이 기기가 마지막으로 다루던 도감 주소(SLUG_KEY)와
+      // 지금 연 링크가 같으면 uid 일치 여부와 무관하게 오너로 취급한다 — ensureMyDogam()이 이미 쓰는
+      // "이 기기 캐시를 믿는다" 원칙과 동일하다.
+      const isMyOwnLink = sharedSlug === localStorage.getItem(SLUG_KEY);
+      if (guestDogam && !isMyOwnLink && guestDogam.ownerUid !== currentUid()) {
         const already = guestDogam.entries.some(function (x) { return x.uid === currentUid(); });
         if (!already) { showGuestView(guestDogam); el.innerHTML = ''; return; }
         // ⚠️ 사용자 요청(2026-08-18): 이미 이 도감에 등록한 뒤 같은 링크로 재방문하면, 등록 폼을
