@@ -102,13 +102,17 @@
     }
     return Math.max(5, Math.min(99, score));
   }
-  function relationLabel(idA, idB) {
-    const rel = (typeof COMPATIBILITY_DB !== 'undefined' && COMPATIBILITY_DB[idA]) || null;
-    if (!rel) return '';
-    if ((rel.good || []).indexOf(idB) >= 0) return '귀인';
-    if ((rel.spark || []).indexOf(idB) >= 0) return '단짝';
-    if ((rel.clash || []).indexOf(idB) >= 0) return '호랑이 선생';
-    return '내 사람';
+  // ⚠️ 사용자 리포트(2026-08-18): 예전엔 캐릭터별로 미리 정해둔 "특별 5명"(good 2·spark 1·
+  // clash 2)에 들었는지만 보고 나머지 10명은 점수(5~99)와 무관하게 전부 "내 사람"으로 뭉뚱그렸다
+  // — 그래서 69점·69점·28점이 나란히 다 "내 사람"으로 보이는 문제가 있었다. compatScore()가 이미
+  // good/spark/clash 보정(+18/+8/-15)을 점수에 반영해두므로, 레이블도 그 최종 점수 하나로만
+  // 4단계로 나눈다(사용자 지정 구간).
+  function relationLabel(score) {
+    if (score == null) return '';
+    if (score >= 80) return '귀인';
+    if (score >= 60) return '단짝';
+    if (score >= 40) return '내 사람';
+    return '호랑이 선생';
   }
 
   // ── 저장소 ───────────────────────────────────────────────────────────
@@ -772,7 +776,7 @@
       // ① 친구 도감에 나를 등록 — 문서 id를 내 uid로 둬서 중복 등록을 막고 본인 삭제 권한을 명확히 한다.
       await fbDb.collection('dogam').doc(inviter.slug).collection('entries').doc(uid).set({
         uid: uid, name: name, characterId: charId, score: score,
-        relation: relationLabel(inviter.ownerCharacterId, charId),
+        relation: relationLabel(score),
         createdAt: new Date().toISOString(),
       });
       console.log('[dogam] 상대 도감에 등록 완료', { slug: inviter.slug, entry: uid, score: score });
@@ -785,9 +789,10 @@
 
       // ③ 인연은 양쪽에 함께 등록된다 — 방금 초대해준 사람도 내 도감에 올린다.
       const myScore = compatScore(charId, inviter.ownerCharacterId);
+      const myRelation = relationLabel(myScore);
       await fbDb.collection('dogam').doc(mine.slug).collection('entries').doc(inviter.ownerUid).set({
         uid: inviter.ownerUid, name: inviter.ownerName, characterId: inviter.ownerCharacterId,
-        score: myScore, relation: relationLabel(charId, inviter.ownerCharacterId),
+        score: myScore, relation: myRelation,
         createdAt: new Date().toISOString(),
       });
       console.log('[dogam] 내 도감에 상대 등록 완료', { slug: mine.slug, entry: inviter.ownerUid, score: myScore });
@@ -796,7 +801,7 @@
       localStorage.setItem(MATCH_KEY, JSON.stringify({
         uid: inviter.ownerUid, name: inviter.ownerName,
         characterId: inviter.ownerCharacterId, score: myScore,
-        relation: relationLabel(charId, inviter.ownerCharacterId),
+        relation: myRelation,
       }));
       myDogam = null; // 다음 render에서 방금 쓴 항목까지 포함해 다시 읽도록 캐시를 비운다
       // ④ 등록이 끝나면 "공유받은 사람"이 아니라 "내 도감 주인" 화면으로 전환한다.

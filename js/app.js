@@ -43,6 +43,21 @@ function switchTab(tab, btn) {
   // 그려지지 않아 "캐릭터를 뽑고 인연도감으로 돌아왔는데 새로 만든 도감이 안 보이고 새로고침해야
   // 뜨는" 상태가 됐다(사용자 리포트 2026-08-17). 들어올 때마다 최신 상태로 다시 그린다.
   if (tab === 'gwansang' && window.Dogam) Dogam.render();
+  // 비로그인 사용자가 이미 만든 도감(캐릭터)이 있으면, 요약 카드+업로드 폼만 보여주고 클릭해야
+  // 상세를 보여주는 대신 상세 리포트를 바로 펼쳐서 보여준다(사용자 요청 2026-08-18) — 로그인
+  // 사용자는 인연도감 카드로 바로 이어지는 다른 흐름이라 대상이 아니다.
+  // 공유 링크(?dogam=)로 들어온 경우엔 초대 화면(내 인연 등록하기)이 우선이라 여기서 내 옛 리포트를
+  // 덮어 보여주면 안 된다 — restoreGwansangReport()와 같은 가드.
+  if (tab === 'gwansang' && !new URLSearchParams(location.search).get('dogam')) {
+    const loggedIn = !!(window.fbAuth && fbAuth.currentUser && !fbAuth.currentUser.isAnonymous);
+    if (!loggedIn) {
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem('inyeonLastCharacter') || 'null'); } catch (e) {}
+      if (saved && saved.characterId && typeof reopenSavedCharacter === 'function') {
+        reopenSavedCharacter(saved.characterId);
+      }
+    }
+  }
 }
 
 function restoreLastTab() {
