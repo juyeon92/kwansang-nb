@@ -28,9 +28,12 @@
 (function () {
   const RETENTION_DAYS = 30; // 보관 기간 — 정책 문구(DOGAM_POLICY)와 expiresAt 계산이 모두 이 값을 따른다
   const SLUG_KEY = 'dogamMySlug';        // 내 도감 slug (로그인 전에도 기억해두기 위한 로컬 사본)
-  const MATCH_KEY = 'dogamLastMatch';    // 방금 맺은 인연(초대해준 사람) — 등록 직후 매칭 결과를 보여주기 위해
   const PARAM = 'dogam';                 // 공유 링크 쿼리 파라미터 (?dogam=<slug>)
   let enteredViaShare = false;           // 공유 링크로 들어온 세션인지 — 뒤로 갈 화면이 없으므로 뒤로가기를 숨긴다
+  // 방금 맺은 인연(초대해준 사람) — 등록 직후 매칭 결과를 보여주기 위해 기억해둔다. 일부러 메모리
+  // 변수로만 둔다(사용자 요청 2026-08-18): localStorage였다면 새로고침해도 계속 남아서, "방금"이 아닌
+  // 옛 결과가 언제까지고 다시 보였다. 새로고침하면 이 값도 자연히 비워지는 게 맞다.
+  let lastMatch = null;
 
   // 화면에 그대로 노출하는 정책 문구 — 명세서를 관상 기준으로 다시 쓴 것.
   const DOGAM_POLICY = [
@@ -525,8 +528,7 @@
   // 등록 직후 — 나를 초대해준 사람과의 매칭 결과. 내 캐릭터 리포트 바로 아래에 붙어
   // "누구와 어떻게 맺어졌는지"를 먼저 보여주고, 그 다음에 인연 도감이 이어진다.
   function matchedBlock() {
-    let m = null;
-    try { m = JSON.parse(localStorage.getItem(MATCH_KEY) || 'null'); } catch (e) { m = null; }
+    const m = lastMatch;
     if (!m || !m.characterId) return '';
     const ch = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[m.characterId]) || null;
     const img = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(m.characterId) : '';
@@ -649,7 +651,7 @@
   // 사용자 눈에는 삭제가 안 된 것으로 보인다(실제로 그런 신고가 있었다).
   function forgetLocalDogam() {
     localStorage.removeItem(SLUG_KEY);
-    localStorage.removeItem(MATCH_KEY);
+    lastMatch = null;
     localStorage.removeItem('inyeonLastCharacter');
     localStorage.removeItem('gwansangReportOpen'); // 도감을 지웠으니 새로고침 시 리포트도 되살리지 않는다
     if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
@@ -869,12 +871,12 @@
       });
       console.log('[dogam] 내 도감에 상대 등록 완료', { slug: mine.slug, entry: inviter.ownerUid, score: myScore });
 
-      // 등록 직후 화면에 "방금 맺은 인연"을 보여주기 위해 기억해둔다.
-      localStorage.setItem(MATCH_KEY, JSON.stringify({
+      // 등록 직후 화면에 "방금 맺은 인연"을 보여주기 위해 기억해둔다(이 페이지 세션 동안만).
+      lastMatch = {
         uid: inviter.ownerUid, name: inviter.ownerName,
         characterId: inviter.ownerCharacterId, score: myScore,
         relation: myRelation,
-      }));
+      };
       myDogam = null; // 다음 render에서 방금 쓴 항목까지 포함해 다시 읽도록 캐시를 비운다
       // ④ 등록이 끝나면 "공유받은 사람"이 아니라 "내 도감 주인" 화면으로 전환한다.
       history.replaceState(null, '', location.origin + location.pathname);
