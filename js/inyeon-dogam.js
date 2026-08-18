@@ -382,6 +382,14 @@
       // 지금 연 링크가 같으면 uid 일치 여부와 무관하게 오너로 취급한다 — ensureMyDogam()이 이미 쓰는
       // "이 기기 캐시를 믿는다" 원칙과 동일하다.
       const isMyOwnLink = sharedSlug === localStorage.getItem(SLUG_KEY);
+      console.log('[dogam] 공유 링크 진입 판정', {
+        sharedSlug: sharedSlug,
+        cachedSlug: localStorage.getItem(SLUG_KEY),
+        isMyOwnLink: isMyOwnLink,
+        guestDogamExists: !!guestDogam,
+        guestDogamOwnerUid: guestDogam && guestDogam.ownerUid,
+        currentUid: currentUid(),
+      });
       if (guestDogam && !isMyOwnLink && guestDogam.ownerUid !== currentUid()) {
         const already = guestDogam.entries.some(function (x) { return x.uid === currentUid(); });
         if (!already) { showGuestView(guestDogam); el.innerHTML = ''; return; }
