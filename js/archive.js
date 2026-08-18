@@ -35,6 +35,12 @@
   let openState = null;  // 아코디언 펼침 상태 (첫 렌더 때 기록 유무로 초기화)
   let viewingId = null;  // 리포트 상세를 보고 있으면 그 기록 id
   let prevTab = 'combined';
+  // ⚠️ 사용자 리포트(2026-08-18): 비로그인 상태에서 분석을 끝내고 나중에 로그인해도 그 리포트가
+  // 보관함에 안 보임. save()는 그 순간 uid가 없으면 그냥 건너뛰는데, Dogam(migrateLocalOnLogin)과
+  // 달리 Archive에는 로그인 후 재시도하는 경로가 없었다 — 그 화면 DOM은 로그인 시점까지도(새로고침만
+  // 없었다면) 그대로 남아 있으므로, 로그인 직후 같은 type으로 한 번 더 save()를 시도하면 된다.
+  // 페이지를 새로고침한 뒤라면 이 DOM 자체가 사라져 스냅샷할 게 없으니 그 경우까지 살리진 않는다.
+  let pendingSaveTypes = [];
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -186,7 +192,11 @@
     try {
       if (!CONTAINERS[type]) { console.warn('[archive] 저장 대상이 아닌 분석', type); return; }
       const uid = currentUid();
-      if (!uid) { console.warn('[archive] 비로그인 상태 — 리포트를 보관하지 않는다', type); return; }
+      if (!uid) {
+        console.warn('[archive] 비로그인 상태 — 리포트를 보관하지 않는다', type);
+        if (pendingSaveTypes.indexOf(type) < 0) pendingSaveTypes.push(type); // 로그인하면 재시도
+        return;
+      }
       if (!hasPaidFor(type)) { console.warn('[archive] 미결제 — 리포트를 보관하지 않는다', type); return; }
 
       const html = snapshot(type);
@@ -212,12 +222,23 @@
         createdAt: new Date().toISOString(),
       });
       saveIndex(list);
+      pendingSaveTypes = pendingSaveTypes.filter(t => t !== type);
       console.log('[archive] 리포트 보관 완료', { type: type, id: id, bytes: html.length, uid: uid });
       if (isOpen()) renderPage();
       notifyChanged();
     } catch (e) {
       console.error('[archive] 리포트 보관 실패', type, e);
     }
+  }
+
+  // 로그인 확정 직후 kakao-auth.js가 호출한다 — 비로그인이라 건너뛴 저장을 그 자리에 남아있는
+  // 결과 화면 DOM으로 한 번 더 시도한다. 실패(스냅샷 없음 등)해도 save()가 다시 pending에 넣으므로
+  // 여기서 따로 예외 처리할 필요는 없다.
+  function retryPending() {
+    if (!pendingSaveTypes.length) return;
+    const list = pendingSaveTypes.slice();
+    pendingSaveTypes = [];
+    list.forEach(save);
   }
 
   // 콘솔에서 상태를 바로 확인하기 위한 진단용 — Archive.debug()
@@ -471,7 +492,7 @@
   window.Archive = {
     openPage: openPage, closePage: closePage,
     latestOf: latestOf, listOf: listOf, renderInto: renderInto,
-    save: save, remove: remove, removeReportsByType: removeReportsByType, debug: debug,
+    save: save, retryPending: retryPending, remove: remove, removeReportsByType: removeReportsByType, debug: debug,
     toggle: toggle, toggleSort: toggleSort,
     openReport: openReport, backToList: backToList,
     loadFromCloud: loadFromCloud, clearLocal: clearLocal,

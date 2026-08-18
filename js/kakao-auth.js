@@ -49,7 +49,12 @@
           Dogam.migrateLocalOnLogin().then(function () { if (window.Dogam) Dogam.render(); });
         }
         Profile.loadFromCloud();
-        if (window.Archive) Archive.loadFromCloud();
+        if (window.Archive) {
+          Archive.loadFromCloud();
+          // 비로그인 상태에서 분석을 끝내 보관을 건너뛴 리포트가 있으면(그 결과 화면이 아직
+          // DOM에 남아 있는 동안) 지금 재시도한다.
+          Archive.retryPending();
+        }
         resolveAccountInfo(user.uid);
         // 냥 잔액·관리자 여부는 마이페이지를 열기 전에 미리 받아둔다 — 열자마자 바로 보이도록.
         if (window.Wallet) Wallet.fetchBalance().then(refreshMyPageIfOpen);
