@@ -154,9 +154,30 @@
     try { return (JSON.parse(localStorage.getItem('inyeonLastCharacter') || 'null') || {}).characterId || null; }
     catch (e) { return null; }
   }
+  // ⚠️ 사용자 리포트(2026-08-18): "공유하기"로 도감을 처음 만들 때는 닉네임을 입력받는 화면이
+  // 없어서, 프로필 이름이 없으면(비로그인 등) 그냥 문자열 "나"를 그대로 저장했다. 그러면 닉네임을
+  // 안 정한 서로 다른 사람들이 전부 "나"로 저장되고, 그 사람이 남의 도감에 등록될 때도 "나"가
+  // 그대로 보여서 여러 사람이 똑같은 이름으로 뭉개져 보였다. share()는 이제 닉네임을 직접 물어서
+  // 이 함수 자체를 안 거치게 하지만, render()가 조용히 자동으로 도감을 만드는 경로(사용자가 아무
+  // 버튼도 안 눌렀는데 만들어지는 경우)는 팝업을 띄우기 부적절해서, 그 경로의 안전망으로 uid
+  // 뒷자리를 붙여 최소한 서로 구분은 되게 한다.
   function myName() {
     const rep = window.Profile ? Profile.getRepresentative() : null;
-    return (rep && rep.name) || '나';
+    if (rep && rep.name) return rep.name;
+    const uid = currentUid();
+    return uid ? '익명' + uid.slice(-4) : '나';
+  }
+  // 닉네임을 취소 없이 받을 때까지 반복한다 — 빈 값으로 도감을 만들면 결국 같은 문제(전부 "나")로
+  // 되돌아간다. 사용자가 취소를 누르면 null을 돌려주고, 부른 곳에서 공유 자체를 중단한다.
+  function promptForNickname() {
+    let name = null;
+    while (!name) {
+      name = prompt('도감에 표시될 이름(별명)을 입력해주세요.\n실명 대신 별명을 권장해요.');
+      if (name === null) return null; // 취소
+      name = name.trim();
+      if (!name) alert('이름을 입력해주세요.');
+    }
+    return name.slice(0, 12); // 등록 폼(dogamGuestName)과 동일한 길이 제한
   }
 
   async function loadDogam(slug) {
@@ -382,14 +403,6 @@
       // 지금 연 링크가 같으면 uid 일치 여부와 무관하게 오너로 취급한다 — ensureMyDogam()이 이미 쓰는
       // "이 기기 캐시를 믿는다" 원칙과 동일하다.
       const isMyOwnLink = sharedSlug === localStorage.getItem(SLUG_KEY);
-      console.log('[dogam] 공유 링크 진입 판정', {
-        sharedSlug: sharedSlug,
-        cachedSlug: localStorage.getItem(SLUG_KEY),
-        isMyOwnLink: isMyOwnLink,
-        guestDogamExists: !!guestDogam,
-        guestDogamOwnerUid: guestDogam && guestDogam.ownerUid,
-        currentUid: currentUid(),
-      });
       if (guestDogam && !isMyOwnLink && guestDogam.ownerUid !== currentUid()) {
         const already = guestDogam.entries.some(function (x) { return x.uid === currentUid(); });
         if (!already) { showGuestView(guestDogam); el.innerHTML = ''; return; }
@@ -891,7 +904,15 @@
     try {
       await ensureAuthUid(); // 비로그인이어도 공유는 된다(익명 신원 발급)
       let mine = myDogam || await ensureMyDogam();
-      if (!mine) mine = await createMyDogam();
+      if (!mine) {
+        // ⚠️ 사용자 요청(2026-08-18): 프로필 이름이 없는 상태(비로그인 등)에서 공유하기로 도감을
+        // 처음 만들면 닉네임 입력 과정이 없어 다 "나"로 저장돼, 서로 다른 사람이 남의 도감에서
+        // 똑같은 이름으로 뭉개져 보였다. 여기서 먼저 닉네임을 받아서 만든다.
+        const rep = window.Profile ? Profile.getRepresentative() : null;
+        const nickname = (rep && rep.name) || promptForNickname();
+        if (!nickname) { hideToast(); return; } // 닉네임 입력을 취소함
+        mine = await createMyDogam(nickname);
+      }
       if (!mine) { toast('먼저 관상 분석을 완료해주세요'); return; }
       myDogam = mine;
       const url = shareUrl(mine.slug);
