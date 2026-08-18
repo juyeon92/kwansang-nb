@@ -194,6 +194,27 @@
 
   // 실제 저장 — uid가 확정된 뒤에만 부른다(로그인 직후 save()에서, 또는 나중에 commitPending()에서).
   function commitSave(uid, type, html, label) {
+    // ⚠️ 사용자 리포트(2026-08-18): 인연도감(gwansang)은 "내 캐릭터" 리포트가 계정당 하나뿐인데,
+    // 친구 도감에 등록할 때마다(재분석이 껴 있으면) Archive.save가 매번 새 항목을 만들어서
+    // 보관함에 똑같은 내용이 여러 개 쌓였다. 이미 있으면 새로 쌓지 않고 기존 항목 본문만 갱신한다.
+    if (type === 'gwansang') {
+      const existing = loadIndex().find(function (r) { return r.type === 'gwansang'; });
+      if (existing) {
+        saveReportHtml(uid, existing.id, html);
+        const list = loadIndex();
+        const idx = list.findIndex(function (r) { return r.id === existing.id; });
+        if (idx >= 0) {
+          list[idx].title = label.title;
+          list[idx].sub = label.sub;
+          list[idx].createdAt = new Date().toISOString(); // 최신순 정렬 기준 갱신
+          saveIndex(list);
+        }
+        console.log('[archive] 인연도감 리포트 갱신(중복 생성 방지)', { id: existing.id, uid: uid });
+        if (isOpen()) renderPage();
+        notifyChanged();
+        return;
+      }
+    }
     const id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     saveReportHtml(uid, id, html);
     const list = loadIndex();
