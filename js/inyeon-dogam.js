@@ -352,9 +352,19 @@
       if (guestDogam && guestDogam.ownerUid !== currentUid()) {
         const already = guestDogam.entries.some(function (x) { return x.uid === currentUid(); });
         if (!already) { showGuestView(guestDogam); el.innerHTML = ''; return; }
+        // ⚠️ 사용자 요청(2026-08-18): 이미 이 도감에 등록한 뒤 같은 링크로 재방문하면, 등록 폼을
+        // 다시 보여줄 이유가 없다. 예전엔 이 경우 그냥 아래 오너 화면(내 도감 공유하기)으로
+        // 넘어갔는데, 그러면 "내가 등록했던 캐릭터가 뭐였는지"는 안 보이고 내 도감 목록만 보인다.
+        // 이 브라우저에서 등록했던 내 캐릭터 상세를 먼저 보여준 뒤, 아래로 이어서 내 인연도감도
+        // 보여준다(일반적인 재방문과 같은 화면 구성).
+        guestDogam = null;
+        const myChar = myCharacterId();
+        if (myChar && typeof populateGwansangReportFromSaved === 'function') {
+          populateGwansangReportFromSaved(myChar);
+        }
       }
     }
-    // 게스트 모드에서 빠져나온 경우 원래 화면으로 되돌린다.
+    // 게스트 모드에서 빠져나온 경우(또는 위에서 이미 등록된 재방문으로 판정된 경우) 원래 화면으로 되돌린다.
     const gh = document.getElementById('dogamGuestSection');
     if (gh) { stashUploadNodes(); gh.remove(); }
     setDisplay('gwansangHero', '');

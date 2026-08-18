@@ -2159,7 +2159,10 @@ function renderGwansangRevisitCard() {
 }
 // localStorage에 저장된 캐릭터 ID만으로 카드·상세 설명을 다시 그린다 — 원본 사진/랜드마크가 없어도
 // character-db.js 데이터만으로 완성되는 화면이라 재분석 없이 그대로 재현 가능하다.
-function reopenSavedCharacter(characterId) {
+// Dogam.render()가 이미 진행 중인 곳(예: 공유 링크로 재방문했을 때)에서도 안전하게 쓸 수 있도록,
+// Dogam.render() 호출은 이 함수 밖(reopenSavedCharacter)으로 뺐다 — 안에서 부르면 서로가 서로를
+// 부르는 무한 재귀가 된다.
+function populateGwansangReportFromSaved(characterId) {
   // 저장해둔 기질 점수까지 함께 복원한다 — 없으면 6대 기질 바가 빠져 최초 결과 화면과 구조가 달라진다.
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(INYEON_LAST_CHARACTER_KEY) || 'null'); } catch (e) { saved = null; }
@@ -2177,6 +2180,9 @@ function reopenSavedCharacter(characterId) {
   document.getElementById('canvasCard').classList.remove('hidden');
   document.getElementById('gwansangResult').classList.remove('hidden');
   markAnalyzed('gwansang');
+}
+function reopenSavedCharacter(characterId) {
+  populateGwansangReportFromSaved(characterId);
   try { localStorage.setItem(GWANSANG_REPORT_OPEN_KEY, '1'); } catch (e) {} // 새로고침해도 이 화면 유지
   if (window.Dogam) Dogam.render();
   document.getElementById('canvasCard').scrollIntoView({ behavior: 'smooth' });
