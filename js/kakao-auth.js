@@ -16,6 +16,22 @@
   // 저장된 값이 진짜 이메일인지 판별 — 예전 버전이 이 자리에 닉네임을 넣어둔 문서가 남아 있을 수 있다.
   function looksLikeEmail(v) { return !!v && String(v).indexOf('@') > 0; }
 
+  // 로그인 확정 시점에 인연도감·프로필·보관함을 클라우드에서 다시 불러오는 동안, 그 사이 화면에
+  // 남아있던 예전(비로그인) 데이터가 잠깐 노출되다가 로그인된 데이터로 바뀌는 게 사용자에게
+  // 거슬려서(사용자 요청 2026-08-19) 그 구간을 딤 처리 + 스피너로 덮어둔다. 문구는 없다.
+  function showAuthLoading() {
+    if (document.getElementById('authLoadingOverlay')) return;
+    const el = document.createElement('div');
+    el.id = 'authLoadingOverlay';
+    el.className = 'auth-loading-overlay';
+    el.innerHTML = '<div class="spin-ring"></div>';
+    document.body.appendChild(el);
+  }
+  function hideAuthLoading() {
+    const el = document.getElementById('authLoadingOverlay');
+    if (el) el.remove();
+  }
+
   function init() {
     if (window.Kakao && !Kakao.isInitialized()) {
       Kakao.init(KAKAO_JS_KEY);
@@ -49,17 +65,26 @@
         // 실계정 로그인 확정 시점 — 이 기기가 비로그인(또는 익명)으로 쌓아둔 인연도감 참여 기록을
         // 계정의 진짜 도감으로 옮긴다. 위에서 이미 한 번 Dogam.render()가 돌았지만 그건 이관 전
         // 상태라, 이관이 끝난 뒤 다시 그려야 화면에 반영된다.
-        if (window.Dogam && Dogam.migrateLocalOnLogin) {
-          Dogam.migrateLocalOnLogin().then(function () { if (window.Dogam) Dogam.render(); });
-        }
-        Profile.loadFromCloud();
+        // 이 구간(인연도감·프로필·보관함을 클라우드에서 다시 불러오는 동안) 예전 화면이 잠깐
+        // 보였다 로그인된 화면으로 바뀌는 게 거슬려서, 끝날 때까지 딤+스피너로 덮어둔다.
+        showAuthLoading();
+        const settling = [
+          window.Dogam && Dogam.migrateLocalOnLogin
+            ? Dogam.migrateLocalOnLogin().then(function () { if (window.Dogam) Dogam.render(); })
+            : Promise.resolve(),
+          Profile.loadFromCloud(),
+          window.Archive ? Archive.loadFromCloud() : Promise.resolve(),
+        ];
+        Promise.all(settling)
+          .catch(function (e) { console.error('[kakao-auth] 로그인 후 데이터 로딩 중 오류', e); })
+          .then(hideAuthLoading);
         if (window.Archive) {
-          Archive.loadFromCloud();
           // 비로그인 동안 기기에 임시 보관해둔 리포트(인연도감 등)를 지금 로그인한 계정으로 편입한다.
           Archive.commitPending();
         }
         resolveAccountInfo(user.uid);
-        // 냥 잔액·관리자 여부는 마이페이지를 열기 전에 미리 받아둔다 — 열자마자 바로 보이도록.
+        // 냥 잔액/관리자 여부는 로딩 오버레이를 걸어둘 필요 없는 부가 정보 — 마이페이지를 열기 전에
+        // 미리 받아두기만 하면 된다.
         if (window.Wallet) Wallet.fetchBalance().then(refreshMyPageIfOpen);
         checkAdminRole(user.uid).then(refreshMyPageIfOpen);
       } else {

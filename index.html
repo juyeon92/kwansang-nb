@@ -475,6 +475,12 @@ body {
 .spin-ring { width: 44px; height: 44px; border: 3px solid var(--mint-border); border-top-color: var(--mint); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 로그인 직후 클라우드 데이터(인연도감·프로필·보관함)를 불러오는 동안 예전 화면이 잠깐
+   그대로 보이다가 새 데이터로 바뀌는 게 눈에 거슬려서(사용자 요청 2026-08-19), 그 사이를
+   딤 처리 + 스피너로 가린다. 문구는 넣지 않는다(요청사항). */
+.auth-loading-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(10,16,15,0.45); display: flex; align-items: center; justify-content: center; }
+.auth-loading-overlay .spin-ring { margin: 0; border-color: rgba(255,255,255,0.35); border-top-color: #fff; }
+
 /* ── Error ── */
 .err-msg { display: none; background: #FDECEC; border: 1px solid #F5C2C2; color: #C23B3B; border-radius: var(--r); padding: 14px; text-align: center; font-size: 13px; }
 .err-msg.show { display: block; }
