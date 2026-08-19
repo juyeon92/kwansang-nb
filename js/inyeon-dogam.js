@@ -197,7 +197,7 @@
     snap.forEach(function (d) { entries.push(d.data()); });
     // 점수 높은 순으로 위에서부터 노출 (요청 사항)
     entries.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
-    return { slug: slug, ownerUid: data.ownerUid, ownerName: data.ownerName, ownerCharacterId: data.ownerCharacterId, entries: entries };
+    return { slug: slug, ownerUid: data.ownerUid, ownerName: data.ownerName, ownerCharacterId: data.ownerCharacterId, createdAt: data.createdAt || null, entries: entries };
   }
 
   // 도감을 열 때마다 TTL 기준 시각을 갱신한다 — 명세서 §4의 last_accessed_at 연장에 해당.
@@ -268,7 +268,7 @@
       if (snap.empty) return null;
       const doc = snap.docs[0];
       const data = doc.data();
-      const recovered = { slug: doc.id, ownerUid: data.ownerUid, ownerName: data.ownerName, ownerCharacterId: data.ownerCharacterId, entries: [] };
+      const recovered = { slug: doc.id, ownerUid: data.ownerUid, ownerName: data.ownerName, ownerCharacterId: data.ownerCharacterId, createdAt: data.createdAt || null, entries: [] };
       const entriesSnap = await fbDb.collection('dogam').doc(doc.id).collection('entries').get();
       entriesSnap.forEach(function (d) { recovered.entries.push(d.data()); });
       recovered.entries.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
@@ -299,7 +299,7 @@
     await fbDb.collection('users').doc(uid).set({ dogamSlug: slug }, { merge: true });
     localStorage.setItem(SLUG_KEY, slug);
     console.log('[dogam] 내 도감 생성', { slug: slug, ownerName: ownerName, character: charId });
-    return { slug: slug, ownerUid: uid, ownerName: ownerName, ownerCharacterId: charId, entries: [] };
+    return { slug: slug, ownerUid: uid, ownerName: ownerName, ownerCharacterId: charId, createdAt: now.toISOString(), entries: [] };
   }
 
   // ⚠️ 사용자 요청(2026-08-18): "인연도감은 비로그인(이 기기) 기준이고, 로그인하면 그 데이터를
@@ -1102,6 +1102,9 @@
     render: render, renderInto: renderIntoEl, share: share, registerEntry: registerEntry,
     loginAndKeep: loginAndKeep, goCombined: goCombined, deleteMyDogam: deleteMyDogam,
     migrateLocalOnLogin: migrateLocalOnLogin, leaveSharedView: leaveSharedView,
+    // 보관함(archive.js)이 "생성 시간"으로 안정적인 값을 쓰게 하려는 용도 — 도감 문서의 실제
+    // createdAt(한 번 정해지면 안 바뀜)이라, 어느 기기에서 언제 스냅샷을 다시 찍든 항상 같다.
+    getMyDogamCreatedAt: function () { return myDogam ? myDogam.createdAt || null : null; },
     _score: compatScore, _policy: DOGAM_POLICY,
   };
 })();

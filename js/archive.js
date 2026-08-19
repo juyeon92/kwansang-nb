@@ -181,6 +181,13 @@
         profileId: rep ? rep.id : null,
       };
     }
+    if (type === 'gwansang') {
+      // 인연도감 자체의 실제 생성 시각(도감 문서의 createdAt — 한 번 정해지면 안 바뀜)을 그대로
+      // 쓴다. 보관함 자체의 저장 시각을 새로 찍으면(사용자 리포트 2026-08-19) 자가복구·재동기화가
+      // 일어날 때마다 "생성 시간"이 그 순간으로 밀려서, 기기·시점마다 다른 시간이 보이는 문제가 있었다.
+      const dogamCreatedAt = (window.Dogam && Dogam.getMyDogamCreatedAt) ? Dogam.getMyDogamCreatedAt() : null;
+      return { title: repName, sub: (rep && (rep.relationDetail || rep.relation)) || '', profileId: rep ? rep.id : null, createdAt: dogamCreatedAt };
+    }
     const rel = (st && st[type] && st[type].relation) || (rep && (rep.relationDetail || rep.relation)) || '';
     // profileId — "이 프로필로 이미 분석한 적 있는지" 나중에 확인하려면 이름만으로는 부족하다
     // (동명이인 프로필이 있을 수 있음). 저장 시점의 대표 프로필 id를 같이 남긴다(사용자 요청
@@ -212,7 +219,11 @@
           list[idx].title = label.title;
           list[idx].sub = label.sub;
           list[idx].profileId = label.profileId || null;
-          list[idx].createdAt = new Date().toISOString(); // 최신순 정렬 기준 갱신
+          // 인연도감은 목록에 항상 1건뿐이라 "최신순 정렬"을 위해 갱신할 이유가 없다 — 도감의 실제
+          // 생성 시각(label.createdAt)을 알면 그걸 그대로 쓰고, 모르면(도감 조회 실패 등) 기존 값을
+          // 그대로 둔다. 매번 지금 시각으로 찍으면 갱신될 때마다 "생성 시간"이 달라져 보인다
+          // (사용자 리포트 2026-08-19: 기기·시점마다 인연도감 생성 시간이 다르게 보임).
+          if (label.createdAt) list[idx].createdAt = label.createdAt;
           saveIndex(list);
         }
         console.log('[archive] 인연도감 리포트 갱신(중복 생성 방지)', { id: existing.id, uid: uid });
@@ -228,7 +239,7 @@
       id: id, type: type, title: label.title, sub: label.sub,
       profileId: label.profileId || null, // "이 프로필로 이미 분석했는지" 나중에 대조하기 위함
       paid: PAID_TYPES.indexOf(type) >= 0, // 결제 상품 여부 — 결제내역 화면에서 재사용할 수 있게 남긴다
-      createdAt: new Date().toISOString(),
+      createdAt: label.createdAt || new Date().toISOString(), // 인연도감은 도감 자체의 실제 생성 시각을 그대로 쓴다
     });
     saveIndex(list);
     console.log('[archive] 리포트 보관 완료', { type: type, id: id, bytes: html.length, uid: uid });

@@ -588,8 +588,13 @@ async function startAnalysis(ctx) {
     document.getElementById('gwansangResult').classList.remove('hidden');
     markAnalyzed('gwansang');
     try { localStorage.setItem(GWANSANG_REPORT_OPEN_KEY, '1'); } catch (e) {} // 새로고침해도 이 화면에 머무르도록
-    if (window.Archive) Archive.save('gwansang'); // 보관함 — 리포트가 완성된 이 지점에서 스냅샷
-    if (window.Dogam) Dogam.render();             // 인연도감 영역 — 캐릭터가 정해진 뒤에 그린다
+    // Dogam.render()가 도감을 실제로 만드는 것까지 끝난 뒤에 보관함 스냅샷을 찍는다 — 그래야
+    // Archive.save('gwansang')가 그 도감의 진짜 생성 시각(Dogam.getMyDogamCreatedAt())을 쓸 수
+    // 있다(순서를 반대로 하거나 완료를 기다리지 않으면 아직 도감이 없어 임시로 "지금"을 쓰게 된다).
+    const dogamRendered = window.Dogam ? Dogam.render() : Promise.resolve();
+    dogamRendered
+      .catch(function (e) { console.error('[dogam] render 실패 — 보관함 스냅샷은 그대로 진행', e); })
+      .then(function () { if (window.Archive) Archive.save('gwansang'); }); // 보관함 — 리포트가 완성된 이 지점에서 스냅샷
   } else if (ctx === 'combined') {
     document.getElementById('cmbCanvasCard').classList.remove('hidden');
   }
