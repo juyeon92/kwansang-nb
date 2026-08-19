@@ -393,39 +393,58 @@
   // 해결: 호출마다 번호를 매기고, DOM에 쓰기 직전에 "내가 아직 최신 호출인지" 확인한다.
   // 최신이 아니면 조용히 물러나 더 늦게 시작된 렌더의 결과를 남긴다.
   let renderSeq = 0;
+  // ═══ 공유 링크(?dogam=code) 우선순위 정책 (2026-08-19, 상세: Obsidian
+  // AI_Face_Read/인연도감_공유링크_우선순위_정책.md) ═══
+  // 원칙: "지금 URL에 dogam=code가 있는가"만이 화면을 가른다. 내가 이미 도감이 있든, 이 도감에
+  // 이미 등록했든 상관없이 code가 붙어있는 동안은 그 code의 도감이 항상 1순위로 뜬다. 자동으로
+  // "내 도감"으로 넘어가는 경우는 없고, 오직 leaveSharedView()(사용자가 직접 누르는 버튼)로 URL의
+  // code를 지웠을 때만 아래(B) "내 도감" 규칙으로 전환된다.
+  let lastAlreadyToastSlug = null; // 같은 슬러그로 재렌더될 때마다 "이미 등록했어요" 토스트가 반복되지 않게
+
   async function render() {
     const el = host();
     if (!el) return;
     const mySeq = ++renderSeq;
     const stale = function () { return mySeq !== renderSeq; };
     const sharedSlug = sharedSlugFromUrl();
-    // 공유 링크로 들어왔고 아직 그 도감에 등록하지 않았다면 "공유받은 친구" 화면을 먼저 보여준다.
+
     if (sharedSlug) {
       enteredViaShare = true;
       guestDogam = await loadDogam(sharedSlug).catch(function (e) { console.error('[dogam] 공유 도감 조회 실패', e); return null; });
       if (stale()) return;
-      // ⚠️ 사용자 리포트(2026-08-18): 익명 인증 세션이 새로고침 사이에 유지되지 않으면(브라우저
-      // 저장소 정책 등으로 실제로 벌어짐), 내가 만든 내 공유 링크를 다시 열어도 uid가 달라져 있어
-      // "낯선 사람"으로 오판되고 친구 등록 폼이 떴다. 이 기기가 마지막으로 다루던 도감 주소(SLUG_KEY)와
-      // 지금 연 링크가 같으면 uid 일치 여부와 무관하게 오너로 취급한다 — ensureMyDogam()이 이미 쓰는
-      // "이 기기 캐시를 믿는다" 원칙과 동일하다.
-      const isMyOwnLink = sharedSlug === localStorage.getItem(SLUG_KEY);
-      if (guestDogam && !isMyOwnLink && guestDogam.ownerUid !== currentUid()) {
-        const already = guestDogam.entries.some(function (x) { return x.uid === currentUid(); });
-        if (!already) { showGuestView(guestDogam); el.innerHTML = ''; return; }
-        // ⚠️ 사용자 요청(2026-08-18): 이미 이 도감에 등록한 뒤 같은 링크로 재방문하면, 등록 폼을
-        // 다시 보여줄 이유가 없다. 예전엔 이 경우 그냥 아래 오너 화면(내 도감 공유하기)으로
-        // 넘어갔는데, 그러면 "내가 등록했던 캐릭터가 뭐였는지"는 안 보이고 내 도감 목록만 보인다.
-        // 이 브라우저에서 등록했던 내 캐릭터 상세를 먼저 보여준 뒤, 아래로 이어서 내 인연도감도
-        // 보여준다(일반적인 재방문과 같은 화면 구성).
-        guestDogam = null;
-        const myChar = myCharacterId();
-        if (myChar && typeof populateGwansangReportFromSaved === 'function') {
-          populateGwansangReportFromSaved(myChar);
+
+      if (guestDogam) {
+        // 오너 판단: 계정이 실제 소유자이거나(ownerUid 일치), 이 기기가 마지막으로 다루던 도감과
+        // 같은 code면(SLUG_KEY 일치) 오너로 취급한다 — 익명 인증 세션이 새로고침 사이 유지되지
+        // 않아도(사용자 리포트 2026-08-18) 내 링크가 낯선 사람 화면으로 오판되지 않게 하는 안전장치.
+        const isOwner = guestDogam.ownerUid === currentUid() || sharedSlug === localStorage.getItem(SLUG_KEY);
+        if (isOwner) {
+          // A-1: code가 곧 내 도감 — 계정/기기 기준 재조회 없이 이 도감을 그대로 오너 화면으로 그린다.
+          localStorage.setItem(SLUG_KEY, sharedSlug);
+          touchDogam(sharedSlug, currentUid());
+          const gh = document.getElementById('dogamGuestSection');
+          if (gh) { stashUploadNodes(); gh.remove(); }
+          setDisplay('gwansangHero', '');
+          setDisplay('gwansangCtaDock', '');
+          setDisplay('gwansangBackBtn', 'none');
+          await paintOwnerView(el, guestDogam, stale);
+          return;
         }
+        // A-2/A-3: 남의 도감 — 미등록이면 등록 폼, 이미 등록했으면 "이미 등록했어요" 토스트 +
+        // 등록 폼 없는 같은 화면 + "내 도감 보러가기" 버튼. 둘 다 자동으로 내 도감으로 넘어가지 않는다.
+        const already = guestDogam.entries.some(function (x) { return x.uid === currentUid(); });
+        showGuestView(guestDogam, already);
+        el.innerHTML = '';
+        if (already && lastAlreadyToastSlug !== sharedSlug) {
+          lastAlreadyToastSlug = sharedSlug;
+          toast('이미 등록했어요');
+        }
+        return;
       }
+      // A-4: code가 무효/만료 — guestDogam이 null이라 아래 B 규칙(내 도감)으로 자연스럽게 폴백.
     }
-    // 게스트 모드에서 빠져나온 경우(또는 위에서 이미 등록된 재방문으로 판정된 경우) 원래 화면으로 되돌린다.
+
+    // ── B: dogam 파라미터가 없거나(또는 무효해서 폴백) — 내 도감 ──
     const gh = document.getElementById('dogamGuestSection');
     if (gh) { stashUploadNodes(); gh.remove(); }
     setDisplay('gwansangHero', '');
@@ -445,7 +464,23 @@
       return;
     }
     if (stale()) return;
-    myDogam = mine;
+    // 공유 버튼을 누른 뒤에 도감을 만들면 그 통신 때문에 클립보드 복사가 막힌다 —
+    // 화면을 그리는 이 시점에 미리 만들어 두고, 버튼은 복사만 하도록 한다.
+    // (여기 도달했다는 건 ensureMyDogam이 "확인했는데 정말 없음"을 리턴한 경우뿐이다.)
+    if (!mine && currentUid() && myCharacterId()) {
+      const created = await createMyDogam().catch(function (e) { console.error('[dogam] 도감 생성 실패', e); return null; });
+      // 도감 생성은 되돌릴 수 없는 쓰기라, 뒤늦게 끝났더라도 결과 자체는 캐시에 반영해둔다.
+      // 다만 화면은 최신 렌더에 맡긴다(아래 stale 체크).
+      if (created) mine = created;
+      if (stale()) return;
+    }
+    await paintOwnerView(el, mine, stale);
+  }
+
+  // 오너 화면을 그리는 공통 마무리 — 클라우드 캐릭터 복원("다시 보기" 카드), 실제 렌더, 실시간
+  // 참여 기록 구독까지. A-1(code로 직접 찾은 내 도감)과 B(계정/기기 기준 내 도감) 양쪽이 공유한다.
+  async function paintOwnerView(el, dogam, stale) {
+    myDogam = dogam;
     // ⚠️ 사용자 리포트(2026-08-18): 보관함(Archive, 클라우드 동기화)엔 인연도감 리포트가 있는데
     // 인연도감 탭엔 없어 보임 — myCharacterId()는 이 기기의 localStorage(inyeonLastCharacter)만
     // 보기 때문에, 다른 기기에서 만든 도감을 이 기기(로그인은 같은 계정)에서 열면 "처음 온 사람"처럼
@@ -463,19 +498,19 @@
       } catch (e) { /* 프라이빗 브라우징 등 localStorage 불가 — 조용히 스킵 */ }
       if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
     }
-    // 공유 버튼을 누른 뒤에 도감을 만들면 그 통신 때문에 클립보드 복사가 막힌다 —
-    // 화면을 그리는 이 시점에 미리 만들어 두고, 버튼은 복사만 하도록 한다.
-    // (여기 도달했다는 건 ensureMyDogam이 "확인했는데 정말 없음"을 리턴한 경우뿐이다.)
-    if (!myDogam && currentUid() && myCharacterId()) {
-      const created = await createMyDogam().catch(function (e) { console.error('[dogam] 도감 생성 실패', e); return null; });
-      // 도감 생성은 되돌릴 수 없는 쓰기라, 뒤늦게 끝났더라도 결과 자체는 캐시에 반영해둔다.
-      // 다만 화면은 최신 렌더에 맡긴다(아래 stale 체크).
-      if (created) myDogam = created;
-      if (stale()) return;
-    }
+    if (stale && stale()) return;
     el.innerHTML = renderOwnerView(myDogam);
     syncLiveBlocks(); // 보관함에서 열어둔 도감 영역도 같은 내용으로 맞춘다(등록·삭제 직후 등)
     if (myDogam && myDogam.slug) watchEntries(myDogam.slug); else stopWatchingEntries();
+  }
+
+  // "내 도감 보러가기" — 공유 링크(?dogam=code)에 머물던 화면에서 사용자가 직접 눌러야만 내 도감으로
+  // 넘어간다(사용자 요청 2026-08-19: 자동 전환 금지). URL에서 code를 지우고 다시 그리면 위 render()가
+  // B 규칙(내 도감)을 그린다.
+  function leaveSharedView() {
+    history.replaceState(null, '', location.origin + location.pathname);
+    guestDogam = null;
+    render();
   }
 
   // 보관함 리포트에 덧붙여둔 도감 영역들 — 메인 화면이 다시 그려질 때 함께 갱신한다.
@@ -721,7 +756,10 @@
   // 2) 공유받은 친구 입장
   //    ① 나를 초대한 사람의 도감(캐릭터 카드)을 맨 위에
   //    ② 그 아래 "내 인연 등록하기" 안에 관상 사진 등록까지 함께 묶는다 — 등록 버튼과 한 덩어리로 읽히도록.
-  function showGuestView(dogam) {
+  // already: 이 도감에 이미 등록한 사람의 재방문인지(사용자 요청 2026-08-19) — true면 등록 폼을
+  // 통째로 숨기고, 대신 "내 도감 보러가기" 버튼을 보여준다. 자동으로 넘어가진 않는다 — code가
+  // URL에 있는 동안은 계속 이 화면(친구 도감)에 머문다.
+  function showGuestView(dogam, already) {
     const el = guestHost();
     if (!el) return;
     stashUploadNodes();                 // innerHTML로 지워지지 않도록 원래 자리로 잠시 되돌린다
@@ -739,14 +777,7 @@
     const rep = window.Profile ? Profile.getRepresentative() : null;
     const prefillName = (rep && rep.name) || '';
 
-    el.innerHTML = '' +
-      '<div class="dogam-block">' +
-        '<div class="dogam-head"><span class="dogam-title">' + esc(dogam.ownerName) + '님의 인연도감</span></div>' +
-        '<p class="dogam-guide">' + esc(dogam.ownerName) + '님이 나를 인연도감에 초대했어요.</p>' +
-        '<div id="dogamOwnerCard"></div>' +
-        '<div id="dogamOwnerDetail"></div>' +
-      '</div>' +
-
+    const registerBlock = already ? '' : ('' +
       '<div class="dogam-block">' +
         '<div class="dogam-head"><span class="dogam-title">내 인연 등록하기</span></div>' +
         (myChar
@@ -765,7 +796,17 @@
           '<span>이름과 관상 캐릭터 결과를 인연도감 표시·궁합 계산에 이용하는 데 동의해요. <b>(필수)</b></span></label>' +
         // 사진 업로드는 렌더 이후에 일어나므로 disabled로 막지 않는다 — 누른 시점에 검사해 안내한다.
         '<button class="submit-btn" onclick="Dogam.registerEntry()">도감에 인연 등록하기</button>' +
+      '</div>');
+
+    el.innerHTML = '' +
+      '<div class="dogam-block">' +
+        '<div class="dogam-head"><span class="dogam-title">' + esc(dogam.ownerName) + '님의 인연도감</span></div>' +
+        '<p class="dogam-guide">' + esc(dogam.ownerName) + (already ? '님의 인연도감이에요.' : '님이 나를 인연도감에 초대했어요.') + '</p>' +
+        '<div id="dogamOwnerCard"></div>' +
+        '<div id="dogamOwnerDetail"></div>' +
+        (already ? '<button class="submit-btn" style="margin-top:16px;" onclick="Dogam.leaveSharedView()">내 도감 보러가기</button>' : '') +
       '</div>' +
+      registerBlock +
       guestEntriesBlock(dogam) +
       policyBlock();
 
@@ -777,9 +818,13 @@
     renderOwnerBrief('dogamOwnerDetail', dogam.ownerCharacterId);
     // 사진 등록은 항상 "내 인연 등록하기" 안에 묶는다 — 등록 버튼과 한 덩어리로 읽혀야 한다.
     // 예전에 분석한 캐릭터가 남아 있어도 마찬가지다(다른 사진으로 다시 찍을 수 있어야 하고,
-    // 업로드 영역만 카드 밖에 떨어져 있으면 흐름이 끊긴다).
-    const slot = document.getElementById('dogamUploadSlot');
-    if (slot) captureUploadNodes().forEach(function (n) { slot.appendChild(n); });
+    // 업로드 영역만 카드 밖에 떨어져 있으면 흐름이 끊긴다). 이미 등록한 재방문(already)은 등록
+    // 폼 자체가 없으니 업로드 노드를 다시 꽂아둘 슬롯이 없다 — stashUploadNodes()가 이미 원래
+    // 자리(#gwansangUploadSection)로 돌려놨으니 그대로 둔다.
+    if (!already) {
+      const slot = document.getElementById('dogamUploadSlot');
+      if (slot) captureUploadNodes().forEach(function (n) { slot.appendChild(n); });
+    }
   }
 
   // 등록 폼 바로 아래에 "이 도감에 이미 몇 명이 등록했는지"를 보여준다(사용자 요청 2026-08-18:
@@ -1021,7 +1066,7 @@
   window.Dogam = {
     render: render, renderInto: renderIntoEl, share: share, registerEntry: registerEntry,
     loginAndKeep: loginAndKeep, goCombined: goCombined, deleteMyDogam: deleteMyDogam,
-    migrateLocalOnLogin: migrateLocalOnLogin,
+    migrateLocalOnLogin: migrateLocalOnLogin, leaveSharedView: leaveSharedView,
     _score: compatScore, _policy: DOGAM_POLICY,
   };
 })();
