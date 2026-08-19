@@ -233,10 +233,6 @@ body {
 /* Zone1 "왜 이 캐릭터가 나왔나요" — 근거 칩은 엔진이 실제 점수에 반영한 항목만 들어간다 */
 .zone-basis { border: 1px solid var(--border); border-radius: 16px; background: var(--card2); padding: 18px 16px; margin-bottom: 16px; }
 .zone-basis-title { font-size: 15px; font-weight: 800; color: var(--text-title); }
-.zone-basis-badge {
-  display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px;
-  background: var(--mint-10); color: var(--jade); font-size: 11px; font-weight: 700;
-}
 .ztrait-bars { margin: 14px 0 6px; }
 .ztrait-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .ztrait-name { flex: none; width: 26px; font-size: 11.5px; color: var(--text-sub); }
@@ -244,18 +240,43 @@ body {
 .ztrait-fill { display: block; height: 100%; border-radius: 999px; background: var(--border-gray); }
 .ztrait-row.is-top .ztrait-name { font-weight: 800; color: var(--text-title); }
 .ztrait-row.is-top .ztrait-fill { background: var(--mint); }
-.ztrait-caption { font-size: 11px; color: var(--text3); margin-bottom: 14px; }
-.zevi { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; }
-.zevi-label { flex: none; width: 52px; font-size: 11.5px; font-weight: 700; color: var(--text-sub); padding-top: 4px; }
-.zevi-chips { flex: 1; display: flex; flex-wrap: wrap; gap: 5px; }
-.zchip { font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 4px 10px; border: 1px solid; }
-.zchip.is-face { color: var(--jade); background: var(--mint-10); border-color: var(--mint-border); }
-.zchip.is-saju { color: #6b5a2e; background: var(--beige-chip-bg); border-color: var(--beige); }
-.zchip.is-more { color: var(--text-sub); background: var(--surface); border-color: var(--border-gray); font-weight: 500; }
-.zone-basis-arrow { text-align: center; color: var(--text3); font-size: 15px; margin: 12px 0 6px; }
-.zone-basis-summary { font-size: 13px; line-height: 1.85; color: var(--text); }
+.zone-basis-summary { font-size: 13px; line-height: 1.85; color: var(--text); margin-top: 12px; }
 .zone-basis-summary b { color: var(--jade); }
-.zone-basis-conf { font-size: 12px; color: var(--text-sub); margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+
+/* Zone1 "관상 유형 → 관상+사주 유형" 비교 — 사주를 더해 캐릭터가 바뀌었을 때만 노출되는 후킹 블록 */
+.zbasis-compare { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.zbasis-compare-item { flex: 1; text-align: center; padding: 8px 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+.zbasis-compare-item.is-final { background: var(--mint-10); border-color: var(--mint-border); }
+.zbasis-compare-tag { display: block; font-size: 10.5px; color: var(--text-sub); }
+.zbasis-compare-name { display: block; font-size: 13.5px; font-weight: 800; color: var(--text-title); margin-top: 2px; }
+.zbasis-compare-item.is-final .zbasis-compare-name { color: var(--jade); }
+.zbasis-compare-arrow { flex: none; font-size: 18px; color: var(--jade); }
+
+/* Zone1 통합 셀(사용자 요청 2026-08-19) — 캐릭터 카드(.char-card)·판정 근거(.zone-basis)·특징 설명
+   (.char-detail)이 각자 다른 색(남색/민트/금박)과 테두리를 가진 별개 카드 3장으로 보였다. 세 조각이
+   "하나의 Zone1"으로 읽히도록 겉테두리는 이 스코프에서만 하나로 합치고, 안쪽 조각들의 개별 카드
+   테두리·그림자·배경은 지운다(위/아래만 모서리를 둥글리고 좌우 테두리는 세 조각이 이어지게 둔다).
+   .char-card/.char-detail 자체는 관상보기 탭·인연도감에서도 쓰므로 전역이 아니라 #cmbZone1로 한정한다. */
+#cmbCharacterCard, #cmbCharacterBasis, #cmbCharacterDetail { margin: 0; }
+#cmbCharacterCard .char-card {
+  border: 1px solid var(--border); border-bottom: none; border-radius: 18px 18px 0 0;
+  box-shadow: none; background: var(--card2);
+}
+#cmbCharacterCard .char-card::before { display: none; }
+#cmbCharacterCard .char-card-corner,
+#cmbCharacterCard .char-card-badge,
+#cmbCharacterCard .char-card-ribbon { color: var(--jade); }
+#cmbCharacterCard .char-card-badge { background: var(--mint-10); border-color: var(--jade); }
+#cmbCharacterCard .char-card-ribbon { background: var(--jade); color: #fff; }
+#cmbCharacterCard .char-card-img-wrap { border-color: var(--mint-border); }
+#cmbCharacterBasis .zone-basis {
+  border: 1px solid var(--border); border-top: none; border-radius: 0; margin-bottom: 0;
+}
+#cmbCharacterDetail .char-detail {
+  border: 1px solid var(--border); border-top: none; border-radius: 0 0 18px 18px;
+  box-shadow: none; background: var(--card2); padding: 20px 16px;
+}
+#cmbCharacterDetail .char-detail-headline { color: var(--jade); margin-top: 0; margin-bottom: 4px; }
 
 /* ══ AI 로딩 스켈레톤 ══
    Zone2~4는 Gemini 왕복이 있어 Zone1보다 늦게 찬다. 그 사이를 빈 화면으로 두면 사용자가
@@ -330,24 +351,18 @@ body {
   content: ''; width: 3px; height: 16px; background: var(--mint); border-radius: 999px;
 }
 
-/* ── Mini profile chip (궁합 탭) — 이름+관계 배지는 한 줄, 생년월일은 그 아래,
-   우측엔 화살표(사용자 요청 2026-08-18: 첨부 이미지의 프로필 요약 행 레이아웃) ── */
+/* ── Mini profile chip (궁합 탭) ── */
 .mini-profile-chip {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  background: var(--surface); border: 1px solid var(--border-gray); border-radius: var(--r-input);
-  padding: 14px 16px; margin-bottom: 12px; width: 100%; text-align: left;
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  background: var(--mint-10); border: none; border-radius: 8px;
+  padding: 12px; margin-bottom: 12px; width: 100%; text-align: left;
   font-family: inherit; cursor: default;
 }
 .mini-profile-chip.select-mode { cursor: pointer; }
-.mini-profile-chip.select-mode:hover { background: var(--mint-10); }
-/* [나]는 궁합 탭에서 대표 프로필로 고정이라 선택 동작이 없다 — 살짝 그레이 배경으로 비활성 느낌만 준다 */
-.mini-profile-chip.is-fixed { background: var(--bg-soft); }
-.mini-profile-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.mini-profile-top { display: flex; align-items: center; gap: 8px; }
-.mini-profile-name { font-size: 14px; font-weight: 700; color: var(--text-strong); }
+.mini-profile-chip.select-mode:hover { background: rgba(85,204,187,0.16); }
+.mini-profile-name { font-size: 14px; font-weight: 500; color: var(--text-strong); }
 .mini-profile-badge { font-size: 10px; color: var(--text-sub); background: var(--surface); border: 1px solid var(--border-gray); border-radius: 50px; padding: 0 8px; }
-.mini-profile-sub { font-size: 12px; color: var(--text-sub); }
-.mini-profile-chevron { font-size: 20px; color: var(--text-sub2); flex-shrink: 0; }
+.mini-profile-sub { font-size: 11px; color: var(--text-sub); }
 .mini-profile-placeholder { font-size: 13px; font-weight: 700; color: var(--text-sub2); }
 .mini-profile-empty { font-size: 12px; color: var(--text3); }
 
@@ -573,27 +588,11 @@ body {
 #panel-gungham { padding-top: 28px; }
 .person-block {
   border: 1px solid var(--border); border-radius: var(--r);
-  margin: 0 4px;
+  padding: 16px; margin: 0 4px;
 }
 .person-block + .person-block { margin-top: 12px; }
 .person-block:last-of-type { margin-bottom: 40px; }
 .person-label { font-size: 16px; font-weight: 700; color: var(--text-title); margin-bottom: 12px; }
-
-/* 궁합 탭 나/상대 아코디언 — 헤더(타이틀+아이콘)는 person-label 자리를 그대로 대신하고,
-   접히면 프로필칩·업로드 영역(person-acc-body)을 통째로 숨긴다. */
-.person-acc-head {
-  display: flex; align-items: center; justify-content: space-between;
-  width: 100%; background: var(--mint-10); border: 0; border-radius: var(--r);
-  padding: 16px; cursor: pointer; font-family: inherit; text-align: left;
-}
-/* .person-block에 padding이 없어져 헤더 배경이 카드 테두리에 바로 붙기 때문에, 라운드 값을
-   카드(var(--r))와 맞춰야 모서리가 겹쳐 보이지 않는다. 펼쳐진 상태는 헤더 아래로 본문이 이어지니
-   하단(좌우 포함) 라운드를 0으로 깎고, 접힌 상태는 헤더가 카드의 전체 모양 그대로라 원래 라운드를 되살린다. */
-.person-block.is-open .person-acc-head { border-radius: var(--r) var(--r) 0 0; }
-.person-acc-head .person-label { margin-bottom: 0; }
-.person-acc-icon { font-size: 20px; color: var(--jade); flex-shrink: 0; }
-.person-block:not(.is-open) .person-acc-body { display: none; }
-#ggBodyA, #ggBodyB { padding: 16px; }
 
 .combined-layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
 
@@ -1370,6 +1369,14 @@ body.overlay-open { overflow: hidden; }
       <details class="report-accordion zone-accordion" id="cmbZone2">
         <summary>ZONE 2 · 종합 분석 — 관상과 사주가 만나면</summary>
         <div id="cmbFusionSection" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+
+        <!-- 사용자 요청 2026-08-19 — Zone4에 있던 관상×사주 종합 서술(cmbSynergyBox, 룰베이스)을
+             통째로 여기로 옮겼다. Zone2가 이미 "관상과 사주가 만나면"을 다루는 종합 분석 영역이라
+             일부 문단만 골라내지 않고 전체를 그대로 이관함. 제자리 배치는 추후 정리. -->
+        <div id="cmbInsightSection" style="display:none;margin-top:14px;">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">*zone4에서 넘어옴(정리 필요)</div>
+          <div class="summary-box" id="cmbSynergyBox" style="margin-top:0;"></div>
+        </div>
       </details>
 
       <!-- ══ Zone3 · 관상 분석 ══ 얼굴만 근거로 삼는 영역. 예전 "1️⃣ 기본 관상 리포트"와
@@ -1421,10 +1428,6 @@ body.overlay-open { overflow: hidden; }
       <details class="report-accordion zone-accordion" id="cmbZone4">
         <summary>ZONE 4 · 사주 분석 — 사주에서 보이는 기운</summary>
         <div class="zone-head" id="cmbSajuHead"></div>
-
-        <div id="cmbInsightSection" style="display:none;margin-bottom:16px;">
-          <div class="summary-box" id="cmbSynergyBox" style="margin-top:0;"></div>
-        </div>
 
         <!-- 사용자 요청 2026-08-17 — 풀이(설명)를 먼저 읽히고, 원국·오행·대운 같은 근거는 그 뒤에 둔다.
              예전엔 한자 표부터 나와서 "이게 무슨 뜻인지" 모른 채 표를 먼저 마주해야 했다. -->
@@ -1654,79 +1657,69 @@ body.overlay-open { overflow: hidden; }
 
   <!-- ===== 궁합 패널 ===== -->
   <div class="panel" id="panel-gungham">
-    <!-- Person A: 대표 프로필 고정 — 최초 열림, 프로필+사진 다 채워지면 자동으로 접힌다 -->
-    <div class="person-block is-open" id="ggBlockA">
-      <button type="button" class="person-acc-head" onclick="Profile.toggleGgAcc('A')">
-        <span class="person-label" id="ggLabelA">나</span>
-        <span class="person-acc-icon material-symbols-outlined" id="ggAccIconA">remove</span>
-      </button>
-      <div class="person-acc-body" id="ggBodyA">
-        <div class="mini-profile-chip is-fixed" id="ggProfileChipA">
-          <span class="mini-profile-empty">헤더에서 프로필을 먼저 등록해주세요</span>
-        </div>
+    <!-- Person A: 대표 프로필 고정 -->
+    <div class="person-block">
+      <div class="person-label">나</div>
+      <div class="mini-profile-chip" id="ggProfileChipA">
+        <span class="mini-profile-empty">헤더에서 프로필을 먼저 등록해주세요</span>
+      </div>
 
-        <div class="upload-section">
-          <div class="upload-label">관상 정보</div>
-          <div class="reassure-box">
-            <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
-            <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
-          </div>
-          <div class="upload-area" id="ggUploadA"
-               onclick="document.getElementById('ggFileA').click()"
-               ondrop="handleDrop('gunghamA', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-            <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
-            <strong>사진을 클릭하거나 드래그하여 업로드</strong>
-          </div>
-          <div class="tip-box">
-            <span class="icon material-symbols-outlined">warning</span>
-            <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
-          </div>
-          <input type="file" id="ggFileA" accept="image/*" style="display:none" onchange="handleFile('gunghamA', event)">
-          <div class="thumb-area" id="ggThumbA" style="margin-top:12px;">
-            <img id="ggImgA" class="thumb-img" src="" alt="">
-            <div class="thumb-info"><div class="thumb-name">나</div></div>
-            <button class="reupload-btn" onclick="resetUpload('gunghamA')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
-          </div>
-          <input type="hidden" id="ggBirthA" value="">
+      <div class="upload-section">
+        <div class="upload-label">관상 정보</div>
+        <div class="reassure-box">
+          <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
+          <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
         </div>
+        <div class="upload-area" id="ggUploadA"
+             onclick="document.getElementById('ggFileA').click()"
+             ondrop="handleDrop('gunghamA', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+          <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
+          <strong>사진을 클릭하거나 드래그하여 업로드</strong>
+        </div>
+        <div class="tip-box">
+          <span class="icon material-symbols-outlined">warning</span>
+          <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+        </div>
+        <input type="file" id="ggFileA" accept="image/*" style="display:none" onchange="handleFile('gunghamA', event)">
+        <div class="thumb-area" id="ggThumbA" style="margin-top:12px;">
+          <img id="ggImgA" class="thumb-img" src="" alt="">
+          <div class="thumb-info"><div class="thumb-name">나</div></div>
+          <button class="reupload-btn" onclick="resetUpload('gunghamA')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
+        </div>
+        <input type="hidden" id="ggBirthA" value="">
       </div>
     </div>
 
-    <!-- Person B: 프로필 선택 — 최초 닫힘, A가 완료되면 자동으로 열린다 -->
-    <div class="person-block" id="ggBlockB">
-      <button type="button" class="person-acc-head" onclick="Profile.toggleGgAcc('B')">
-        <span class="person-label" id="ggLabelB">상대</span>
-        <span class="person-acc-icon material-symbols-outlined" id="ggAccIconB">add</span>
+    <!-- Person B: 프로필 선택 -->
+    <div class="person-block">
+      <div class="person-label">상대방</div>
+      <button class="mini-profile-chip select-mode" id="ggProfileChipB" onclick="Profile.openPartnerPicker()">
+        <span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 상대방 프로필 선택</span>
       </button>
-      <div class="person-acc-body" id="ggBodyB">
-        <button class="mini-profile-chip select-mode" id="ggProfileChipB" onclick="Profile.openPartnerPicker()">
-          <span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 상대방 프로필 선택</span>
-        </button>
 
-        <div class="upload-section">
-          <div class="upload-label">관상 정보</div>
-          <div class="reassure-box">
-            <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
-            <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
-          </div>
-          <div class="upload-area" id="ggUploadB"
-               onclick="document.getElementById('ggFileB').click()"
-               ondrop="handleDrop('gunghamB', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-            <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
-            <strong>사진을 클릭하거나 드래그하여 업로드</strong>
-          </div>
-          <div class="tip-box">
-            <span class="icon material-symbols-outlined">warning</span>
-            <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
-          </div>
-          <input type="file" id="ggFileB" accept="image/*" style="display:none" onchange="handleFile('gunghamB', event)">
-          <div class="thumb-area" id="ggThumbB" style="margin-top:12px;">
-            <img id="ggImgB" class="thumb-img" src="" alt="">
-            <div class="thumb-info"><div class="thumb-name">상대방</div></div>
-            <button class="reupload-btn" onclick="resetUpload('gunghamB')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
-          </div>
-          <input type="hidden" id="ggBirthB" value="">
+      <div class="upload-section">
+        <div class="upload-label">관상 정보</div>
+        <div class="reassure-box">
+          <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
+          <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
         </div>
+        <div class="upload-area" id="ggUploadB"
+             onclick="document.getElementById('ggFileB').click()"
+             ondrop="handleDrop('gunghamB', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+          <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
+          <strong>사진을 클릭하거나 드래그하여 업로드</strong>
+        </div>
+        <div class="tip-box">
+          <span class="icon material-symbols-outlined">warning</span>
+          <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+        </div>
+        <input type="file" id="ggFileB" accept="image/*" style="display:none" onchange="handleFile('gunghamB', event)">
+        <div class="thumb-area" id="ggThumbB" style="margin-top:12px;">
+          <img id="ggImgB" class="thumb-img" src="" alt="">
+          <div class="thumb-info"><div class="thumb-name">상대방</div></div>
+          <button class="reupload-btn" onclick="resetUpload('gunghamB')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
+        </div>
+        <input type="hidden" id="ggBirthB" value="">
       </div>
     </div>
 
