@@ -346,18 +346,22 @@
     const left = loadIndex().filter(r => r.id !== id);
     saveIndex(left);
 
-    // 인연도감(type:'gwansang') 마지막 기록을 지운 경우 — 이 기기의 로컬 재방문 캐시만 정리한다.
-    // ⚠️ 예전엔 여기서 Dogam.deleteMyDogam()까지 불러 진짜 도감(친구 참여 기록 포함)을 함께
-    // 지웠는데(2026-08-17 요청 반영), "보관함 기록이 0개"가 "진짜 도감을 지워도 된다"는 신호가
-    // 될 수 없다는 게 드러났다(사용자 리포트 2026-08-20) — 보관함 스냅샷은 자가복구·클라우드
-    // 재동기화 등으로 실제 도감과 일시적으로 어긋날 수 있는 별도의 표시용 캐시일 뿐이라, 이게
-    // 비어 있다고 실제 데이터를 지우면 하마터면 인연 여러 명이 통째로 날아갈 뻔했다. 진짜 도감을
-    // 지우려면 인연도감 화면의 전용 삭제 버튼(Dogam.deleteMyDogam, 자체 확인창 있음)을 써야 한다.
-    // 로컬 캐시를 지워도 안전한 이유 — 다음 Dogam.render()가 클라우드의 실제 캐릭터로 다시 채운다.
+    // 인연도감(type:'gwansang') 마지막 기록을 지운 경우 — 도감 본체까지 정리한다(사용자 원칙
+    // 2026-08-20: "보관함은 그냥 보관일 뿐이고, 인연도감과 보관함은 정확히 같은 걸 봐야 한다.
+    // 그래서 인연도감에서 지우면 보관함도, 보관함에서 지우면 인연도감도 같이 지워져야 한다").
+    // ⚠️ 도감 삭제는 친구들이 남긴 참여 기록까지 함께 사라지는 되돌릴 수 없는 작업이라, 여기서 조용히
+    // 지우지 않고 Dogam.deleteMyDogam()을 부른다 — 그 안에서 "인연 N명도 함께 사라진다"는 확인을
+    // 다시 받는다. 사용자가 거기서 취소하면 보관함 기록만 지워지고 도감은 남는다.
+    // (이 연결이 안전하려면 보관함이 실제 도감과 항상 정확히 같아야 한다 — paintOwnerView가 렌더할
+    // 때마다 Archive.save('gwansang')로 다시 맞춰두는 것과 세트로 봐야 한다.)
     if (rec && rec.type === 'gwansang' && !left.some(r => r.type === 'gwansang')) {
       localStorage.removeItem('inyeonLastCharacter');
       if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
-      console.log('[archive] 관상 기록이 모두 삭제돼 재방문 카드만 정리(실제 인연도감은 그대로 둔다)');
+      console.log('[archive] 관상 기록이 모두 삭제돼 재방문 카드도 정리');
+      if (window.Dogam && Dogam.deleteMyDogam) {
+        try { await Dogam.deleteMyDogam(); }
+        catch (e) { console.error('[archive] 인연도감 삭제 실패 — 보관함 기록만 지워졌다', e); }
+      }
     }
 
     if (viewingId === id) viewingId = null;

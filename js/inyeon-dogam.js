@@ -519,6 +519,10 @@
     // 그렇게 한다) 무한 재귀라, 그 안쪽 함수(populateGwansangReportFromSaved)만 직접 쓴다.
     if (charId && typeof populateGwansangReportFromSaved === 'function') {
       populateGwansangReportFromSaved(charId);
+      // 보관함(Archive)은 "그 시점의 스냅샷"이 아니라 항상 지금의 인연도감과 정확히 같아야 한다
+      // (사용자 원칙 2026-08-20: "인연도감과 보관함은 정확히 같은 걸 봐야 한다"). 내 도감을 그릴
+      // 때마다 다시 저장해서 제목·생성시각·본문이 실제 도감과 어긋나지 않게 맞춘다.
+      if (window.Archive && Archive.save) Archive.save('gwansang');
     }
     if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
     if (stale && stale()) return;

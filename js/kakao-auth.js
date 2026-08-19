@@ -95,14 +95,8 @@
             // 비로그인 동안 기기에 임시 보관해둔 리포트를 지금 로그인한 계정으로 편입한다 — 위
             // settling(이관·클라우드 동기화)이 모두 끝난 뒤에만 안전하게 커밋할 수 있다.
             if (window.Archive) Archive.commitPending();
-            // ⚠️ 사용자 리포트(2026-08-19): 위 경합 버그가 고쳐지기 전에 이미 보관함의 인연도감
-            // 스냅샷이 사라진 계정들은 이 수정만으로 되살아나지 않는다 — 계정엔 진짜 도감이 있는데
-            // (바로 위 Dogam.migrateLocalOnLogin().then(Dogam.render)가 이미 #canvasCard/
-            // #gwansangResult에 그 캐릭터를 복원해뒀다) 보관함엔 그 기록이 없으면, 재분석 없이
-            // 지금 화면 그대로 한 번 더 스냅샷해서 자동으로 채운다(자가 복구).
-            if (window.Archive && Archive.listOf && Archive.listOf('gwansang').length === 0) {
-              Archive.save('gwansang');
-            }
+            // 인연도감 쪽 보관함 동기화는 이제 별도로 챙길 필요가 없다 — 위 Dogam.render()(paintOwnerView)가
+            // 렌더할 때마다 항상 Archive.save('gwansang')로 다시 맞춰두므로, 로그인 시점에도 이미 반영돼 있다.
           })
           .then(hideAuthLoading);
         resolveAccountInfo(user.uid);
