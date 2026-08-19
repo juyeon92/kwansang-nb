@@ -425,9 +425,13 @@
     document.body.classList.add('overlay-open');
   }
 
-  function openLoginPopup() {
+  // message: 안내 문구를 다르게 보여줄 호출부용(사용자 요청 2026-08-19) — 통합분석·사주보기·궁합보기를
+  // 로그인 없이 누른 경우엔 "로그인 후 이용하실 수 있는 서비스입니다."로, 그 외(그냥 로그인 버튼,
+  // 인연도감 유지하기 등)는 기존 문구를 그대로 쓴다(생략 시 기본값).
+  function openLoginPopup(message) {
     const r = root();
     if (!r) { login(); return; }
+    const lead = message || '로그인하면 등록한 프로필과 분석 결과를<br>다른 기기에서도 이어서 볼 수 있어요.';
     r.innerHTML =
       '<div class="overlay-backdrop" onclick="KakaoAuth.closePopup()"></div>' +
       '<div class="form-popup small">' +
@@ -436,7 +440,7 @@
           '<button class="overlay-close" onclick="KakaoAuth.closePopup()"><span class="material-symbols-outlined">close</span></button>' +
         '</div>' +
         '<div class="popup-body login-popup-body">' +
-          '<p class="login-popup-lead">로그인하면 등록한 프로필과 분석 결과를<br>다른 기기에서도 이어서 볼 수 있어요.</p>' +
+          '<p class="login-popup-lead">' + lead + '</p>' +
           '<button class="kakao-login-big-btn" onclick="KakaoAuth.loginFromPopup()">' +
             '<span class="kakao-mark material-symbols-outlined">chat_bubble</span>카카오 로그인하기</button>' +
         '</div>' +

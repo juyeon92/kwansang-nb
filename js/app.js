@@ -41,7 +41,7 @@ function isRealLoggedIn() {
 }
 function switchTab(tab, btn) {
   if (TAB_LOGIN_REQUIRED[tab] && !isRealLoggedIn()) {
-    if (window.KakaoAuth) KakaoAuth.openLoginPopup();
+    if (window.KakaoAuth) KakaoAuth.openLoginPopup('로그인 후 이용하실 수 있는 서비스입니다.');
     return; // 로그인 팝업만 띄우고 탭은 전환하지 않는다
   }
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
