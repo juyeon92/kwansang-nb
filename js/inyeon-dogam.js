@@ -325,6 +325,7 @@
     if (!local || local.ownerUid === uid) return; // 이미 내 것이면 이관할 게 없다
 
     let mine = await ensureMyDogam().catch(function () { return null; });
+    const hadExistingAccountDogam = !!mine; // 승격(계정에 도감이 없어 이 기기 걸 새로 만든 것)과 구분하기 위해 미리 기록
     if (!mine) {
       // 계정에 아직 도감이 없으면 이 기기의 캐릭터/이름으로 새로 만든다 — 등록만 해뒀지 계정을
       // 안 만든 상태였다는 뜻이라, 이 기기의 도감을 그대로 계정의 도감으로 승격시키는 셈이다.
@@ -334,6 +335,16 @@
       });
     }
     if (!mine || mine.slug === local.slug) return;
+
+    // ⚠️ 사용자 리포트(2026-08-19): 계정에 이미 진짜 도감이 있는데, 이 기기가 로그인 전(익명)에
+    // 만든 도감은 그것과 전혀 다른 별개의 도감이다 — 그 도감을 분석했을 때 보관함(archive.js)에
+    // 남겨둔 대기 스냅샷(PENDING_KEY)은 이제 미아라, 아래에서 이 기기의 참여 기록만 계정 도감으로
+    // 옮기고 원본은 그대로 두는 것처럼, 보관함 쪽 미아 스냅샷도 버려야 한다. 안 그러면 잠시 뒤
+    // Archive.commitPending()이 이걸 계정의 진짜 인연도감 기록에 덮어써 버린다("PC에서 로그인했더니
+    // 내 인연도감이 로그인 전 다른 도감으로 바뀌어 보인다").
+    if (hadExistingAccountDogam && window.Archive && Archive.discardPending) {
+      Archive.discardPending('gwansang');
+    }
 
     let migrated = 0;
     for (const entry of (local.entries || [])) {

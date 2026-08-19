@@ -40,7 +40,12 @@ function isRealLoggedIn() {
   return !!(window.fbAuth && fbAuth.currentUser && !fbAuth.currentUser.isAnonymous);
 }
 function switchTab(tab, btn) {
-  if (TAB_LOGIN_REQUIRED[tab] && !isRealLoggedIn()) {
+  // ⚠️ 버그 수정(2026-08-19 사용자 리포트: 로그인했는데도 로그인 팝업이 뜸) — 새로고침 직후
+  // restoreLastTab()이 로그인 필요 탭을 클릭으로 복원할 때, fbAuth.onAuthStateChanged가 아직 한
+  // 번도 안 불려서 isRealLoggedIn()이 무조건 false다. "아직 확인 전"에는 팝업을 띄우지 않고 일단
+  // 넘어가고, 확인이 끝난 뒤 enforceTabLoginGate()가 정말 로그아웃 상태면 조용히 돌려보낸다.
+  const authResolved = !!(window.KakaoAuth && KakaoAuth.isAuthResolved && KakaoAuth.isAuthResolved());
+  if (TAB_LOGIN_REQUIRED[tab] && authResolved && !isRealLoggedIn()) {
     if (window.KakaoAuth) KakaoAuth.openLoginPopup('로그인 후 이용하실 수 있는 서비스입니다.');
     return; // 로그인 팝업만 띄우고 탭은 전환하지 않는다
   }
@@ -223,10 +228,10 @@ function updateCtaDock(ctx) {
   }
 }
 
-// 사진 등록 영역(라벨·안심 안내·업로드 드롭존·썸네일·좌우 반전) 전체 — 관상보기/통합분석 전용
-// (궁합보기는 두 사람 사진 UI가 별도 구조라 대상 아님). 분석 전까지만 필요하고, 분석이 끝나면
-// "다른 OOO 분석하기" 버튼(resetUpload)을 눌러야 다시 나타난다.
-const uploadSectionMap = { gwansang: 'gwansangUploadSection', combined: 'cmbUploadSection' };
+// 사진 등록 영역(라벨·안심 안내·업로드 드롭존·썸네일·좌우 반전) 전체 — 분석 전까지만 필요하고,
+// 분석이 끝나면 "다른 OOO 분석하기" 버튼(resetUpload)을 눌러야 다시 나타난다. 궁합보기는 나/상대방
+// 두 사람분 섹션(ggUploadSectionA/B)이 따로 있어 gunghamA/gunghamB 키로 등록해둔다.
+const uploadSectionMap = { gwansang: 'gwansangUploadSection', combined: 'cmbUploadSection', gunghamA: 'ggUploadSectionA', gunghamB: 'ggUploadSectionB' };
 
 // 통합분석 전용 — 사진을 올리기 전까지는 숨겨뒀다가, 업로드되는 순간 사주보기와 같은 상황 질문을 노출한다.
 const sajuQBlockMap = { combined: 'cmbSajuQBlock' };
@@ -235,6 +240,13 @@ const sajuQBlockMap = { combined: 'cmbSajuQBlock' };
 function markAnalyzed(ctx) {
   const dock = ctaDockMap[ctx] && document.getElementById(ctaDockMap[ctx]);
   if (dock) dock.classList.add('hidden');
+  if (ctx === 'gungham') { // 나/상대방 프로필 블록 전체(#ggBlockA·B)를 접어 리포트가 바로 보이게 한다
+    ['ggBlockA', 'ggBlockB'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.classList.add('hidden');
+    });
+    return;
+  }
   const section = uploadSectionMap[ctx] && document.getElementById(uploadSectionMap[ctx]);
   if (section) section.classList.add('hidden');
 }
@@ -431,9 +443,99 @@ function resetSajuForm() {
 function resetGunghamResult() {
   resetUpload('gunghamA');
   resetUpload('gunghamB');
+  ggWantsNewAnalysis = true; // 보관된 내역이 있어도 지금은 새 분석을 하려는 것 — 내역 목록으로 되돌리지 않는다
+  showGunghamInputStep();
   document.getElementById('ggResult').classList.add('hidden');
   document.getElementById('ggCanvasCard').classList.add('hidden');
   document.getElementById('panel-gungham').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ═══ 궁합보기 첫 화면 — 보관함에 쌓인 궁합 내역 재노출 ═══
+// 통합분석 첫 화면(renderCombinedSavedReport)과 같은 원칙(사용자 요청 2026-08-19) — 로그인 상태에서
+// 궁합 기록이 있으면 나/상대방 선택 단계(#ggInputStep) 대신 보관된 내역 목록(#ggSavedStep)을 보여준다.
+// 호출 시점: 보관 목록이 바뀔 때마다 archive.js가 부른다(저장·삭제·로그인·로그아웃).
+let ggWantsNewAnalysis = false; // "다른 상대와 궁합보기"를 눌러 새 분석을 진행 중인지
+let ggViewingReportId = null;   // 내역에서 펼쳐 본 리포트 id
+
+function showGunghamInputStep() {
+  const input = document.getElementById('ggInputStep');
+  if (input) input.classList.remove('hidden');
+  ['ggSavedStep', 'ggSavedReport'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+}
+
+function renderGunghamSavedReport() {
+  const input = document.getElementById('ggInputStep');
+  const saved = document.getElementById('ggSavedStep');
+  const list = document.getElementById('ggSavedList');
+  if (!input || !saved || !list) return;
+  if (ggWantsNewAnalysis) { showGunghamInputStep(); return; }
+  if (state.gunghamA.file || state.gunghamB.file) return; // 사진을 올리는 중이면 화면을 갈아끼우지 않는다
+  const rows = (window.Archive && Archive.listOf) ? Archive.listOf('gungham') : [];
+  if (!rows.length) { showGunghamInputStep(); return; }
+
+  list.innerHTML = rows.map(rec =>
+    '<div class="revisit-row" role="button" tabindex="0" onclick="openGunghamSavedReport(\'' + rec.id + '\')">' +
+      '<span class="revisit-mark material-symbols-outlined">favorite</span>' +
+      '<div class="revisit-body">' +
+        '<div class="revisit-name">' + cmbEsc(rec.title) + '</div>' +
+        '<div class="revisit-desc">' + [rec.sub, rec.when].filter(Boolean).map(cmbEsc).join(' · ') + '</div>' +
+      '</div>' +
+      '<button type="button" class="revisit-del" aria-label="삭제" title="삭제" ' +
+        'onclick="event.stopPropagation();Archive.remove(\'' + rec.id + '\')">' +
+        '<span class="material-symbols-outlined">delete</span></button>' +
+      '<span class="revisit-arrow material-symbols-outlined">chevron_right</span>' +
+    '</div>').join('');
+
+  // 리포트를 펼쳐 보던 중에 목록이 갱신된 경우(삭제 등) — 그 기록이 남아 있으면 보던 화면을 유지한다.
+  const report = document.getElementById('ggSavedReport');
+  const viewingGone = ggViewingReportId && !rows.some(r => r.id === ggViewingReportId);
+  if (report && !report.classList.contains('hidden') && !viewingGone) {
+    input.classList.add('hidden');
+    return;
+  }
+  ggViewingReportId = null;
+  if (report) report.classList.add('hidden');
+  input.classList.add('hidden');
+  saved.classList.remove('hidden');
+}
+
+// 내역 행 클릭 — 보관된 스냅샷을 그대로 펼친다.
+async function openGunghamSavedReport(id) {
+  const body = document.getElementById('ggSavedBody');
+  const meta = document.getElementById('ggSavedMeta');
+  const rec = (window.Archive && Archive.listOf) ? Archive.listOf('gungham').find(r => r.id === id) : null;
+  if (!body || !rec) return;
+  if (meta) meta.textContent = [rec.title, rec.sub, rec.when].filter(Boolean).join(' · ');
+  body.innerHTML = '<div class="arc-empty">리포트를 불러오는 중…</div>';
+  document.getElementById('ggSavedStep').classList.add('hidden');
+  document.getElementById('ggSavedReport').classList.remove('hidden');
+  ggViewingReportId = id;
+  window.scrollTo(0, 0);
+  const ok = await Archive.renderInto(body, id);
+  if (!ok) body.innerHTML = '<div class="arc-empty">저장된 리포트를 찾을 수 없습니다. 분석을 다시 실행해주세요.</div>';
+}
+
+function closeGunghamSavedReport() {
+  ggViewingReportId = null;
+  document.getElementById('ggSavedReport').classList.add('hidden');
+  document.getElementById('ggSavedStep').classList.remove('hidden');
+  window.scrollTo(0, 0);
+}
+
+// "다른 상대와 궁합보기" — 상대방만 다시 고르면 된다(나는 대표 프로필로 고정). 고른 뒤에 선택
+// 단계(#ggInputStep)로 돌아가 사진 등록부터 새로 진행한다.
+function startGunghamForOther() {
+  if (!window.Profile || !Profile.openPartnerPicker) return;
+  Profile.openPartnerPicker({
+    onPick: function () {
+      ggWantsNewAnalysis = true;
+      showGunghamInputStep();
+      window.scrollTo(0, 0);
+    },
+  });
 }
 
 // ═══ SPINNER / ERROR HELPERS ═══
@@ -752,6 +854,16 @@ function buildPersonNarrative(lm, pillars, ohaeng) {
   return { paragraphs: [OHAENG_DETAIL[oh], '사진을 추가하면 관상까지 더해진 훨씬 상세한 리포트를 볼 수 있어요.'], statusMap: null };
 }
 
+// 궁합보기 Zone1(관상)/Zone2(사주) 재배치용(2026-08-19 사용자 요청) — buildPersonNarrative의 문단은
+// 관상·사주가 한 흐름으로 섞여 있어서, 어느 문단이 어느 정보에서 나왔는지에 따라 나눈다.
+// 사진이 있을 때 순서는 buildFullNarrative의 [typeCardP, natureP, strongP, compP, synergyP, closingP] 고정 —
+// natureP(오행 성격)만 순수 사주고, 나머지(관상 유형·강점·보완·시너지·종합)는 관상 쪽으로 묶는다.
+function splitPersonNarrative(paragraphs, hasPhoto) {
+  if (!hasPhoto) return { gwansang: [], saju: paragraphs };
+  const [typeCardP, natureP, strongP, compP, synergyP, closingP] = paragraphs;
+  return { gwansang: [typeCardP, strongP, compP, synergyP, closingP], saju: [natureP] };
+}
+
 function renderNarrativeParagraphs(elId, paragraphs) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -1057,16 +1169,23 @@ function ohaengCellStyle(oh) {
   if (!c) return '';
   return `background:linear-gradient(135deg, ${c.base}55, ${c.dark}22);border:1px solid ${c.dark}99;color:${c.base};`;
 }
+// 시주/일주/월주/연주 한 기둥의 기본 셀(라벨+천간+지지, 오행 색상) — 근거성 뱃지(12운성·신살·귀인) 없이
+// 순수 원국만 보여줄 때(renderGunghamManseryeok) renderPillarsTable과 공유한다.
+function buildPillarColBase(p) {
+  const ss = p.stem>=0?CHEONGAN[p.stem]:'?', bs = p.branch>=0?JIJI[p.branch]:'?';
+  const sk = p.stem>=0?CG_KO[p.stem]:'?', bk = p.branch>=0?JJ_KO[p.branch]:'?';
+  const stemOh = p.stem>=0 ? CG_OH[p.stem] : null;
+  const branchOh = p.branch>=0 ? JJ_OH[p.branch] : null;
+  return `<div class="pillar-label">${p.label}</div><div class="pillar-stem" style="${ohaengCellStyle(stemOh)}">${ss}<div class="pillar-hanja">${sk}</div></div><div class="pillar-branch" style="${ohaengCellStyle(branchOh)}">${bs}<div class="pillar-hanja">${bk}</div></div>`;
+}
+
 function renderPillarsTable(pillars, elId) {
   const [yP, mP, dP] = pillars; // pillars는 항상 [년,월,일,시] 고정 순서
   const dayStemIdx = dP ? dP.stem : -1;
   const yBranch = yP ? yP.branch : -1, mBranch = mP ? mP.branch : -1, dBranch = dP ? dP.branch : -1;
   const extra = computeExtraGwiin(pillars);
   document.getElementById(elId).innerHTML = [...pillars].reverse().map(p => {
-    const ss = p.stem>=0?CHEONGAN[p.stem]:'?', bs = p.branch>=0?JIJI[p.branch]:'?';
-    const sk = p.stem>=0?CG_KO[p.stem]:'?', bk = p.branch>=0?JJ_KO[p.branch]:'?';
-    const stemOh = p.stem>=0 ? CG_OH[p.stem] : null;
-    const branchOh = p.branch>=0 ? JJ_OH[p.branch] : null;
+    const base = buildPillarColBase(p);
     const unseong = p.branch>=0 ? get12Unseong(dayStemIdx, p.branch) : null;
     const unseongLine = unseong ? `<div class="pillar-unseong">${unseong}</div>` : '';
 
@@ -1092,8 +1211,29 @@ function renderPillarsTable(pillars, elId) {
     const sinsalList = get12SinsalForBranch(p.branch, yBranch, mBranch, dBranch);
     const sinsalBadges = sinsalList.map(s => `<div class="pillar-sinsal">${s}</div>`).join('');
 
-    return `<div class="pillar-col"><div class="pillar-label">${p.label}</div><div class="pillar-stem" style="${ohaengCellStyle(stemOh)}">${ss}<div class="pillar-hanja">${sk}</div></div><div class="pillar-branch" style="${ohaengCellStyle(branchOh)}">${bs}<div class="pillar-hanja">${bk}</div></div>${unseongLine}${sinsalBadges}${gwiinBadges}</div>`;
+    return `<div class="pillar-col">${base}${unseongLine}${sinsalBadges}${gwiinBadges}</div>`;
   }).join('');
+}
+
+// 나/상대방 만세력을 한 화면에 — 이름·생년월일시 헤더 + 8칸(시주~연주 ×2) 원국표(사용자 요청
+// 2026-08-19). 근거성 뱃지(12운성·신살·귀인)는 여기서 노출하지 않는다 — buildPillarColBase만 사용.
+function renderGunghamManseryeok(nameA, dateA, hourA, pillarsA, nameB, dateB, hourB, pillarsB) {
+  const el = document.getElementById('ggManseryeokCompare');
+  if (!el) return;
+  const dstr = d => String(d || '').replace(/-/g, '.');
+  const hourLabel = h => (window.Profile && Profile.hourShort) ? Profile.hourShort(h) : '';
+  const colsA = [...pillarsA].reverse().map(p => `<div class="pillar-col">${buildPillarColBase(p)}</div>`).join('');
+  const colsB = [...pillarsB].reverse().map(p => `<div class="pillar-col">${buildPillarColBase(p)}</div>`).join('');
+  el.innerHTML = `
+    <div class="gg-manse-head">
+      <div class="gg-manse-name">${cmbEsc(nameA)}</div>
+      <div class="gg-manse-heart">❤️</div>
+      <div class="gg-manse-name">${cmbEsc(nameB)}</div>
+      <div class="gg-manse-sub">${dstr(dateA)} · ${hourLabel(hourA)}<span class="gg-manse-cal">(양력)</span></div>
+      <div></div>
+      <div class="gg-manse-sub">${dstr(dateB)} · ${hourLabel(hourB)}<span class="gg-manse-cal">(양력)</span></div>
+    </div>
+    <div class="pillars-table pillars-table-compare">${colsA}${colsB}</div>`;
 }
 
 // 이 사람 사주에 실제로 등장하는 12운성 단계 + 천을귀인 여부만 골라 설명을 붙인다(12개 전부 나열하지 않음).
@@ -1334,6 +1474,9 @@ function initZoneAccordions() {
     z.addEventListener('toggle', () => {
       if (!z.open) return;
       zones.forEach((other) => { if (other !== z) other.open = false; });
+      // 열었을 때 그 Zone의 최상단이 화면 위로 오게 스크롤한다(사용자 요청 2026-08-19) —
+      // 안 그러면 밑에서부터 펼쳐진 내용이 화면 밖에서 늘어나 지금 연 Zone을 놓치기 쉽다.
+      z.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
 }
@@ -1605,6 +1748,22 @@ async function buildCombinedReport(dateVal, preloadedLm) {
 }
 
 // ═══ GUNGHAM ═══
+// 통합분석 탭과 동일한 원칙(사용자 요청 2026-08-19) — 리포트(#ggResult)는 AI 정밀 해석까지 전부 끝난
+// 뒤에 한 번에 공개한다. 그 전까지는 #ggAnalyzing(스피너 + 단계 문구)만 보여준다.
+function showGgAnalyzing(msg) {
+  const box = document.getElementById('ggAnalyzing');
+  if (box) box.classList.remove('hidden');
+  setGgAnalyzingMsg(msg);
+}
+function setGgAnalyzingMsg(msg) {
+  const el = document.getElementById('ggAnalyzingMsg');
+  if (el && msg) el.textContent = msg;
+}
+function hideGgAnalyzing() {
+  const box = document.getElementById('ggAnalyzing');
+  if (box) box.classList.add('hidden');
+}
+
 async function runGungham() {
   const dateA = document.getElementById('ggBirthA').value;
   const dateB = document.getElementById('ggBirthB').value;
@@ -1612,86 +1771,144 @@ async function runGungham() {
   hideErr('ggErr');
   document.getElementById('ggResult').classList.add('hidden');
   document.getElementById('ggCanvasCard').classList.add('hidden');
+  markAnalyzed('gungham');                     // 고정 CTA를 먼저 접고
+  showGgAnalyzing('사주 궁합을 계산하는 중이에요'); // 진행 화면만 남긴다
 
-  const pillarsA = computePillars(dateA, '-1');
-  const pillarsB = computePillars(dateB, '-1');
-  const ohA = computeOhaeng(pillarsA);
-  const ohB = computeOhaeng(pillarsB);
-  const rel = state.gungham.relation;
+  try {
+    // ⚠️ 버그 수정(2026-08-19 사용자 리포트: "사주 다 넣었는데 시주가 빠졌다") — applyToGunghamA/B
+    // (profile.js)는 대표/상대 프로필의 태어난 시간(birthHour)을 ggBirthHourA/B에 채워두는데, 여기서
+    // 계속 '-1'(시간 미상)을 하드코딩해 넘기고 있어서 프로필에 시간을 입력해도 시주가 항상 빠졌다.
+    const hourA = (document.getElementById('ggBirthHourA') || {}).value || '-1';
+    const hourB = (document.getElementById('ggBirthHourB') || {}).value || '-1';
+    const pillarsA = computePillars(dateA, hourA);
+    const pillarsB = computePillars(dateB, hourB);
+    const ohA = computeOhaeng(pillarsA);
+    const ohB = computeOhaeng(pillarsB);
+    const rel = state.gungham.relation;
 
-  // 사주가 들어가는 다른 탭(사주 탭·통합분석 탭)과 동일하게 원국 표(오행 색상·12운성·신살·귀인 배지)를
-  // 보여준다 — 사진 없이 생년월일만으로도 바로 볼 수 있는 부분이라 여기서 먼저 렌더링.
-  state.gunghamA.pillars = pillarsA; state.gunghamA.ohaeng = ohA;
-  state.gunghamB.pillars = pillarsB; state.gunghamB.ohaeng = ohB;
-  renderPillarsTable(pillarsA, 'ggPillarsA');
-  renderUnseongLegend(pillarsA, 'ggUnseongLegendA');
-  renderOhaengBars(ohA, 'ggOhaengA');
-  renderOhaengDeepDive(ohA, pillarsA[2].stem, 'ggOhaengDeepDiveA');
-  renderPillarsTable(pillarsB, 'ggPillarsB');
-  renderUnseongLegend(pillarsB, 'ggUnseongLegendB');
-  renderOhaengBars(ohB, 'ggOhaengB');
-  renderOhaengDeepDive(ohB, pillarsB[2].stem, 'ggOhaengDeepDiveB');
+    // 리포트 전체에서 "나"/"상대방" 대신 실제 이름 + "님"을 쓴다(사용자 요청 2026-08-19) — 섹션 제목은
+    // 여기서 바로 바꿔두고(재분석 때마다 다시 실행되므로 매번 고정 포맷으로 다시 써서 이름이 바뀌어도
+    // 안전), AI가 쓰는 본문 문장은 requestCoupleAi가 이 이름을 프롬프트에 넘겨 반영한다.
+    const nameA = state.gunghamA.name ? state.gunghamA.name + '님' : '나';
+    const nameB = state.gunghamB.name ? state.gunghamB.name + '님' : '상대방';
+    const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    setText('ggZone1TitleA', `🙋 ${nameA}의 관상`);
+    setText('ggZone1TitleB', `🙋‍♂️ ${nameB}의 관상`);
+    setText('ggZone2TitleA', `🙋 ${nameA}의 사주`);
+    setText('ggZone2TitleB', `🙋‍♂️ ${nameB}의 사주`);
+    setText('ggCanvasLabelA', `${nameA}의 관상`);
+    setText('ggCanvasLabelB', `${nameB} 관상`);
 
-  // ① 참고용 궁합 점수(접힌 상세 영역에만 노출)
-  function renderCompatScore(compat) {
-    document.getElementById('ggScore').textContent = compat.score;
-    document.getElementById('ggGrade').textContent = compat.grade;
-    document.getElementById('ggDesc').textContent = compat.desc;
-    document.getElementById('ggBars').innerHTML = compat.bars.map(b =>
-      `<div class="compat-bar-row"><div class="compat-bar-label">${b.label}</div><div class="compat-bar-bg"><div class="compat-bar-fill" style="width:${b.pct}%"></div></div><div class="compat-bar-pct">${b.pct}%</div></div>`
-    ).join('');
-  }
-  renderCompatScore(calcCompatScore(pillarsA, pillarsB, ohA, ohB, rel));
-  document.getElementById('ggResult').classList.remove('hidden');
-  document.getElementById('ggResult').scrollIntoView({ behavior:'smooth' });
-  markAnalyzed('gungham');
+    // 사주가 들어가는 다른 탭(사주 탭·통합분석 탭)과 동일하게 오행 분포를 준비해둔다 — 화면 공개는
+    // 마지막에 한 번에 하지만, 계산·렌더 자체는 여기서 먼저 끝내둔다. 원국(만세력)은 두 사람을 한
+    // 화면에 비교하는 renderGunghamManseryeok 하나로 통일하고(사용자 요청 2026-08-19), 근거성
+    // 정보(12운성·신살·귀인)인 renderUnseongLegend는 이 탭에서 노출하지 않는다.
+    state.gunghamA.pillars = pillarsA; state.gunghamA.ohaeng = ohA;
+    state.gunghamB.pillars = pillarsB; state.gunghamB.ohaeng = ohB;
+    renderGunghamManseryeok(nameA, dateA, hourA, pillarsA, nameB, dateB, hourB, pillarsB);
+    renderOhaengBars(ohA, 'ggOhaengA');
+    renderOhaengDeepDive(ohA, pillarsA[2].stem, 'ggOhaengDeepDiveA');
+    renderOhaengBars(ohB, 'ggOhaengB');
+    renderOhaengDeepDive(ohB, pillarsB[2].stem, 'ggOhaengDeepDiveB');
 
-  // ② 사진 있으면 관상 분석 (병렬 실행)
-  let lmA = null, lmB = null;
-  const tasks = [];
-  if (state.gunghamA.file) tasks.push(runFaceAnalysis('gunghamA', 'gunghamCanvasA').then(lm => { lmA = lm; }));
-  if (state.gunghamB.file) tasks.push(runFaceAnalysis('gunghamB', 'gunghamCanvasB').then(lm => { lmB = lm; }));
-  if (tasks.length > 0) {
-    await Promise.all(tasks);
+    // ① 참고용 궁합 점수(접힌 상세 영역에만 노출)
+    function renderCompatScore(compat) {
+      document.getElementById('ggScore').textContent = compat.score;
+      document.getElementById('ggGrade').textContent = compat.grade;
+      document.getElementById('ggDesc').textContent = compat.desc;
+      document.getElementById('ggBars').innerHTML = compat.bars.map(b =>
+        `<div class="compat-bar-row"><div class="compat-bar-label">${b.label}</div><div class="compat-bar-bg"><div class="compat-bar-fill" style="width:${b.pct}%"></div></div><div class="compat-bar-pct">${b.pct}%</div></div>`
+      ).join('');
+    }
+    // 궁합보기 히어로(총합/관상만/사주만 점수) — AI가 점수를 새로 지어내지 않도록, 항상 이 로컬 계산값을
+    // 그대로 근거 데이터로 넘긴다(requestCoupleAi 참고). 사진이 없으면 관상만 점수는 null로 둔다.
+    const sajuOnlyCompat = calcCompatScore(pillarsA, pillarsB, ohA, ohB, rel);
+    renderCompatScore(sajuOnlyCompat);
+    let heroScores = { total: sajuOnlyCompat.score, saju: sajuOnlyCompat.score, gwansang: null };
+
+    // ② 사진 있으면 관상 분석 (병렬 실행)
+    let lmA = null, lmB = null;
+    const tasks = [];
+    if (state.gunghamA.file) { setGgAnalyzingMsg('얼굴을 분석하는 중이에요'); tasks.push(runFaceAnalysis('gunghamA', 'gunghamCanvasA').then(lm => { lmA = lm; })); }
+    if (state.gunghamB.file) tasks.push(runFaceAnalysis('gunghamB', 'gunghamCanvasB').then(lm => { lmB = lm; }));
+    if (tasks.length > 0) await Promise.all(tasks);
+
+    // ②-1 두 사람 사진이 모두 있으면 관상 궁합(db/MATCHING.csv 기반)을 사주 궁합과 블렌드해 재계산
+    if (lmA && lmB) {
+      setGgAnalyzingMsg('관상 궁합을 계산하는 중이에요');
+      const gwansangCompat = calcGwansangCompat(lmA, lmB);
+      const blended = calcCompatScore(pillarsA, pillarsB, ohA, ohB, rel, gwansangCompat);
+      renderCompatScore(blended);
+      const gVals = Object.values(gwansangCompat);
+      heroScores = { total: blended.score, saju: sajuOnlyCompat.score, gwansang: Math.round(gVals.reduce((s, v) => s + v, 0) / gVals.length) };
+    }
+
+    // ②-2 골든타임 + 관상 형상(눈모양·동물상) — 사진이 있는 사람만, 사주 탭·통합분석 탭과 동일하게 반영
+    const aiTasks = [];
+    if (lmA) {
+      renderGoldenTime('ggGoldenTimeA', calcSamjeongRatio(lmA), calcAge(dateA), pillarsA[2].stem);
+      // 궁합보기 Zone1(관상 궁합)이 16캐릭터 이름(무관상·책사상 등)을 인용할 수 있도록 여기서 확정해둔다 —
+      // 통합분석 탭과 같은 룰베이스 엔진(classifyAndBuildCharacter)을 그대로 재사용.
+      classifyAndBuildCharacter('gunghamA', CTX_CONFIG.gunghamA(), lmA);
+      aiTasks.push(requestPersonalAi('gunghamA'));
+    }
+    if (lmB) {
+      renderGoldenTime('ggGoldenTimeB', calcSamjeongRatio(lmB), calcAge(dateB), pillarsB[2].stem);
+      classifyAndBuildCharacter('gunghamB', CTX_CONFIG.gunghamB(), lmB);
+      aiTasks.push(requestPersonalAi('gunghamB'));
+    }
+    if (aiTasks.length) { setGgAnalyzingMsg('관상 형상을 살펴보는 중이에요'); await Promise.all(aiTasks); }
+
+    // ③ 나 / 상대방 각각의 관상 X 사주 종합 리포트 (STEP1·STEP2에 해당)
+    const narrativeA = buildPersonNarrative(lmA, pillarsA, ohA);
+    const narrativeB = buildPersonNarrative(lmB, pillarsB, ohB);
+
+    // Gemini "AI 정밀 해석" 버튼이 재사용할 수 있도록 계산 결과 캐시
+    state.gungham.cache = {
+      nameA, nameB,
+      pillarsA, pillarsB, ohA, ohB,
+      statusMapA: narrativeA.statusMap, statusMapB: narrativeB.statusMap,
+      heroScores,
+      sajuInsightA: collectSajuInsightSummary(pillarsA),
+      sajuInsightB: collectSajuInsightSummary(pillarsB),
+      characterA: state.gunghamA.characterResult || null,
+      characterB: state.gunghamB.characterResult || null,
+    };
+
+    // ④ 지침서 예시② 구조의 4섹션 비교 리포트 (STEP3에 해당, 관상 없어도 사주만으로 생성)
+    const chemi = buildRoleChemi(pillarsA[2].stem, narrativeA.statusMap, pillarsB[2].stem, narrativeB.statusMap);
+    const faceCombo = buildFaceComboChemi(lmA, lmB, ggGenderA, ggGenderB, rel);
+    const energy = buildEnergyChemi(ohA, ohB);
+    const moments = buildMoments(ohA, ohB, narrativeA.statusMap, narrativeB.statusMap);
+    renderCoupleReport(narrativeA, narrativeB, chemi, faceCombo, energy, moments);
+
+    // ⑤ Gemini 정밀 해석 자동 요청(수동 버튼 없음) — 키가 없으면 requestCoupleAi 내부에서 조용히 스킵된다.
+    setGgAnalyzingMsg('AI가 두 사람의 궁합을 읽는 중이에요');
+    await requestCoupleAi();
+
+    // 히어로 점수는 AI 성공 여부와 무관하게 항상 로컬 계산값으로 채운다(requestCoupleAi가 스킵되거나
+    // 실패해도 점수만큼은 항상 보여야 한다).
+    document.getElementById('ggHeroTotalNum').textContent = heroScores.total;
+    document.getElementById('ggHeroGwansangNum').textContent = heroScores.gwansang != null ? heroScores.gwansang : '-';
+    document.getElementById('ggHeroSajuNum').textContent = heroScores.saju;
+
+    hideGgAnalyzing();
     if (lmA || lmB) document.getElementById('ggCanvasCard').classList.remove('hidden');
+    document.getElementById('ggResult').classList.remove('hidden');
+    window.scrollTo(0, 0);
+    if (window.Archive) Archive.save('gungham'); // 보관함 — AI 해석까지 끝난 뒤에 스냅샷
+  } catch (e) {
+    // 리포트가 완성되지 않았으므로 열지 않는다 — CTA를 되살려 에러 안내가 보이게 한다.
+    console.error('[gungham] 분석 실패 — 리포트를 열지 않는다', e);
+    hideGgAnalyzing();
+    const dock = document.getElementById('ggCtaDock');
+    if (dock) dock.classList.remove('hidden');
+    ['ggBlockA', 'ggBlockB'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.classList.remove('hidden');
+    });
+    showErr('ggErr', '분석 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
   }
-
-  // ②-1 두 사람 사진이 모두 있으면 관상 궁합(db/MATCHING.csv 기반)을 사주 궁합과 블렌드해 재계산
-  if (lmA && lmB) {
-    renderCompatScore(calcCompatScore(pillarsA, pillarsB, ohA, ohB, rel, calcGwansangCompat(lmA, lmB)));
-  }
-
-  // ②-2 골든타임 + 관상 형상(눈모양·동물상) — 사진이 있는 사람만, 사주 탭·통합분석 탭과 동일하게 반영
-  const aiTasks = [];
-  if (lmA) {
-    renderGoldenTime('ggGoldenTimeA', calcSamjeongRatio(lmA), calcAge(dateA), pillarsA[2].stem);
-    aiTasks.push(requestPersonalAi('gunghamA'));
-  }
-  if (lmB) {
-    renderGoldenTime('ggGoldenTimeB', calcSamjeongRatio(lmB), calcAge(dateB), pillarsB[2].stem);
-    aiTasks.push(requestPersonalAi('gunghamB'));
-  }
-  if (aiTasks.length) await Promise.all(aiTasks);
-
-  // ③ 나 / 상대방 각각의 관상 X 사주 종합 리포트 (STEP1·STEP2에 해당)
-  const narrativeA = buildPersonNarrative(lmA, pillarsA, ohA);
-  const narrativeB = buildPersonNarrative(lmB, pillarsB, ohB);
-
-  // Gemini "AI 정밀 해석" 버튼이 재사용할 수 있도록 계산 결과 캐시
-  state.gungham.cache = { pillarsA, pillarsB, ohA, ohB, statusMapA: narrativeA.statusMap, statusMapB: narrativeB.statusMap };
-
-  // ④ 지침서 예시② 구조의 4섹션 비교 리포트 (STEP3에 해당, 관상 없어도 사주만으로 생성)
-  const chemi = buildRoleChemi(pillarsA[2].stem, narrativeA.statusMap, pillarsB[2].stem, narrativeB.statusMap);
-  const partComparison = buildPartComparison(narrativeA.statusMap, narrativeB.statusMap);
-  const faceCombo = buildFaceComboChemi(lmA, lmB, ggGenderA, ggGenderB, rel);
-  const energy = buildEnergyChemi(ohA, ohB);
-  const moments = buildMoments(ohA, ohB, narrativeA.statusMap, narrativeB.statusMap);
-  const routines = buildCoupleRoutines();
-  renderCoupleReport(narrativeA, narrativeB, chemi, partComparison, faceCombo, energy, moments, routines);
-
-  // ⑤ Gemini 정밀 해석 자동 요청(수동 버튼 없음) — 키가 없으면 requestCoupleAi 내부에서 조용히 스킵된다.
-  await requestCoupleAi();
-  if (window.Archive) Archive.save('gungham'); // 보관함 — AI 해석까지 끝난 뒤에 스냅샷
 }
 
 // ── 나이 → 인생 시기(초년/중년/말년) 및 골든타임 서술 (설계문서 §3-2,3) ──
@@ -1845,7 +2062,7 @@ function getRoleLabel(statusMap, dStem) {
   return OHAENG_ROLE[oh] || PART_ROLE.midbrow;
 }
 
-// 1) 관상 케미 — 역할 분담 + 총평 + 부위별(관상 대 관상) 비교 (MATCH_0002 패턴)
+// 1) 관상 케미 — 역할 분담 + 총평 (MATCH_0002 패턴)
 function buildRoleChemi(dStemA, statusMapA, dStemB, statusMapB) {
   const roleA = getRoleLabel(statusMapA, dStemA);
   const roleB = getRoleLabel(statusMapB, dStemB);
@@ -1856,21 +2073,7 @@ function buildRoleChemi(dStemA, statusMapA, dStemB, statusMapB) {
   return { roleA, roleB, total, sameRole };
 }
 
-// 관상 대 관상 — 8개 부위를 하나씩 맞대어 비교 (db/MATCHING.csv 패턴)
-function buildPartComparison(statusMapA, statusMapB) {
-  if (!statusMapA || !statusMapB) return null;
-  return PART_DEF.map(p => {
-    const a = statusMapA[p.key], b = statusMapB[p.key];
-    let note;
-    if (a === 'strength' && b === 'strength') note = '둘 다 강점이라 이 영역에서는 척척 맞아요.';
-    else if (a === 'complement' && b === 'complement') note = '둘 다 채워볼 포인트라, 이 영역은 같이 챙기면 좋아요.';
-    else if (a === 'strength' && b === 'complement') note = '나는 강점, 상대는 채워볼 포인트 — 내가 이끌어주면 좋아요.';
-    else note = '상대는 강점, 나는 채워볼 포인트 — 상대에게 배우면 좋아요.';
-    return { label: p.label, a, b, note };
-  });
-}
-
-// ── 얼굴형·눈·입·광대 "조합"으로 보는 궁합 — 부위별 강점/보완 비교(buildPartComparison)와는 별개로,
+// ── 얼굴형·눈·입·광대 "조합"으로 보는 궁합 — 부위별 강점/보완 비교와는 별개로,
 // 두 사람의 유형 조합 자체에 의미를 두는 통속 관상 궁합론을 반영한 것(참고 자료 정리, 2026-08-13).
 // 연인/배우자 관계 + 성별이 서로 다를 때만 남녀 역할 서술을 쓰고, 그 외(친구·형제자매·동성 등)에는
 // 성별을 언급하지 않는 일반 서술로 대체한다 — 관계 유형이 다양한 이 탭의 특성상 이성 커플에만
@@ -1995,49 +2198,31 @@ function buildMoments(ohA, ohB, statusMapA, statusMapB) {
   return moments.slice(0, 2);
 }
 
-// 4) 커플 전용 개운 루틴 (지침서 예시② 패턴 그대로 — 메이크업/생활습관만, 시술 없음)
-function buildCoupleRoutines() {
-  return [
-    '커플 괄사 &amp; T존 케어 — 주말마다 서로의 콧대와 턱선 라인을 정리해주는 스킨케어를 함께 해보세요. 상대 얼굴이 맑아질수록 내 기운도 함께 좋아져요.',
-    '주 1회 활짝 웃는 데이트 — 무뚝뚝해지기 쉬운 표정 근육을 풀 수 있도록, 배꼽 잡고 웃을 수 있는 활동을 함께 해보세요.',
-    '3초 아이컨택 칭찬 — 대화할 때 서로의 눈을 또렷하게 3초씩 바라보며 오늘 좋았던 점을 한 마디씩 말해보세요.',
-  ];
-}
-
 function buildCoupleHeadline(sameRole) {
   return sameRole
     ? '같은 곳을 보는 케미! 티키타카가 척척 맞는 "평행 성장형" 궁합'
     : '누가 이끄냐로 다투지 않는다! 서로의 영역을 확실히 나누는 "전략적 파트너" 궁합';
 }
 
-function renderCoupleReport(narrativeA, narrativeB, chemi, partComparison, faceCombo, energy, moments, routines) {
+function renderCoupleReport(narrativeA, narrativeB, chemi, faceCombo, energy, moments) {
   document.getElementById('ggHeadline').innerHTML = `"${buildCoupleHeadline(chemi.sameRole)}"`;
 
-  // STEP1·STEP2 — 나 / 상대방 각각의 관상 X 사주 종합 리포트
-  renderNarrativeParagraphs('ggPersonACards', narrativeA.paragraphs);
-  renderNarrativeParagraphs('ggPersonBCards', narrativeB.paragraphs);
+  // STEP1·STEP2 — 나 / 상대방 각각의 관상 X 사주 종합 리포트를 Zone1(관상)/Zone2(사주)로 나눠 배치
+  const splitA = splitPersonNarrative(narrativeA.paragraphs, !!narrativeA.statusMap);
+  const splitB = splitPersonNarrative(narrativeB.paragraphs, !!narrativeB.statusMap);
+  renderNarrativeParagraphs('ggPersonAGwansang', splitA.gwansang.length ? splitA.gwansang : ['📸 사진을 등록하면 관상 정보를 볼 수 있어요.']);
+  renderNarrativeParagraphs('ggPersonASaju', splitA.saju);
+  renderNarrativeParagraphs('ggPersonBGwansang', splitB.gwansang.length ? splitB.gwansang : ['📸 사진을 등록하면 관상 정보를 볼 수 있어요.']);
+  renderNarrativeParagraphs('ggPersonBSaju', splitB.saju);
 
-  // STEP3 — 관상 케미 (역할 분담 + 총평 + 부위별 관상 대 관상 비교)
-  const compareRows = partComparison
-    ? partComparison.map(row => `
-        <div class="chemi-role" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <strong style="min-width:64px;">${row.label}</strong>
-          <span class="status-badge ${row.a === 'strength' ? 'strength' : 'complement'}" style="margin-left:0;">나: ${row.a === 'strength' ? '강점' : '보완'}</span>
-          <span class="status-badge ${row.b === 'strength' ? 'strength' : 'complement'}" style="margin-left:0;">상대: ${row.b === 'strength' ? '강점' : '보완'}</span>
-          <span style="color:var(--text2);font-size:12px;">— ${row.note}</span>
-        </div>`).join('')
-    : `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 8개 부위를 하나씩 맞대어 비교한 결과를 볼 수 있어요.</div>`;
+  // STEP3 — 관상 케미 (역할 분담 + 총평)
   document.getElementById('ggRoleCards').innerHTML = `
     <div class="chemi-card">
       <div class="chemi-title">역할 분담 케미</div>
       <div class="chemi-role">👤 나 → <strong>${chemi.roleA}</strong></div>
       <div class="chemi-role">👤 상대 → <strong>${chemi.roleB}</strong></div>
     </div>
-    <div class="chemi-card"><div class="chemi-title">관상 궁합 총평</div><div class="chemi-role">${chemi.total}</div></div>
-    <div class="chemi-card">
-      <div class="chemi-title">관상 대 관상 — 부위별 비교</div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">${compareRows}</div>
-    </div>`;
+    <div class="chemi-card"><div class="chemi-title">관상 궁합 총평</div><div class="chemi-role">${chemi.total}</div></div>`;
 
   // 얼굴형·눈·입·광대 "조합"으로 보는 궁합 — 부위별 강점/보완 비교와 달리 두 사람 유형의 조합 자체를 본다
   document.getElementById('ggFaceComboCards').innerHTML = faceCombo
@@ -2059,8 +2244,6 @@ function renderCoupleReport(narrativeA, narrativeB, chemi, partComparison, faceC
       <div class="part-tip">${m.desc}</div>
       <div class="moment-tip">💡 해결책 — ${m.tip}</div>
     </div>`).join('');
-  document.getElementById('ggComplementCards').innerHTML = `<ol class="routine-list">${routines.map(r => `<li>${r}</li>`).join('')}</ol>`;
-  document.getElementById('ggComplementSection').classList.remove('hidden');
 }
 
 // 두 지지(地支) 간 관계 점수 — 삼합/육합/충 여부로 판단 (일지·월지 공용)
@@ -2247,4 +2430,3 @@ function generatePersonalBehavior(pillars, ohaeng) {
   return [{ type:'행동보완', title:`${b.area} 보완`, issue: b.issue, suggestion: b.suggestion }];
 }
 
-// generateRelationshipComplement 는 buildCoupleRoutines()로 대체되었습니다 (커플 개운 루틴, 시술 없음).

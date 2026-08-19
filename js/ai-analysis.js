@@ -156,17 +156,83 @@ const AI_ENHANCEMENT_SCHEMA = {
   required: ['part_additions', 'eye_archetype_id', 'face_archetype_id', 'forehead_type_id', 'eyebrow_type_id', 'eye_shape_id', 'nose_shape_id', 'mouth_shape_id', 'chin_shape_id', 'face_shape_type_id'],
 };
 
-const COUPLE_AI_SCHEMA = {
+// ═══ 궁합보기 AI 리포트 v2 (히어로 + Zone1 관상궁합 + Zone2 사주궁합, 2026-08-19 사용자 스펙) ═══
+// 점수(총합/관상만/사주만)는 항상 로컬 계산값(calcCompatScore·calcGwansangCompat, runGungham의 heroScores)을
+// 그대로 쓴다 — AI에게 숫자를 맡기면 화면에 이미 떠 있는 참고용 점수(ggScore)와 어긋날 수 있어서,
+// AI는 "그 점수가 왜 나왔는지"를 설명하는 글만 쓰고 숫자 자체는 만들지 않는다.
+const GUNGHAP_ZONE2_ORDER = [
+  'overall_relationship', 'sinsal_combo', 'strengths', 'perceived_by_partner', 'perceived_by_me',
+  'mind_hacking', 'after_marriage', 'family_background', 'expectation_vs_reality', 'children', 'complement_needed',
+];
+const GUNGHAP_ZONE2_META = {
+  overall_relationship:  { emoji: '🌡️', title: '우리 관계, 한 줄로 말하면' },
+  sinsal_combo:          { emoji: '🔮', title: '신살·귀인이 만드는 케미' },
+  strengths:             { emoji: '✨', title: '특히 잘 맞는 부분' },
+  perceived_by_partner:  { emoji: '🪞', title: '상대가 보는 나' },
+  perceived_by_me:       { emoji: '🔍', title: '내가 보는 상대' },
+  mind_hacking:          { emoji: '🔑', title: '상대 마음 사로잡는 법' },
+  after_marriage:        { emoji: '🏠', title: '결혼 후 우리 모습' },
+  family_background:     { emoji: '🌳', title: '서로 다르게 자라온 환경' },
+  expectation_vs_reality:{ emoji: '🎭', title: '내가 바라는 모습 vs 실제' },
+  children:              { emoji: '👶', title: '아이를 낳는다면' },
+  complement_needed:     { emoji: '🧩', title: '더 채우면 좋은 부분' },
+};
+
+const GUNGHAP_REPORT_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    headline: { type: 'STRING', description: '두 사람의 궁합을 한 줄로 요약하는 인용구 스타일 문장' },
-    person_a_reading: { type: 'STRING', description: '나의 관상X사주 종합 해석, 최소 4문장' },
-    person_b_reading: { type: 'STRING', description: '상대방의 관상X사주 종합 해석, 최소 4문장' },
-    chemistry_reading: { type: 'STRING', description: '두 사람의 관상 대 관상, 사주 대 사주를 종합 비교한 해석, 최소 5문장' },
-    conflict_and_tips: { type: 'STRING', description: '티격태격할 수 있는 지점과 구체적인 극복 방법' },
-    couple_routine: { type: 'ARRAY', items: { type: 'STRING' }, description: '커플이 함께 할 수 있는 개운 루틴 3가지 (시술 언급 없이 메이크업/생활습관/스킨케어 위주)' },
+    hero_reason: {
+      type: 'STRING',
+      description: '총합 점수가 왜 이렇게 나왔는지 가볍게 설명하는 3~4문장. 관상에서의 대표 장점 1개와 사주에서의 대표 장점 1개를 섞어서 근거로 들 것.',
+    },
+    zone1_shape_reading: {
+      type: 'STRING',
+      description: '두 사람의 관상 유형(캐릭터) 조합이 어떤 모양의 궁합인지 비유적으로 설명하는 풀이. "OO상인 나와 OO상인 상대의 조합은 ~" 형태로 시작해서 4~6문장.',
+    },
+    zone1_shape_basis: {
+      type: 'STRING',
+      description: '위 풀이가 왜 나왔는지 근거. [나의 관상 유형]·[상대방의 관상 유형]의 실제 키워드·강점과 [두 관상 유형의 관계]를 근거로 2~3문장.',
+    },
+    zone1_person_a_reading: {
+      type: 'STRING',
+      description: '나의 관상 장점 위주 풀이 + 부족한 부분을 상대방의 어떤 관상 특징이 보완해주는지. 장점 먼저, 그다음 보완 흐름으로 4~6문장.',
+    },
+    zone1_person_a_basis: {
+      type: 'STRING',
+      description: '위 풀이의 근거 — 어떤 관상 유형·강점 데이터를 근거로 그렇게 풀이했는지 2~3문장.',
+    },
+    zone1_person_b_reading: {
+      type: 'STRING',
+      description: '상대방의 관상 장점 위주 풀이 + 부족한 부분을 나의 어떤 관상 특징이 보완해주는지. 4~6문장.',
+    },
+    zone1_person_b_basis: {
+      type: 'STRING',
+      description: '위 풀이의 근거 2~3문장.',
+    },
+    zone2_items: {
+      type: 'ARRAY',
+      description: '아래 11개 key를 모두, 각 1개씩 채운 배열. key는 새로 만들지 말고 지정된 값만 사용할 것.',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          key: {
+            type: 'STRING',
+            description: 'overall_relationship, sinsal_combo, strengths, perceived_by_partner, perceived_by_me, mind_hacking, after_marriage, family_background, expectation_vs_reality, children, complement_needed 중 하나',
+          },
+          reading: { type: 'STRING', description: '사용자가 먼저 읽는 쉬운 풀이. 해당 주제에 맞는 내용을 4~6문장으로.' },
+          basis: { type: 'STRING', description: '왜 이런 풀이가 나왔는지 — [나/상대방의 신살·귀인 목록]·[오행 분포]·[일간] 등 실제 제공된 사주 데이터 중 무엇을 근거로 했는지 2~3문장.' },
+        },
+        required: ['key', 'reading', 'basis'],
+      },
+    },
   },
-  required: ['headline', 'person_a_reading', 'person_b_reading', 'chemistry_reading', 'conflict_and_tips', 'couple_routine'],
+  required: [
+    'hero_reason',
+    'zone1_shape_reading', 'zone1_shape_basis',
+    'zone1_person_a_reading', 'zone1_person_a_basis',
+    'zone1_person_b_reading', 'zone1_person_b_basis',
+    'zone2_items',
+  ],
 };
 
 function buildAiEnhancementSystemInstruction() {
@@ -238,29 +304,84 @@ ${sajuBlock}${foreheadNote}
 3) forehead_type_id/eyebrow_type_id/eye_shape_id/nose_shape_id/mouth_shape_id/chin_shape_id/face_shape_type_id도 각각 해당 참고 목록에서 가장 가까운 id를 골라 채우세요. 애매하면 빈 문자열로 두세요.`;
 }
 
-function buildCoupleSystemInstruction() {
-  return `당신은 2030세대를 대상으로 하는 K-뷰티 & 관상·사주 커플 궁합 컨설턴트입니다.
-아래 [참고 데이터베이스]는 전통 관상학을 8개 부위로 정리한 내부 자료이고, [역할 참고]는 각 부위가 강점일 때 부여하는 역할 라벨입니다. 사용자에게 원자료를 그대로 노출하지 말고, 첨부된 사진(전달 순서: 나 → 상대방)과 [나의 실측 데이터], [상대방의 실측 데이터]를 종합해서 기존 카드보다 훨씬 풍부하고 개인화된 커플 리포트를 새로 만들어주세요.
+function buildGunghapSystemInstruction(nameA, nameB) {
+  return `당신은 2030세대를 대상으로 하는 관상·사주 커플 궁합 컨설턴트입니다.
+전통 관상학·명리학 자료를 근거로, 두 사람의 궁합을 "관상 궁합(Zone1)"과 "사주 궁합(Zone2)" 두 갈래로 나눠 깊이 있게 풀어주는 리포트를 씁니다.
+
+[호칭 규칙 — 반드시 지킬 것]
+두 사람의 실제 이름은 ${nameA}, ${nameB}입니다. 모든 reading·basis 문장에서 "나"/"저"/"상대방"/"상대" 같은 지칭 대신 반드시 이 실제 이름(${nameA}, ${nameB})을 사용하세요.
+
+[글쓰기 순서 원칙 — 반드시 지킬 것]
+모든 항목은 풀이(reading)를 먼저 쓰고, 그 풀이가 왜 나왔는지 근거(basis)는 항상 별도 필드에 나눠서 씁니다.
+- reading: 사용자가 자기 이야기처럼 편하게 읽는 결과. 전문 용어로 시작하지 말고 실제 성향·관계 장면으로 풀어줄 것.
+- basis: reading에서 왜 그렇게 말했는지, 제공된 데이터(관상 유형·신살·귀인·오행 등) 중 무엇을 근거로 했는지.
+reading 안에 근거를 섞어 쓰지 말고, basis 안에 새로운 결론을 쓰지 마세요.
+
+[말투]
+- 짧고 인상적인 문장으로 시작해서 자연스럽게 풀어가는 흐름. 예: "OO상인 ${nameA}와 OO상인 ${nameB}의 조합은 마치 ~와 ~의 만남 같아요."
+- 다정한 해요체. 은유·비유를 적극적으로 활용(예: "차가운 불과 뜨거운 얼음", "천국과 지옥을 오가는 롤러코스터" 같은 극적이면서도 다정한 표현)
+- 장점만 늘어놓지 말고 충돌 지점도 솔직하게 짚은 뒤, 항상 현실적인 해결 방향으로 마무리
 
 ${TONE_RULES}
 
-[참고 데이터베이스]
-${JSON.stringify(buildDbContext())}
-
-[역할 참고]
-${JSON.stringify(PART_ROLE)}`;
+[추가 금지 사항]
+- family_background(집안 환경) 항목은 실제 가족 구성원에 대한 예언·평가를 하지 말고, "자라온 환경이 성향에 미쳤을 습관·태도 차이" 중심으로만 서술
+- children(아이) 항목은 성별·건강·개수를 단정하지 말고, "두 사람의 기질이 아이를 대하는 방식에 어떻게 나타날지" 중심으로만 서술
+- 아래 데이터에 실제로 없는 신살·귀인·관상 유형을 새로 만들어내지 말 것`;
 }
 
-function buildCoupleUserPrompt(cache) {
-  const dStemA = cache.pillarsA[2].stem, dStemB = cache.pillarsB[2].stem;
-  return `[나의 실측 데이터]
-${JSON.stringify({ statusMap: cache.statusMapA, ohaeng: cache.ohA, 일간: dStemA >= 0 ? CG_KO[dStemA] + '(' + CG_OH[dStemA] + ')' : '미상' })}
+function buildGunghapCharacterBlock(label, characterResult) {
+  if (!characterResult || !characterResult.characterId) {
+    return `[${label}의 관상 유형]\n사진이 없어 관상 유형 정보 없음 — 사주 위주로 풀이할 것.`;
+  }
+  const c = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[characterResult.characterId]) || {};
+  return `[${label}의 관상 유형]
+유형명: ${c.name || ''}
+한줄평: ${c.headline || ''}
+강점: ${(c.strengths || []).join(', ')}`;
+}
 
-[상대방의 실측 데이터]
-${JSON.stringify({ statusMap: cache.statusMapB, ohaeng: cache.ohB, 일간: dStemB >= 0 ? CG_KO[dStemB] + '(' + CG_OH[dStemB] + ')' : '미상' })}
+function buildGunghapRelationBlock(charIdA, charIdB) {
+  if (!charIdA || !charIdB || typeof COMPATIBILITY_DB === 'undefined') return '';
+  const rel = COMPATIBILITY_DB[charIdA] || null;
+  if (!rel) return '';
+  let label = '내 사람';
+  if ((rel.good || []).indexOf(charIdB) >= 0) label = '귀인';
+  else if ((rel.spark || []).indexOf(charIdB) >= 0) label = '단짝';
+  else if ((rel.clash || []).indexOf(charIdB) >= 0) label = '호랑이 선생';
+  return `\n[두 관상 유형의 관계]\n${label}`;
+}
+
+function buildGunghapSajuBlock(label, pillars, ohaeng, sajuInsight) {
+  const dStem = pillars[2].stem;
+  return `[${label}의 사주]
+일간: ${dStem >= 0 ? CG_KO[dStem] + '(' + CG_OH[dStem] + ')' : '미상'}
+오행 분포: ${JSON.stringify(ohaeng)}
+
+[${label}의 신살·귀인 목록] (실제로 있는 것만 사용할 것)
+신살: ${JSON.stringify(sajuInsight.sinsalList)}
+귀인: ${JSON.stringify(sajuInsight.gwiinList)}`;
+}
+
+function buildGunghapUserPrompt(cache) {
+  const nameA = cache.nameA || '나', nameB = cache.nameB || '상대방';
+  const charA = cache.characterA, charB = cache.characterB;
+  const charIdA = charA && charA.characterId, charIdB = charB && charB.characterId;
+  return `[궁합 점수 — 이미 확정된 값. 그대로 인용하되 새로 계산하지 말 것]
+총합 점수: ${cache.heroScores.total}점
+관상 궁합만 봤을 때: ${cache.heroScores.gwansang != null ? cache.heroScores.gwansang + '점' : '사진 정보 부족으로 산출 불가'}
+사주 궁합만 봤을 때: ${cache.heroScores.saju}점
+
+${buildGunghapCharacterBlock(nameA, charA)}
+
+${buildGunghapCharacterBlock(nameB, charB)}${buildGunghapRelationBlock(charIdA, charIdB)}
+
+${buildGunghapSajuBlock(nameA, cache.pillarsA, cache.ohA, cache.sajuInsightA)}
+
+${buildGunghapSajuBlock(nameB, cache.pillarsB, cache.ohB, cache.sajuInsightB)}
 
 [요청]
-첨부된 사진(있다면 전달 순서대로 나, 상대방)과 위 데이터를 함께 참고해서, 두 사람 각각의 해석과 궁합 종합 해석을 작성해주세요. statusMap이 없는 사람은 사진 없이 사주 정보만으로 해석하세요.`;
+위 데이터를 근거로 히어로 설명 1개, Zone1(관상 궁합) 풀이 3쌍, Zone2(사주 궁합) 11개 항목을 모두 작성해주세요. 첨부된 사진이 있다면(전달 순서: ${nameA} → ${nameB}) 참고하되, 관상 유형 정보가 없는 사람은 사주 위주로 풀어주세요. 두 사람을 가리킬 때는 "나"/"상대방" 대신 항상 실제 이름(${nameA}/${nameB})을 쓰세요.`;
 }
 
 // ═══ AI 정밀 리포트 (R-I-C-E 프롬프트 기반, 2026-08-13 요청 반영) ═══
@@ -1694,21 +1815,53 @@ function renderArchetypes(elId, eyeId, faceId, mode, shapeIds, fallbackReason, g
   el.classList.remove('hidden');
 }
 
-function renderCoupleAiResult(data) {
-  const el = document.getElementById('ggAiResult');
-  el.innerHTML = `
-    <div class="ai-card">
-      <span class="ai-badge">🧠 Gemini AI 정밀 해석</span>
-      <div class="headline-quote" style="margin:12px 0;">"${data.headline}"</div>
-      <p style="margin-bottom:10px;"><strong style="color:var(--gold);">🙋 나</strong> — ${data.person_a_reading}</p>
-      <p style="margin-bottom:14px;"><strong style="color:var(--gold);">🙋‍♂️ 상대방</strong> — ${data.person_b_reading}</p>
-      <p style="margin-bottom:14px;line-height:1.8;"><strong style="color:var(--gold);">종합 케미</strong> — ${data.chemistry_reading}</p>
-      <p style="margin-bottom:14px;"><strong style="color:var(--gold);">티격태격 &amp; 해결책</strong> — ${data.conflict_and_tips}</p>
-      <strong style="color:var(--gold);">커플 개운 루틴</strong>
-      <ol class="routine-list">${data.couple_routine.map(r => `<li>${r}</li>`).join('')}</ol>
+// 정보 성격별 배치(2026-08-19 사용자 요청) — 히어로/Zone1/Zone2 껍데기(스코어·원국표·오행바·관상 형상
+// 카드 등 로컬 계산 데이터)는 index.html에 이미 고정 마크업으로 있고, 여기서는 그 안의 AI 텍스트
+// 슬롯(ggHeroReason·ggZone1AiShape·ggZone1AiPersonA/B·ggZone2AiItems)만 채운다. 스코어 숫자는
+// runGungham이 heroScores로 이미 채워놓으므로 여기서 다시 쓰지 않는다 — AI 실패해도 숫자는 남는다.
+function renderGunghapResult(data) {
+  const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+
+  setHtml('ggHeroReason', data.hero_reason);
+
+  setHtml('ggZone1AiShape', `
+    <div class="gg-item-reading">${data.zone1_shape_reading}</div>
+    <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${data.zone1_shape_basis}</div>`);
+  setHtml('ggZone1AiPersonA', `
+    <div class="gg-item">
+      <div class="gg-item-reading">${data.zone1_person_a_reading}</div>
+      <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${data.zone1_person_a_basis}</div>
+    </div>`);
+  setHtml('ggZone1AiPersonB', `
+    <div class="gg-item">
+      <div class="gg-item-reading">${data.zone1_person_b_reading}</div>
+      <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${data.zone1_person_b_basis}</div>
+    </div>`);
+
+  const itemsByKey = {};
+  (data.zone2_items || []).forEach(it => { itemsByKey[it.key] = it; });
+  const zone2Html = GUNGHAP_ZONE2_ORDER.map(key => {
+    const it = itemsByKey[key];
+    if (!it) return '';
+    const meta = GUNGHAP_ZONE2_META[key];
+    return `
+    <div class="gg-item">
+      <div class="gg-item-head">${meta.emoji} ${meta.title}</div>
+      <div class="gg-item-reading">${it.reading}</div>
+      <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${it.basis}</div>
     </div>`;
-  el.classList.remove('hidden');
-  el.scrollIntoView({ behavior: 'smooth' });
+  }).join('');
+  setHtml('ggZone2AiItems', zone2Html);
+}
+
+// Gemini 키가 없거나 호출이 실패한 경우 — AI 텍스트 슬롯만 안내 문구로 채운다. 히어로 점수·원국표·
+// 오행바·관상 형상 카드 등 로컬 계산 정보는 이 함수와 무관하게 이미 채워져 있으므로 그대로 보인다.
+function fillGunghapAiFallback() {
+  const note = '<div style="color:var(--text2);font-size:13px;">이번엔 AI 해설을 불러오지 못했어요. 다시 분석하면 채워집니다.</div>';
+  ['ggHeroReason', 'ggZone1AiShape', 'ggZone1AiPersonA', 'ggZone1AiPersonB', 'ggZone2AiItems'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = note;
+  });
 }
 
 // AI 보완(부위별 코멘트 + 관상 형상 분류) — 사용자 조작 없이 로컬 분석 뒤에 자동으로만 실행됨(재시도 버튼 없음).
@@ -1730,8 +1883,8 @@ const CTX_CONFIG = {
   // shapeDetailId를 안 보이는 그릇으로 돌려, "부위별 생김새 유형" 블록이 전통 형상 카드(cmbArchetype)에
   // 붙지 않게 한다 — 그 내용은 이제 부위별 병합 카드(#cmbPartCards) 안에서만 보인다.
   combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', deepReportId:null, aiFaceId:'cmbAiFaceExtra', aiSajuId:'cmbAiSajuSection', fusionId:'cmbFusionSection', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
-  gunghamA: () => ({ canvasId:'gunghamCanvasA', cardsId:'ggPersonACards', archetypeId:'ggArchetypeA', deepReportId:null, relVal:'연인/배우자', pillars:state.gunghamA.pillars, ohaeng:state.gunghamA.ohaeng, genderVal:ggGenderA }),
-  gunghamB: () => ({ canvasId:'gunghamCanvasB', cardsId:'ggPersonBCards', archetypeId:'ggArchetypeB', deepReportId:null, relVal:'연인/배우자', pillars:state.gunghamB.pillars, ohaeng:state.gunghamB.ohaeng, genderVal:ggGenderB }),
+  gunghamA: () => ({ canvasId:'gunghamCanvasA', cardsId:'ggPersonAGwansang', archetypeId:'ggArchetypeA', deepReportId:null, relVal:'연인/배우자', pillars:state.gunghamA.pillars, ohaeng:state.gunghamA.ohaeng, genderVal:ggGenderA }),
+  gunghamB: () => ({ canvasId:'gunghamCanvasB', cardsId:'ggPersonBGwansang', archetypeId:'ggArchetypeB', deepReportId:null, relVal:'연인/배우자', pillars:state.gunghamB.pillars, ohaeng:state.gunghamB.ohaeng, genderVal:ggGenderB }),
 };
 
 // ═══ 관상 AI 분류 결과 캐시 / 공유 ═══
@@ -2427,26 +2580,24 @@ async function requestPersonalAi(ctx) {
 // 키가 없으면 조용히 스킵(기본 궁합 리포트만으로도 충분한 볼거리가 있어 에러를 띄우지 않음). 키가 있는데
 // 호출이 실패해도 실패 사유를 화면에 보여주지 않는다(사용자 피드백) — 로컬 궁합 리포트로 화면이 비지
 // 않으니 그걸로 충분하고, 실패 사유는 콘솔에만 남겨 개발자가 확인한다.
+// 히어로/Zone1/Zone2의 AI 텍스트 슬롯만 채운다 — 이 함수가 도는 동안 화면 전체는 #ggAnalyzing
+// 로딩 카드에 가려져 있으므로(runGungham 참고), 슬롯 단위 스켈레톤은 따로 두지 않는다.
 async function requestCoupleAi() {
   const cache = state.gungham.cache;
-  if (!cache || !isGeminiConfigured()) return;
+  if (!cache || !isGeminiConfigured()) { fillGunghapAiFallback(); return; }
 
   const images = [];
   const canvasA = document.getElementById('gunghamCanvasA'), canvasB = document.getElementById('gunghamCanvasB');
   if (state.gunghamA.lm && canvasA.width) images.push(getCleanImageDataUrl('gunghamA', 'gunghamCanvasA'));
   if (state.gunghamB.lm && canvasB.width) images.push(getCleanImageDataUrl('gunghamB', 'gunghamCanvasB'));
 
-  const resultEl = document.getElementById('ggAiResult');
-  resultEl.classList.remove('hidden');
-  showAiSkeleton('ggAiResult', 'AI가 두 사람의 궁합을 읽는 중이에요');
   try {
-    const sys = buildCoupleSystemInstruction();
-    const userText = buildCoupleUserPrompt(cache);
-    const data = await callGeminiAPI(sys, userText, images, COUPLE_AI_SCHEMA);
-    renderCoupleAiResult(data);
+    const sys = buildGunghapSystemInstruction(cache.nameA || '나', cache.nameB || '상대방');
+    const userText = buildGunghapUserPrompt(cache);
+    const data = await callGeminiAPI(sys, userText, images, GUNGHAP_REPORT_SCHEMA);
+    renderGunghapResult(data);
   } catch (e) {
     console.error('[Gemini 커플 해석 실패]', e);
-    resultEl.innerHTML = '';
-    resultEl.classList.add('hidden');
+    fillGunghapAiFallback();
   }
 }

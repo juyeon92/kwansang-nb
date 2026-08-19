@@ -236,12 +236,18 @@
     if (!profile) return;
     const el = document.getElementById('ggBirthA');
     if (el) el.value = profile.solarDate || '';
+    // ⚠️ 버그 수정(2026-08-19): 태어난 시간을 입력해둔 프로필도 궁합보기에서는 계속 "시간 미상"으로
+    // 계산됐다 — 여기서 값을 못 채워주고 있었을 뿐, app.js의 runGungham은 진작 이 필드를 읽게 고쳐둠.
+    const hourEl = document.getElementById('ggBirthHourA');
+    if (hourEl) hourEl.value = profile.birthHour || '-1';
     ggGenderA = profile.gender || '남';
   }
   function applyToGunghamB(profile) {
     if (!profile) return;
     const el = document.getElementById('ggBirthB');
     if (el) el.value = profile.solarDate || '';
+    const hourEl = document.getElementById('ggBirthHourB');
+    if (hourEl) hourEl.value = profile.birthHour || '-1';
     ggGenderB = profile.gender || '여';
     state.gungham.relation = profile.relationDetail || profile.relation;
   }
@@ -287,6 +293,7 @@
   function renderGunghamA(rep) {
     const label = document.getElementById('ggLabelA');
     if (label) label.textContent = rep ? rep.name : '나';
+    if (state.gunghamA) state.gunghamA.name = rep ? rep.name : null; // AI 리포트·섹션 제목에서 "나" 대신 실제 이름을 쓰기 위해 보관
     const chip = document.getElementById('ggProfileChipA');
     if (!chip) { syncGgAccordion(); return; }
     if (!rep) { chip.innerHTML = `<span class="mini-profile-empty">헤더에서 프로필을 먼저 등록해주세요</span>`; syncGgAccordion(); return; }
@@ -305,6 +312,7 @@
   function renderGunghamB(profile) {
     const label = document.getElementById('ggLabelB');
     if (label) label.textContent = profile ? profile.name : '상대';
+    if (state.gunghamB) state.gunghamB.name = profile ? profile.name : null; // AI 리포트·섹션 제목에서 "상대방" 대신 실제 이름을 쓰기 위해 보관
     const chip = document.getElementById('ggProfileChipB');
     if (!chip) { syncGgAccordion(); return; }
     if (!profile) {
@@ -894,12 +902,12 @@
 
   window.Profile = {
     openSwitcher, close: closeOverlay,
-    getRepresentative, describe: describeProfile,
+    getRepresentative, describe: describeProfile, hourShort,
     getGunghamPartner: function () { return gunghamPartnerId ? getProfile(gunghamPartnerId) : null; },
     _dismissSwitcher: finishSwitcher, _dismissForm: dismissForm,
     _closeSpend: closeSpendDialog, _changeSpendProfile: changeSpendProfile,
     runSaju, runCombined: runCombinedWrapped, runGungham: runGunghamWrapped,
-    openPartnerPicker: () => openSwitcher({ forPartner: true }),
+    openPartnerPicker: (opts) => openSwitcher(Object.assign({}, opts, { forPartner: true })),
     toggleGgAcc, syncGgAccordion,
     _pickRow: pickRow, _editRow: editRow, _openAdd: openAdd,
     _draftSet: draftSet, _setRelation: setRelation, _setCalendarType: setCalendarType, _setGender: setGender,

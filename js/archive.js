@@ -110,6 +110,7 @@
   // 지금은 통합분석 첫 화면이 "저장된 리포트가 있으면 사진 등록 대신 그 리포트를 보여주는" 용도로 쓴다.
   function notifyChanged() {
     if (typeof renderCombinedSavedReport === 'function') renderCombinedSavedReport();
+    if (typeof renderGunghamSavedReport === 'function') renderGunghamSavedReport();
   }
 
   // 로그인 직후 — 다른 기기에서 만든 목록을 이 기기로 가져온다(본문은 열람할 때 개별로 받는다).
@@ -242,6 +243,16 @@
   function savePendingList(list) {
     try { localStorage.setItem(PENDING_KEY, JSON.stringify(list)); }
     catch (e) { console.warn('[archive] 임시 보관 저장 실패(로컬 저장소 용량 등)', e); }
+  }
+
+  // 이 기기가 로그인 전(익명)에 남겨둔 대기 스냅샷이 알고 보니 지금 로그인한 계정의 것이 아니라고
+  // 판명됐을 때(예: 인연도감 — 계정에 이미 진짜 도감이 있어서 이 기기의 도감은 별개의 미아였던 경우)
+  // 호출한다. inyeon-dogam.js의 migrateLocalOnLogin()이 그 판단을 내린 뒤 부른다 — 여기서 버리지
+  // 않으면 commitPending()이 이 미아 스냅샷을 계정의 진짜 기록에 덮어써 버린다(사용자 리포트
+  // 2026-08-19: PC에서 비로그인으로 만든 다른 인연도감이 로그인 후 진짜 계정 도감을 덮어씀).
+  function discardPending(type) {
+    const pending = loadPending().filter(function (p) { return p.type !== type; });
+    savePendingList(pending);
   }
 
   // 분석이 완전히 끝난 지점에서 app.js가 호출한다.
@@ -546,7 +557,7 @@
   window.Archive = {
     openPage: openPage, closePage: closePage,
     latestOf: latestOf, listOf: listOf, renderInto: renderInto,
-    save: save, commitPending: commitPending, remove: remove, removeReportsByType: removeReportsByType, debug: debug,
+    save: save, commitPending: commitPending, discardPending: discardPending, remove: remove, removeReportsByType: removeReportsByType, debug: debug,
     toggle: toggle, toggleSort: toggleSort,
     openReport: openReport, backToList: backToList,
     loadFromCloud: loadFromCloud, clearLocal: clearLocal,

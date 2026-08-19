@@ -8,6 +8,12 @@
 (function () {
   let currentUser = null;
   let isAdminUser = false; // roles/{uid} 문서 존재 + role==='admin'일 때만 true — 마이페이지 관리자 섹션 노출 여부
+  // ⚠️ 버그 수정(2026-08-19 사용자 리포트: "로그인 이미 했는데 로그인 팝업이 자꾸 뜬다") — 새로고침
+  // 직후 restoreLastTab()이 로그인 필요 탭(통합분석·사주보기·궁합보기)을 클릭으로 복원하는데, 그 시점엔
+  // fbAuth.onAuthStateChanged가 아직 한 번도 불리지 않아 currentUser가 항상 null이다. isRealLoggedIn()은
+  // 그걸 "로그인 안 함"과 구분하지 못해 실제로는 로그인된 사용자에게도 팝업을 띄웠다. 이 플래그로
+  // "아직 확인 전"과 "확인했는데 로그아웃 상태"를 구분한다 — app.js의 switchTab()이 참조한다.
+  let authResolved = false;
   const NICKNAME_KEY_PREFIX = 'kakaoAuthNickname:';
   const ACCOUNT_KEY_PREFIX = 'kakaoAuthAccount:'; // 마이페이지에 보여줄 카카오 계정(이메일 등)
   // 이메일은 따로 보관한다 — account는 이메일이 없을 때 닉네임으로 채워지는 자리라, 둘을 한 칸에 두면
@@ -39,6 +45,7 @@
     if (!window.fbAuth) { renderLoggedOut(); return; }
     // 최초 호출(페이지 로드 시 세션 복원 여부)과 이후 모든 로그인/로그아웃 변화를 여기 한 곳에서 처리한다.
     fbAuth.onAuthStateChanged(function (user) {
+      authResolved = true;
       console.log('[kakao-auth] onAuthStateChanged', user ? { uid: user.uid, anonymous: !!user.isAnonymous } : null);
       // 익명 인증(인연도감이 비로그인 등록을 위해 발급)은 로그인이 아니다 — 헤더·마이페이지·프로필
       // 동기화는 카카오로 실제 로그인했을 때만 동작해야 한다.
@@ -68,6 +75,13 @@
         // 이 구간(인연도감·프로필·보관함을 클라우드에서 다시 불러오는 동안) 예전 화면이 잠깐
         // 보였다 로그인된 화면으로 바뀌는 게 거슬려서, 끝날 때까지 딤+스피너로 덮어둔다.
         showAuthLoading();
+        // ⚠️ 사용자 리포트(2026-08-19): Archive.commitPending()이 예전엔 아래 settling과 동시에(순서
+        // 보장 없이) 실행돼서, 이 기기가 로그인 전(익명)에 쌓아둔 보관함 대기 스냅샷이 — 특히
+        // 인연도감처럼 "이미 있으면 갱신" 로직을 쓰는 타입에서 — Dogam.migrateLocalOnLogin()이 실제
+        // 소유권을 확정하고 Archive.loadFromCloud()가 계정의 진짜 목록을 받아오기도 전에 먼저
+        // localStorage/클라우드에 반영돼버렸다. 그 결과 "PC에서 로그인 전에 만든 다른 인연도감"이
+        // 계정의 진짜 인연도감 기록을 덮어쓰는 경합이 생겼다. migrateLocalOnLogin()이 먼저 끝나야
+        // (미아로 판명되면 그 안에서 Archive.discardPending()을 부른다) commitPending()이 안전하다.
         const settling = [
           window.Dogam && Dogam.migrateLocalOnLogin
             ? Dogam.migrateLocalOnLogin().then(function () { if (window.Dogam) Dogam.render(); })
@@ -77,11 +91,12 @@
         ];
         Promise.all(settling)
           .catch(function (e) { console.error('[kakao-auth] 로그인 후 데이터 로딩 중 오류', e); })
+          .then(function () {
+            // 비로그인 동안 기기에 임시 보관해둔 리포트를 지금 로그인한 계정으로 편입한다 — 위
+            // settling(이관·클라우드 동기화)이 모두 끝난 뒤에만 안전하게 커밋할 수 있다.
+            if (window.Archive) Archive.commitPending();
+          })
           .then(hideAuthLoading);
-        if (window.Archive) {
-          // 비로그인 동안 기기에 임시 보관해둔 리포트(인연도감 등)를 지금 로그인한 계정으로 편입한다.
-          Archive.commitPending();
-        }
         resolveAccountInfo(user.uid);
         // 냥 잔액/관리자 여부는 로딩 오버레이를 걸어둘 필요 없는 부가 정보 — 마이페이지를 열기 전에
         // 미리 받아두기만 하면 된다.
@@ -673,5 +688,6 @@
     _todo: todo, _cancelConfirm: cancelConfirm, _okConfirm: okConfirm,
     _adminSearch: adminSearch, _adminGrant: adminGrant,
     getUser: function () { return currentUser; },
+    isAuthResolved: function () { return authResolved; },
   };
 })();
