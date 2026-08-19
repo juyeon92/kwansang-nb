@@ -442,17 +442,26 @@
     draft._onSavedRun = opts.onSavedRun || null;
     draft._onDone = opts.onDone || null;
     draft._onPick = opts.onPick || null;
-    // 'gate' — 통합분석·사주보기·궁합보기를 프로필 없이 쓰려다 등록 화면으로 넘어온 경우에만
-    // 표시(사용자 요청 2026-08-18). 마이페이지·헤더 등에서 정상적으로 프로필을 추가하는 흐름은
-    // opts.reason을 안 넘기므로 배너 없이 그대로다.
-    draft._reason = opts.reason || null;
     renderForm();
   }
+
+  // 통합분석·사주보기·궁합보기를 프로필 없이 쓰려다 등록 화면으로 넘어온 경우에만 표시하는
+  // 문구 — 어떤 기능이 프로필을 필요로 했는지에 따라 다르게 안내한다(사용자 요청 2026-08-18).
+  // openForm의 onSavedRun과 값이 같은 키를 그대로 재사용한다: 이 값이 있다는 것 자체가
+  // "저장하고 나서 바로 이 분석을 이어서 실행해야 한다"는 뜻이라, 곧 "게이트를 타고 왔다"는
+  // 뜻과 같다. 마이페이지·헤더 등 정상적인 프로필 추가 흐름은 onSavedRun을 안 넘기므로
+  // 자연히 문구가 안 뜬다.
+  const PROFILE_GATE_NOTICE = {
+    combined: '사주를 등록해야 관상과 함께 분석이 가능해요',
+    saju: '먼저 사주 등록부터 진행해주세요',
+    gungham: '사주를 등록해야 궁합 분석이 가능해요',
+  };
 
   function renderForm() {
     const d = draft;
     const dateText = (d.birthYear && d.birthMonth && d.birthDay) ? fmtYmd(d.birthYear, d.birthMonth, d.birthDay) : '';
     const hourText = hourLabel(d.birthHour);
+    const gateNotice = PROFILE_GATE_NOTICE[d._onSavedRun];
     root().innerHTML = `
       <div class="overlay-backdrop" onclick="Profile._dismissForm()"></div>
       <div class="form-popup">
@@ -461,11 +470,11 @@
           <button class="overlay-close" onclick="Profile._dismissForm()"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="popup-body">
-          ${d._reason === 'gate' ? `
+          ${gateNotice ? `
           <div class="reassure-box">
             <div class="reassure-head">
               <span class="icon material-symbols-outlined">info</span>
-              <span class="label">아직 프로필을 등록하지 않으셨네요</span>
+              <span class="label">${esc(gateNotice)}</span>
             </div>
           </div>` : ''}
           <div class="field-group">
@@ -543,7 +552,6 @@
     delete draft._onSavedRun;
     delete draft._onDone;
     delete draft._onPick;
-    delete draft._reason;
     const savedId = upsertProfile(draft);
     if (forPartner) { gunghamPartnerId = savedId; renderGunghamB(getProfile(savedId)); }
     if (onDone) onDone(); else closeOverlay();
@@ -644,7 +652,7 @@
   // ── 궁합 탭 진입 버튼 ────────────────────────────────────────────────
   function runSaju() {
     const rep = getRepresentative();
-    if (!rep) { openForm(null, { onSavedRun: 'saju', reason: 'gate' }); return; }
+    if (!rep) { openForm(null, { onSavedRun: 'saju' }); return; }
     applyToContext('saju', rep);
     calcSaju('saju');
   }
@@ -808,7 +816,7 @@
   async function runCombinedWrapped() {
     if (analysisInFlight) return;
     const rep = getRepresentative();
-    if (!rep) { openForm(null, { onSavedRun: 'combined', reason: 'gate' }); return; }
+    if (!rep) { openForm(null, { onSavedRun: 'combined' }); return; }
 
     // 차감보다 먼저 입력값을 채우고 검증한다 — 예전엔 차감 뒤에 applyToContext를 해서, 프로필에
     // 생년월일이 비어 있으면 runCombined가 "생년월일을 입력해주세요"로 바로 빠져나가면서 냥만 사라졌다.
@@ -845,7 +853,7 @@
   async function runGunghamWrapped() {
     if (analysisInFlight) return;
     const rep = getRepresentative();
-    if (!rep) { openForm(null, { onSavedRun: 'gungham', reason: 'gate' }); return; }
+    if (!rep) { openForm(null, { onSavedRun: 'gungham' }); return; }
     if (!gunghamPartnerId) { alert('상대방 프로필을 선택해주세요.'); return; }
     const partner = getProfile(gunghamPartnerId);
     if (!partner) { alert('상대방 프로필을 다시 선택해주세요.'); return; }
