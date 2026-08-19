@@ -341,7 +341,7 @@
     const uid = currentUid();
     if (!uid) return;
     const rec = loadIndex().find(r => r.id === id);
-    if (!confirm('이 리포트를 삭제할까요?\n' + (rec ? rec.title + ' · ' + fmtWhen(rec.createdAt) : '') + '\n삭제하면 되돌릴 수 없습니다.')) return;
+    if (!confirm('이 리포트를 삭제할까요?\n' + (rec ? rec.title : '') + '\n삭제하면 되돌릴 수 없습니다.')) return;
     removeReportHtml(uid, id);
     const left = loadIndex().filter(r => r.id !== id);
     saveIndex(left);
@@ -471,7 +471,6 @@
                 '<span class="arc-row-name">' + esc(rec.title) + '</span>' +
                 (rec.sub ? '<span class="arc-row-sub">' + esc(rec.sub) + '</span>' : '') +
               '</span>' +
-              '<span class="arc-row-when">' + esc(fmtWhen(rec.createdAt)) + '</span>' +
               '<button class="arc-row-del" aria-label="삭제" title="삭제" ' +
                 'onclick="event.stopPropagation();Archive.remove(\'' + rec.id + '\')">' +
                 '<span class="material-symbols-outlined">delete</span></button>' +
@@ -522,7 +521,7 @@
         '<h2>' + esc(section ? section.label : '리포트') + '</h2>' +
       '</div>' +
       (rec ? '<div class="arc-report-meta">' + esc(rec.title) +
-               (rec.sub ? ' · ' + esc(rec.sub) : '') + ' · ' + esc(fmtWhen(rec.createdAt)) + '</div>' : '') +
+               (rec.sub ? ' · ' + esc(rec.sub) : '') + '</div>' : '') +
       '<div class="arc-report" id="arcReportBody"><div class="arc-empty">리포트를 불러오는 중…</div></div>';
 
     const html = await loadReportHtml(viewingId);
