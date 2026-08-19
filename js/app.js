@@ -33,7 +33,17 @@ const LAST_TAB_KEY = 'gwansangLastTab';
 // "인연도감 메인으로"로 직접 닫은 경우와 구분해야 해서 별도 플래그로 남긴다.
 const GWANSANG_REPORT_OPEN_KEY = 'gwansangReportOpen';
 
+// 통합분석·사주보기·궁합보기는 로그인해야만 들어올 수 있다(사용자 요청 2026-08-18) — 인연도감만
+// 비로그인(익명)으로도 계속 열 수 있다. 익명 인증은 로그인이 아니라 그대로 막는다.
+const TAB_LOGIN_REQUIRED = { combined: 1, saju: 1, gungham: 1 };
+function isRealLoggedIn() {
+  return !!(window.fbAuth && fbAuth.currentUser && !fbAuth.currentUser.isAnonymous);
+}
 function switchTab(tab, btn) {
+  if (TAB_LOGIN_REQUIRED[tab] && !isRealLoggedIn()) {
+    if (window.KakaoAuth) KakaoAuth.openLoginPopup();
+    return; // 로그인 팝업만 띄우고 탭은 전환하지 않는다
+  }
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
@@ -58,6 +68,19 @@ function switchTab(tab, btn) {
       }
     }
   }
+}
+
+// 기본 활성 탭(통합분석)이나 새로고침 복원(restoreLastTab)은 정적 HTML의 active 클래스나 switchTab을
+// 거치지 않고 그려질 수 있어서, 로그인 상태가 확정되는 시점(kakao-auth의 onAuthStateChanged)에
+// 따로 한 번 더 확인해서 "로그인 안 한 채 로그인 필요 탭에 그려져 있는" 상태를 정리한다.
+function enforceTabLoginGate() {
+  const active = document.querySelector('.panel.active');
+  if (!active) return;
+  const tab = active.id.replace('panel-', '');
+  if (!TAB_LOGIN_REQUIRED[tab] || isRealLoggedIn()) return;
+  const btn = Array.prototype.slice.call(document.querySelectorAll('.tab-btn'))
+    .filter(b => (b.getAttribute('onclick') || '').indexOf("'gwansang'") >= 0)[0];
+  if (btn) btn.click(); // 로그인 안 해도 볼 수 있는 인연도감으로 돌려보낸다(팝업은 띄우지 않음)
 }
 
 function restoreLastTab() {

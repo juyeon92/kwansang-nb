@@ -31,6 +31,10 @@
       // 그 뒤 여기서 상태가 확정되므로, 확정된 시점에 다시 그려야 "로그인했는데 로그인 유도가 뜨고
       // 등록해둔 인연이 사라져 보이는" 상태가 남지 않는다.
       if (window.Dogam) Dogam.render();
+      // 로그인 필요 탭(통합분석·사주보기·궁합보기)이 기본 활성 탭이거나 새로고침으로 복원된 경우,
+      // switchTab()의 클릭 시점 검사를 거치지 않고 그려질 수 있어서 인증 상태가 확정되는 지금
+      // 한 번 더 확인한다. isRealLoggedIn()이면 아무 것도 하지 않는다.
+      if (typeof enforceTabLoginGate === 'function') enforceTabLoginGate();
       if (user && user.isAnonymous) {
         isAdminUser = false;
         renderLoggedOut();

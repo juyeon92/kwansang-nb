@@ -442,6 +442,10 @@
     draft._onSavedRun = opts.onSavedRun || null;
     draft._onDone = opts.onDone || null;
     draft._onPick = opts.onPick || null;
+    // 'gate' — 통합분석·사주보기·궁합보기를 프로필 없이 쓰려다 등록 화면으로 넘어온 경우에만
+    // 표시(사용자 요청 2026-08-18). 마이페이지·헤더 등에서 정상적으로 프로필을 추가하는 흐름은
+    // opts.reason을 안 넘기므로 배너 없이 그대로다.
+    draft._reason = opts.reason || null;
     renderForm();
   }
 
@@ -457,6 +461,13 @@
           <button class="overlay-close" onclick="Profile._dismissForm()"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="popup-body">
+          ${d._reason === 'gate' ? `
+          <div class="reassure-box">
+            <div class="reassure-head">
+              <span class="icon material-symbols-outlined">info</span>
+              <span class="label">아직 프로필을 등록하지 않으셨네요</span>
+            </div>
+          </div>` : ''}
           <div class="field-group">
             <label class="field-label">이름 <i class="req-dot"></i></label>
             <input type="text" class="field-input" id="pfName" placeholder="이름을 입력해주세요" value="${esc(d.name)}" oninput="Profile._draftSet('name', this.value)">
@@ -532,6 +543,7 @@
     delete draft._onSavedRun;
     delete draft._onDone;
     delete draft._onPick;
+    delete draft._reason;
     const savedId = upsertProfile(draft);
     if (forPartner) { gunghamPartnerId = savedId; renderGunghamB(getProfile(savedId)); }
     if (onDone) onDone(); else closeOverlay();
@@ -541,6 +553,9 @@
     }
     if (onSavedRun === 'saju') runSaju();
     else if (onSavedRun === 'combined') runCombinedWrapped();
+    // gungham은 저장만으로 끝나지 않는다(상대 프로필도 필요) — 이어서 부르면 기존 안내
+    // ("상대방 프로필을 선택해주세요")로 자연스럽게 이어진다.
+    else if (onSavedRun === 'gungham') runGunghamWrapped();
   }
 
   // ── 커스텀 날짜 피커 ─────────────────────────────────────────────────
@@ -629,7 +644,7 @@
   // ── 궁합 탭 진입 버튼 ────────────────────────────────────────────────
   function runSaju() {
     const rep = getRepresentative();
-    if (!rep) { openForm(null, { onSavedRun: 'saju' }); return; }
+    if (!rep) { openForm(null, { onSavedRun: 'saju', reason: 'gate' }); return; }
     applyToContext('saju', rep);
     calcSaju('saju');
   }
@@ -793,7 +808,7 @@
   async function runCombinedWrapped() {
     if (analysisInFlight) return;
     const rep = getRepresentative();
-    if (!rep) { openForm(null, { onSavedRun: 'combined' }); return; }
+    if (!rep) { openForm(null, { onSavedRun: 'combined', reason: 'gate' }); return; }
 
     // 차감보다 먼저 입력값을 채우고 검증한다 — 예전엔 차감 뒤에 applyToContext를 해서, 프로필에
     // 생년월일이 비어 있으면 runCombined가 "생년월일을 입력해주세요"로 바로 빠져나가면서 냥만 사라졌다.
@@ -830,7 +845,7 @@
   async function runGunghamWrapped() {
     if (analysisInFlight) return;
     const rep = getRepresentative();
-    if (!rep) { alert('헤더에서 나의 프로필을 먼저 등록해주세요.'); openForm(null); return; }
+    if (!rep) { openForm(null, { onSavedRun: 'gungham', reason: 'gate' }); return; }
     if (!gunghamPartnerId) { alert('상대방 프로필을 선택해주세요.'); return; }
     const partner = getProfile(gunghamPartnerId);
     if (!partner) { alert('상대방 프로필을 다시 선택해주세요.'); return; }
