@@ -426,6 +426,7 @@
           if (gh) { stashUploadNodes(); gh.remove(); }
           setDisplay('gwansangHero', '');
           setDisplay('gwansangCtaDock', '');
+          setDisplay('gwansangUploadSection', ''); // showGuestView가 숨겨뒀을 수 있다
           setDisplay('gwansangBackBtn', 'none');
           await paintOwnerView(el, guestDogam, stale);
           return;
@@ -449,6 +450,9 @@
     if (gh) { stashUploadNodes(); gh.remove(); }
     setDisplay('gwansangHero', '');
     setDisplay('gwansangCtaDock', '');
+    // "이미 등록한 재방문" 게스트 화면(showGuestView)이 이 섹션을 숨겨뒀을 수 있다 — 내 도감으로
+    // 돌아왔을 땐 다시 보여야 한다(사진이 없는 사람에게는 여전히 업로드 입구가 필요하다).
+    setDisplay('gwansangUploadSection', '');
     // "인연도감 메인으로"는 돌아갈 이전 화면이 있을 때만 의미가 있다. 공유 링크로 바로 들어온
     // 세션에는 그 화면 자체가 없었으므로 숨긴다.
     setDisplay('gwansangBackBtn', enteredViaShare ? 'none' : '');
@@ -481,23 +485,31 @@
   // 참여 기록 구독까지. A-1(code로 직접 찾은 내 도감)과 B(계정/기기 기준 내 도감) 양쪽이 공유한다.
   async function paintOwnerView(el, dogam, stale) {
     myDogam = dogam;
+    const charId = myDogam ? myDogam.ownerCharacterId : null;
     // ⚠️ 사용자 리포트(2026-08-18): 보관함(Archive, 클라우드 동기화)엔 인연도감 리포트가 있는데
     // 인연도감 탭엔 없어 보임 — myCharacterId()는 이 기기의 localStorage(inyeonLastCharacter)만
     // 보기 때문에, 다른 기기에서 만든 도감을 이 기기(로그인은 같은 계정)에서 열면 "처음 온 사람"처럼
-    // 사진 업로드부터 다시 시켰다. 클라우드 도감(dogam.ownerCharacterId)이 이미 있으면 그 캐릭터로
-    // "다시 보기" 카드(renderGwansangRevisitCard, ai-analysis.js)를 이 기기에도 채워서 두 화면이
-    // 어긋나지 않게 한다 — 계산 로직은 그대로, 저장된 결과를 복원만 하는 것이라 재분석은 안 일어난다.
-    if (myDogam && myDogam.ownerCharacterId && !myCharacterId()) {
+    // 사진 업로드부터 다시 시켰다. 클라우드 도감(dogam.ownerCharacterId)이 있으면 그 캐릭터로 이 기기의
+    // 로컬 기록도 채워서 두 화면이 어긋나지 않게 한다 — 계산 로직은 그대로, 저장된 결과를 복원만
+    // 하는 것이라 재분석은 안 일어난다.
+    if (charId && !myCharacterId()) {
       try {
         localStorage.setItem('inyeonLastCharacter', JSON.stringify({
-          characterId: myDogam.ownerCharacterId,
-          characterName: (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[myDogam.ownerCharacterId])
-            ? CHARACTER_DB[myDogam.ownerCharacterId].name : null,
+          characterId: charId,
+          characterName: (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[charId]) ? CHARACTER_DB[charId].name : null,
           ts: Date.now(),
         }));
       } catch (e) { /* 프라이빗 브라우징 등 localStorage 불가 — 조용히 스킵 */ }
-      if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
     }
+    // ⚠️ 사용자 리포트(2026-08-19): "내 도감"의 정의엔 내 캐릭터 설명도 포함인데, 친구 도감(즉시
+    // 전체 노출)과 달리 "다시 보기" 축소 카드로만 연결돼 있어서 한 번 더 눌러야 보였다. 게다가
+    // showGuestView()가 앞서 이 카드 영역을 숨겨놓은 채로 남아있는 경우 아예 안 보이기도 했다.
+    // 캐릭터가 있으면 항상 전체 카드+설명을 곧바로 펼친다 — Dogam.render()를 다시 부르면(reopenSavedCharacter가
+    // 그렇게 한다) 무한 재귀라, 그 안쪽 함수(populateGwansangReportFromSaved)만 직접 쓴다.
+    if (charId && typeof populateGwansangReportFromSaved === 'function') {
+      populateGwansangReportFromSaved(charId);
+    }
+    if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
     if (stale && stale()) return;
     el.innerHTML = renderOwnerView(myDogam);
     syncLiveBlocks(); // 보관함에서 열어둔 도감 영역도 같은 내용으로 맞춘다(등록·삭제 직후 등)
@@ -769,6 +781,10 @@
     // 하단 고정 CTA("내 관상 캐릭터 뽑기")는 스스로 들어온 사람을 위한 것 —
     // 초대받은 사람은 "도감에 인연 등록하기" 하나로 분석과 등록이 함께 끝나야 버튼이 겹치지 않는다.
     setDisplay('gwansangCtaDock', 'none');
+    // ⚠️ 사용자 리포트(2026-08-19): 이미 등록한 재방문(already)은 등록 폼 자체를 안 만들어서, 그 안에
+    // 옮겨 넣었어야 할 사진 업로드 위젯(#gwansangUploadSection)이 원래 자리에 그대로 노출됐다.
+    // 등록 폼이 없는 화면에서는 이 섹션도 통째로 숨긴다.
+    setDisplay('gwansangUploadSection', already ? 'none' : '');
 
     const myChar = myCharacterId();
     const myName2 = myChar && CHARACTER_DB[myChar] ? CHARACTER_DB[myChar].name : '';
