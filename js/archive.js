@@ -177,10 +177,14 @@
       return {
         title: repName + ' ✕ ' + (partner ? partner.name : '상대방'),
         sub: (st && st.gungham && st.gungham.relation) || '',
+        profileId: rep ? rep.id : null,
       };
     }
     const rel = (st && st[type] && st[type].relation) || (rep && (rep.relationDetail || rep.relation)) || '';
-    return { title: repName, sub: rel };
+    // profileId — "이 프로필로 이미 분석한 적 있는지" 나중에 확인하려면 이름만으로는 부족하다
+    // (동명이인 프로필이 있을 수 있음). 저장 시점의 대표 프로필 id를 같이 남긴다(사용자 요청
+    // 2026-08-19: 같은 사주를 다시 골라도 새로 분석하는 것처럼 보이는 문제).
+    return { title: repName, sub: rel, profileId: rep ? rep.id : null };
   }
 
   // ── 결제 게이트 ──────────────────────────────────────────────────────
@@ -206,6 +210,7 @@
         if (idx >= 0) {
           list[idx].title = label.title;
           list[idx].sub = label.sub;
+          list[idx].profileId = label.profileId || null;
           list[idx].createdAt = new Date().toISOString(); // 최신순 정렬 기준 갱신
           saveIndex(list);
         }
@@ -220,6 +225,7 @@
     const list = loadIndex();
     list.push({
       id: id, type: type, title: label.title, sub: label.sub,
+      profileId: label.profileId || null, // "이 프로필로 이미 분석했는지" 나중에 대조하기 위함
       paid: PAID_TYPES.indexOf(type) >= 0, // 결제 상품 여부 — 결제내역 화면에서 재사용할 수 있게 남긴다
       createdAt: new Date().toISOString(),
     });
@@ -263,7 +269,7 @@
         // 인연도감은 원래 비로그인이 기본 경로라, 여기서 포기하지 않고 완성된 스냅샷을 기기에
         // 남겨둔다. 같은 type이 또 완성되면(사진을 다시 찍는 등) 최신 것으로 덮어쓴다.
         const pending = loadPending().filter(function (p) { return p.type !== type; });
-        pending.push({ type: type, html: html, title: label.title, sub: label.sub, ts: Date.now() });
+        pending.push({ type: type, html: html, title: label.title, sub: label.sub, profileId: label.profileId || null, ts: Date.now() });
         savePendingList(pending);
         console.warn('[archive] 비로그인 상태 — 리포트를 기기에 임시 보관(로그인 시 편입)', type);
         return;
@@ -283,7 +289,7 @@
     const pending = loadPending();
     if (!pending.length) return;
     pending.forEach(function (p) {
-      commitSave(uid, p.type, p.html, { title: p.title, sub: p.sub });
+      commitSave(uid, p.type, p.html, { title: p.title, sub: p.sub, profileId: p.profileId || null });
     });
     localStorage.removeItem(PENDING_KEY);
     console.log('[archive] 임시 보관 리포트 편입 완료', { count: pending.length });
@@ -524,7 +530,7 @@
     return loadIndex()
       .filter(r => r.type === type)
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)) // 항상 최신순 — 목록 화면의 정렬 토글과 무관하게
-      .map(r => ({ id: r.id, type: r.type, title: r.title, sub: r.sub, createdAt: r.createdAt, when: fmtWhen(r.createdAt) }));
+      .map(r => ({ id: r.id, type: r.type, title: r.title, sub: r.sub, profileId: r.profileId || null, createdAt: r.createdAt, when: fmtWhen(r.createdAt) }));
   }
   function latestOf(type) { return listOf(type)[0] || null; }
   // 저장된 리포트 본문을 임의의 컨테이너에 그린다. 보관함 상세와 같은 정리(조작 요소 제거)를 거친다.

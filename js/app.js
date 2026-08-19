@@ -390,11 +390,20 @@ function closeCombinedSavedReport() {
 
 // "다른 사람으로 통합분석하기" — 사주(프로필)를 먼저 고르게 하고, 고른 뒤에 사진 등록부터 다시 시작한다.
 // 닫기·배경 클릭으로 나가면(onPick 미호출) 보고 있던 리포트 화면이 그대로 남는다.
+// ⚠️ 프로필이 하나뿐이거나 이미 분석한 사람을 또 고르면, 사진 등록 화면만 새로 뜨는 게 마치 다른
+// 사람 분석이 시작된 것처럼 보였다(사용자 요청 2026-08-19). 고른 프로필로 이미 완료된 통합분석
+// 기록이 있으면 진행하지 않고 안내한다 — 다시 하려면 그 기록을 지우고 오라는 뜻.
 function startCombinedForOther() {
   if (!window.Profile || !Profile.openSwitcher) return;
   Profile.openSwitcher({
     title: '분석할 사주 선택',
-    onPick: function () {
+    onPick: function (id) {
+      const already = window.Archive && Archive.listOf && Archive.listOf('combined').some(function (r) { return r.profileId === id; });
+      if (already) {
+        alert('이미 분석한 내용이 있습니다.\n동일 사주로 다른 분석을 원하시면 삭제 후 이용해주세요.');
+        startCombinedForOther(); // 다른 프로필을 고르도록 시트를 다시 띄운다
+        return;
+      }
       resetUpload('combined'); // 안에서 cmbWantsNewAnalysis를 세우고 사진 등록 단계를 되살린다
       window.scrollTo(0, 0);
     },
