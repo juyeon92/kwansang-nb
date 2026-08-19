@@ -781,6 +781,14 @@
     // 하단 고정 CTA("내 관상 캐릭터 뽑기")는 스스로 들어온 사람을 위한 것 —
     // 초대받은 사람은 "도감에 인연 등록하기" 하나로 분석과 등록이 함께 끝나야 버튼이 겹치지 않는다.
     setDisplay('gwansangCtaDock', 'none');
+    // ⚠️ 방어적 수정(2026-08-19): 직전에 "내 도감"을 보고 있어서 내 캐릭터 카드(canvasCard·
+    // gwansangResult)가 펼쳐진 상태였다면, 친구 도감 화면으로 넘어와도 그 카드는 계속 DOM에 남아
+    // #dogamGuestSection 아래에 그대로 노출된다 — 친구 캐릭터만 보여야 하는 화면에 내 캐릭터가
+    // 같이 보이면 안 되므로 여기서 명시적으로 숨긴다. classList를 직접 건드리는 이유: 이 두 카드는
+    // .hidden 클래스로 상태를 관리하고(style.display가 아님), markAnalyzed()·resetUpload() 등
+    // 기존 로직과 같은 방식으로 다뤄야 나중에 다시 열 때도 어긋나지 않는다.
+    document.getElementById('canvasCard').classList.add('hidden');
+    document.getElementById('gwansangResult').classList.add('hidden');
     // ⚠️ 사용자 리포트(2026-08-19): 이미 등록한 재방문(already)은 등록 폼 자체를 안 만들어서, 그 안에
     // 옮겨 넣었어야 할 사진 업로드 위젯(#gwansangUploadSection)이 원래 자리에 그대로 노출됐다.
     // 등록 폼이 없는 화면에서는 이 섹션도 통째로 숨긴다.
