@@ -338,12 +338,11 @@
         });
         return;
       }
-      const label = buildLabel(type);
-
       const uid = isRealUid();
       if (!uid) {
         // 인연도감은 원래 비로그인이 기본 경로라, 여기서 포기하지 않고 완성된 스냅샷을 기기에
         // 남겨둔다. 같은 type이 또 완성되면(사진을 다시 찍는 등) 최신 것으로 덮어쓴다.
+        const label = buildLabel(type);
         const pending = loadPending().filter(function (p) { return p.type !== type; });
         pending.push({ type: type, html: html, title: label.title, sub: label.sub, profileId: label.profileId || null, ts: Date.now() });
         savePendingList(pending);
@@ -351,7 +350,18 @@
         return;
       }
       if (!hasPaidFor(type)) { console.warn('[archive] 미결제 — 리포트를 보관하지 않는다', type); return; }
-      commitSave(uid, type, html, label);
+      // ⚠️ 버그 수정(2026-08-20): 로그인 직후 첫 자가복구 저장(paintOwnerView)은 loadFromCloud의
+      // 클라우드 병합이 끝나기 전에 일어날 수 있다. 그 시점엔 "이 계정에 기존 기록이 있는지"
+      // (commitSave의 gwansang 중복 방지 판단)도, label(대표 프로필 이름표)도 아직 정확하지 않아서
+      // — 병합 전 로컬 목록엔 다른 기기의 기존 기록이 없으니 새 항목을 만들어버리고, 그 새 항목이
+      // 나중에 병합 시 "최신"으로 오인돼 진짜 기록을 밀어낼 수 있다. 병합이 끝난 뒤 다시 판단해서
+      // 커밋한다 — label도 그 시점에 다시 계산해야 그 사이 로딩된 진짜 대표 프로필 이름이 반영된다.
+      const gate = cloudGates[uid];
+      if (gate && !gate.done) {
+        gate.promise.then(function () { commitSave(uid, type, html, buildLabel(type)); });
+        return;
+      }
+      commitSave(uid, type, html, buildLabel(type));
     } catch (e) {
       console.error('[archive] 리포트 보관 실패', type, e);
     }
