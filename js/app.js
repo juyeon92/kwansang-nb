@@ -2135,8 +2135,10 @@ function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel) {
   const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
   const shapeA = classifyFaceShape3(rA), shapeB = classifyFaceShape3(rB);
   const eyeLevelA = gwansangLevel('waJ', rA.waJ), eyeLevelB = gwansangLevel('waJ', rB.waJ);
+  const noseLevelA = gwansangLevel('junduR', rA.junduR), noseLevelB = gwansangLevel('junduR', rB.junduR);
   const mouthLevelA = gwansangLevel('mouthR', rA.mouthR), mouthLevelB = gwansangLevel('mouthR', rB.mouthR);
   const cheekLevelA = gwansangLevel('cheekR', rA.cheekR), cheekLevelB = gwansangLevel('cheekR', rB.cheekR);
+  const chinLevelA = gwansangLevel('jigakR', rA.jigakR), chinLevelB = gwansangLevel('jigakR', rB.jigakR);
 
   const faceShapeText = describeFaceShapeCombo(shapeA, shapeB, genderA, genderB, rel);
   const eyeText = describeSizeCombo(eyeLevelA, eyeLevelB, genderA, genderB, rel, {
@@ -2153,15 +2155,31 @@ function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel) {
     maleSmall: '한쪽에게 다른 한쪽이 끌려다니기 쉬운 조합이에요. 끌려다니는 쪽도 원하는 걸 표현하는 연습을 해보면 더 좋아져요.',
     mixed: '애정 표현 방식의 온도차가 있는 조합이라, 서로 원하는 표현 방식을 한 번쯤 이야기해보면 좋아요.',
   });
+  const noseText = describeSizeCombo(noseLevelA, noseLevelB, genderA, genderB, rel, {
+    bothBig: '둘 다 코가 시원시원한 편이에요. 재물운과 자존심이 강해서 씀씀이도 큰 편일 수 있어요. 각자 벌고 쓰는 방식을 존중하되, 큰 지출은 미리 상의하는 습관을 들이면 좋아요.',
+    bothSmall: '둘 다 코가 아담하고 야무진 편이에요. 알뜰하게 재물을 모으는 데는 좋지만, 서로 씀씀이에 너무 인색해지지 않게 가끔은 자신에게 투자하는 여유도 가져보세요.',
+    maleBig: '한쪽은 배포가 크고 통 크게 쓰는 편이고, 다른 한쪽은 알뜰하게 관리하는 편이에요. 벌고 쓰는 역할을 자연스럽게 나누면 재물운이 잘 굴러가는 조합이에요.',
+    maleSmall: '야무지게 살림을 챙기는 한쪽과, 배포 크게 일을 벌이는 다른 한쪽의 조합이에요. 서로 재물 관리 방식을 존중해주면 좋아요.',
+    mixed: '코의 재물 기운 성향이 서로 달라서, 돈 쓰는 스타일에 온도차가 있을 수 있어요. 가계부나 공동 목표를 함께 세워보면 도움이 돼요.',
+  });
   const cheekText = (cheekLevelA >= 60 && cheekLevelB >= 60)
     ? '둘 다 광대가 발달한 편이에요. 각자 자기 주장이 뚜렷하고 드센 편이라, 양보 없이 매일 사소하게 부딪히거나 반대로 무심한 사이가 되기 쉬워요. 이기고 지는 문제가 아니라는 걸 서로 확인하는 대화가 필요해요.'
     : '광대 발달 정도가 서로 달라서, 자기 주장을 내는 정도에 차이가 있는 조합이에요. 결정할 때 목소리가 큰 쪽만 따라가지 않도록 신경 써보세요.';
+  const chinText = describeSizeCombo(chinLevelA, chinLevelB, genderA, genderB, rel, {
+    bothBig: '둘 다 턱이 발달한 편이라 생활력과 추진력이 강하고 말년까지 안정적인 기반을 다지는 힘이 좋아요. 다만 둘 다 자기 뜻을 밀어붙이는 편이라, 큰 결정 앞에서는 번갈아 양보하는 습관이 필요해요.',
+    bothSmall: '둘 다 갸름하고 섬세한 턱을 가졌어요. 감성적이고 예민한 부분을 서로 잘 이해할 수 있지만, 큰 결정 앞에서 둘 다 망설이기 쉬우니 한쪽이 먼저 방향을 정해주는 역할을 맡으면 좋아요.',
+    maleBig: '한쪽은 뚝심 있게 밀어붙이는 편이고, 다른 한쪽은 섬세하게 마음을 챙기는 편이에요. 서로의 속도를 존중하면 안정적인 조합이 돼요.',
+    maleSmall: '섬세한 한쪽을 든든한 다른 한쪽이 받쳐주는 조합이에요. 말년까지 안정적으로 함께할 수 있는 궁합이에요.',
+    mixed: '턱선 성향이 서로 달라서, 삶을 꾸려가는 속도나 방식에 차이가 있을 수 있어요. 서로의 리듬을 맞춰가는 대화가 도움이 돼요.',
+  });
 
   return {
     faceShape: { a: shapeA, b: shapeB, text: faceShapeText },
     eye: { text: eyeText },
+    nose: { text: noseText },
     mouth: { text: mouthText },
     cheek: { text: cheekText },
+    chin: { text: chinText },
   };
 }
 
@@ -2229,13 +2247,16 @@ function renderCoupleReport(narrativeA, narrativeB, chemi, faceCombo, energy, mo
     </div>
     <div class="chemi-card"><div class="chemi-title">관상 궁합 총평</div><div class="chemi-role">${chemi.total}</div></div>`;
 
-  // 얼굴형·눈·입·광대 "조합"으로 보는 궁합 — 부위별 강점/보완 비교와 달리 두 사람 유형의 조합 자체를 본다
+  // 얼굴형·눈·입·광대 "조합"으로 보는 궁합 — 부위별 강점/보완 비교와 달리 두 사람 유형의 조합 자체를 본다.
+  // 노출 순서: 눈 > 코 > 광대뼈 > 입 > 턱 > 얼굴형(사용자 요청 2026-08-20).
   document.getElementById('ggFaceComboCards').innerHTML = faceCombo
     ? `
-    <div class="chemi-card"><div class="chemi-title">얼굴형 조합 (${faceCombo.faceShape.a} × ${faceCombo.faceShape.b})</div><div class="chemi-role">${faceCombo.faceShape.text}</div></div>
     <div class="chemi-card"><div class="chemi-title">눈 크기 조합</div><div class="chemi-role">${faceCombo.eye.text}</div></div>
+    <div class="chemi-card"><div class="chemi-title">코 조합</div><div class="chemi-role">${faceCombo.nose.text}</div></div>
+    <div class="chemi-card"><div class="chemi-title">광대뼈 조합</div><div class="chemi-role">${faceCombo.cheek.text}</div></div>
     <div class="chemi-card"><div class="chemi-title">입 크기 조합</div><div class="chemi-role">${faceCombo.mouth.text}</div></div>
-    <div class="chemi-card"><div class="chemi-title">광대뼈 조합</div><div class="chemi-role">${faceCombo.cheek.text}</div></div>`
+    <div class="chemi-card"><div class="chemi-title">턱 조합</div><div class="chemi-role">${faceCombo.chin.text}</div></div>
+    <div class="chemi-card"><div class="chemi-title">얼굴형 조합 (${faceCombo.faceShape.a} × ${faceCombo.faceShape.b})</div><div class="chemi-role">${faceCombo.faceShape.text}</div></div>`
     : `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 얼굴형·눈·입·광대 조합으로 보는 궁합을 볼 수 있어요.</div>`;
 
   // STEP3 — 사주 기운 케미

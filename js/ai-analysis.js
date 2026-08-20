@@ -1780,7 +1780,9 @@ function renderShapeDetailsHtml(ids) {
 // shapeElId(선택): "🧩 부위별 생김새 유형" 블록만 다른 컨테이너에 따로 렌더한다. 관상보기 탭은 이 블록부터
 // 아래 전부를 접이식 아코디언 안에 넣기로 해서(사용자 요청 2026-08-15), 형상 카드(눈·전체 인상)는 카드
 // 바깥에 그대로 두고 생김새 유형만 아코디언 안으로 옮겨야 하기 때문. 안 넘기면 기존처럼 한 덩어리로 붙는다.
-function renderArchetypes(elId, eyeId, faceId, mode, shapeIds, fallbackReason, genderVal, shapeElId) {
+// personLabel(선택): 궁합 탭처럼 "당신" 대신 실제 이름("홍길동님")을 제목에 써야 할 때 넘긴다.
+// 안 넘기면 기존처럼 "당신"을 쓴다(관상보기·통합분석 탭은 1인칭 화면이라 그대로 유지).
+function renderArchetypes(elId, eyeId, faceId, mode, shapeIds, fallbackReason, genderVal, shapeElId, personLabel) {
   const el = document.getElementById(elId);
   if (!el) return;
   const eye = EYE_ARCHETYPE_DB[eyeId];
@@ -1795,7 +1797,8 @@ function renderArchetypes(elId, eyeId, faceId, mode, shapeIds, fallbackReason, g
   if (!eye && !face && !shapeHtml) { el.classList.add('hidden'); return; }
   const isFallback = mode === true || mode === 'fallback';
   const isRule = mode === 'rule';
-  const titleTag = isRule ? '🔮 당신의 관상 형상' : isFallback ? '🔮 당신의 관상 형상 (약식 추정)' : '🔮 당신의 관상 형상 (AI 판별)';
+  const who = personLabel || '당신';
+  const titleTag = isRule ? `🔮 ${who}의 관상 형상` : isFallback ? `🔮 ${who}의 관상 형상 (약식 추정)` : `🔮 ${who}의 관상 형상 (AI 판별)`;
   // 키가 아예 없는 경우와 "키는 있는데 호출이 실패한" 경우를 구분해서 보여준다 — 둘 다 같은 문구였던 게
   // "키 설정했는데 왜 자꾸 이 말이 나오냐"는 혼란의 원인이었음(사용자 피드백으로 발견).
   const fallbackNote = isRule
@@ -1868,10 +1871,10 @@ function fillGunghapAiFallback() {
 // 키가 없거나 API 호출이 실패하면 조용히 스킵 — 로컬 결과만 있는 상태로 남을 뿐, 에러 UI를 사용자에게 노출하지 않음.
 // Gemini가 없거나 실패하면 랜드마크만으로 눈모양·동물형상을 약식 추정한다(landmark-engine.js의 룰베이스 분류기).
 // 정밀도는 떨어지지만, 키가 없다는 이유로 이 카드 자체가 통째로 안 보이는 것보다는 낫다는 판단.
-function renderArchetypesFallback(archetypeId, lm, fallbackReason, genderVal) {
+function renderArchetypesFallback(archetypeId, lm, fallbackReason, genderVal, personLabel) {
   const eyeId = classifyEyeArchetypeRuleBased(lm);
   const faceId = classifyFaceArchetypeRuleBased(lm);
-  renderArchetypes(archetypeId, eyeId, faceId, true, null, fallbackReason, genderVal);
+  renderArchetypes(archetypeId, eyeId, faceId, true, null, fallbackReason, genderVal, null, personLabel);
 }
 
 // 컨텍스트별 설정 — 궁합 탭의 두 사람(gunghamA/B)도 관상 탭·통합분석 탭과 동일하게 관상 형상(눈모양·
@@ -1883,8 +1886,11 @@ const CTX_CONFIG = {
   // shapeDetailId를 안 보이는 그릇으로 돌려, "부위별 생김새 유형" 블록이 전통 형상 카드(cmbArchetype)에
   // 붙지 않게 한다 — 그 내용은 이제 부위별 병합 카드(#cmbPartCards) 안에서만 보인다.
   combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', deepReportId:null, aiFaceId:'cmbAiFaceExtra', aiSajuId:'cmbAiSajuSection', fusionId:'cmbFusionSection', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
-  gunghamA: () => ({ canvasId:'gunghamCanvasA', cardsId:'ggPersonAGwansang', archetypeId:'ggArchetypeA', deepReportId:null, relVal:'연인/배우자', pillars:state.gunghamA.pillars, ohaeng:state.gunghamA.ohaeng, genderVal:ggGenderA }),
-  gunghamB: () => ({ canvasId:'gunghamCanvasB', cardsId:'ggPersonBGwansang', archetypeId:'ggArchetypeB', deepReportId:null, relVal:'연인/배우자', pillars:state.gunghamB.pillars, ohaeng:state.gunghamB.ohaeng, genderVal:ggGenderB }),
+  // personLabel: "당신" 대신 실제 이름 사용. hideShapeDetails: 궁합 탭 Zone1에선 "🧩 부위별 생김새
+  // 유형"을 아예 안 보여주기로 함(사용자 요청 2026-08-20) — shapeDetailId 싱크도 안 주고 shapeIds 자체를
+  // 호출부에서 null로 넘기게 하는 플래그.
+  gunghamA: () => ({ canvasId:'gunghamCanvasA', cardsId:'ggPersonAGwansang', archetypeId:'ggArchetypeA', deepReportId:null, hideShapeDetails:true, personLabel: state.gunghamA.name ? state.gunghamA.name+'님' : '당신', relVal:'연인/배우자', pillars:state.gunghamA.pillars, ohaeng:state.gunghamA.ohaeng, genderVal:ggGenderA }),
+  gunghamB: () => ({ canvasId:'gunghamCanvasB', cardsId:'ggPersonBGwansang', archetypeId:'ggArchetypeB', deepReportId:null, hideShapeDetails:true, personLabel: state.gunghamB.name ? state.gunghamB.name+'님' : '당신', relVal:'연인/배우자', pillars:state.gunghamB.pillars, ohaeng:state.gunghamB.ohaeng, genderVal:ggGenderB }),
 };
 
 // ═══ 관상 AI 분류 결과 캐시 / 공유 ═══
@@ -2417,7 +2423,7 @@ function classifyAndBuildCharacter(ctx, cfg, lm) {
   state[ctx].archetypeAnalysis = extractArchetypeAnalysis(ids);
   state[ctx].ruleBasedConfidences = confidences;
 
-  renderArchetypes(cfg.archetypeId, ids.eye_archetype_id, ids.face_archetype_id, 'rule', ids, null, cfg.genderVal, cfg.shapeDetailId);
+  renderArchetypes(cfg.archetypeId, ids.eye_archetype_id, ids.face_archetype_id, 'rule', cfg.hideShapeDetails ? null : ids, null, cfg.genderVal, cfg.shapeDetailId, cfg.personLabel);
 
   const ratios = getGwansangRatios(lm);
   const partStatusMap = judgePartStatus(ratios);
@@ -2489,7 +2495,8 @@ async function requestPersonalAi(ctx) {
       cfg.archetypeId,
       lm,
       null,
-      cfg.genderVal
+      cfg.genderVal,
+      cfg.personLabel
     );
 
     return;
@@ -2547,16 +2554,19 @@ async function requestPersonalAi(ctx) {
         data.eye_archetype_id,
         data.face_archetype_id,
         false,
-        data,
+        cfg.hideShapeDetails ? null : data,
         null,
-        cfg.genderVal
+        cfg.genderVal,
+        cfg.shapeDetailId,
+        cfg.personLabel
       );
     } else {
       renderArchetypesFallback(
         cfg.archetypeId,
         lm,
         null,
-        cfg.genderVal
+        cfg.genderVal,
+        cfg.personLabel
       );
     }
 
@@ -2571,7 +2581,8 @@ async function requestPersonalAi(ctx) {
       cfg.archetypeId,
       lm,
       e.message,
-      cfg.genderVal
+      cfg.genderVal,
+      cfg.personLabel
     );
   }
 }

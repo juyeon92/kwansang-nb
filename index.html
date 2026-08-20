@@ -653,16 +653,6 @@ body {
 /* ══ 궁합보기 AI 리포트 — 히어로(총합/관상만/사주만 점수) + Zone1 관상궁합 + Zone2 사주궁합 (2026-08-19) ══
    모든 풀이 항목은 "풀이 먼저 → 근거 나중" 순서로 쌓는다(.gg-item-reading 다음 .gg-item-basis).
    기존 report-accordion.zone-accordion(통합분석 탭)을 그대로 재사용해 Zone1/Zone2를 접고 펼친다. */
-.gg-hero { text-align: center; background: linear-gradient(160deg, var(--mint-tint-10), var(--surface)); border: 1.5px solid var(--mint-border); border-radius: var(--r); padding: 22px 18px; margin-bottom: 16px; }
-.gg-hero-badge { display: inline-block; font-size: 11px; font-weight: 800; color: var(--jade); background: var(--mint-10); border-radius: 999px; padding: 4px 12px; margin-bottom: 10px; }
-.gg-hero-total { font-size: 40px; font-weight: 900; color: var(--jade); line-height: 1; }
-.gg-hero-total span { font-size: 16px; font-weight: 700; margin-left: 4px; }
-.gg-hero-scores { display: flex; justify-content: center; gap: 24px; margin-top: 10px; }
-.gg-hero-score-item { display: flex; flex-direction: column; align-items: center; }
-.gg-hero-score-num { font-size: 18px; font-weight: 800; color: var(--text-title); }
-.gg-hero-score-label { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
-.gg-hero-reason { font-size: 13px; line-height: 1.8; color: var(--text); margin-top: 14px; text-align: left; }
-
 .gg-item { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 14px 16px; margin-bottom: 10px; }
 .gg-item-head { font-size: 13.5px; font-weight: 800; color: var(--jade); margin-bottom: 8px; }
 .gg-item-reading { font-size: 13px; line-height: 1.85; color: var(--text); }
@@ -1843,15 +1833,13 @@ body.overlay-open { overflow: hidden; }
 
       <!-- ══ Zone0 · 종합(히어로) ══ — Zone1/Zone2와 같은 zone-accordion이라 initZoneAccordions()의
            "하나 열면 나머지 닫힘" 그룹에 자동으로 포함된다(사용자 요청 2026-08-19). -->
-      <details class="report-accordion zone-accordion gg-hero" open id="ggHero">
+      <details class="report-accordion zone-accordion" open id="ggHero">
         <summary>🧠 종합 점수 &amp; 케미 분석</summary>
-        <span class="gg-hero-badge">🧠 AI 궁합 리포트</span>
-        <div class="gg-hero-total"><b id="ggHeroTotalNum">-</b><span>점</span></div>
-        <div class="gg-hero-scores">
-          <div class="gg-hero-score-item"><span class="gg-hero-score-num" id="ggHeroGwansangNum">-</span><span class="gg-hero-score-label">관상만</span></div>
-          <div class="gg-hero-score-item"><span class="gg-hero-score-num" id="ggHeroSajuNum">-</span><span class="gg-hero-score-label">사주만</span></div>
+        <div class="chemi-card">
+          <div class="chemi-title">🧠 AI 궁합 종합 점수</div>
+          <div class="chemi-role"><strong id="ggHeroTotalNum">-</strong>점 (관상만 <span id="ggHeroGwansangNum">-</span>점 · 사주만 <span id="ggHeroSajuNum">-</span>점)</div>
+          <div class="chemi-role" id="ggHeroReason"></div>
         </div>
-        <div class="gg-hero-reason" id="ggHeroReason"></div>
         <div class="headline-quote" id="ggHeadline" style="margin:16px 0 0;"></div>
 
         <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🎭 관상 케미 분석 (두 얼굴의 합)</div>
