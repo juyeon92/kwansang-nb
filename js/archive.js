@@ -113,6 +113,30 @@
     if (typeof renderGunghamSavedReport === 'function') renderGunghamSavedReport();
   }
 
+  // 클라우드본과 로컬본을 합친다 — 어느 한쪽이 비어 보여도 다른 쪽 내용이 사라지지 않도록
+  // (profile.js의 mergeProfiles와 같은 원칙). 같은 id면 로컬본을 우선한다.
+  // ⚠️ 버그 수정(2026-08-20 사용자 리포트: 기기마다 보관함 내용이 다르게 보임 — PC엔 통합분석·
+  // 궁합보기·인연도감이 다 있는데 모바일엔 인연도감 하나만 있고 이름도 "나"로 나옴). 예전엔
+  // loadFromCloud가 병합 없이 그냥 덮어써서, 한쪽 기기의(특히 아직 다른 기록을 못 받아온) 로컬
+  // 목록이 나중에 saveIndex로 다시 올라가면 클라우드의 다른 기록을 통째로 지워버릴 수 있었다.
+  function mergeIndex(localList, cloudList) {
+    const merged = localList.slice();
+    const seen = {};
+    merged.forEach(function (r) { seen[r.id] = true; });
+    (cloudList || []).forEach(function (r) { if (r && !seen[r.id]) { merged.push(r); seen[r.id] = true; } });
+    // 인연도감(gwansang)은 계정당 한 건이어야 한다는 게 commitSave의 전제다 — 두 기기가 로그인 전에
+    // 각자 만든 서로 다른 gwansang 기록이 병합되면 이 전제가 깨진다. 가장 최근 것만 남긴다(실제
+    // 친구 참여 기록은 이 스냅샷이 아니라 별도 dogam 컬렉션에 있어서, 스냅샷 하나를 정리해도
+    // 데이터가 사라지지 않는다).
+    const gwansangRows = merged.filter(function (r) { return r.type === 'gwansang'; });
+    if (gwansangRows.length > 1) {
+      gwansangRows.sort(function (a, b) { return (a.createdAt < b.createdAt ? 1 : -1); });
+      const keepId = gwansangRows[0].id;
+      return merged.filter(function (r) { return r.type !== 'gwansang' || r.id === keepId; });
+    }
+    return merged;
+  }
+
   // 로그인 직후 — 다른 기기에서 만든 목록을 이 기기로 가져온다(본문은 열람할 때 개별로 받는다).
   async function loadFromCloud() {
     // 이 기기에 이미 있는 목록만으로 먼저 화면을 맞춘다 — 클라우드 응답을 기다리는 동안
@@ -122,12 +146,13 @@
     if (!uid || !window.fbDb) return;
     try {
       const doc = await fbDb.collection('users').doc(uid).get();
-      const cloud = doc.exists ? doc.data().archive : null;
-      if (Array.isArray(cloud) && cloud.length) {
-        localStorage.setItem(IDX_PREFIX + uid, JSON.stringify(cloud));
-      } else {
-        saveIndex(loadIndex()); // 클라우드가 비어 있으면(첫 로그인) 이 기기 기록을 올려둔다
-      }
+      const cloud = (doc.exists && Array.isArray(doc.data().archive)) ? doc.data().archive : [];
+      const local = loadIndex();
+      const merged = mergeIndex(local, cloud);
+      localStorage.setItem(IDX_PREFIX + uid, JSON.stringify(merged));
+      // 합친 결과가 클라우드본과 다르면(로컬에만 있던 게 있었거나, 중복 gwansang을 정리했으면)
+      // 다시 올려서 양쪽을 맞춘다. 완전히 같으면 불필요한 쓰기를 하지 않는다.
+      if (JSON.stringify(merged) !== JSON.stringify(cloud)) saveIndex(merged);
       if (isOpen()) renderPage();
       notifyChanged();
     } catch (e) {
@@ -311,7 +336,14 @@
     const pending = loadPending();
     if (!pending.length) return;
     pending.forEach(function (p) {
-      commitSave(uid, p.type, p.html, { title: p.title, sub: p.sub, profileId: p.profileId || null });
+      // ⚠️ 버그 수정(2026-08-20 사용자 리포트: 모바일 인연도감이 "최주연" 대신 "나"로 보임) —
+      // p.title/p.sub는 로그인 전(익명, 대표 프로필 없음) 임시 보관 시점에 찍힌 이름표라 항상
+      // "나"/빈 문자열이다. 편입은 로그인·프로필 로딩이 끝난 뒤에만 일어나므로(kakao-auth.js가
+      // migrateLocalOnLogin·Profile.loadFromCloud·Archive.loadFromCloud를 먼저 기다린 뒤 호출),
+      // 그 시점의 진짜 대표 프로필로 이름표를 다시 계산한다 — 옛 이름표를 그대로 쓰면 이미 있던
+      // 정확한 기록(다른 기기에서 만든 "최주연")을 "나"로 덮어써버린다.
+      const label = buildLabel(p.type);
+      commitSave(uid, p.type, p.html, label);
     });
     localStorage.removeItem(PENDING_KEY);
     console.log('[archive] 임시 보관 리포트 편입 완료', { count: pending.length });
