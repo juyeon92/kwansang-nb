@@ -57,7 +57,8 @@
   function loadProfiles() {
     const key = storageKey();
     const list = readKey(key);
-    if (list.length || key === STORAGE_KEY) return list;
+    if (list.length) return healDuplicates(key, list);
+    if (key === STORAGE_KEY) return list;
     // 계정별 키로 나누기 전에 저장된 기존 프로필을 한 번 넘겨받는다(마이그레이션).
     const legacy = readKey(STORAGE_KEY);
     if (legacy.length) {
@@ -68,11 +69,45 @@
     }
     return [];
   }
+  // 이미 중복 저장돼버린 사람이 있으면(과거 mergeProfiles 버그로 쌓인 것 포함) 읽을 때마다 정리해서
+  // 돌려준다 — 사용자가 매번 삭제하지 않아도 다음에 열면 깔끔해져 있어야 한다.
+  function healDuplicates(key, list) {
+    const deduped = dedupeProfiles(list);
+    if (deduped.length === list.length) return list;
+    console.log('[profile] 중복 사주 정리', { before: list.length, after: deduped.length });
+    localStorage.setItem(key, JSON.stringify(deduped));
+    syncProfilesToCloud(deduped);
+    return deduped;
+  }
   function saveProfiles(list) {
     localStorage.setItem(storageKey(), JSON.stringify(list));
     syncProfilesToCloud(list);
   }
 
+  // 이름·관계·생년월일·시간이 전부 같으면 사실상 "같은 사람"으로 본다 — id는 기기/시점에 따라
+  // 다르게 발급되므로(uid()) 같은 사람이라도 id는 다를 수 있다.
+  function profileSignature(p) {
+    return [p.name, p.relation, p.relationDetail, p.solarDate, p.birthHour, p.gender]
+      .map(function (v) { return String(v == null ? '' : v).trim(); }).join('|');
+  }
+  // id가 다르더라도 signature(사람)가 같은 항목은 하나만 남긴다.
+  // ⚠️ 버그 수정(2026-08-20 사용자 리포트: "사주 관리"에 같은 사람이 여러 번 찍혀 있음) — 로그인·
+  // 게스트→로그인 전환을 여러 번 거치며 mergeProfiles가 id만 보고 쌓아온 결과, 이름·생년월일·시간이
+  // 완전히 같은 프로필이 계속 늘어났다. 대표(isDefault) 지정과 gunghamPartnerId가 가리키는 id는
+  // 살려야 하므로, 같은 signature 중에는 대표였던 것을 우선 남기고 나머지를 지운다.
+  function dedupeProfiles(list) {
+    const bySig = {};
+    const order = [];
+    list.forEach(function (p) {
+      if (!p) return;
+      const sig = profileSignature(p);
+      const prev = bySig[sig];
+      if (!prev) { bySig[sig] = p; order.push(sig); return; }
+      // 둘 중 대표였던 쪽을 남긴다 — 아니면 먼저 만난(더 오래된) 쪽을 남긴다.
+      if (p.isDefault && !prev.isDefault) bySig[sig] = p;
+    });
+    return order.map(function (sig) { return bySig[sig]; });
+  }
   // 클라우드본과 로컬본을 합친다 — 어느 한쪽이 비어 보여도 다른 쪽 내용이 사라지지 않도록.
   // 같은 id면 이 기기에서 방금 만진 로컬본을 우선한다.
   function mergeProfiles(localList, cloudList) {
@@ -86,7 +121,7 @@
       if (!p.isDefault) return;
       if (repSeen) p.isDefault = false; else repSeen = true;
     });
-    return merged;
+    return dedupeProfiles(merged);
   }
 
   // ── Firebase 동기화 (로그인 상태일 때만 동작 — 비로그인이면 지금처럼 localStorage에만 남는다) ──
@@ -416,6 +451,7 @@
             <div class="profile-row-sub">${esc(fmtYmd(...String(p.solarDate||'').split('-')))} · ${esc(hourShort(p.birthHour))}</div>
           </div>
           <button class="profile-row-edit" onclick="event.stopPropagation();Profile._editRow('${p.id}', ${forPartner})"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>
+          ${list.length > 1 ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._deleteRow('${p.id}')"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
         </div>`;
     }).join('');
 
@@ -465,6 +501,16 @@
   // 사용자 입장에선 "그 사주를 고른 것"이라, 저장 후 호출부의 다음 단계로 이어져야 한다.
   function editRow(id, forPartner) { openForm(getProfile(id), { forPartner: forPartner, onDone: switcherOpts.onDone, onPick: switcherOpts.onPick }); }
   function openAdd(forPartner) { openForm(null, { forPartner: forPartner, onDone: switcherOpts.onDone, onPick: switcherOpts.onPick }); }
+  // 목록에서 바로 지운다 — 중복으로 쌓인 사주를 사용자가 스스로 정리할 방법이 없었다(삭제 버튼이
+  // 아예 없었음). 지운 뒤에는 시트를 다시 그려 갱신된 목록을 보여준다.
+  function deleteRow(id) {
+    const p = getProfile(id);
+    if (!p) return;
+    if (!confirm(`'${p.name}' 사주를 삭제할까요?`)) return;
+    deleteProfile(id);
+    if (gunghamPartnerId === id) gunghamPartnerId = null;
+    openSwitcher(switcherOpts);
+  }
 
   // ── 등록/수정 폼 팝업 ────────────────────────────────────────────────
   let draft = null;
@@ -938,7 +984,7 @@
     runSaju, runCombined: runCombinedWrapped, runGungham: runGunghamWrapped,
     openPartnerPicker: (opts) => openSwitcher(Object.assign({}, opts, { forPartner: true })),
     toggleGgAcc, syncGgAccordion,
-    _pickRow: pickRow, _editRow: editRow, _openAdd: openAdd,
+    _pickRow: pickRow, _editRow: editRow, _openAdd: openAdd, _deleteRow: deleteRow,
     _draftSet: draftSet, _setRelation: setRelation, _setCalendarType: setCalendarType, _setGender: setGender,
     _save: saveDraft, _openCalendar: openCalendar, _closeSub: closeSub,
     _calNav: calNav, _calSetYear: calSetYear, _calSetMonth: calSetMonth, _setLeap: setLeap, _pickDay: pickDay,
