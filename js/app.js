@@ -447,6 +447,7 @@ function resetGunghamResult() {
   showGunghamInputStep();
   document.getElementById('ggResult').classList.add('hidden');
   document.getElementById('ggCanvasCard').classList.add('hidden');
+  document.getElementById('gunghamBackBtn').classList.add('hidden'); // #ggCanvasCard 밖으로 옮겨서 따로 챙긴다
   document.getElementById('panel-gungham').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -1788,7 +1789,9 @@ async function runGungham() {
   hideErr('ggErr');
   document.getElementById('ggResult').classList.add('hidden');
   document.getElementById('ggCanvasCard').classList.add('hidden');
+  document.getElementById('gunghamBackBtn').classList.add('hidden');
   markAnalyzed('gungham');                     // 고정 CTA를 먼저 접고
+  setGgHeroVisible(false); // 분석 진행 화면부터는 진입 배너를 감춘다(사용자 요청 2026-08-20)
   showGgAnalyzing('사주 궁합을 계산하는 중이에요'); // 진행 화면만 남긴다
 
   try {
@@ -1912,6 +1915,7 @@ async function runGungham() {
     hideGgAnalyzing();
     if (lmA || lmB) document.getElementById('ggCanvasCard').classList.remove('hidden');
     document.getElementById('ggResult').classList.remove('hidden');
+    document.getElementById('gunghamBackBtn').classList.remove('hidden');
     window.scrollTo(0, 0);
     if (window.Archive) Archive.save('gungham'); // 보관함 — AI 해석까지 끝난 뒤에 스냅샷
   } catch (e) {
@@ -1924,6 +1928,7 @@ async function runGungham() {
       const b = document.getElementById(id);
       if (b) b.classList.remove('hidden');
     });
+    setGgHeroVisible(true); // 다시 입력 단계로 돌아가므로 배너도 되살린다
     showErr('ggErr', '분석 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
   }
 }
