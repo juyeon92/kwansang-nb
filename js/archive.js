@@ -179,16 +179,22 @@
     // (자가복구 저장을 유발)보다 먼저 Archive.loadFromCloud()를 호출해두는 것과 세트로 동작한다.
     const gate = cloudGate(uid);
     try {
-      // ⚠️ 버그 수정(2026-08-20 사용자 재현: 같은 PC의 일반 창은 정상, 시크릿 창만 로그인 직후
-      // 클라우드가 통째로 비어 보임). 이 세션에서 Firestore SDK가 처음 통신하는 경우 로그인 직후
-      // 발급된 ID 토큰이 네트워크 계층에 붙기 전에 첫 Firestore 요청이 나갈 수 있다 — 그러면
-      // 인증 안 된 요청으로 취급돼 있는 데이터를 못 읽는다. 첫 조회 전에 토큰을 강제로 한 번
-      // 갱신해 이 요청부터는 확실히 인증된 상태로 나가게 한다.
-      if (window.fbAuth && fbAuth.currentUser) {
-        try { await fbAuth.currentUser.getIdToken(true); }
-        catch (e) { console.warn('[archive] 토큰 갱신 실패 — 원래 토큰으로 계속 진행', e); }
+      // ⚠️ 버그 수정(2026-08-20 사용자 재현·직접 검증): 같은 PC의 일반 창은 정상, 시크릿 창만
+      // 로그인 직후 첫 조회가 archive/profiles/dogamSlug까지 통째로 빠진 문서를 돌려줬다. 토큰을
+      // 강제로 새로 받아도 마찬가지였는데, 콘솔에서 fbDb.collection('users').doc(uid).get()을
+      // "한 번 더" 수동으로 실행하니 그 즉시 정상 데이터가 나왔다 — 즉 로그인 직후 이 세션의
+      // "첫" Firestore 조회 자체가 가끔 불완전한 스냅샷을 돌려주고, 같은 조회를 한 번 더 하면
+      // 항상 정상이었다. 원인 규명 전이라도 우선 안전하게 막기 위해, 있어야 할 필드가 전부
+      // 비어 보이면(문서는 있는데 archive·profiles 둘 다 없음) 짧게 기다렸다가 한 번 더 조회해서
+      // 그 결과를 쓴다 — 새로 가입한 계정은 실제로도 둘 다 없을 수 있어 재조회가 헛수고일 뿐
+      // 손해는 없다.
+      let doc = await fbDb.collection('users').doc(uid).get();
+      if (doc.exists && !Array.isArray(doc.data().archive) && !Array.isArray(doc.data().profiles)) {
+        console.warn('[archive] 첫 조회가 비어 보임 — 700ms 뒤 한 번 더 조회', { uid: uid });
+        await new Promise(function (r) { setTimeout(r, 700); });
+        doc = await fbDb.collection('users').doc(uid).get();
+        console.log('[archive] 재조회 결과', { uid: uid, exists: doc.exists, hasArchive: doc.exists && Array.isArray(doc.data().archive) });
       }
-      const doc = await fbDb.collection('users').doc(uid).get();
       const cloud = (doc.exists && Array.isArray(doc.data().archive)) ? doc.data().archive : [];
       const local = loadIndex();
       const merged = mergeIndex(local, cloud);

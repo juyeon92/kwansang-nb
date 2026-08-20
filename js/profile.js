@@ -115,13 +115,17 @@
     }
     try {
       const uid = fbAuth.currentUser.uid;
-      // ⚠️ 버그 수정(2026-08-20 사용자 재현: 같은 PC의 일반 창은 정상, 시크릿 창만 로그인 직후
-      // 클라우드가 통째로 비어 보임 — archive.js와 동일한 원인/조치). 이 세션에서 Firestore SDK가
-      // 처음 통신하는 경우 로그인 직후 발급된 ID 토큰이 네트워크 계층에 붙기 전에 첫 Firestore
-      // 요청이 나갈 수 있어, 첫 조회 전에 토큰을 강제로 한 번 갱신해둔다.
-      try { await fbAuth.currentUser.getIdToken(true); }
-      catch (e) { console.warn('[profile] 토큰 갱신 실패 — 원래 토큰으로 계속 진행', e); }
-      const doc = await fbDb.collection('users').doc(uid).get();
+      // ⚠️ 버그 수정(2026-08-20 사용자 재현·직접 검증 — archive.js와 동일한 조치, 그쪽 주석 참고):
+      // 로그인 직후 이 세션의 "첫" Firestore 조회가 가끔 있어야 할 필드가 통째로 빠진 스냅샷을
+      // 돌려줬다(토큰을 강제로 새로 받아도 마찬가지). 콘솔에서 같은 조회를 한 번 더 수동으로
+      // 실행하면 항상 정상이었어서, 문서는 있는데 profiles·archive 둘 다 없어 보이면 짧게
+      // 기다렸다가 한 번 더 조회한다.
+      let doc = await fbDb.collection('users').doc(uid).get();
+      if (doc.exists && !Array.isArray(doc.data().profiles) && !Array.isArray(doc.data().archive)) {
+        console.warn('[profile] 첫 조회가 비어 보임 — 700ms 뒤 한 번 더 조회', { uid: uid });
+        await new Promise(function (r) { setTimeout(r, 700); });
+        doc = await fbDb.collection('users').doc(uid).get();
+      }
       const raw = doc.exists ? doc.data().profiles : undefined;
       const cloudProfiles = Array.isArray(raw) ? raw : [];
       const local = loadProfiles();
