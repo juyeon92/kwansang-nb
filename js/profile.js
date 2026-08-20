@@ -93,6 +93,20 @@
   // 진행 중인 쓰기를 붙잡아 둔다 — 저장 직후 로그아웃하면 signOut()이 아직 전송되지 않은 쓰기를
   // 버려서 "등록한 프로필이 다시 로그인하면 사라지는" 문제가 생긴다(flushPending으로 기다린다).
   let pendingCloudWrite = null;
+  // ⚠️ 버그 수정(2026-08-20 사용자 리포트: 인연도감 보관함 이름표가 로그인 직후엔 "나"로 저장되고,
+  // 나중에 안 고쳐짐). archive.js의 자가복구 저장(paintOwnerView → Archive.save('gwansang'))은
+  // kakao-auth.js가 로그인 확정 직후 곧바로(Profile.loadFromCloud()가 끝나기 전에) 실행되는데,
+  // 그 시점엔 대표 프로필이 아직 안 실려 있어 이름표가 "나"로 저장돼버린다. 다른 타입(통합분석 등)은
+  // 실제 분석을 끝내야 저장되니 그 사이 프로필이 실릴 시간이 있어서 안 걸리는데, 인연도감만 로그인
+  // 즉시 저장되다 보니 매번 걸린다. archive.js가 이름표를 계산하기 전에 이 준비 상태를 기다리도록
+  // 외부에 노출한다.
+  let profileReadyState = { promise: Promise.resolve(), resolve: function () {} };
+  function beginProfileReadyGate() {
+    let resolveFn;
+    const p = new Promise(function (r) { resolveFn = r; });
+    profileReadyState = { promise: p, resolve: resolveFn };
+  }
+  function whenProfileReady() { return profileReadyState.promise; }
   function syncProfilesToCloud(list) {
     if (!window.fbAuth || !fbAuth.currentUser || !window.fbDb) return Promise.resolve();
     const uid = fbAuth.currentUser.uid;
@@ -113,6 +127,9 @@
       console.warn('[profile] loadFromCloud 건너뜀 — 로그인 상태 아님', { fbAuth: !!window.fbAuth, currentUser: window.fbAuth && !!fbAuth.currentUser });
       return;
     }
+    // await 전에 동기적으로 게이트를 걸어둔다 — archive.js가 이 Promise가 도는 동안은 대표
+    // 프로필 이름표 계산을 미루도록(whenProfileReady) 세트로 동작한다.
+    beginProfileReadyGate();
     try {
       const uid = fbAuth.currentUser.uid;
       // ⚠️ 버그 수정(2026-08-20 사용자 재현·직접 검증 — archive.js와 동일한 조치, 그쪽 주석 참고):
@@ -151,6 +168,8 @@
       renderHeader();
     } catch (e) {
       console.error('프로필 클라우드 불러오기 실패', e);
+    } finally {
+      profileReadyState.resolve();
     }
   }
   // 로그아웃 시 kakao-auth.js가 호출 — 계정에 연결된 프로필이 로그아웃 후 화면에 남지 않게 한다.
@@ -927,5 +946,6 @@
     loadFromCloud: loadProfilesFromCloud,
     clearLocal: clearLocalProfiles,
     flushPending: flushPendingSync,
+    ready: whenProfileReady,
   };
 })();

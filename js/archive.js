@@ -382,15 +382,18 @@
       // 클라우드 병합이 끝나기 전에 일어날 수 있다. 그 시점엔 "이 계정에 기존 기록이 있는지"
       // (commitSave의 gwansang 중복 방지 판단)도, label(대표 프로필 이름표)도 아직 정확하지 않아서
       // — 병합 전 로컬 목록엔 다른 기기의 기존 기록이 없으니 새 항목을 만들어버리고, 그 새 항목이
-      // 나중에 병합 시 "최신"으로 오인돼 진짜 기록을 밀어낼 수 있다. 병합이 끝난 뒤 다시 판단해서
-      // 커밋한다 — label도 그 시점에 다시 계산해야 그 사이 로딩된 진짜 대표 프로필 이름이 반영된다.
+      // 나중에 병합 시 "최신"으로 오인돼 진짜 기록을 밀어낼 수 있다.
+      // ⚠️ 버그 수정(2026-08-20 추가): 위 병합이 끝났어도 label(buildLabel → Profile.getRepresentative())은
+      // 별도로 도는 Profile.loadFromCloud()가 끝나야 정확하다 — 이 게이트만으론 인연도감의 자가복구가
+      // 로그인 직후 곧바로 도는 탓에 이름표가 "나"로 저장되고, 이후로도 안 고쳐지는 문제가 있었다
+      // (다른 타입은 실제 분석을 끝내야 저장되니 그 사이 프로필이 실릴 시간이 있어서 안 걸렸다).
+      // 그래서 이 계정의 archive 게이트와 Profile의 준비 상태를 둘 다 기다린 뒤에 판단·커밋한다.
       const gate = cloudGates[uid];
-      console.log('[archive] save() 게이트 확인', { type: type, uid: uid, hasGate: !!gate, done: gate && gate.done });
-      if (gate && !gate.done) {
-        gate.promise.then(function () { commitSave(uid, type, html, buildLabel(type)); });
-        return;
-      }
-      commitSave(uid, type, html, buildLabel(type));
+      const archiveReady = (gate && !gate.done) ? gate.promise : Promise.resolve();
+      const profileReady = (window.Profile && Profile.ready) ? Profile.ready() : Promise.resolve();
+      Promise.all([archiveReady, profileReady]).then(function () {
+        commitSave(uid, type, html, buildLabel(type));
+      });
     } catch (e) {
       console.error('[archive] 리포트 보관 실패', type, e);
     }

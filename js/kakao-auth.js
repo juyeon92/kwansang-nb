@@ -56,6 +56,12 @@
       // 아래 settling에서 다시 부르지 않고 이 Promise를 그대로 재사용한다(두 번 실행 방지).
       const archiveLoadPromise = (user && !user.isAnonymous && window.Archive)
         ? Archive.loadFromCloud() : Promise.resolve();
+      // ⚠️ 버그 수정(2026-08-20 추가): 인연도감의 자가복구 저장(Archive.save('gwansang'))이 대표
+      // 프로필 이름표를 계산할 때 Profile.loadFromCloud()가 끝났는지도 확인하게 고쳤는데, 그 게이트
+      // 역시 이 함수가 "시작"돼야만 생긴다. 위 archiveLoadPromise와 같은 이유로 Dogam.render()보다
+      // 먼저 시작해둔다(끝나길 기다리진 않음) — settling에서 다시 부르지 않고 재사용한다.
+      const profileLoadPromise = (user && !user.isAnonymous && window.Profile)
+        ? Profile.loadFromCloud() : Promise.resolve();
       // 익명 인증(인연도감이 비로그인 등록을 위해 발급)은 로그인이 아니다 — 헤더·마이페이지·프로필
       // 동기화는 카카오로 실제 로그인했을 때만 동작해야 한다.
       // 인연도감은 로그인 여부에 따라 내용이 달라지는데(내 도감 조회, "로그인하고 유지하기" 후킹),
@@ -96,7 +102,7 @@
           window.Dogam && Dogam.migrateLocalOnLogin
             ? Dogam.migrateLocalOnLogin().then(function () { if (window.Dogam) Dogam.render(); })
             : Promise.resolve(),
-          Profile.loadFromCloud(),
+          profileLoadPromise, // 위에서 이미 시작해둔 것을 그대로 기다린다 — 여기서 다시 부르면 두 번 실행된다
           archiveLoadPromise, // 위에서 이미 시작해둔 것을 그대로 기다린다 — 여기서 다시 부르면 두 번 실행된다
         ];
         Promise.all(settling)
