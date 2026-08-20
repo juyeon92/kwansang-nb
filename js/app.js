@@ -999,10 +999,37 @@ const SIPSEONG_MEANING = {
   정인: '나를 채워주는 다정한 힘. 학문·문서운, 보살핌을 받는 편안함을 뜻해요.',
 };
 
-// ═══ 신강/신약 판정 + 용신(필요 오행) — 억부법(抑扶法) 간이 버전. 정통 명리학은 격국·조후·통근까지
+// ═══ 지장간(支藏干) — 지지 12개마다 숨어있는 천간(여기·중기·정기, 마지막 원소=정기). 통근(通根:
+// 천간이 지지 속에 뿌리를 갖고 있는가) 판정에만 쓴다. 정기 12개 전부 JJ_OH와 일치함을 검증했다
+// (스크래치패드 jijanggan-test.js).
+const JIJANGGAN = {
+  0: [8, 9],      // 자: 임, 계(정기)
+  1: [9, 7, 5],   // 축: 계, 신, 기(정기)
+  2: [4, 2, 0],   // 인: 무, 병, 갑(정기)
+  3: [0, 1],      // 묘: 갑, 을(정기)
+  4: [1, 9, 4],   // 진: 을, 계, 무(정기)
+  5: [4, 6, 2],   // 사: 무, 경, 병(정기)
+  6: [2, 5, 3],   // 오: 병, 기, 정(정기)
+  7: [3, 1, 5],   // 미: 정, 을, 기(정기)
+  8: [4, 8, 6],   // 신: 무, 임, 경(정기)
+  9: [6, 7],      // 유: 경, 신(정기)
+  10: [7, 3, 4],  // 술: 신, 정, 무(정기)
+  11: [4, 0, 8],  // 해: 무, 갑, 임(정기)
+};
+// 천간 하나가 네 지지 중 하나에라도 같은 오행의 지장간을 갖고 있으면 "통근"으로 본다(같은 천간이
+// 아니라 같은 오행 기준 — 통근을 넓게 보는 방식).
+function hasTonggeun(stemIdx, pillars) {
+  if (stemIdx < 0) return false;
+  const targetOh = CG_OH[stemIdx];
+  return pillars.some(p => p.branch >= 0 && (JIJANGGAN[p.branch] || []).some(hs => CG_OH[hs] === targetOh));
+}
+
+// ═══ 신강/신약 판정 + 용신(필요 오행) — 억부법(抑扶法) 간이 버전. 정통 명리학은 격국·조후까지
 // 종합 판단해 학파 차이가 큰 영역이라, 여기서는 "일간을 돕는 세력(비겁·인성) 대 소모시키는 세력
-// (식상·재성·관성)의 개수 비교" 하나만 기준으로 삼는 대중적 간이법을 쓴다(전문 사주 상담 대체 아님).
-// 월지(월령)는 사주 강약에 미치는 영향이 가장 커서 가중치 2배를 준다.
+// (식상·재성·관성)의 개수 비교"를 기본 축으로 삼는 대중적 간이법을 쓴다(전문 사주 상담 대체 아님).
+// 월지(월령)는 사주 강약에 미치는 영향이 가장 커서 가중치 2배를 주고, 천간은 통근 여부(지지에
+// 뿌리가 있는가)로 실질 영향력을 가감한다(뿌리 없는 천간은 절반 weight) — 통근/조후 관련 자세한
+// 한계는 기획서/명리학 엔진 한계 노트.md 참고.
 function calcSinkangSinyak(pillars) {
   const dStem = pillars[2].stem;
   if (dStem < 0) return null;
@@ -1012,14 +1039,17 @@ function calcSinkangSinyak(pillars) {
     const weight = (i === 1) ? 2 : 1; // 월주(1)만 가중치 2배
     if (p.stem >= 0 && i !== 2) { // 일간 본인(i===2)의 천간은 비교 대상에서 제외
       const oh = CG_OH[p.stem];
-      if (oh === dayOh || OHAENG_GENERATES[oh] === dayOh) help += 1; else drain += 1;
+      const rootWeight = hasTonggeun(p.stem, pillars) ? 1 : 0.5; // 통근 없으면 "떠 있는" 천간이라 절반만 반영
+      if (oh === dayOh || OHAENG_GENERATES[oh] === dayOh) help += rootWeight; else drain += rootWeight;
     }
     if (p.branch >= 0) {
       const oh = JJ_OH[p.branch];
       if (oh === dayOh || OHAENG_GENERATES[oh] === dayOh) help += weight; else drain += weight;
     }
   });
-  return { isStrong: help >= drain, help, drain };
+  const dayRooted = hasTonggeun(dStem, pillars);
+  if (dayRooted) help += 1; // 일간 본인이 통근했으면 뿌리 있는 힘으로 가산
+  return { isStrong: help >= drain, help, drain, dayRooted };
 }
 // 용신(필요 오행) — 신강이면 일간을 덜어내는 식상·재성·관성 중, 신약이면 일간을 채워주는 비겁(자기
 // 오행)·인성 중, 그 사람 사주 안에 실제로 가장 적게 있는(=가장 부족한) 오행을 "필요한 오행"으로 고른다.
@@ -2236,8 +2266,7 @@ async function runGungham() {
     const lifeStage = buildLifeStageChemi(lmA, lmB);
     const energy = buildEnergyChemi(ohA, ohB);
     const moments = buildMoments(ohA, ohB, narrativeA.statusMap, narrativeB.statusMap);
-    const inbok = buildInbokChemi(lmA, lmB, ggGenderA, ggGenderB, rel, sajuInsightA, sajuInsightB);
-    renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, moments, inbok);
+    renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, moments);
 
     // ⑤ Gemini 정밀 해석 자동 요청(수동 버튼 없음) — 키가 없으면 requestCoupleAi 내부에서 조용히 스킵된다.
     setGgAnalyzingMsg('AI가 두 사람의 궁합을 읽는 중이에요');
@@ -2526,7 +2555,7 @@ function describeTypeCombo(entryA, entryB) {
   if (entryA.nameKo === entryB.nameKo) {
     return `둘 다 ${entryA.nameKo} 유형이에요. ${entryA.strength} 이 부분에서는 서로 닮아서 잘 통해요.`;
   }
-  return `나는 ${entryA.nameKo}, 상대는 ${entryB.nameKo} 유형이에요. ${entryA.strength} 나와 ${entryB.strength} 상대가 만나 서로 다른 매력으로 채워주는 조합이에요.`;
+  return `나는 ${entryA.nameKo}, 상대는 ${entryB.nameKo} 유형이에요. 나는 ${entryA.strength} 상대는 ${entryB.strength} 서로 다른 매력으로 채워주는 조합이에요.`;
 }
 function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel) {
   if (!lmA || !lmB) return null;
@@ -2625,45 +2654,6 @@ function buildMoments(ohA, ohB, statusMapA, statusMapB) {
   return moments.slice(0, 2);
 }
 
-// 인복 궁합(궁합 리포트 구성.md 4-3) — 관상(와잠)과 사주(귀인)를 함께 써야만 풀리는 유일한 융합
-// 콘텐츠라 Zone1/2 어디에도 넣지 않고 별도 Zone3로 분리했다. 근거 출처가 섞이지 않도록 관상 근거
-// 문장과 사주 근거 문장을 따로 만들어 각자 카드에 담는다.
-function buildInbokChemi(lmA, lmB, genderA, genderB, rel, sajuInsightA, sajuInsightB) {
-  const gwiinA = (sajuInsightA && sajuInsightA.gwiinList) || [];
-  const gwiinB = (sajuInsightB && sajuInsightB.gwiinList) || [];
-  const sajuText = (gwiinA.length || gwiinB.length)
-    ? ((gwiinA.length && gwiinB.length)
-        ? `나는 ${gwiinA.map(g => g.name).join(', ')}, 상대는 ${gwiinB.map(g => g.name).join(', ')} 귀인을 갖고 있어요. 둘 다 주변 도움을 받는 사주라, 함께 있으면 도와주는 사람이 배로 늘어나는 조합이에요.`
-        : `${gwiinA.length ? '나' : '상대방'}에게만 뚜렷한 귀인(${(gwiinA.length ? gwiinA : gwiinB).map(g => g.name).join(', ')})이 있어요. 그 사람이 주변 인맥을 이끌어주는 역할을 맡게 되는 조합이에요.`)
-    : '두 사람 사주에 뚜렷한 귀인이 보이진 않지만, 그만큼 남에게 기대기보단 서로에게 의지하며 관계를 다져가는 조합이에요.';
-
-  let faceText = null, levelA = null, levelB = null;
-  if (lmA && lmB) {
-    const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
-    levelA = gwansangLevel('waJ', rA.waJ); levelB = gwansangLevel('waJ', rB.waJ);
-    faceText = describeSizeCombo(levelA, levelB, genderA, genderB, rel, {
-      bothBig: '둘 다 와잠(눈밑)이 도톰한 편이라 인복이 두둑한 편이에요. 함께 있으면 주변에서 도와주는 사람이 자연스럽게 늘어나는 조합이에요.',
-      bothSmall: '둘 다 와잠이 얇은 편이에요. 인맥에 기대기보다 둘이 알아서 해결하는 편이라, 오히려 서로에게 더 의지하게 되는 조합이에요.',
-      maleBig: '한쪽은 인복이 두둑해 주변 사람을 잘 끌어오고, 다른 한쪽은 관계를 깊게 다지는 편이에요. 서로 다른 방식으로 인맥을 채워주는 조합이에요.',
-      maleSmall: '인맥이 다소 좁은 한쪽을, 인복이 좋은 다른 한쪽이 넓혀주는 조합이에요.',
-      mixed: '인복 스타일이 서로 달라서, 한쪽의 넓은 인맥과 다른 한쪽의 깊은 관계 맺기가 서로를 보완해줘요.',
-    });
-  }
-  const total = faceText ? `${sajuText} 관상으로 봐도 비슷한 결이에요 — ${faceText}` : sajuText;
-  return { total, faceText, sajuText, levelA, levelB, gwiinA, gwiinB };
-}
-function renderInbokChemi(inbok) {
-  const totalEl = document.getElementById('ggInbokTotal');
-  const faceEl = document.getElementById('ggInbokFace');
-  const sajuEl = document.getElementById('ggInbokSaju');
-  if (!totalEl || !faceEl || !sajuEl) return;
-  totalEl.innerHTML = `<div class="chemi-card"><div class="chemi-title">종합 인복 궁합</div><div class="chemi-role">${inbok.total}</div></div>`;
-  faceEl.innerHTML = inbok.faceText
-    ? `<div class="chemi-card"><div class="chemi-title">관상으로 본 인복</div><div class="chemi-role">${inbok.faceText}</div><div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 와잠(눈밑) 나 ${inbok.levelA}% · 상대 ${inbok.levelB}%</div></div>`
-    : `<div class="chemi-card"><div class="chemi-title">관상으로 본 인복</div><div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 관상으로 본 인복을 볼 수 있어요.</div></div>`;
-  sajuEl.innerHTML = `<div class="chemi-card"><div class="chemi-title">사주로 본 인복</div><div class="chemi-role">${inbok.sajuText}</div><div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 나 귀인 ${inbok.gwiinA.map(g => g.name).join(', ') || '없음'} · 상대 귀인 ${inbok.gwiinB.map(g => g.name).join(', ') || '없음'}</div></div>`;
-}
-
 function buildCoupleHeadline(sameRole) {
   return sameRole
     ? '같은 곳을 보는 케미! 티키타카가 척척 맞는 "평행 성장형" 궁합'
@@ -2686,7 +2676,7 @@ function typeComboLine(emoji, typeText) {
 
 // 개인별 관상/사주 서술은 통합분석 탭에 이미 있으므로 여기서는 그리지 않는다(2026-08-20 재편) —
 // narrativeA/B는 이제 이 함수 밖(buildRoleChemi의 statusMap 등)에서만 쓰인다.
-function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, moments, inbok) {
+function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, moments) {
   document.getElementById('ggHeadline').innerHTML = `"${buildCoupleHeadline(chemi.sameRole)}"`;
   renderHeadlineSub();
   renderFaceOhaengCompare(faceOhaengCompare, 'ggFaceOhaengCompare');
@@ -2721,8 +2711,6 @@ function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lif
   document.getElementById('ggEnergyCards').innerHTML = `
     <div class="chemi-card"><div class="chemi-title">에너지 시너지 (사주 대 사주)</div><div class="chemi-role">${energy.synergy}</div></div>
     <div class="chemi-card"><div class="chemi-title">마음의 안식처 케미</div><div class="chemi-role">${energy.haven}</div></div>`;
-
-  renderInbokChemi(inbok);
 
   document.getElementById('ggMomentCards').innerHTML = moments.map((m, i) => `
     <div class="moment-card">
