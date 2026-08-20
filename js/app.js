@@ -457,6 +457,13 @@ function resetGunghamResult() {
 let ggWantsNewAnalysis = false; // "다른 상대와 궁합보기"를 눌러 새 분석을 진행 중인지
 let ggViewingReportId = null;   // 내역에서 펼쳐 본 리포트 id
 
+// 진입 배너(#ggHeroBanner)는 setCmbHeroVisible()과 같은 원칙 — 목록·입력 단계에서는 보이고,
+// 상세 리포트를 펼쳐 읽는 화면에서는 맥락에 맞지 않아 감춘다(사용자 요청 2026-08-20).
+function setGgHeroVisible(on) {
+  const hero = document.getElementById('ggHeroBanner');
+  if (hero) hero.classList.toggle('hidden', !on);
+}
+
 function showGunghamInputStep() {
   const input = document.getElementById('ggInputStep');
   if (input) input.classList.remove('hidden');
@@ -464,6 +471,7 @@ function showGunghamInputStep() {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
+  setGgHeroVisible(true);
 }
 
 function renderGunghamSavedReport() {
@@ -494,12 +502,14 @@ function renderGunghamSavedReport() {
   const viewingGone = ggViewingReportId && !rows.some(r => r.id === ggViewingReportId);
   if (report && !report.classList.contains('hidden') && !viewingGone) {
     input.classList.add('hidden');
+    setGgHeroVisible(false);
     return;
   }
   ggViewingReportId = null;
   if (report) report.classList.add('hidden');
   input.classList.add('hidden');
   saved.classList.remove('hidden');
+  setGgHeroVisible(true);
 }
 
 // 내역 행 클릭 — 보관된 스냅샷을 그대로 펼친다.
@@ -512,6 +522,7 @@ async function openGunghamSavedReport(id) {
   body.innerHTML = '<div class="arc-empty">리포트를 불러오는 중…</div>';
   document.getElementById('ggSavedStep').classList.add('hidden');
   document.getElementById('ggSavedReport').classList.remove('hidden');
+  setGgHeroVisible(false); // 상세 리포트에는 진입 배너를 띄우지 않는다
   ggViewingReportId = id;
   window.scrollTo(0, 0);
   const ok = await Archive.renderInto(body, id);
@@ -522,6 +533,7 @@ function closeGunghamSavedReport() {
   ggViewingReportId = null;
   document.getElementById('ggSavedReport').classList.add('hidden');
   document.getElementById('ggSavedStep').classList.remove('hidden');
+  setGgHeroVisible(true);
   window.scrollTo(0, 0);
 }
 

@@ -1698,13 +1698,12 @@ body.overlay-open { overflow: hidden; }
 
   <!-- ===== 궁합 패널 ===== -->
   <div class="panel" id="panel-gungham">
-    <!-- 나/상대방 선택 단계 — 최초 진입(보관함에 궁합 기록이 없거나 비로그인)일 때만 보인다.
-         보관된 기록이 있으면 app.js의 renderGunghamSavedReport()가 이 블록을 감추고
-         아래 #ggSavedStep(저장된 내역 + 다른 상대와 궁합보기)을 대신 노출한다. -->
-    <div id="ggInputStep">
     <!-- 진입 후킹 배너 — 통합분석 탭의 #cmbHero(cmb-hero-card)와 같은 클래스를 그대로 재사용
          (사용자 요청 2026-08-20: "통합 분석처럼 배너 넣어줘"). 문구는 실제 궁합보기 리포트 구성
-         (얼굴형·눈·코·광대·입·턱 조합 + 관상 궁합 + 사주 궁합 + 매칭 점수)을 근거로 새로 썼다. -->
+         (얼굴형·눈·코·광대·입·턱 조합 + 관상 궁합 + 사주 궁합 + 매칭 점수)을 근거로 새로 썼다.
+         #ggInputStep 밖의 형제로 둬서, 저장된 내역이 있어 #ggInputStep이 통째로 hidden 되어도
+         #cmbHero처럼 setGgHeroVisible()로 따로 켜고 끌 수 있게 한다(사용자 요청 2026-08-20:
+         "이미 본 궁합이 있을 때도 배너가 나와야 함"). -->
     <div class="cmb-hero-card" id="ggHeroBanner">
       <div class="cmb-hero-text">
         <div class="cmb-hero-badge">🐱 관상냥반</div>
@@ -1714,6 +1713,10 @@ body.overlay-open { overflow: hidden; }
       <div class="cmb-hero-img"><img src="images/Logo.png" alt=""></div>
     </div>
 
+    <!-- 나/상대방 선택 단계 — 최초 진입(보관함에 궁합 기록이 없거나 비로그인)일 때만 보인다.
+         보관된 기록이 있으면 app.js의 renderGunghamSavedReport()가 이 블록을 감추고
+         아래 #ggSavedStep(저장된 내역 + 다른 상대와 궁합보기)을 대신 노출한다. -->
+    <div id="ggInputStep">
     <!-- Person A: 대표 프로필 고정 -->
     <div class="person-block is-open" id="ggBlockA">
       <button type="button" class="gg-acc-head" onclick="Profile.toggleGgAcc('A')">
