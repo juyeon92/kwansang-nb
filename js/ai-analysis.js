@@ -193,22 +193,6 @@ const GUNGHAP_REPORT_SCHEMA = {
       type: 'STRING',
       description: '위 풀이가 왜 나왔는지 근거. [나의 관상 유형]·[상대방의 관상 유형]의 실제 키워드·강점과 [두 관상 유형의 관계]를 근거로 2~3문장.',
     },
-    zone1_person_a_reading: {
-      type: 'STRING',
-      description: '나의 관상 장점 위주 풀이 + 부족한 부분을 상대방의 어떤 관상 특징이 보완해주는지. 장점 먼저, 그다음 보완 흐름으로 4~6문장.',
-    },
-    zone1_person_a_basis: {
-      type: 'STRING',
-      description: '위 풀이의 근거 — 어떤 관상 유형·강점 데이터를 근거로 그렇게 풀이했는지 2~3문장.',
-    },
-    zone1_person_b_reading: {
-      type: 'STRING',
-      description: '상대방의 관상 장점 위주 풀이 + 부족한 부분을 나의 어떤 관상 특징이 보완해주는지. 4~6문장.',
-    },
-    zone1_person_b_basis: {
-      type: 'STRING',
-      description: '위 풀이의 근거 2~3문장.',
-    },
     zone2_items: {
       type: 'ARRAY',
       description: '아래 11개 key를 모두, 각 1개씩 채운 배열. key는 새로 만들지 말고 지정된 값만 사용할 것.',
@@ -229,8 +213,6 @@ const GUNGHAP_REPORT_SCHEMA = {
   required: [
     'hero_reason',
     'zone1_shape_reading', 'zone1_shape_basis',
-    'zone1_person_a_reading', 'zone1_person_a_basis',
-    'zone1_person_b_reading', 'zone1_person_b_basis',
     'zone2_items',
   ],
 };
@@ -381,7 +363,7 @@ ${buildGunghapSajuBlock(nameA, cache.pillarsA, cache.ohA, cache.sajuInsightA)}
 ${buildGunghapSajuBlock(nameB, cache.pillarsB, cache.ohB, cache.sajuInsightB)}
 
 [요청]
-위 데이터를 근거로 히어로 설명 1개, Zone1(관상 궁합) 풀이 3쌍, Zone2(사주 궁합) 11개 항목을 모두 작성해주세요. 첨부된 사진이 있다면(전달 순서: ${nameA} → ${nameB}) 참고하되, 관상 유형 정보가 없는 사람은 사주 위주로 풀어주세요. 두 사람을 가리킬 때는 "나"/"상대방" 대신 항상 실제 이름(${nameA}/${nameB})을 쓰세요.`;
+위 데이터를 근거로 히어로 설명 1개, Zone1(관상 궁합) 풀이 1쌍, Zone2(사주 궁합) 11개 항목을 모두 작성해주세요. 개인별 관상·사주 풀이는 다른 화면(통합분석)에서 이미 다루므로 여기서는 "두 사람의 조합"에만 집중해주세요. 첨부된 사진이 있다면(전달 순서: ${nameA} → ${nameB}) 참고하되, 관상 유형 정보가 없는 사람은 사주 위주로 풀어주세요. 두 사람을 가리킬 때는 "나"/"상대방" 대신 항상 실제 이름(${nameA}/${nameB})을 쓰세요.`;
 }
 
 // ═══ AI 정밀 리포트 (R-I-C-E 프롬프트 기반, 2026-08-13 요청 반영) ═══
@@ -1820,8 +1802,9 @@ function renderArchetypes(elId, eyeId, faceId, mode, shapeIds, fallbackReason, g
 
 // 정보 성격별 배치(2026-08-19 사용자 요청) — 히어로/Zone1/Zone2 껍데기(스코어·원국표·오행바·관상 형상
 // 카드 등 로컬 계산 데이터)는 index.html에 이미 고정 마크업으로 있고, 여기서는 그 안의 AI 텍스트
-// 슬롯(ggHeroReason·ggZone1AiShape·ggZone1AiPersonA/B·ggZone2AiItems)만 채운다. 스코어 숫자는
-// runGungham이 heroScores로 이미 채워놓으므로 여기서 다시 쓰지 않는다 — AI 실패해도 숫자는 남는다.
+// 슬롯(ggHeroReason·ggZone1AiShape·ggZone2AiItems)만 채운다. 개인별 관상 풀이(zone1_person_a/b)는
+// 통합분석 탭에 이미 있어 여기서는 요청도 렌더도 하지 않는다(2026-08-20 재편). 스코어 숫자는 runGungham이
+// heroScores로 이미 채워놓으므로 여기서 다시 쓰지 않는다 — AI 실패해도 숫자는 남는다.
 function renderGunghapResult(data) {
   const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
 
@@ -1830,16 +1813,6 @@ function renderGunghapResult(data) {
   setHtml('ggZone1AiShape', `
     <div class="gg-item-reading">${data.zone1_shape_reading}</div>
     <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${data.zone1_shape_basis}</div>`);
-  setHtml('ggZone1AiPersonA', `
-    <div class="gg-item">
-      <div class="gg-item-reading">${data.zone1_person_a_reading}</div>
-      <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${data.zone1_person_a_basis}</div>
-    </div>`);
-  setHtml('ggZone1AiPersonB', `
-    <div class="gg-item">
-      <div class="gg-item-reading">${data.zone1_person_b_reading}</div>
-      <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${data.zone1_person_b_basis}</div>
-    </div>`);
 
   const itemsByKey = {};
   (data.zone2_items || []).forEach(it => { itemsByKey[it.key] = it; });
@@ -1861,7 +1834,7 @@ function renderGunghapResult(data) {
 // 오행바·관상 형상 카드 등 로컬 계산 정보는 이 함수와 무관하게 이미 채워져 있으므로 그대로 보인다.
 function fillGunghapAiFallback() {
   const note = '<div style="color:var(--text2);font-size:13px;">이번엔 AI 해설을 불러오지 못했어요. 다시 분석하면 채워집니다.</div>';
-  ['ggHeroReason', 'ggZone1AiShape', 'ggZone1AiPersonA', 'ggZone1AiPersonB', 'ggZone2AiItems'].forEach(id => {
+  ['ggHeroReason', 'ggZone1AiShape', 'ggZone2AiItems'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = note;
   });
