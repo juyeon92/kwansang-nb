@@ -179,12 +179,22 @@
     // (자가복구 저장을 유발)보다 먼저 Archive.loadFromCloud()를 호출해두는 것과 세트로 동작한다.
     const gate = cloudGate(uid);
     try {
+      // ⚠️ 버그 수정(2026-08-20 사용자 재현: 같은 PC의 일반 창은 정상, 시크릿 창만 로그인 직후
+      // 클라우드가 통째로 비어 보임). 이 세션에서 Firestore SDK가 처음 통신하는 경우 로그인 직후
+      // 발급된 ID 토큰이 네트워크 계층에 붙기 전에 첫 Firestore 요청이 나갈 수 있다 — 그러면
+      // 인증 안 된 요청으로 취급돼 있는 데이터를 못 읽는다. 첫 조회 전에 토큰을 강제로 한 번
+      // 갱신해 이 요청부터는 확실히 인증된 상태로 나가게 한다.
+      if (window.fbAuth && fbAuth.currentUser) {
+        try { await fbAuth.currentUser.getIdToken(true); }
+        catch (e) { console.warn('[archive] 토큰 갱신 실패 — 원래 토큰으로 계속 진행', e); }
+      }
       const doc = await fbDb.collection('users').doc(uid).get();
       const cloud = (doc.exists && Array.isArray(doc.data().archive)) ? doc.data().archive : [];
       const local = loadIndex();
       const merged = mergeIndex(local, cloud);
       console.log('[archive] 클라우드 병합', {
-        uid: uid, cloudCount: cloud.length, cloudTypes: cloud.map(r => r.type),
+        uid: uid, exists: doc.exists, hasArchiveField: doc.exists ? Array.isArray(doc.data().archive) : null,
+        cloudCount: cloud.length, cloudTypes: cloud.map(r => r.type),
         localCount: local.length, localTypes: local.map(r => r.type),
         mergedCount: merged.length, mergedTypes: merged.map(r => r.type),
       });
