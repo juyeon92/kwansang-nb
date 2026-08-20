@@ -581,6 +581,13 @@ body {
 .oh-토 { color: #b8860b; } .oh-토-bar { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
 .oh-금 { color: #6b7280; } .oh-금-bar { background: linear-gradient(90deg, #cbd5e1, #94a3b8); }
 .oh-수 { color: #2563eb; } .oh-수-bar { background: linear-gradient(90deg, #60a5fa, #3b82f6); }
+.gg-ohaeng-row { display: grid; grid-template-columns: 30px 1fr 40px 1fr 30px; align-items: center; gap: 6px; margin-bottom: 9px; }
+.gg-ohaeng-pct { font-size: 11px; color: var(--text2); }
+.gg-ohaeng-pct.right { text-align: right; }
+.gg-ohaeng-label { text-align: center; font-size: 12px; font-weight: 800; }
+.gg-ohaeng-barL, .gg-ohaeng-barR { height: 9px; background: var(--card2); border-radius: 999px; overflow: hidden; }
+.gg-ohaeng-barL { display: flex; justify-content: flex-end; }
+.gg-ohaeng-fill { height: 100%; border-radius: 999px; }
 
 /* ── Compatibility ── */
 .compat-section { margin-bottom: 20px; }
@@ -1867,6 +1874,7 @@ body.overlay-open { overflow: hidden; }
       <details class="report-accordion zone-accordion" open id="ggHero">
         <summary>🧠 종합 점수 &amp; 케미 분석</summary>
         <div class="headline-quote" id="ggHeadline"></div>
+        <div class="chemi-role" id="ggHeadlineSub" style="text-align:center;color:var(--text2);font-size:12px;margin-top:4px;"></div>
 
         <div class="chemi-card" style="text-align:center;margin-top:16px;">
           <div class="chemi-title">🧠 AI 궁합 종합 점수</div>
@@ -1876,11 +1884,6 @@ body.overlay-open { overflow: hidden; }
         </div>
 
         <div class="card-title" style="margin-top:20px;margin-bottom:12px;">📊 영역별 궁합 점수 &amp; 오행 분포</div>
-        <div class="compat-score-box">
-          <div class="compat-num" id="ggScore">0</div>
-          <div class="compat-grade" id="ggGrade">분석 중</div>
-          <div class="compat-desc" id="ggDesc"></div>
-        </div>
         <div class="compat-bars" id="ggBars"></div>
       </details>
 
@@ -1888,13 +1891,28 @@ body.overlay-open { overflow: hidden; }
            통합분석 탭에 이미 있으므로 여기서는 반복하지 않는다(2026-08-20 재편). -->
       <details class="report-accordion zone-accordion" id="ggZone1">
         <summary>🎭 Zone 1 · 관상 궁합</summary>
+
+        <div class="card-title" style="margin-top:0;margin-bottom:12px;">🌿 관상오행 비교</div>
+        <div class="gg-manse-head" style="margin-bottom:10px;">
+          <div class="gg-manse-name">나</div>
+          <div class="gg-manse-heart">❤️</div>
+          <div class="gg-manse-name">상대방</div>
+        </div>
+        <div id="ggFaceOhaengCompare"></div>
+
         <div class="gg-item" id="ggZone1AiShape"></div>
 
         <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🎭 관상 케미 분석 (두 얼굴의 합)</div>
         <div id="ggRoleCards"></div>
 
+        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">💰 재물관상 케미</div>
+        <div id="ggMoneyChemiCard"></div>
+
         <div class="card-title" style="margin-top:20px;margin-bottom:12px;">👥 얼굴형·눈·입·광대 조합으로 보는 궁합</div>
         <div id="ggFaceComboCards"></div>
+
+        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">⏳ 생애주기 궁합 (초년·중년·말년)</div>
+        <div id="ggLifeStageCard"></div>
       </details>
 
       <!-- ══ Zone2 · 사주 궁합 ══ — 두 사람의 사주 "조합"만 다룬다. 개인별 사주 서술·오행바·오행 딥다이브는
@@ -1910,6 +1928,15 @@ body.overlay-open { overflow: hidden; }
 
         <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 사주 기운의 케미 (에너지의 합)</div>
         <div id="ggEnergyCards"></div>
+      </details>
+
+      <!-- ══ Zone3 · 인복 궁합 ══ — 관상(와잠)과 사주(귀인·신살)를 함께 써야만 풀리는 유일한 융합
+           콘텐츠라 Zone1/2 어디에도 넣지 않고 별도 섹션으로 분리했다(궁합 리포트 구성.md 4-3, 2026-08-20). -->
+      <details class="report-accordion zone-accordion" id="ggZone3">
+        <summary>🍀 Zone 3 · 인복 궁합</summary>
+        <div id="ggInbokTotal"></div>
+        <div id="ggInbokFace"></div>
+        <div id="ggInbokSaju"></div>
       </details>
 
       <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🚨 티격태격 모먼트 &amp; 극복 전략</div>
@@ -1949,27 +1976,27 @@ body.overlay-open { overflow: hidden; }
 <!-- 로컬 스크립트의 ?v= 는 캐시 무효화용 버전이다. 브라우저(및 Firebase Hosting의 기본 캐시 헤더)가
      수정된 js를 옛 버전 그대로 재사용해 "코드를 고쳤는데 반영이 안 되는" 문제가 반복돼서 붙였다.
      js/*.js 를 수정하고 배포할 때마다 아래 v 값을 모두 함께 올려야 한다(날짜+연번). -->
-<script src="js/archetype-db.js?v=20260820k"></script>
-<script src="js/landmark-engine.js?v=20260820k"></script>
-<script src="js/config.js?v=20260820k"></script>
-<script src="js/firebase-init.js?v=20260820k"></script>
-<script src="js/kakao-auth.js?v=20260820k"></script>
+<script src="js/archetype-db.js?v=20260820m"></script>
+<script src="js/landmark-engine.js?v=20260820m"></script>
+<script src="js/config.js?v=20260820m"></script>
+<script src="js/firebase-init.js?v=20260820m"></script>
+<script src="js/kakao-auth.js?v=20260820m"></script>
 <!-- 냥(포인트) 지갑 — fbAuth/fbDb가 필요해 firebase-init.js 다음, 통합분석/궁합보기에서 써야 해 profile.js보다 먼저 -->
-<script src="js/wallet.js?v=20260820k"></script>
+<script src="js/wallet.js?v=20260820m"></script>
 <!-- 16캐릭터 시스템(신규 별도 레이어) — archetype-db.js/landmark-engine.js 다음, app.js보다 먼저 로드 -->
-<script src="js/character/trait-config.js?v=20260820k"></script>
-<script src="js/character/face-trait-map.js?v=20260820k"></script>
-<script src="js/character/saju-trait-map.js?v=20260820k"></script>
-<script src="js/character/character-db.js?v=20260820k"></script>
-<script src="js/character/character-engine.js?v=20260820k"></script>
+<script src="js/character/trait-config.js?v=20260820m"></script>
+<script src="js/character/face-trait-map.js?v=20260820m"></script>
+<script src="js/character/saju-trait-map.js?v=20260820m"></script>
+<script src="js/character/character-db.js?v=20260820m"></script>
+<script src="js/character/character-engine.js?v=20260820m"></script>
 <!-- 궁합(good/spark/clash) 엔진 — trait-config.js의 TRAITS를 재사용하므로 반드시 그 뒤에 로드할 것 -->
-<script src="js/character/compatibility-engine.js?v=20260820k"></script>
-<script src="js/ai-analysis.js?v=20260820k"></script>
-<script src="js/app.js?v=20260820k"></script>
-<script src="js/profile.js?v=20260820k"></script>
-<script src="js/archive.js?v=20260820k"></script>
-<script src="js/inyeon-dogam.js?v=20260820k"></script>
-<script src="js/nyang-shop.js?v=20260820k"></script>
-<script src="js/nyang-history.js?v=20260820k"></script>
+<script src="js/character/compatibility-engine.js?v=20260820m"></script>
+<script src="js/ai-analysis.js?v=20260820m"></script>
+<script src="js/app.js?v=20260820m"></script>
+<script src="js/profile.js?v=20260820m"></script>
+<script src="js/archive.js?v=20260820m"></script>
+<script src="js/inyeon-dogam.js?v=20260820m"></script>
+<script src="js/nyang-shop.js?v=20260820m"></script>
+<script src="js/nyang-history.js?v=20260820m"></script>
 </body>
 </html>

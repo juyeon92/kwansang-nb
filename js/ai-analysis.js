@@ -158,7 +158,7 @@ const AI_ENHANCEMENT_SCHEMA = {
 
 // ═══ 궁합보기 AI 리포트 v2 (히어로 + Zone1 관상궁합 + Zone2 사주궁합, 2026-08-19 사용자 스펙) ═══
 // 점수(총합/관상만/사주만)는 항상 로컬 계산값(calcCompatScore·calcGwansangCompat, runGungham의 heroScores)을
-// 그대로 쓴다 — AI에게 숫자를 맡기면 화면에 이미 떠 있는 참고용 점수(ggScore)와 어긋날 수 있어서,
+// 그대로 쓴다 — AI에게 숫자를 맡기면 화면에 이미 떠 있는 참고용 점수(ggHeroTotalNum)와 어긋날 수 있어서,
 // AI는 "그 점수가 왜 나왔는지"를 설명하는 글만 쓰고 숫자 자체는 만들지 않는다.
 const GUNGHAP_ZONE2_ORDER = [
   'overall_relationship', 'sinsal_combo', 'strengths', 'perceived_by_partner', 'perceived_by_me',

@@ -960,6 +960,84 @@ const SIBIUNSEONG_MEANING = {
   양:   '태아가 자라나는 기운. 보호받으며 차곡차곡 성장하는, 안정 속에서 힘을 키우는 시기예요.',
 };
 
+// ═══ 십성(十星) — 일간 대비 다른 천간의 오행·음양 관계로 정하는 10가지 관계. 학파 차이가 없는
+// 표준 공식이다(비겁=같은 오행, 식상=일간이 생하는 오행, 재성=일간이 극하는 오행, 관성=일간을
+// 극하는 오행, 인성=일간을 생하는 오행 — 각 그룹 내에서 음양이 같으면 비견/식신/편재/편관/편인,
+// 다르면 겁재/상관/정재/정관/정인). 갑목 일간 기준 표준표(갑비견·을겁재·병식신·정상관·무편재·
+// 기정재·경편관·신정관·임편인·계정인)로 20개 조합 전부 검증함.
+function getSipseong(dayStemIdx, targetStemIdx) {
+  if (dayStemIdx < 0 || targetStemIdx < 0) return null;
+  const dayOh = CG_OH[dayStemIdx], targetOh = CG_OH[targetStemIdx];
+  const sameYinYang = (dayStemIdx % 2) === (targetStemIdx % 2);
+  if (dayOh === targetOh) return sameYinYang ? '비견' : '겁재';
+  if (OHAENG_GENERATES[dayOh] === targetOh) return sameYinYang ? '식신' : '상관';
+  if (OHAENG_CONTROLS[dayOh] === targetOh) return sameYinYang ? '편재' : '정재';
+  if (OHAENG_CONTROLS[targetOh] === dayOh) return sameYinYang ? '편관' : '정관';
+  if (OHAENG_GENERATES[targetOh] === dayOh) return sameYinYang ? '편인' : '정인';
+  return null; // 오행 5개가 닫힌 순환이라 이론상 도달 불가
+}
+// 년간·월간·시간을 일간과 비교해 십성 3개를 한 번에 반환(일간 자신은 "일원"이라 비교 대상에서 제외).
+function calcSipseongAll(pillars) {
+  const dStem = pillars[2].stem;
+  if (dStem < 0) return null;
+  return {
+    year: getSipseong(dStem, pillars[0].stem),
+    month: getSipseong(dStem, pillars[1].stem),
+    hour: getSipseong(dStem, pillars[3].stem),
+  };
+}
+const SIPSEONG_MEANING = {
+  비견: '나와 같은 힘. 독립심과 자존심이 강하고, 동료·형제 같은 수평적 관계를 뜻해요.',
+  겁재: '나와 같은 오행이지만 결이 다른 힘. 경쟁심과 추진력이 있지만, 재물이 새어나가기 쉬운 기운이기도 해요.',
+  식신: '내가 만들어내는 온화한 힘. 표현력과 낙천성, 먹고사는 재주(식복)를 뜻해요.',
+  상관: '내가 만들어내는 날카로운 힘. 재능과 끼가 넘치지만 규율에 반발하는 기운이기도 해요.',
+  편재: '내가 다스리는 유동적인 재물. 통 큰 씀씀이, 사업·투자 감각과 관련 있어요.',
+  정재: '내가 다스리는 안정적인 재물. 성실하게 모으는 재물운과 관련 있어요.',
+  편관: '나를 다스리는 강한 힘(칠살). 추진력과 카리스마가 있지만 스트레스·압박으로도 작용해요.',
+  정관: '나를 다스리는 반듯한 힘. 명예·직장운, 책임감과 관련 있어요.',
+  편인: '나를 채워주는 특이한 힘. 직관력과 독창성이 있지만 변덕스러울 수 있어요.',
+  정인: '나를 채워주는 다정한 힘. 학문·문서운, 보살핌을 받는 편안함을 뜻해요.',
+};
+
+// ═══ 신강/신약 판정 + 용신(필요 오행) — 억부법(抑扶法) 간이 버전. 정통 명리학은 격국·조후·통근까지
+// 종합 판단해 학파 차이가 큰 영역이라, 여기서는 "일간을 돕는 세력(비겁·인성) 대 소모시키는 세력
+// (식상·재성·관성)의 개수 비교" 하나만 기준으로 삼는 대중적 간이법을 쓴다(전문 사주 상담 대체 아님).
+// 월지(월령)는 사주 강약에 미치는 영향이 가장 커서 가중치 2배를 준다.
+function calcSinkangSinyak(pillars) {
+  const dStem = pillars[2].stem;
+  if (dStem < 0) return null;
+  const dayOh = CG_OH[dStem];
+  let help = 0, drain = 0; // help=비겁+인성(돕는 세력), drain=식상+재성+관성(소모시키는 세력)
+  pillars.forEach((p, i) => {
+    const weight = (i === 1) ? 2 : 1; // 월주(1)만 가중치 2배
+    if (p.stem >= 0 && i !== 2) { // 일간 본인(i===2)의 천간은 비교 대상에서 제외
+      const oh = CG_OH[p.stem];
+      if (oh === dayOh || OHAENG_GENERATES[oh] === dayOh) help += 1; else drain += 1;
+    }
+    if (p.branch >= 0) {
+      const oh = JJ_OH[p.branch];
+      if (oh === dayOh || OHAENG_GENERATES[oh] === dayOh) help += weight; else drain += weight;
+    }
+  });
+  return { isStrong: help >= drain, help, drain };
+}
+// 용신(필요 오행) — 신강이면 일간을 덜어내는 식상·재성·관성 중, 신약이면 일간을 채워주는 비겁(자기
+// 오행)·인성 중, 그 사람 사주 안에 실제로 가장 적게 있는(=가장 부족한) 오행을 "필요한 오행"으로 고른다.
+function calcYongsin(pillars) {
+  const sinkang = calcSinkangSinyak(pillars);
+  if (!sinkang) return null;
+  const dStem = pillars[2].stem;
+  const dayOh = CG_OH[dStem];
+  const ohCount = computeOhaeng(pillars);
+  const gwanseongOh = Object.keys(OHAENG_CONTROLS).find(k => OHAENG_CONTROLS[k] === dayOh);
+  const inseongOh = Object.keys(OHAENG_GENERATES).find(k => OHAENG_GENERATES[k] === dayOh);
+  const candidateOh = sinkang.isStrong
+    ? [OHAENG_GENERATES[dayOh], OHAENG_CONTROLS[dayOh], gwanseongOh]
+    : [dayOh, inseongOh];
+  const yongsinOh = candidateOh.reduce((min, oh) => (ohCount[oh] < ohCount[min] ? oh : min), candidateOh[0]);
+  return { isStrong: sinkang.isStrong, help: sinkang.help, drain: sinkang.drain, yongsinOh, ohCount };
+}
+
 // ═══ 천을귀인(天乙貴人) — 일간 기준으로 가장 잘 알려진 길신(吉神). 학파 차이가 거의 없는 표준 공식 ═══
 const CHEONEUL_GWIIN = { 0:[1,7], 4:[1,7], 6:[1,7], 1:[0,8], 5:[0,8], 2:[11,9], 3:[11,9], 7:[6,2], 8:[5,3], 9:[5,3] };
 // 甲戊庚→丑未(1,7), 乙己→子申(0,8), 丙丁→亥酉(11,9), 辛→午寅(6,2), 壬癸→巳卯(5,3)
@@ -1772,6 +1850,60 @@ function renderFaceOhaengBars(count, elId) {
     `<div class="ohaeng-row"><div class="ohaeng-name oh-${k}">${emojis[k]}${k}</div><div class="ohaeng-bar-bg"><div class="ohaeng-bar-fill ${colors[k]}" style="width:${total?(v/total*100):0}%"></div></div><div class="ohaeng-count">${v}%</div></div>`
   ).join('');
 }
+// 궁합보기 Zone1 상단 — 두 사람의 관상오행(calcFaceOhaeng)을 만세력 비교표처럼 나란히 보여준다.
+// 사진이 둘 다 있어야 나오므로 buildFaceOhaengCompare가 null을 반환하면 안내 문구만 그린다.
+function renderFaceOhaengCompare(compare, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!compare) {
+    el.innerHTML = `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 관상오행 비교를 볼 수 있어요.</div>`;
+    return;
+  }
+  const order = ['목', '화', '토', '금', '수'];
+  const colors = { 목:'oh-목-bar', 화:'oh-화-bar', 토:'oh-토-bar', 금:'oh-금-bar', 수:'oh-수-bar' };
+  const emojis = { 목:'🌳', 화:'🔥', 토:'🏔', 금:'⚔', 수:'💧' };
+  el.innerHTML = order.map(k => {
+    const a = compare.a[k] || 0, b = compare.b[k] || 0;
+    return `<div class="gg-ohaeng-row">
+      <div class="gg-ohaeng-pct">${a}%</div>
+      <div class="gg-ohaeng-barL"><div class="gg-ohaeng-fill ${colors[k]}" style="width:${a}%"></div></div>
+      <div class="gg-ohaeng-label oh-${k}">${emojis[k]}${k}</div>
+      <div class="gg-ohaeng-barR"><div class="gg-ohaeng-fill ${colors[k]}" style="width:${b}%"></div></div>
+      <div class="gg-ohaeng-pct right">${b}%</div>
+    </div>`;
+  }).join('');
+}
+// 재물관상 케미(4-2) 렌더 — buildMoneyChemi가 null(사진 없음)이면 안내 문구만 그린다.
+function renderMoneyChemi(money, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = money
+    ? `<div class="chemi-card">
+        <div class="chemi-title">재물관상 케미</div>
+        <div class="chemi-role">${money.text}</div>
+        <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 재백궁(콧볼) 크기 나 ${money.levelA}% · 상대 ${money.levelB}% · 유사도 ${money.similarity}%</div>
+      </div>`
+    : `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 재물관상 케미를 볼 수 있어요.</div>`;
+}
+// 생애주기(초년·중년·말년) 궁합(4-1) 렌더 — 4-4의 diverging bar(gg-ohaeng-row)를 그대로 재사용해
+// 목화토금수 5행 대신 3행(초년/중년/말년)으로 표시한다.
+function renderLifeStageChemi(life, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!life) {
+    el.innerHTML = `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 생애주기 궁합을 볼 수 있어요.</div>`;
+    return;
+  }
+  const rows = [['sangjeong', '초년'], ['jungjeong', '중년'], ['hajeong', '말년']].map(([k, label]) => `
+    <div class="gg-ohaeng-row">
+      <div class="gg-ohaeng-pct">${life.a[k]}%</div>
+      <div class="gg-ohaeng-barL"><div class="gg-ohaeng-fill" style="width:${life.a[k]}%;background:var(--mint);"></div></div>
+      <div class="gg-ohaeng-label">${label}</div>
+      <div class="gg-ohaeng-barR"><div class="gg-ohaeng-fill" style="width:${life.b[k]}%;background:var(--mint);"></div></div>
+      <div class="gg-ohaeng-pct right">${life.b[k]}%</div>
+    </div>`).join('');
+  el.innerHTML = rows + `<div class="chemi-card" style="margin-top:10px;"><div class="chemi-role">${life.text}</div></div>`;
+}
 
 function renderSajuCards(pillars, g, cardsId, summaryId) {
   const dStem = pillars[2].stem, mBranch = pillars[1].branch;
@@ -2043,9 +2175,6 @@ async function runGungham() {
 
     // ① 참고용 궁합 점수(접힌 상세 영역에만 노출)
     function renderCompatScore(compat) {
-      document.getElementById('ggScore').textContent = compat.score;
-      document.getElementById('ggGrade').textContent = compat.grade;
-      document.getElementById('ggDesc').textContent = compat.desc;
       document.getElementById('ggBars').innerHTML = compat.bars.map(b =>
         `<div class="compat-bar-row"><div class="compat-bar-label">${b.label}</div><div class="compat-bar-bg"><div class="compat-bar-fill" style="width:${b.pct}%"></div></div><div class="compat-bar-pct">${b.pct}%</div></div>`
       ).join('');
@@ -2085,14 +2214,16 @@ async function runGungham() {
     const narrativeA = buildPersonNarrative(lmA, pillarsA, ohA);
     const narrativeB = buildPersonNarrative(lmB, pillarsB, ohB);
 
+    const sajuInsightA = collectSajuInsightSummary(pillarsA);
+    const sajuInsightB = collectSajuInsightSummary(pillarsB);
+
     // Gemini "AI 정밀 해석" 버튼이 재사용할 수 있도록 계산 결과 캐시
     state.gungham.cache = {
       nameA, nameB,
       pillarsA, pillarsB, ohA, ohB,
       statusMapA: narrativeA.statusMap, statusMapB: narrativeB.statusMap,
       heroScores,
-      sajuInsightA: collectSajuInsightSummary(pillarsA),
-      sajuInsightB: collectSajuInsightSummary(pillarsB),
+      sajuInsightA, sajuInsightB,
       characterA: state.gunghamA.characterResult || null,
       characterB: state.gunghamB.characterResult || null,
     };
@@ -2100,9 +2231,13 @@ async function runGungham() {
     // ④ 지침서 예시② 구조의 4섹션 비교 리포트 (STEP3에 해당, 관상 없어도 사주만으로 생성)
     const chemi = buildRoleChemi(pillarsA[2].stem, narrativeA.statusMap, pillarsB[2].stem, narrativeB.statusMap);
     const faceCombo = buildFaceComboChemi(lmA, lmB, ggGenderA, ggGenderB, rel);
+    const faceOhaengCompare = buildFaceOhaengCompare(lmA, lmB);
+    const moneyChemi = buildMoneyChemi(lmA, lmB, ggGenderA, ggGenderB, rel);
+    const lifeStage = buildLifeStageChemi(lmA, lmB);
     const energy = buildEnergyChemi(ohA, ohB);
     const moments = buildMoments(ohA, ohB, narrativeA.statusMap, narrativeB.statusMap);
-    renderCoupleReport(chemi, faceCombo, energy, moments);
+    const inbok = buildInbokChemi(lmA, lmB, ggGenderA, ggGenderB, rel, sajuInsightA, sajuInsightB);
+    renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, moments, inbok);
 
     // ⑤ Gemini 정밀 해석 자동 요청(수동 버튼 없음) — 키가 없으면 requestCoupleAi 내부에서 조용히 스킵된다.
     setGgAnalyzingMsg('AI가 두 사람의 궁합을 읽는 중이에요');
@@ -2349,6 +2484,50 @@ function describeSizeCombo(levelA, levelB, genderA, genderB, rel, opts) {
   return opts.mixed;
 }
 
+// 궁합보기 Zone1 상단용 — 두 사람의 관상오행(목화토금수 %)을 나란히 비교할 수 있도록 묶어서 반환.
+function buildFaceOhaengCompare(lmA, lmB) {
+  if (!lmA || !lmB) return null;
+  return { a: calcFaceOhaeng(lmA), b: calcFaceOhaeng(lmB) };
+}
+// 재물관상 케미(궁합 리포트 구성.md 4-2) — 재백궁(콧볼, junduR)만으로 "돈을 대하는 방식이 맞물리는가"를 본다.
+// 히어로의 "금전 궁합" %(calcGwansangCompat)와 같은 원료(junduR)를 문장으로 풀어낸 상세 근거 카드.
+function buildMoneyChemi(lmA, lmB, genderA, genderB, rel) {
+  if (!lmA || !lmB) return null;
+  const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
+  const levelA = gwansangLevel('junduR', rA.junduR), levelB = gwansangLevel('junduR', rB.junduR);
+  const text = describeSizeCombo(levelA, levelB, genderA, genderB, rel, {
+    bothBig: '둘 다 콧볼이 도톰한 편이에요. 씀씀이도 크고 돈 버는 것에도 자신 있어 하는 타입이라, 같이 있으면 통 크게 쓰는 지출이 늘어나기 쉬워요. 큰 지출만 미리 상의하는 규칙을 하나 정해두면 좋아요.',
+    bothSmall: '둘 다 콧볼이 아담한 편이에요. 알뜰하게 모으는 성향이 비슷해서 재정 마찰은 적지만, 필요한 순간에도 서로 지갑 열기를 미루기 쉬워요. 가끔은 의식적으로 함께 소비해보는 것도 좋아요.',
+    maleBig: '한쪽은 화통하게 벌고 쓰는 타입이고, 다른 한쪽은 차분하게 관리하는 타입이에요. 한쪽이 벌어오면 다른 한쪽이 잘 굴려주는 역할 분담이 자연스러운 조합이에요.',
+    maleSmall: '알뜰한 한쪽을, 통 큰 다른 한쪽이 이끌어주는 조합이에요. 서로 다른 재무 스타일이 균형을 맞춰줘요.',
+    mixed: '돈을 대하는 방식이 서로 다른 편이에요. 한쪽은 크게, 한쪽은 꼼꼼하게 보는 타입이라 씀씀이 기준을 미리 맞춰두면 다툴 일이 줄어들어요.',
+  });
+  const similarity = 100 - Math.abs(levelA - levelB);
+  return { text, levelA, levelB, similarity };
+}
+// 생애주기(초년·중년·말년) 궁합(궁합 리포트 구성.md 4-1) — 개인 골든타임(buildGoldenTime)과 달리 두 사람의
+// 삼정 값을 겹쳐서 "관계가 어느 시기에 강한가"만 본다.
+function buildLifeStageChemi(lmA, lmB) {
+  if (!lmA || !lmB) return null;
+  const a = calcSamjeongRatio(lmA), b = calcSamjeongRatio(lmB);
+  const stages = [['sangjeong', '초년'], ['jungjeong', '중년'], ['hajeong', '말년']];
+  let maxGapStage = stages[0][0], maxGap = -1;
+  stages.forEach(([k]) => { const gap = Math.abs(a[k] - b[k]); if (gap > maxGap) { maxGap = gap; maxGapStage = k; } });
+  const stageLabel = { sangjeong: '초년', jungjeong: '중년', hajeong: '말년' };
+  const text = maxGap >= 15
+    ? `${stageLabel[maxGapStage]} 구간에서 두 사람 차이가 커요(${maxGap}%p 차이) — ${a[maxGapStage] > b[maxGapStage] ? '내가' : '상대방이'} 이 시기에 더 발달해 있어서, ${stageLabel[maxGapStage]}엔 ${a[maxGapStage] > b[maxGapStage] ? '내가' : '상대방이'} 중심을 잡아주는 조합이에요.`
+    : '세 시기 모두 큰 차이 없이 고르게 맞아요 — 특정 시기에 한쪽으로 기울지 않고 꾸준히 발맞춰 가는 조합이에요.';
+  return { a, b, text };
+}
+// 얼굴형 세부 유형(눈/코/입/턱/얼굴형 6종 룰베이스 분류) 조합 — 크기 비교(describeSizeCombo)와는 별개
+// 축이라 한 줄 보조 설명으로 덧붙인다(궁합 리포트 구성.md 4-5).
+function describeTypeCombo(entryA, entryB) {
+  if (!entryA || !entryB) return '';
+  if (entryA.nameKo === entryB.nameKo) {
+    return `둘 다 ${entryA.nameKo} 유형이에요. ${entryA.strength} 이 부분에서는 서로 닮아서 잘 통해요.`;
+  }
+  return `나는 ${entryA.nameKo}, 상대는 ${entryB.nameKo} 유형이에요. ${entryA.strength} 나와 ${entryB.strength} 상대가 만나 서로 다른 매력으로 채워주는 조합이에요.`;
+}
 function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel) {
   if (!lmA || !lmB) return null;
   const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
@@ -2358,6 +2537,12 @@ function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel) {
   const mouthLevelA = gwansangLevel('mouthR', rA.mouthR), mouthLevelB = gwansangLevel('mouthR', rB.mouthR);
   const cheekLevelA = gwansangLevel('cheekR', rA.cheekR), cheekLevelB = gwansangLevel('cheekR', rB.cheekR);
   const chinLevelA = gwansangLevel('jigakR', rA.jigakR), chinLevelB = gwansangLevel('jigakR', rB.jigakR);
+  const idsA = classifyAllFeaturesRuleBased(lmA).ids, idsB = classifyAllFeaturesRuleBased(lmB).ids;
+  const eyeTypeText = describeTypeCombo(EYE_SHAPE_DB[idsA.eye_shape_id], EYE_SHAPE_DB[idsB.eye_shape_id]);
+  const noseTypeText = describeTypeCombo(NOSE_SHAPE_DB[idsA.nose_shape_id], NOSE_SHAPE_DB[idsB.nose_shape_id]);
+  const mouthTypeText = describeTypeCombo(MOUTH_SHAPE_DB[idsA.mouth_shape_id], MOUTH_SHAPE_DB[idsB.mouth_shape_id]);
+  const chinTypeText = describeTypeCombo(CHIN_SHAPE_DB[idsA.chin_shape_id], CHIN_SHAPE_DB[idsB.chin_shape_id]);
+  const faceShapeTypeText = describeTypeCombo(FACE_SHAPE_TYPE_DB[idsA.face_shape_type_id], FACE_SHAPE_TYPE_DB[idsB.face_shape_type_id]);
 
   const faceShapeText = describeFaceShapeCombo(shapeA, shapeB, genderA, genderB, rel);
   const eyeText = describeSizeCombo(eyeLevelA, eyeLevelB, genderA, genderB, rel, {
@@ -2393,12 +2578,12 @@ function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel) {
   });
 
   return {
-    faceShape: { a: shapeA, b: shapeB, text: faceShapeText },
-    eye: { text: eyeText },
-    nose: { text: noseText },
-    mouth: { text: mouthText },
+    faceShape: { a: shapeA, b: shapeB, text: faceShapeText, typeText: faceShapeTypeText },
+    eye: { text: eyeText, typeText: eyeTypeText },
+    nose: { text: noseText, typeText: noseTypeText },
+    mouth: { text: mouthText, typeText: mouthTypeText },
     cheek: { text: cheekText },
-    chin: { text: chinText },
+    chin: { text: chinText, typeText: chinTypeText },
   };
 }
 
@@ -2440,16 +2625,71 @@ function buildMoments(ohA, ohB, statusMapA, statusMapB) {
   return moments.slice(0, 2);
 }
 
+// 인복 궁합(궁합 리포트 구성.md 4-3) — 관상(와잠)과 사주(귀인)를 함께 써야만 풀리는 유일한 융합
+// 콘텐츠라 Zone1/2 어디에도 넣지 않고 별도 Zone3로 분리했다. 근거 출처가 섞이지 않도록 관상 근거
+// 문장과 사주 근거 문장을 따로 만들어 각자 카드에 담는다.
+function buildInbokChemi(lmA, lmB, genderA, genderB, rel, sajuInsightA, sajuInsightB) {
+  const gwiinA = (sajuInsightA && sajuInsightA.gwiinList) || [];
+  const gwiinB = (sajuInsightB && sajuInsightB.gwiinList) || [];
+  const sajuText = (gwiinA.length || gwiinB.length)
+    ? ((gwiinA.length && gwiinB.length)
+        ? `나는 ${gwiinA.map(g => g.name).join(', ')}, 상대는 ${gwiinB.map(g => g.name).join(', ')} 귀인을 갖고 있어요. 둘 다 주변 도움을 받는 사주라, 함께 있으면 도와주는 사람이 배로 늘어나는 조합이에요.`
+        : `${gwiinA.length ? '나' : '상대방'}에게만 뚜렷한 귀인(${(gwiinA.length ? gwiinA : gwiinB).map(g => g.name).join(', ')})이 있어요. 그 사람이 주변 인맥을 이끌어주는 역할을 맡게 되는 조합이에요.`)
+    : '두 사람 사주에 뚜렷한 귀인이 보이진 않지만, 그만큼 남에게 기대기보단 서로에게 의지하며 관계를 다져가는 조합이에요.';
+
+  let faceText = null, levelA = null, levelB = null;
+  if (lmA && lmB) {
+    const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
+    levelA = gwansangLevel('waJ', rA.waJ); levelB = gwansangLevel('waJ', rB.waJ);
+    faceText = describeSizeCombo(levelA, levelB, genderA, genderB, rel, {
+      bothBig: '둘 다 와잠(눈밑)이 도톰한 편이라 인복이 두둑한 편이에요. 함께 있으면 주변에서 도와주는 사람이 자연스럽게 늘어나는 조합이에요.',
+      bothSmall: '둘 다 와잠이 얇은 편이에요. 인맥에 기대기보다 둘이 알아서 해결하는 편이라, 오히려 서로에게 더 의지하게 되는 조합이에요.',
+      maleBig: '한쪽은 인복이 두둑해 주변 사람을 잘 끌어오고, 다른 한쪽은 관계를 깊게 다지는 편이에요. 서로 다른 방식으로 인맥을 채워주는 조합이에요.',
+      maleSmall: '인맥이 다소 좁은 한쪽을, 인복이 좋은 다른 한쪽이 넓혀주는 조합이에요.',
+      mixed: '인복 스타일이 서로 달라서, 한쪽의 넓은 인맥과 다른 한쪽의 깊은 관계 맺기가 서로를 보완해줘요.',
+    });
+  }
+  const total = faceText ? `${sajuText} 관상으로 봐도 비슷한 결이에요 — ${faceText}` : sajuText;
+  return { total, faceText, sajuText, levelA, levelB, gwiinA, gwiinB };
+}
+function renderInbokChemi(inbok) {
+  const totalEl = document.getElementById('ggInbokTotal');
+  const faceEl = document.getElementById('ggInbokFace');
+  const sajuEl = document.getElementById('ggInbokSaju');
+  if (!totalEl || !faceEl || !sajuEl) return;
+  totalEl.innerHTML = `<div class="chemi-card"><div class="chemi-title">종합 인복 궁합</div><div class="chemi-role">${inbok.total}</div></div>`;
+  faceEl.innerHTML = inbok.faceText
+    ? `<div class="chemi-card"><div class="chemi-title">관상으로 본 인복</div><div class="chemi-role">${inbok.faceText}</div><div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 와잠(눈밑) 나 ${inbok.levelA}% · 상대 ${inbok.levelB}%</div></div>`
+    : `<div class="chemi-card"><div class="chemi-title">관상으로 본 인복</div><div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 관상으로 본 인복을 볼 수 있어요.</div></div>`;
+  sajuEl.innerHTML = `<div class="chemi-card"><div class="chemi-title">사주로 본 인복</div><div class="chemi-role">${inbok.sajuText}</div><div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 나 귀인 ${inbok.gwiinA.map(g => g.name).join(', ') || '없음'} · 상대 귀인 ${inbok.gwiinB.map(g => g.name).join(', ') || '없음'}</div></div>`;
+}
+
 function buildCoupleHeadline(sameRole) {
   return sameRole
     ? '같은 곳을 보는 케미! 티키타카가 척척 맞는 "평행 성장형" 궁합'
     : '누가 이끄냐로 다투지 않는다! 서로의 영역을 확실히 나누는 "전략적 파트너" 궁합';
 }
 
+// 헤드라인 아래 "근거" 서브카피로 두 사람의 16캐릭터 조합을 표기(궁합 리포트 구성.md 4-6). 사진이
+// 없어 캐릭터 판정이 없으면 조용히 비워둔다.
+function renderHeadlineSub() {
+  const el = document.getElementById('ggHeadlineSub');
+  if (!el) return;
+  const nameA = state.gunghamA.characterResult && state.gunghamA.characterResult.characterName;
+  const nameB = state.gunghamB.characterResult && state.gunghamB.characterResult.characterName;
+  el.textContent = (nameA && nameB) ? `근거: ${nameA} × ${nameB}` : '';
+}
+// 유형 조합(궁합 리포트 구성.md 4-5) 보조 줄 — typeText가 있을 때만(사진 있을 때만) 카드 안에 덧붙인다.
+function typeComboLine(emoji, typeText) {
+  return typeText ? `<div class="chemi-role" style="font-size:11.5px;color:var(--text2);margin-top:4px;">${emoji} 유형 조합: ${typeText}</div>` : '';
+}
+
 // 개인별 관상/사주 서술은 통합분석 탭에 이미 있으므로 여기서는 그리지 않는다(2026-08-20 재편) —
 // narrativeA/B는 이제 이 함수 밖(buildRoleChemi의 statusMap 등)에서만 쓰인다.
-function renderCoupleReport(chemi, faceCombo, energy, moments) {
+function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, moments, inbok) {
   document.getElementById('ggHeadline').innerHTML = `"${buildCoupleHeadline(chemi.sameRole)}"`;
+  renderHeadlineSub();
+  renderFaceOhaengCompare(faceOhaengCompare, 'ggFaceOhaengCompare');
 
   // STEP3 — 관상 케미 (역할 분담 + 총평)
   document.getElementById('ggRoleCards').innerHTML = `
@@ -2460,22 +2700,29 @@ function renderCoupleReport(chemi, faceCombo, energy, moments) {
     </div>
     <div class="chemi-card"><div class="chemi-title">관상 궁합 총평</div><div class="chemi-role">${chemi.total}</div></div>`;
 
+  renderMoneyChemi(moneyChemi, 'ggMoneyChemiCard');
+
   // 얼굴형·눈·입·광대 "조합"으로 보는 궁합 — 부위별 강점/보완 비교와 달리 두 사람 유형의 조합 자체를 본다.
-  // 노출 순서: 눈 > 코 > 광대뼈 > 입 > 턱 > 얼굴형(사용자 요청 2026-08-20).
+  // 노출 순서: 눈 > 코 > 광대뼈 > 입 > 턱 > 얼굴형(사용자 요청 2026-08-20). 크기 비교 문장 아래에
+  // 유형(눈/코/입/턱/얼굴형 6종 룰베이스 분류) 조합 보조 줄을 덧붙인다(4-5, 광대는 유형 ID가 없어 제외).
   document.getElementById('ggFaceComboCards').innerHTML = faceCombo
     ? `
-    <div class="chemi-card"><div class="chemi-title">눈 크기 조합</div><div class="chemi-role">${faceCombo.eye.text}</div></div>
-    <div class="chemi-card"><div class="chemi-title">코 조합</div><div class="chemi-role">${faceCombo.nose.text}</div></div>
+    <div class="chemi-card"><div class="chemi-title">눈 크기 조합</div><div class="chemi-role">${faceCombo.eye.text}</div>${typeComboLine('👁️', faceCombo.eye.typeText)}</div>
+    <div class="chemi-card"><div class="chemi-title">코 조합</div><div class="chemi-role">${faceCombo.nose.text}</div>${typeComboLine('👃', faceCombo.nose.typeText)}</div>
     <div class="chemi-card"><div class="chemi-title">광대뼈 조합</div><div class="chemi-role">${faceCombo.cheek.text}</div></div>
-    <div class="chemi-card"><div class="chemi-title">입 크기 조합</div><div class="chemi-role">${faceCombo.mouth.text}</div></div>
-    <div class="chemi-card"><div class="chemi-title">턱 조합</div><div class="chemi-role">${faceCombo.chin.text}</div></div>
-    <div class="chemi-card"><div class="chemi-title">얼굴형 조합 (${faceCombo.faceShape.a} × ${faceCombo.faceShape.b})</div><div class="chemi-role">${faceCombo.faceShape.text}</div></div>`
+    <div class="chemi-card"><div class="chemi-title">입 크기 조합</div><div class="chemi-role">${faceCombo.mouth.text}</div>${typeComboLine('👄', faceCombo.mouth.typeText)}</div>
+    <div class="chemi-card"><div class="chemi-title">턱 조합</div><div class="chemi-role">${faceCombo.chin.text}</div>${typeComboLine('🦴', faceCombo.chin.typeText)}</div>
+    <div class="chemi-card"><div class="chemi-title">얼굴형 조합 (${faceCombo.faceShape.a} × ${faceCombo.faceShape.b})</div><div class="chemi-role">${faceCombo.faceShape.text}</div>${typeComboLine('🙂', faceCombo.faceShape.typeText)}</div>`
     : `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 얼굴형·눈·입·광대 조합으로 보는 궁합을 볼 수 있어요.</div>`;
+
+  renderLifeStageChemi(lifeStage, 'ggLifeStageCard');
 
   // STEP3 — 사주 기운 케미
   document.getElementById('ggEnergyCards').innerHTML = `
     <div class="chemi-card"><div class="chemi-title">에너지 시너지 (사주 대 사주)</div><div class="chemi-role">${energy.synergy}</div></div>
     <div class="chemi-card"><div class="chemi-title">마음의 안식처 케미</div><div class="chemi-role">${energy.haven}</div></div>`;
+
+  renderInbokChemi(inbok);
 
   document.getElementById('ggMomentCards').innerHTML = moments.map((m, i) => `
     <div class="moment-card">
