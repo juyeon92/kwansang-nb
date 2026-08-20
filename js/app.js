@@ -1039,6 +1039,132 @@ const GWASUK_TARGET = { 해자축:10, 인묘진:1, 사오미:4, 신유술:7 }; /
 const GOEGANG_SAL = [[6,4],[6,10],[8,4],[4,10],[8,10]]; // 庚辰 庚戌 壬辰 戊戌 壬戌
 const BAEKHO_SAL = [[0,4],[1,7],[2,10],[3,1],[4,4],[8,10],[9,1]]; // 甲辰 乙未 丙戌 丁丑 戊辰 壬戌 癸丑
 
+// ═══ gangjungsa.co.kr(강정사) 신살 목록 대조로 2026-08-20 추가한 26종 ═══
+// 원문이 성별에 따라 판정 지지를 다르게 주는 항목(의처의부살·천라지망살)은 §2 원칙5(성별은 판정에
+// 쓰지 않는다)에 따라 남/여 조합을 하나로 합쳐 성별 무관하게 판정한다. 신뢰도가 낮다고 사이트 스스로
+// 인정한 항목(부벽살·십악대패살·태백살)과 성립조건 자체가 불완전한 항목(원진살·상문살·탄함살·
+// 월덕합/천덕합)은 이번 배치에서 제외했다. 고과살은 여성 판정 지지가 기존 과숙살(BANGHAP_GROUP)과
+// 완전히 동일해 별도 항목으로 추가하면 중복이라 제외했고, 복음살은 "일주=올해 태세" 조건이라 분석
+// 시점마다 결과가 달라져 §2 원칙2(재현성)에 위배되므로 이번 배치에서 제외했다.
+
+// -- 일간(day stem) 기준 단일 표 — 기존 MUNCHANG_GWIIN 패턴과 동일 --
+const CHEONGWAN_GWIIN = [7, 5, 4, 5, 2, 3, 10, 8, 9, 6]; // 갑미 을사 병진 정사 무인 기묘 경술 신신 임유 계오
+const HONGYEOM_SAL = [6, 6, 2, 7, 4, 4, 10, 9, 8, 8]; // 갑을오 병인 정미 무기진 경술 신유 임계신
+const YUHA_SAL = [9, 10, 7, 8, 5, 6, 4, 3, 11, 2]; // 갑유 을술 병미 정신 무사 기오 경진 신묘 임해 계인
+const BIIN_SAL = [9, 10, 0, 1, 0, 1, 1, 4, 6, 7]; // 갑유 을술 병자 정축 무자 기축 경축 신진 임오 계미
+const NAKJEONG_SAL = [5, 0, 8, 10, 3, 5, 0, 8, 10, 3]; // 갑기사 을경자 병신신 정임술 무계묘
+
+// -- 일주(day pillar) 세트 — 기존 GORAN_SAL/GOEGANG_SAL/BAEKHO_SAL과 동일한 [stem,branch] 목록 패턴 --
+const HYOSIN_SAL = [[0, 0], [1, 11], [2, 2], [3, 3], [4, 6], [5, 5], [6, 4], [6, 10], [7, 7], [7, 1], [8, 8], [9, 9]];
+// 원문은 남(갑오·병술·무진·경진·임술)/여(을사·정해·기해·신사·계해)를 나눠 판정하지만, 성별 무관
+// 원칙(§2-5)에 따라 두 목록을 합쳐 누구에게나 동일하게 적용한다.
+const EUICHEO_SAL = [[0, 6], [2, 10], [4, 4], [6, 4], [8, 10], [1, 5], [3, 11], [5, 11], [7, 5], [9, 11]];
+const YOKMANG_SAL = [[0, 2], [1, 3], [3, 7], [4, 10], [5, 7], [6, 8], [7, 3]];
+const OKYEO_SAL = [[0, 4], [1, 5], [6, 10], [7, 11]];
+const GUIN_SAL = [[2, 0], [3, 1], [4, 0], [5, 1], [8, 6], [9, 7]];
+const GWANGEUM_SAL = [[4, 10], [6, 4], [6, 10], [8, 10]];
+const GUCHU_BANGHAE_SAL = [[8, 0], [8, 6], [4, 0], [4, 6], [5, 3], [5, 9], [1, 3], [1, 9], [7, 3], [7, 9]];
+const CHEONGONG_SAL = [[0, 8], [1, 9], [2, 0], [3, 11], [4, 0], [5, 11], [6, 2], [7, 3]];
+function matchesStemBranchSet(stemIdx, branchIdx, set) {
+  return set.some(([s, b]) => s === stemIdx && b === branchIdx);
+}
+function isHyosinSal(stemIdx, branchIdx) { return matchesStemBranchSet(stemIdx, branchIdx, HYOSIN_SAL); }
+function isEuicheoSal(stemIdx, branchIdx) { return matchesStemBranchSet(stemIdx, branchIdx, EUICHEO_SAL); }
+function isYokmangSal(stemIdx, branchIdx) { return matchesStemBranchSet(stemIdx, branchIdx, YOKMANG_SAL); }
+function isOkyeoSal(stemIdx, branchIdx) { return matchesStemBranchSet(stemIdx, branchIdx, OKYEO_SAL); }
+function isGuinSal(stemIdx, branchIdx) { return matchesStemBranchSet(stemIdx, branchIdx, GUIN_SAL); }
+function isGwangeumSal(stemIdx, branchIdx) { return matchesStemBranchSet(stemIdx, branchIdx, GWANGEUM_SAL); }
+function isGuchuBanghaeSal(stemIdx, branchIdx) { return matchesStemBranchSet(stemIdx, branchIdx, GUCHU_BANGHAE_SAL); }
+function isCheongongSal(stemIdx, branchIdx) { return matchesStemBranchSet(stemIdx, branchIdx, CHEONGONG_SAL); }
+
+// -- 지지 두 글자의 관계로 성립 — 기준 기둥 없이 네 지지 중 아무 두 곳이나 짝이면 성립 --
+const CHUNG_PAIRS = [[0, 6], [1, 7], [2, 8], [3, 9], [4, 10], [5, 11]]; // 지지충(=상충살): 자오 축미 인신 묘유 진술 사해
+const GWIMUNGWAN_PAIRS = [[0, 9], [1, 6], [2, 7], [3, 8], [4, 11], [5, 10]]; // 귀문관살: 자유 축오 인미 묘신 진해 사술
+const HYEORIN_PAIRS = [[0, 10], [1, 9], [2, 8], [3, 7], [4, 6], [5, 5]]; // 혈인살: 자술 축유 인신 묘미 진오 사사(같은 지지 중복)
+function hasBranchPair(pillars, pairs) {
+  const branches = pillars.map(p => p.branch).filter(b => b >= 0);
+  return pairs.some(([a, b]) => {
+    if (a === b) return branches.filter(x => x === a).length >= 2;
+    return branches.includes(a) && branches.includes(b);
+  });
+}
+
+// -- 나머지: 기준 기둥이 각각 다른 개별 로직 --
+// 삼형살: 인사신(3자 모두) · 축술미(2자 이상) · 자묘(둘 다) · 자형(진/오/유/해 중 하나가 중복)
+function hasSamhyeongSal(pillars) {
+  const branches = pillars.map(p => p.branch).filter(b => b >= 0);
+  const count = b => branches.filter(x => x === b).length;
+  const insasin = [2, 5, 8].every(b => branches.includes(b));
+  const chuksulmi = [1, 10, 7].filter(b => branches.includes(b)).length >= 2;
+  const jamyo = branches.includes(0) && branches.includes(3);
+  const jahyeong = [4, 6, 9, 11].some(b => count(b) >= 2);
+  return insasin || chuksulmi || jamyo || jahyeong;
+}
+// 천라지망살: 병정일간+술해 있으면 천라, 임계일간+진사 있으면 지망 — 원문의 남녀 구분 대신 §2-5
+// 원칙에 따라 일간 기준 조건만 사용한다.
+function hasCheonraJimangSal(pillars) {
+  const d = pillars[2];
+  if (!d || d.stem < 0) return false;
+  const branches = pillars.map(p => p.branch).filter(b => b >= 0);
+  if ([2, 3].includes(d.stem) && branches.some(b => b === 10 || b === 11)) return true;
+  if ([8, 9].includes(d.stem) && branches.some(b => b === 4 || b === 5)) return true;
+  return false;
+}
+// 급각살: 월지가 속한 방합(계절 묶음)별 목표 지지 2개 중 하나가 다른 기둥에 있으면 성립
+const GIPGAK_TARGET = { 인묘진: [11, 0], 사오미: [3, 7], 신유술: [2, 10], 해자축: [1, 4] };
+function hasGipgakSal(pillars) {
+  const m = pillars[1];
+  if (!m || m.branch < 0) return false;
+  const targets = GIPGAK_TARGET[BANGHAP_GROUP[m.branch]];
+  if (!targets) return false;
+  return pillars.some(p => targets.includes(p.branch));
+}
+// 단교관살: 월지 → 목표 지지 1개(기존 WOLDEOK_GWIIN_TARGET류와 동일한 지지→지지 단일 표)
+const DANGYO_TARGET = [11, 0, 2, 3, 8, 1, 10, 9, 4, 5, 6, 7]; // 자해 축자 인인 묘묘 진신 사축 오술 미유 신진 유사 술오 해미
+function hasDangyoSal(pillars) {
+  const m = pillars[1];
+  if (!m || m.branch < 0) return false;
+  const target = DANGYO_TARGET[m.branch];
+  return pillars.some(p => p.branch === target);
+}
+// 조객살: 년지(띠) 기준 두 칸 앞 지지가 다른 기둥에 있으면 성립
+function hasJogaekSal(pillars) {
+  const y = pillars[0];
+  if (!y || y.branch < 0) return false;
+  const target = (y.branch - 2 + 12) % 12;
+  return pillars.some(p => p !== y && p.branch === target);
+}
+// 탕화살: 일지가 인/오/축일 때 각각 정해진 짝 지지가 있으면 성립(사이트 원문 3가지 조합)
+const TANGHWA_PARTNER = { 2: [5, 8], 6: [4, 6, 1], 1: [6, 10, 7] }; // 인→사신 오→진오축 축→오술미
+function hasTanghwaSal(pillars) {
+  const d = pillars[2];
+  if (!d || d.branch < 0) return false;
+  const partners = TANGHWA_PARTNER[d.branch];
+  if (!partners) return false;
+  return pillars.some(p => partners.includes(p.branch));
+}
+// 격각살: 일지-시지가 두 칸 차이(어느 방향이든)면 성립
+function hasGyeokgakSal(pillars) {
+  const d = pillars[2], h = pillars[3];
+  if (!d || !h || d.branch < 0 || h.branch < 0) return false;
+  const diff = (h.branch - d.branch + 12) % 12;
+  return diff === 2 || diff === 10;
+}
+// 삼기귀인: 년→월→일 또는 월→일→시 천간이 순서대로 아래 세 조합 중 하나와 일치하면 성립
+const SAMGI_SEQUENCES = [[0, 4, 6], [7, 8, 9], [1, 2, 3]]; // 천상(갑무경) 인중(신임계) 지하(을병정)
+function hasSamgiGwiin(pillars) {
+  const stems = pillars.map(p => p.stem);
+  const seqA = [stems[0], stems[1], stems[2]];
+  const seqB = [stems[1], stems[2], stems[3]];
+  return SAMGI_SEQUENCES.some(seq => seq.every((s, i) => seqA[i] === s) || seq.every((s, i) => seqB[i] === s));
+}
+// 음양차착살: 일주 또는 시주가 아래 12개 조합 중 하나면 성립
+const EUMYANG_CHACHAK_SAL = [[7, 3], [7, 9], [3, 7], [3, 1], [9, 5], [9, 11], [2, 6], [2, 0], [8, 4], [8, 10], [4, 8], [4, 2]];
+function hasEumyangChachakSal(pillars) {
+  const d = pillars[2], h = pillars[3];
+  return matchesStemBranchSet(d.stem, d.branch, EUMYANG_CHACHAK_SAL) || (h && matchesStemBranchSet(h.stem, h.branch, EUMYANG_CHACHAK_SAL));
+}
+
 function computeExtraGwiin(pillars) {
   const [y, m, d] = pillars; // 년,월,일 (시주는 신살 판정 기준점으로 안 씀)
   const dStemIdx = d.stem, mBranchIdx = m.branch, yBranchIdx = y.branch;
@@ -1052,6 +1178,11 @@ function computeExtraGwiin(pillars) {
     result.cheonju = CHEONJU_GWIIN[dStemIdx];
     const controlOh = CONTROLLING_OH[CG_OH[dStemIdx]];
     result.gwangwi = SIBIUNSEONG_START[OH_YANG_STEM_IDX[controlOh]];
+    result.cheongwan = CHEONGWAN_GWIIN[dStemIdx];
+    result.hongyeom = HONGYEOM_SAL[dStemIdx];
+    result.yuha = YUHA_SAL[dStemIdx];
+    result.biin = BIIN_SAL[dStemIdx];
+    result.nakjeong = NAKJEONG_SAL[dStemIdx];
   }
   if (mBranchIdx >= 0 && dStemIdx >= 0) {
     const group = SAMHAP_GROUP[mBranchIdx];
@@ -1096,6 +1227,32 @@ const GWIIN_MEANING = {
   천문성: '영적 감각과 직관이 발달한 기운이에요. 종교·철학·심리 등 눈에 안 보이는 걸 다루는 분야에 강점이 있어요.',
   괴강살: '강렬한 카리스마의 기운이에요. 극과 극을 오가는 스케일이 있어서, 잘 쓰면 큰 성취를 이루지만 고집도 세질 수 있어요.',
   백호대살: '한번 힘을 쓰면 확실하게 밀어붙이는 기운이에요. 결단력은 강하지만, 급한 성미는 다스리는 연습이 필요해요.',
+  천관귀인: '공적인 인정과 명예를 돕는 길신이에요. 조직 안에서 신뢰받고 정당하게 인정받는 자리로 나아가기 쉬운 기운이에요.',
+  삼기귀인: '타고난 재능과 배움에 대한 갈증이 남다른 길신이에요. 한 분야를 깊이 파고들어 전문성으로 인정받기 쉬운 기운이에요.',
+  귀문관살: '남다른 몰입력과 독특한 감각을 가진 기운이에요. 한 가지에 깊이 빠져드는 힘이 있어서, 예민한 만큼 스스로를 다독이는 여유도 함께 챙기면 좋아요.',
+  효신살: '일찍부터 스스로를 챙기며 독립적으로 자라는 기운이에요. 기댈 곳을 기다리기보다 직접 해결하는 자립심이 강한 편이에요.',
+  의처의부살: '관계에 마음을 깊이 쏟는 기운이에요. 그만큼 애정이 크다는 뜻이니, 믿음을 서로 확인하는 대화를 편하게 나누면 관계가 더 단단해져요.',
+  조객살: '가족·친지와의 정서적 연결이 깊은 기운이에요. 곁에 있는 사람들의 안녕을 세심하게 챙기는 편이에요.',
+  탕화살: '뜨거운 것을 두려워하지 않는 대담한 기운이에요. 위기 상황에서 물러서지 않는 뚝심이 있고, 의료·화학·소방 등 위험을 다루는 분야에서 강점을 보이는 편이에요.',
+  격각살: '익숙한 자리를 벗어나 새로운 환경에 잘 적응하는 기운이에요. 낯선 곳에서도 스스로 자리를 잡는 힘이 있는 편이에요.',
+  혈인살: '몸과 마음을 세심하게 돌보는 감각이 발달한 기운이에요. 건강 관리에 미리 신경 쓰는 편이라 큰 탈 없이 잘 관리해가는 타입이에요.',
+  삼형살: '부딪히는 상황에서도 물러서지 않는 강한 승부근성의 기운이에요. 자기 주장이 뚜렷하고, 원칙과 관련된 일(법·의료 등)에서 두각을 나타내는 편이에요.',
+  천라지망살: '스스로에게 엄격한 규율을 세우는 기운이에요. 법·질서·안전과 관련된 일에서 신뢰받는 역할을 맡기 쉬운 편이에요.',
+  급각살: '몸을 다치지 않게 미리 조심하는 신중한 기운이에요. 급하게 움직이기보다 안전을 먼저 살피는 편이에요.',
+  비인살: '관심사가 빠르게 바뀌는 만큼 새로운 자극에 민첩하게 반응하는 기운이에요. 하나에 오래 머무르기보다 다양한 시도를 즐기는 편이에요.',
+  음양차착살: '감정 표현이 풍부하고 매력적인 기운이에요. 마음이 움직이는 대로 솔직한 편이라, 관계에서 신뢰를 쌓는 대화가 중요한 시기예요.',
+  홍염살: '사람들 시선을 끄는 매력이 넘치는 길성이에요. 눈에 띄는 자리, 사람 앞에 서는 일에서 특히 빛을 발하는 편이에요.',
+  유하살: '여러 가지를 두루 잘하는 팔방미인 기운이에요. 한 곳에 얽매이기보다 다양한 경험을 쌓을 때 더 빛나는 편이에요.',
+  구추방해살: '감정이 크고 뚜렷한 기운이에요. 좋고 싫음이 분명한 편이라, 스스로의 감정을 다스리는 여유를 챙기면 도움이 돼요.',
+  공망살: '얽매이지 않고 훌훌 털어내는 여유의 기운이에요. 결과에 집착하기보다 과정 자체를 즐기는 편이에요.',
+  낙정관살: '위험한 상황을 미리 알아채는 감각이 발달한 기운이에요. 깊은 곳, 낯선 환경에서 특히 조심하는 편이에요.',
+  단교관살: '몸을 아끼고 무리하지 않는 기운이에요. 관절이나 이동 관련해서 평소 관리에 신경 쓰면 도움이 돼요.',
+  욕망살: '원하는 것을 향해 거침없이 나아가는 기운이에요. 주도적이고 활동적이라, 앞장서는 자리에서 힘을 발휘하는 편이에요.',
+  옥여살: '사람들에게 사랑받고 잘 이끌려지는 복 있는 기운이에요. 원만한 성격 덕분에 좋은 기회가 자연스럽게 따라오는 편이에요.',
+  구인살: '말솜씨가 좋고 하고 싶은 말을 잘 표현하는 기운이에요. 다만 말이 앞서기 쉬우니, 한 번 더 생각하고 이야기하는 습관이 도움이 돼요.',
+  광음살: '강렬한 존재감으로 시선을 끄는 기운이에요. 대중 앞에 서는 자리, 눈에 띄는 역할에서 발탁되기 쉬운 편이에요.',
+  천공살: '마음을 담백하게 비워내는 기운이에요. 집착하지 않고 흘려보내는 편이라, 관계에서는 마음을 표현하는 노력을 더하면 좋아요.',
+  지지충: '부딪히며 변화를 만들어내는 역동적인 기운이에요. 안정보다 자극이 있을 때 오히려 힘이 나는 편이에요.',
 };
 
 // ═══ 공망(空亡) — 60갑자를 10개씩 묶은 "순(旬)" 안에서 짝이 안 맞는 지지 2개. 계산식으로 유도 가능한
@@ -1224,6 +1381,19 @@ function renderPillarsTable(pillars, elId) {
     if (p.branch >= 0 && isCheonmunseong(p.branch)) badges.push('천문성');
     if (isGoegangSal(p.stem, p.branch)) badges.push('괴강살');
     if (isBaekhoSal(p.stem, p.branch)) badges.push('백호대살');
+    if (p.branch >= 0 && p.branch === extra.cheongwan) badges.push('천관귀인');
+    if (p.branch >= 0 && p.branch === extra.biin) badges.push('비인살');
+    if (p.branch >= 0 && p.branch === extra.hongyeom) badges.push('홍염살');
+    if (p.branch >= 0 && p.branch === extra.yuha) badges.push('유하살');
+    if (p.branch >= 0 && p.branch === extra.nakjeong) badges.push('낙정관살');
+    if (isHyosinSal(p.stem, p.branch)) badges.push('효신살');
+    if (isEuicheoSal(p.stem, p.branch)) badges.push('의처의부살');
+    if (isYokmangSal(p.stem, p.branch)) badges.push('욕망살');
+    if (isOkyeoSal(p.stem, p.branch)) badges.push('옥여살');
+    if (isGuinSal(p.stem, p.branch)) badges.push('구인살');
+    if (isGwangeumSal(p.stem, p.branch)) badges.push('광음살');
+    if (isGuchuBanghaeSal(p.stem, p.branch)) badges.push('구추방해살');
+    if (isCheongongSal(p.stem, p.branch)) badges.push('천공살');
     const gwiinBadges = badges.map(b => `<div class="pillar-gwiin">★ ${b}</div>`).join('');
 
     const sinsalList = get12SinsalForBranch(p.branch, yBranch, mBranch, dBranch);
@@ -1291,6 +1461,35 @@ function renderUnseongLegend(pillars, elId) {
   if (pillars.some(p => p.branch >= 0 && isCheonmunseong(p.branch))) gwiinNames.add('천문성');
   if (pillars.some(p => isGoegangSal(p.stem, p.branch))) gwiinNames.add('괴강살');
   if (pillars.some(p => isBaekhoSal(p.stem, p.branch))) gwiinNames.add('백호대살');
+  if (pillars.some(p => p.branch === extra.cheongwan)) gwiinNames.add('천관귀인');
+  if (hasSamgiGwiin(pillars)) gwiinNames.add('삼기귀인');
+  if (hasBranchPair(pillars, GWIMUNGWAN_PAIRS)) gwiinNames.add('귀문관살');
+  if (pillars.some(p => isHyosinSal(p.stem, p.branch))) gwiinNames.add('효신살');
+  if (pillars.some(p => isEuicheoSal(p.stem, p.branch))) gwiinNames.add('의처의부살');
+  if (hasJogaekSal(pillars)) gwiinNames.add('조객살');
+  if (hasTanghwaSal(pillars)) gwiinNames.add('탕화살');
+  if (hasGyeokgakSal(pillars)) gwiinNames.add('격각살');
+  if (hasBranchPair(pillars, HYEORIN_PAIRS)) gwiinNames.add('혈인살');
+  if (hasSamhyeongSal(pillars)) gwiinNames.add('삼형살');
+  if (hasCheonraJimangSal(pillars)) gwiinNames.add('천라지망살');
+  if (hasGipgakSal(pillars)) gwiinNames.add('급각살');
+  if (pillars.some(p => p.branch === extra.biin)) gwiinNames.add('비인살');
+  if (hasEumyangChachakSal(pillars)) gwiinNames.add('음양차착살');
+  if (pillars.some(p => p.branch === extra.hongyeom)) gwiinNames.add('홍염살');
+  if (pillars.some(p => p.branch === extra.yuha)) gwiinNames.add('유하살');
+  if (pillars.some(p => isGuchuBanghaeSal(p.stem, p.branch))) gwiinNames.add('구추방해살');
+  if (dayStemIdx >= 0 && dBranch >= 0) {
+    const gongmangPair = getGongmang(dayStemIdx, dBranch);
+    if (pillars.some(p => p.branch >= 0 && p.branch !== dBranch && gongmangPair.includes(p.branch))) gwiinNames.add('공망살');
+  }
+  if (pillars.some(p => p.branch === extra.nakjeong)) gwiinNames.add('낙정관살');
+  if (hasDangyoSal(pillars)) gwiinNames.add('단교관살');
+  if (pillars.some(p => isYokmangSal(p.stem, p.branch))) gwiinNames.add('욕망살');
+  if (pillars.some(p => isOkyeoSal(p.stem, p.branch))) gwiinNames.add('옥여살');
+  if (pillars.some(p => isGuinSal(p.stem, p.branch))) gwiinNames.add('구인살');
+  if (pillars.some(p => isGwangeumSal(p.stem, p.branch))) gwiinNames.add('광음살');
+  if (pillars.some(p => isCheongongSal(p.stem, p.branch))) gwiinNames.add('천공살');
+  if (hasBranchPair(pillars, CHUNG_PAIRS)) gwiinNames.add('지지충');
 
   if (!unseongRows.length && !seenSinsal.size && !gwiinNames.size) { el.innerHTML = ''; el.classList.add('hidden'); return; }
 
@@ -1350,6 +1549,35 @@ function collectSajuInsightSummary(pillars) {
   if (pillars.some(p => p.branch >= 0 && isCheonmunseong(p.branch))) gwiinNames.add('천문성');
   if (pillars.some(p => isGoegangSal(p.stem, p.branch))) gwiinNames.add('괴강살');
   if (pillars.some(p => isBaekhoSal(p.stem, p.branch))) gwiinNames.add('백호대살');
+  if (pillars.some(p => p.branch === extra.cheongwan)) gwiinNames.add('천관귀인');
+  if (hasSamgiGwiin(pillars)) gwiinNames.add('삼기귀인');
+  if (hasBranchPair(pillars, GWIMUNGWAN_PAIRS)) gwiinNames.add('귀문관살');
+  if (pillars.some(p => isHyosinSal(p.stem, p.branch))) gwiinNames.add('효신살');
+  if (pillars.some(p => isEuicheoSal(p.stem, p.branch))) gwiinNames.add('의처의부살');
+  if (hasJogaekSal(pillars)) gwiinNames.add('조객살');
+  if (hasTanghwaSal(pillars)) gwiinNames.add('탕화살');
+  if (hasGyeokgakSal(pillars)) gwiinNames.add('격각살');
+  if (hasBranchPair(pillars, HYEORIN_PAIRS)) gwiinNames.add('혈인살');
+  if (hasSamhyeongSal(pillars)) gwiinNames.add('삼형살');
+  if (hasCheonraJimangSal(pillars)) gwiinNames.add('천라지망살');
+  if (hasGipgakSal(pillars)) gwiinNames.add('급각살');
+  if (pillars.some(p => p.branch === extra.biin)) gwiinNames.add('비인살');
+  if (hasEumyangChachakSal(pillars)) gwiinNames.add('음양차착살');
+  if (pillars.some(p => p.branch === extra.hongyeom)) gwiinNames.add('홍염살');
+  if (pillars.some(p => p.branch === extra.yuha)) gwiinNames.add('유하살');
+  if (pillars.some(p => isGuchuBanghaeSal(p.stem, p.branch))) gwiinNames.add('구추방해살');
+  if (dayStemIdx >= 0 && dBranch >= 0) {
+    const gongmangPair = getGongmang(dayStemIdx, dBranch);
+    if (pillars.some(p => p.branch >= 0 && p.branch !== dBranch && gongmangPair.includes(p.branch))) gwiinNames.add('공망살');
+  }
+  if (pillars.some(p => p.branch === extra.nakjeong)) gwiinNames.add('낙정관살');
+  if (hasDangyoSal(pillars)) gwiinNames.add('단교관살');
+  if (pillars.some(p => isYokmangSal(p.stem, p.branch))) gwiinNames.add('욕망살');
+  if (pillars.some(p => isOkyeoSal(p.stem, p.branch))) gwiinNames.add('옥여살');
+  if (pillars.some(p => isGuinSal(p.stem, p.branch))) gwiinNames.add('구인살');
+  if (pillars.some(p => isGwangeumSal(p.stem, p.branch))) gwiinNames.add('광음살');
+  if (pillars.some(p => isCheongongSal(p.stem, p.branch))) gwiinNames.add('천공살');
+  if (hasBranchPair(pillars, CHUNG_PAIRS)) gwiinNames.add('지지충');
   const gwiinList = Array.from(gwiinNames).map(g => ({ name: g, meaning: GWIIN_MEANING[g] }));
 
   return { unseongList, sinsalList, gwiinList };
