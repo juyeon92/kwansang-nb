@@ -451,6 +451,22 @@ function resetGunghamResult() {
   document.getElementById('panel-gungham').scrollIntoView({ behavior: 'smooth' });
 }
 
+// ═══ 궁합보기 리포트 화면의 "궁합보기 메인으로" — 새 분석이 아니라 이 탭의 기본 화면으로 돌아간다 ═══
+// ⚠️ 버그 수정(2026-08-20 사용자 리포트: 눌러도 빈 화면만 남음) — 예전엔 이 버튼도 resetGunghamResult를
+// 그대로 썼는데, 그 함수는 ggWantsNewAnalysis=true를 세워 "보관 내역이 있어도 무시하고 입력 단계부터"로
+// 보내버린다. "메인으로"는 다른 궁합을 분석하겠다는 뜻이 아니라 그냥 되돌아가겠다는 뜻이라, 대신
+// renderGunghamSavedReport()를 불러 보관 내역이 있으면 그 목록을, 없으면 입력 단계를 그 판단 그대로 보여준다.
+function backToGunghamMain() {
+  resetUpload('gunghamA');
+  resetUpload('gunghamB');
+  ggWantsNewAnalysis = false;
+  document.getElementById('ggResult').classList.add('hidden');
+  document.getElementById('ggCanvasCard').classList.add('hidden');
+  document.getElementById('gunghamBackBtn').classList.add('hidden');
+  renderGunghamSavedReport();
+  document.getElementById('panel-gungham').scrollIntoView({ behavior: 'smooth' });
+}
+
 // ═══ 궁합보기 첫 화면 — 보관함에 쌓인 궁합 내역 재노출 ═══
 // 통합분석 첫 화면(renderCombinedSavedReport)과 같은 원칙(사용자 요청 2026-08-19) — 로그인 상태에서
 // 궁합 기록이 있으면 나/상대방 선택 단계(#ggInputStep) 대신 보관된 내역 목록(#ggSavedStep)을 보여준다.
@@ -2358,6 +2374,9 @@ async function runGungham() {
     if (lmA || lmB) document.getElementById('ggCanvasCard').classList.remove('hidden');
     document.getElementById('ggResult').classList.remove('hidden');
     document.getElementById('gunghamBackBtn').classList.remove('hidden');
+    setGgHeroVisible(false); // 리포트가 뜨는 순간엔 항상 배너를 꺼둔다(사용자 리포트 2026-08-20:
+    // 관상 캔버스·리포트와 진입 배너가 같이 떠 있었음) — Archive.save가 곧바로 notifyChanged →
+    // renderGunghamSavedReport()를 동기 호출하는데, 그 경로가 다시 배너를 켜는 일이 없도록 마지막에 한 번 더 확정한다.
     window.scrollTo(0, 0);
     if (window.Archive) Archive.save('gungham'); // 보관함 — AI 해석까지 끝난 뒤에 스냅샷
   } catch (e) {
