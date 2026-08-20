@@ -75,6 +75,7 @@
       let resolveFn;
       const p = new Promise(function (r) { resolveFn = r; });
       cloudGates[uid] = { promise: p, resolve: resolveFn, done: false };
+      console.log('[archive] 게이트 생성', { uid: uid });
     }
     return cloudGates[uid];
   }
@@ -87,11 +88,17 @@
       // 게이트가 풀리기까지 기다린 경우, 그 사이 로컬이 더 바뀌어 있을 수 있어 이 시점의
       // 최신 로컬 목록을 올린다(호출 당시의 list를 그대로 쓰면 뒤늦게 덮어쓰는 꼴이 된다).
       const latest = loadIndex();
+      console.log('[archive] 클라우드 쓰기 실행', { uid: uid, count: latest.length, types: latest.map(r => r.type) });
       fbDb.collection('users').doc(uid).set({ archive: latest }, { merge: true })
         .catch(e => console.error('[archive] 목록 클라우드 저장 실패', e));
     };
     const gate = cloudGates[uid];
-    if (gate && !gate.done) { gate.promise.then(write); return; }
+    if (gate && !gate.done) {
+      console.log('[archive] 클라우드 쓰기 보류(병합 대기)', { uid: uid, count: list.length, types: list.map(r => r.type) });
+      gate.promise.then(write);
+      return;
+    }
+    console.log('[archive] 게이트 없음/이미 완료 — 즉시 씀', { uid: uid, hasGate: !!gate, done: gate && gate.done });
     write();
   }
 
@@ -176,6 +183,11 @@
       const cloud = (doc.exists && Array.isArray(doc.data().archive)) ? doc.data().archive : [];
       const local = loadIndex();
       const merged = mergeIndex(local, cloud);
+      console.log('[archive] 클라우드 병합', {
+        uid: uid, cloudCount: cloud.length, cloudTypes: cloud.map(r => r.type),
+        localCount: local.length, localTypes: local.map(r => r.type),
+        mergedCount: merged.length, mergedTypes: merged.map(r => r.type),
+      });
       localStorage.setItem(IDX_PREFIX + uid, JSON.stringify(merged));
       gate.done = true; gate.resolve(); // 로컬은 이미 맞춰졌으니 여기서 게이트를 먼저 푼다
       // 합친 결과가 클라우드본과 다르면(로컬에만 있던 게 있었거나, 중복 gwansang을 정리했으면)
@@ -357,6 +369,7 @@
       // 나중에 병합 시 "최신"으로 오인돼 진짜 기록을 밀어낼 수 있다. 병합이 끝난 뒤 다시 판단해서
       // 커밋한다 — label도 그 시점에 다시 계산해야 그 사이 로딩된 진짜 대표 프로필 이름이 반영된다.
       const gate = cloudGates[uid];
+      console.log('[archive] save() 게이트 확인', { type: type, uid: uid, hasGate: !!gate, done: gate && gate.done });
       if (gate && !gate.done) {
         gate.promise.then(function () { commitSave(uid, type, html, buildLabel(type)); });
         return;
