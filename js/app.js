@@ -1017,15 +1017,23 @@ function renderSipseongCross(cross, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
   if (!cross) { el.innerHTML = ''; return; }
+  // ⚠️ 문장 정리(2026-08-20 사용자 리포트: "존재예요 — [사전 설명]"으로 이어붙여서 구조가 어색함) —
+  // SIPSEONG_MEANING 문구는 원래 명사형 정의문("~ 힘. ~을 뜻해요")이라 앞 문장에 대시로 이어붙이면
+  // 서술어 없이 뚝 끊긴 것처럼 읽힌다. "역할 문장 → 정의 → 관계 함의"로 문단을 나눠 각자 완결된
+  // 문장으로 만들고, 마지막에 관계 결론 한 줄을 덧붙여 무슨 뜻인지 풀어서 이해되게 한다.
   el.innerHTML = `
     <div class="chemi-card">
       <div class="chemi-title">상대 → 나</div>
-      <div class="chemi-role">상대는 나에게 <strong>${cross.partnerToMe}</strong> 같은 존재예요 — ${cross.meaningPartnerToMe}</div>
+      <div class="chemi-role">상대는 나에게 <strong>${cross.partnerToMe}</strong> 같은 존재예요.</div>
+      <div class="chemi-role" style="margin-top:4px;">${cross.partnerToMe}이란 — ${cross.meaningPartnerToMe}</div>
+      <div class="chemi-role" style="margin-top:4px;">그래서 상대는 나에게 이런 기운으로 다가오는 관계예요.</div>
       <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 내 일간(${cross.dayOhA}) 기준 상대 일간(${cross.dayOhB}) → ${cross.partnerToMe}</div>
     </div>
     <div class="chemi-card">
       <div class="chemi-title">나 → 상대</div>
-      <div class="chemi-role">나는 상대에게 <strong>${cross.meToPartner}</strong> 같은 존재예요 — ${cross.meaningMeToPartner}</div>
+      <div class="chemi-role">나는 상대에게 <strong>${cross.meToPartner}</strong> 같은 존재예요.</div>
+      <div class="chemi-role" style="margin-top:4px;">${cross.meToPartner}이란 — ${cross.meaningMeToPartner}</div>
+      <div class="chemi-role" style="margin-top:4px;">그래서 나는 상대에게 이런 기운으로 다가가는 관계예요.</div>
       <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 상대 일간(${cross.dayOhB}) 기준 내 일간(${cross.dayOhA}) → ${cross.meToPartner}</div>
     </div>`;
 }
@@ -2705,13 +2713,23 @@ function buildEnergyChemi(ohA, ohB) {
   return { synergy, haven };
 }
 
+// 오행별 "속으로 파고드는 정도" 순위 — 이 파일의 관상오행 칭호(화형="열정 넘치는 리더"=표현이
+// 바깥으로, 수형="깊고 지혜로운"=생각이 안으로)와 같은 전통 오행 성격 배속을 그대로 따른다.
+// 값이 높을수록 속으로 파고드는(내향) 편, 낮을수록 답답함을 느끼기 쉬운(표현이 빠른) 편.
+const OHAENG_INTROVERT_RANK = { 수: 4, 금: 3, 목: 2, 토: 1, 화: 0 };
 // 3) 티격태격 모먼트 & 극복 전략 — 오행 상극 여부 + 같은 강점이 겹칠 때
 function buildMoments(ohA, ohB, statusMapA, statusMapB) {
   const domA = Object.entries(ohA).sort((a,b)=>b[1]-a[1])[0][0];
   const domB = Object.entries(ohB).sort((a,b)=>b[1]-a[1])[0][0];
   const moments = [];
   if (sangGeuk[domA].includes(domB) || sangGeuk[domB].includes(domA)) {
-    moments.push({ title:'속마음 표현의 속도 차이', desc:'한쪽은 고민이 생기면 속으로 파고드는 편이라, 다른 한쪽은 답답하게 느낄 수 있어요.', tip:'"천천히 생각하고 말해줘도 돼"라는 여유를 건네주는 대화법을 써보세요.' });
+    // ⚠️ 버그 수정(2026-08-20 사용자 리포트: "한쪽은 ~, 다른 한쪽은 ~"이라 누가 누군지 안 보임) —
+    // 둘이 다른 오행이니(상극 관계는 항상 서로 다른 오행끼리) 위 순위로 실제 누가 파고드는 쪽인지
+    // 밝힌다. 이미 buildLifeStageChemi가 "내가"/"상대방이"로 구분하는 것과 같은 방식.
+    const introvertIsA = OHAENG_INTROVERT_RANK[domA] > OHAENG_INTROVERT_RANK[domB];
+    const introvertWho = introvertIsA ? '내가' : '상대방이';
+    const stuffyWho = introvertIsA ? '상대방이' : '내가';
+    moments.push({ title:'속마음 표현의 속도 차이', desc:`${introvertWho} 고민이 생기면 속으로 파고드는 편이라, ${stuffyWho} 답답하게 느낄 수 있어요.`, tip:'"천천히 생각하고 말해줘도 돼"라는 여유를 건네주는 대화법을 써보세요.' });
   }
   if (statusMapA && statusMapB && statusMapA.midbrow === 'strength' && statusMapB.midbrow === 'strength') {
     moments.push({ title:'주관 대 주관의 충돌', desc:'두 사람 모두 자기 주관이 뚜렷해서, 소소한 선택(데이트 코스, 물건 고르기 등)에서 의견이 엇갈릴 수 있어요.', tip:'분야를 나눠서 한쪽 결정을 믿어주는 "전담 영역"을 미리 정해두세요.' });
