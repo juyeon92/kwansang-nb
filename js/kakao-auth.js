@@ -47,6 +47,15 @@
     fbAuth.onAuthStateChanged(function (user) {
       authResolved = true;
       console.log('[kakao-auth] onAuthStateChanged', user ? { uid: user.uid, anonymous: !!user.isAnonymous } : null);
+      // ⚠️ 버그 수정(2026-08-20 사용자 리포트: 기기마다 보관함 내용이 다르게 보임 — 근본 원인).
+      // 아래 Dogam.render()는 paintOwnerView의 자가복구 저장(Archive.save('gwansang'))을 유발하는데,
+      // 이게 Archive.loadFromCloud()의 클라우드 병합보다 먼저 실행되면 이 기기가 아직 못 받아온
+      // 클라우드 목록을 "없다"고 오판해 새 항목을 만들고, 그걸로 archive 필드 전체를 덮어써버린다.
+      // 그래서 실계정 로그인이면 loadFromCloud를 여기서 먼저 "시작"만 해둔다(끝나길 기다리지 않고
+      // Promise만 만들어 게이트를 미리 걸어둠) — archive.js가 병합 전 쓰기를 미루도록 같이 고쳤다.
+      // 아래 settling에서 다시 부르지 않고 이 Promise를 그대로 재사용한다(두 번 실행 방지).
+      const archiveLoadPromise = (user && !user.isAnonymous && window.Archive)
+        ? Archive.loadFromCloud() : Promise.resolve();
       // 익명 인증(인연도감이 비로그인 등록을 위해 발급)은 로그인이 아니다 — 헤더·마이페이지·프로필
       // 동기화는 카카오로 실제 로그인했을 때만 동작해야 한다.
       // 인연도감은 로그인 여부에 따라 내용이 달라지는데(내 도감 조회, "로그인하고 유지하기" 후킹),
@@ -87,7 +96,7 @@
             ? Dogam.migrateLocalOnLogin().then(function () { if (window.Dogam) Dogam.render(); })
             : Promise.resolve(),
           Profile.loadFromCloud(),
-          window.Archive ? Archive.loadFromCloud() : Promise.resolve(),
+          archiveLoadPromise, // 위에서 이미 시작해둔 것을 그대로 기다린다 — 여기서 다시 부르면 두 번 실행된다
         ];
         Promise.all(settling)
           .catch(function (e) { console.error('[kakao-auth] 로그인 후 데이터 로딩 중 오류', e); })

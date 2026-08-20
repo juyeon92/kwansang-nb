@@ -62,14 +62,37 @@
     try { return JSON.parse(localStorage.getItem(IDX_PREFIX + uid)) || []; }
     catch (e) { return []; }
   }
+  // ⚠️ 버그 수정(2026-08-20 사용자 리포트: 기기마다 보관함 내용이 다르게 보이는 근본 원인).
+  // 로그인 직후 Dogam.render()(paintOwnerView의 자가복구 저장, Archive.save('gwansang'))가
+  // loadFromCloud()의 병합이 끝나기도 전에 먼저 실행되면, 이 기기가 아직 못 받아온 클라우드
+  // 목록을 "없다"고 오판해 새 항목을 만들고 saveIndex()가 그걸로 archive 필드 전체를 덮어써버린다
+  // (Firestore set({merge:true})는 배열 필드를 원소 단위로 합치지 않고 통째로 교체한다). uid별로
+  // "이번 로그인에서 클라우드 병합이 끝났는지" 게이트를 두고, 끝나기 전의 쓰기는 병합이 끝난
+  // 뒤로 미룬다 — 로컬 저장(화면 반영)은 그대로 즉시 하고, 클라우드 쓰기만 미룬다.
+  const cloudGates = {}; // uid -> { promise, resolve, done }
+  function cloudGate(uid) {
+    if (!cloudGates[uid]) {
+      let resolveFn;
+      const p = new Promise(function (r) { resolveFn = r; });
+      cloudGates[uid] = { promise: p, resolve: resolveFn, done: false };
+    }
+    return cloudGates[uid];
+  }
   function saveIndex(list) {
     const uid = currentUid();
     if (!uid) return;
     localStorage.setItem(IDX_PREFIX + uid, JSON.stringify(list));
-    if (window.fbDb) {
-      fbDb.collection('users').doc(uid).set({ archive: list }, { merge: true })
+    if (!window.fbDb) return;
+    const write = function () {
+      // 게이트가 풀리기까지 기다린 경우, 그 사이 로컬이 더 바뀌어 있을 수 있어 이 시점의
+      // 최신 로컬 목록을 올린다(호출 당시의 list를 그대로 쓰면 뒤늦게 덮어쓰는 꼴이 된다).
+      const latest = loadIndex();
+      fbDb.collection('users').doc(uid).set({ archive: latest }, { merge: true })
         .catch(e => console.error('[archive] 목록 클라우드 저장 실패', e));
-    }
+    };
+    const gate = cloudGates[uid];
+    if (gate && !gate.done) { gate.promise.then(write); return; }
+    write();
   }
 
   // ── 리포트 본문 저장소 ───────────────────────────────────────────────
@@ -144,12 +167,17 @@
     notifyChanged();
     const uid = currentUid();
     if (!uid || !window.fbDb) return;
+    // await 전에 동기적으로 게이트를 만들어둔다 — 호출자가 이 Promise를 기다리지 않아도(호출만
+    // 해도) 이 시점부터 saveIndex()의 쓰기가 병합 완료까지 미뤄진다. kakao-auth.js가 Dogam.render()
+    // (자가복구 저장을 유발)보다 먼저 Archive.loadFromCloud()를 호출해두는 것과 세트로 동작한다.
+    const gate = cloudGate(uid);
     try {
       const doc = await fbDb.collection('users').doc(uid).get();
       const cloud = (doc.exists && Array.isArray(doc.data().archive)) ? doc.data().archive : [];
       const local = loadIndex();
       const merged = mergeIndex(local, cloud);
       localStorage.setItem(IDX_PREFIX + uid, JSON.stringify(merged));
+      gate.done = true; gate.resolve(); // 로컬은 이미 맞춰졌으니 여기서 게이트를 먼저 푼다
       // 합친 결과가 클라우드본과 다르면(로컬에만 있던 게 있었거나, 중복 gwansang을 정리했으면)
       // 다시 올려서 양쪽을 맞춘다. 완전히 같으면 불필요한 쓰기를 하지 않는다.
       if (JSON.stringify(merged) !== JSON.stringify(cloud)) saveIndex(merged);
@@ -157,6 +185,7 @@
       notifyChanged();
     } catch (e) {
       console.error('[archive] 목록 불러오기 실패', e);
+      gate.done = true; gate.resolve(); // 실패해도 게이트는 풀어준다 — 이후 저장이 영원히 막히면 안 된다
     }
   }
 
