@@ -999,6 +999,37 @@ const SIPSEONG_MEANING = {
   정인: '나를 채워주는 다정한 힘. 학문·문서운, 보살핌을 받는 편안함을 뜻해요.',
 };
 
+// 궁합보기 Zone2 신규(6-1) — "상대는 나에게 어떤 존재인가"를 서로의 일간을 상대 일간 기준 십성으로
+// 교차 계산해서 본다. 개인 성격 서술이 아니라 관계 안에서의 역할이라 궁합보기 취지에 맞는다.
+function buildSipseongCross(pillarsA, pillarsB) {
+  const dStemA = pillarsA[2].stem, dStemB = pillarsB[2].stem;
+  if (dStemA < 0 || dStemB < 0) return null;
+  const partnerToMe = getSipseong(dStemA, dStemB); // 내(A) 일간 기준 상대(B)의 역할 = "상대는 나에게 ~"
+  const meToPartner = getSipseong(dStemB, dStemA); // 상대(B) 일간 기준 나(A)의 역할 = "나는 상대에게 ~"
+  return {
+    partnerToMe, meToPartner,
+    meaningPartnerToMe: SIPSEONG_MEANING[partnerToMe],
+    meaningMeToPartner: SIPSEONG_MEANING[meToPartner],
+    dayOhA: CG_OH[dStemA], dayOhB: CG_OH[dStemB],
+  };
+}
+function renderSipseongCross(cross, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!cross) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="chemi-card">
+      <div class="chemi-title">상대 → 나</div>
+      <div class="chemi-role">상대는 나에게 <strong>${cross.partnerToMe}</strong> 같은 존재예요 — ${cross.meaningPartnerToMe}</div>
+      <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 내 일간(${cross.dayOhA}) 기준 상대 일간(${cross.dayOhB}) → ${cross.partnerToMe}</div>
+    </div>
+    <div class="chemi-card">
+      <div class="chemi-title">나 → 상대</div>
+      <div class="chemi-role">나는 상대에게 <strong>${cross.meToPartner}</strong> 같은 존재예요 — ${cross.meaningMeToPartner}</div>
+      <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 상대 일간(${cross.dayOhB}) 기준 내 일간(${cross.dayOhA}) → ${cross.meToPartner}</div>
+    </div>`;
+}
+
 // ═══ 지장간(支藏干) — 지지 12개마다 숨어있는 천간(여기·중기·정기, 마지막 원소=정기). 통근(通根:
 // 천간이 지지 속에 뿌리를 갖고 있는가) 판정에만 쓴다. 정기 12개 전부 JJ_OH와 일치함을 검증했다
 // (스크래치패드 jijanggan-test.js).
@@ -1066,6 +1097,41 @@ function calcYongsin(pillars) {
     : [dayOh, inseongOh];
   const yongsinOh = candidateOh.reduce((min, oh) => (ohCount[oh] < ohCount[min] ? oh : min), candidateOh[0]);
   return { isStrong: sinkang.isStrong, help: sinkang.help, drain: sinkang.drain, yongsinOh, ohCount };
+}
+
+// 궁합보기 Zone2 신규(6-2) — "내가 부족한 오행을 상대가 갖고 있는가"만 본다. calcYongsin 자체가
+// 간이 억부법(기획서/명리학 엔진 한계 노트.md 2절)이라, 카드에도 그 단서를 그대로 노출한다.
+function buildYongsinChemi(pillarsA, pillarsB, ohA, ohB) {
+  const yA = calcYongsin(pillarsA), yB = calcYongsin(pillarsB);
+  if (!yA || !yB) return null;
+  const totalA = Object.values(ohA).reduce((a, b) => a + b, 0) || 1;
+  const totalB = Object.values(ohB).reduce((a, b) => a + b, 0) || 1;
+  const bHasForA = Math.round((ohB[yA.yongsinOh] || 0) / totalB * 100); // 상대가 내 용신 오행을 가진 비중(%)
+  const aHasForB = Math.round((ohA[yB.yongsinOh] || 0) / totalA * 100); // 내가 상대 용신 오행을 가진 비중(%)
+  return { yongsinOhA: yA.yongsinOh, yongsinOhB: yB.yongsinOh, bHasForA, aHasForB };
+}
+// 오행 5개가 고르면 각 20%씩이라, 20%를 "평균 이상 갖고 있다"의 기준선으로 삼는다.
+function renderYongsinChemi(yongsin, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!yongsin) { el.innerHTML = ''; return; }
+  const { yongsinOhA, yongsinOhB, bHasForA, aHasForB } = yongsin;
+  const textForA = bHasForA >= 20
+    ? `내게 필요한 ${yongsinOhA} 기운을 상대가 넉넉히 갖고 있어요(${bHasForA}%) — 존재만으로 균형이 맞춰지는 조합이에요.`
+    : `내게 필요한 ${yongsinOhA} 기운이 상대에게도 부족한 편이에요(${bHasForA}%) — 둘이 서로 채워주기보단, 취미나 환경에서 그 기운을 보완하면 좋아요.`;
+  const textForB = aHasForB >= 20
+    ? `상대에게 필요한 ${yongsinOhB} 기운을 내가 넉넉히 갖고 있어요(${aHasForB}%) — 상대에게 내가 힘이 되어주는 조합이에요.`
+    : `상대에게 필요한 ${yongsinOhB} 기운이 나에게도 부족한 편이에요(${aHasForB}%) — 둘 다 외부에서 채워야 하는 기운이에요.`;
+  el.innerHTML = `
+    <div class="chemi-card">
+      <div class="chemi-title">나에게 필요한 오행 — ${yongsinOhA}</div>
+      <div class="chemi-role">${textForA}</div>
+    </div>
+    <div class="chemi-card">
+      <div class="chemi-title">상대에게 필요한 오행 — ${yongsinOhB}</div>
+      <div class="chemi-role">${textForB}</div>
+    </div>
+    <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:4px;">💡 이 판정은 간이 억부법 기준의 참고용 해석이에요.</div>`;
 }
 
 // ═══ 천을귀인(天乙貴人) — 일간 기준으로 가장 잘 알려진 길신(吉神). 학파 차이가 거의 없는 표준 공식 ═══
@@ -2202,6 +2268,7 @@ async function runGungham() {
     state.gunghamA.pillars = pillarsA; state.gunghamA.ohaeng = ohA;
     state.gunghamB.pillars = pillarsB; state.gunghamB.ohaeng = ohB;
     renderGunghamManseryeok(nameA, dateA, hourA, pillarsA, nameB, dateB, hourB, pillarsB);
+    renderSipseongCross(buildSipseongCross(pillarsA, pillarsB), 'ggSipseongCross');
 
     // ① 참고용 궁합 점수(접힌 상세 영역에만 노출)
     function renderCompatScore(compat) {
@@ -2265,8 +2332,9 @@ async function runGungham() {
     const moneyChemi = buildMoneyChemi(lmA, lmB, ggGenderA, ggGenderB, rel);
     const lifeStage = buildLifeStageChemi(lmA, lmB);
     const energy = buildEnergyChemi(ohA, ohB);
+    const yongsinChemi = buildYongsinChemi(pillarsA, pillarsB, ohA, ohB);
     const moments = buildMoments(ohA, ohB, narrativeA.statusMap, narrativeB.statusMap);
-    renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, moments);
+    renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, yongsinChemi, moments);
 
     // ⑤ Gemini 정밀 해석 자동 요청(수동 버튼 없음) — 키가 없으면 requestCoupleAi 내부에서 조용히 스킵된다.
     setGgAnalyzingMsg('AI가 두 사람의 궁합을 읽는 중이에요');
@@ -2676,7 +2744,7 @@ function typeComboLine(emoji, typeText) {
 
 // 개인별 관상/사주 서술은 통합분석 탭에 이미 있으므로 여기서는 그리지 않는다(2026-08-20 재편) —
 // narrativeA/B는 이제 이 함수 밖(buildRoleChemi의 statusMap 등)에서만 쓰인다.
-function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, moments) {
+function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, yongsinChemi, moments) {
   document.getElementById('ggHeadline').innerHTML = `"${buildCoupleHeadline(chemi.sameRole)}"`;
   renderHeadlineSub();
   renderFaceOhaengCompare(faceOhaengCompare, 'ggFaceOhaengCompare');
@@ -2711,6 +2779,8 @@ function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lif
   document.getElementById('ggEnergyCards').innerHTML = `
     <div class="chemi-card"><div class="chemi-title">에너지 시너지 (사주 대 사주)</div><div class="chemi-role">${energy.synergy}</div></div>
     <div class="chemi-card"><div class="chemi-title">마음의 안식처 케미</div><div class="chemi-role">${energy.haven}</div></div>`;
+
+  renderYongsinChemi(yongsinChemi, 'ggYongsinCard');
 
   document.getElementById('ggMomentCards').innerHTML = moments.map((m, i) => `
     <div class="moment-card">
