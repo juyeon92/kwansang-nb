@@ -759,6 +759,26 @@ function buildHeadline(dStem) {
   return OHAENG_TITLE[oh] || OHAENG_TITLE['토'];
 }
 
+// 통합분석 Zone2 히어로 헤드 — buildCoupleHeadline(궁합보기)과 같은 원칙: 점수 구간별 고정 문구,
+// AI 호출 없음(통합분석 리포트 구성.md §1·§2 — "제목/헤드"급은 룰베이스로 고정). chemiScore가
+// null이면(사진 없어 케미 계산 불가) 호출하지 않고 buildHeadline(dStem)을 그대로 쓴다.
+function buildChemiHeadline(chemiScore) {
+  if (chemiScore >= 80) return '찰떡 케미! 관상과 사주가 한 목소리를 내는, 타고난 그대로 사는 상';
+  if (chemiScore >= 60) return '합이 좋은 케미! 생김새와 타고난 기운이 대체로 같은 곳을 보는 상';
+  if (chemiScore >= 40) return '밸런스 케미! 얼굴과 사주가 서로 다른 색을 내며 균형을 잡는 상';
+  return '반전 매력 케미! 겉모습과 타고난 기운이 정반대 매력으로 채워주는 상';
+}
+
+// 통합분석 Zone2 "기운 줄다리기" 문구 — computeChemiDominance(character-engine.js)의 facePct/sajuPct
+// 기반 3케이스, 룰베이스(AI 호출 없음). chemiScore(방향 일치도)와 독립된 축이라 별도 함수로 분리.
+function buildDominanceLine(dominance) {
+  if (!dominance) return '';
+  const { facePct, sajuPct } = dominance;
+  if (facePct >= 45 && facePct <= 55) return '관상과 사주, 어느 한쪽에 기대지 않고 비슷한 크기로 목소리를 내는 밸런스형이에요';
+  if (sajuPct > facePct) return '타고난 사주 기운이 더 진하게 자리 잡고 있어서, 관상은 그 위에 살짝 덧입혀진 인상에 가까워요';
+  return '얼굴에 드러난 인상이 더 뚜렷한 편이라, 보이는 모습이 곧 진짜 나에 가까운 타입이에요';
+}
+
 // 사주 × 관상 시너지 문장 — 한자 노출 없이 은유로 (db/SAJU_LINK.csv 규칙 재사용)
 function buildSajuSynergy(dStem, statusMap) {
   const oh = dStem >= 0 ? CG_OH[dStem] : '토';
@@ -888,12 +908,6 @@ function buildPersonNarrative(lm, pillars, ohaeng) {
   return { paragraphs: [OHAENG_DETAIL[oh], '사진을 추가하면 관상까지 더해진 훨씬 상세한 리포트를 볼 수 있어요.'], statusMap: null };
 }
 
-function renderNarrativeParagraphs(elId, paragraphs) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  el.innerHTML = paragraphs.map(p => `<p style="margin-bottom:12px;">${p}</p>`).join('');
-}
-
 // 개인 리포트 렌더링 — 관상 탭 · 통합분석 탭 공용 (지침서 예시① 구조)
 function renderPersonalReportV2(lm, ids, pillars, ohaeng) {
   const r = getGwansangRatios(lm);
@@ -922,13 +936,6 @@ function renderPersonalReportV2(lm, ids, pillars, ohaeng) {
       <div class="part-tip ai-addition hidden"></div>
     </div>`;
   }).join('');
-
-  if (ids.synergy && pillars && ohaeng) {
-    const paragraphs = buildFullNarrative(dStem, ohaeng, statusMap, r);
-    renderNarrativeParagraphs(ids.synergy, paragraphs);
-    const synSection = document.getElementById(ids.synergy).closest('#cmbInsightSection');
-    if (synSection) synSection.style.display = 'block';
-  }
 
   if (ids.summary) {
     const routines = buildDailyRoutines(statusMap);
@@ -1528,6 +1535,58 @@ function renderDaeunTable(daeun, elId) {
   el.classList.remove('hidden');
 }
 
+// 생년월일 → 만 나이 — 대운x삼정 타임라인에서 "지금이 어느 대운인지" 찾는 데 쓴다.
+function calcAge(birthDateStr) {
+  const today = new Date();
+  const [y, m, d] = birthDateStr.split('-').map(Number);
+  let age = today.getFullYear() - y;
+  if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
+  return age;
+}
+
+// 대운x삼정 인생 타임라인(통합분석 Zone3) — 대운 지지의 12운성을 일간과 비교해 "이 시기가 어떤
+// 기운인지" 서사를 만든다(갑자 한자 나열 대신). 삼정(상정/중정/하정)은 별도 그래프 대신 나이 구간
+// 경계(초년≤30세·중년31~50세·말년51세~)로 목록을 나눠 구간 제목 안에 녹인다.
+const GOOD_UNSEONG = ['장생', '관대', '건록', '제왕'];
+function lifelineStage(age) { return age <= 29 ? 'early' : age <= 59 ? 'mid' : 'late'; }
+const LIFELINE_STAGE_LABEL = { early: '상정 · 초년', mid: '중정 · 중년', late: '하정 · 말년' };
+function renderLifeline(nowElId, listElId, daeun, dayStemIdx, samjeong, age) {
+  const listEl = document.getElementById(listElId);
+  const nowEl = document.getElementById(nowElId);
+  if (!listEl) return;
+  if (!daeun || !daeun.list.length || !samjeong) {
+    listEl.innerHTML = '';
+    if (nowEl) nowEl.innerHTML = '';
+    return;
+  }
+  const pctByStage = { early: samjeong.sangjeong, mid: samjeong.jungjeong, late: samjeong.hajeong };
+  let lastStage = null;
+  let current = null;
+  const html = daeun.list.map((d, i) => {
+    const stage = lifelineStage(d.startAge);
+    const unseong = d.branchIdx >= 0 ? get12Unseong(dayStemIdx, d.branchIdx) : null;
+    const isNow = age >= d.startAge && (i === daeun.list.length - 1 || age < daeun.list[i + 1].startAge);
+    if (isNow) current = Object.assign({ unseong }, d);
+    const isGood = unseong && GOOD_UNSEONG.includes(unseong);
+    // 첫 문장(비유적 표현)은 건너뛰고 두 번째 문장(실질적 의미)만 짧게 붙인다.
+    const meaningFull = unseong ? (SIBIUNSEONG_MEANING[unseong] || '') : '';
+    const meaning = meaningFull.split('. ')[1] || meaningFull;
+    let groupHead = '';
+    if (stage !== lastStage) {
+      groupHead = `<div class="lifeline-group-head ${stage}"><span class="lifeline-group-name">${LIFELINE_STAGE_LABEL[stage]}</span><span class="lifeline-group-pct">${pctByStage[stage]}%</span></div>`;
+      lastStage = stage;
+    }
+    const tags = (isNow ? '<span class="lifeline-now-tag">지금</span>' : '') + (isGood ? '<span class="lifeline-good-tag">⭐ 좋은 시기</span>' : '');
+    return `${groupHead}<div class="lifeline-item ${stage}${isNow ? ' is-now' : ''}"><span class="lifeline-dot"></span><span class="lifeline-unseong"><span class="age">${d.startAge}세 ~ ${d.endAge}세</span>${unseong || ''}${meaning ? ' · ' + meaning : ''}</span>${tags}</div>`;
+  }).join('');
+  listEl.innerHTML = html;
+  if (nowEl) {
+    nowEl.innerHTML = current
+      ? `지금 만 ${age}세 · 이번 대운(${current.startAge}세~${current.endAge}세)은 <b>${current.unseong}</b> 시기예요.`
+      : '';
+  }
+}
+
 // 다른 만세력 사이트들의 관례(시주-일주-월주-년주, 오른쪽에서 왼쪽으로 시간이 흐르는 배치)에 맞춰
 // 표시 순서만 뒤집는다 — pillars 배열 자체(년→월→일→시)는 computeOhaeng 등 다른 곳에서 계속 그 순서로
 // 쓰이므로 건드리지 않고, 렌더링 직전에만 [...].reverse()로 뒤집는다.
@@ -1800,6 +1859,36 @@ function renderOhaengBars(count, elId) {
   ).join('');
 }
 
+// Zone3 오행 비교(통합분석) — 관상(좌)% · 관상바 · 오행 라벨(중앙) · 사주바 · 사주(우)%, 오행별 색으로
+// 통일(목=초록·화=빨강·토=노랑·금=회색·수=파랑, 궁합보기 관상오행 비교 화면과 같은 팔레트).
+// 한줄평은 그래프 아래 headFaceElId/headSajuElId 두 박스에 각각 채운다(제목 없이 문구만).
+function renderOhaengCompareTable(sajuCount, faceCount, headFaceElId, headSajuElId, tableElId) {
+  const order = ['목','화','토','금','수'];
+  const emojis = { 목:'🌳', 화:'🔥', 토:'🏔', 금:'⚔', 수:'💧' };
+  const fillColor = { 목:'#4ade80', 화:'#f87171', 토:'#fbbf24', 금:'#cbd5e1', 수:'#60a5fa' };
+  const textColor = { 목:'#22c55e', 화:'#ef4444', 토:'#f59e0b', 금:'#94a3b8', 수:'#3b82f6' };
+  const sajuTotal = Object.values(sajuCount).reduce((a, b) => a + b, 0) || 1;
+
+  const domSaju = Object.entries(sajuCount).sort((a, b) => b[1] - a[1])[0][0];
+  const domFace = Object.entries(faceCount).sort((a, b) => b[1] - a[1])[0][0];
+  const headFace = document.getElementById(headFaceElId);
+  const headSaju = document.getElementById(headSajuElId);
+  if (headFace) headFace.textContent = FACE_OHAENG_TITLE[domFace];
+  if (headSaju) headSaju.textContent = OHAENG_TITLE_SHORT[domSaju];
+
+  const table = document.getElementById(tableElId);
+  if (!table) return;
+  const pcts = order.map(k => ({ k, facePct: Math.round(faceCount[k] || 0), sajuPct: Math.round((sajuCount[k] || 0) / sajuTotal * 100) }));
+  const maxPct = Math.max(1, ...pcts.map(p => Math.max(p.facePct, p.sajuPct)));
+  table.innerHTML = pcts.map(({ k, facePct, sajuPct }) => `<div class="oh-vs-row">
+        <span class="oh-vs-pct">${facePct}%</span>
+        <div class="oh-vs-track left"><div class="oh-vs-fill" style="width:${Math.round(facePct / maxPct * 100)}%;background:${fillColor[k]};"></div></div>
+        <span class="oh-vs-label" style="color:${textColor[k]};">${emojis[k]}${k}</span>
+        <div class="oh-vs-track"><div class="oh-vs-fill" style="width:${Math.round(sajuPct / maxPct * 100)}%;background:${fillColor[k]};"></div></div>
+        <span class="oh-vs-pct">${sajuPct}%</span>
+      </div>`).join('');
+}
+
 // ═══ 사주 오행 심층 리포트 — 다른 만세력 앱들처럼 "메타포 제목 + 서사 + 사주분석(근거 수치)/
 // 사주원리(원론)/현실조언(행동)" 구조로 작성한다("내 사주 오행 이렇게 상세하게 넣어주는데 너는 너무
 // 짧다"는 피드백 반영). 오행 8글자 중 0개(제로)인 오행이 있으면 그걸 우선으로, 없으면 3개 이상
@@ -1900,18 +1989,18 @@ const FACE_OHAENG_TITLE = {
   수: '깊고 지혜로운, 수형(水形) 관상',
 };
 
-// ── Zone3 헤드 — 관상 오행 전용 문구 (스펙 §4-A, A안 확정) ────────────────────────
-// 기존 OHAENG_VIBE는 사주 기준 문구라 Zone4에 그대로 두고, 얼굴 인상 톤에 맞춘 5종을 따로 뒀다.
-// 두 Zone을 나란히 읽었을 때 "얼굴은 볕, 사주는 들판" 식의 대비가 살아나도록 문형을 맞췄다.
-// ⚠️ Zone3/4 헤드는 "~기운"으로 영역을 묘사할 뿐 사람을 지칭하지 않는다 — 사람을 지칭하는 건
-// Zone1(캐릭터명)뿐이라는 게 스펙 원칙 2다. "~상" 어미를 여기에 쓰면 캐릭터명과 충돌한다.
-const FACE_OHAENG_HEAD = {
-  목: '곧게 뻗은 나무처럼 새로 자라는 기운',
-  화: '볕이 잘 드는 자리처럼 환하게 퍼지는 기운',
-  토: '넓은 들처럼 묵직하게 자리 잡은 기운',
-  금: '잘 벼려진 날처럼 또렷하게 정리된 기운',
-  수: '깊은 물처럼 조용히 가라앉은 기운',
+// 오행능력치 비교(통합분석 Zone3 페어2)에서만 쓰는 사주 쪽 짧은 헤드 — 기존 OHAENG_TITLE(사주보기 탭
+// 헤드라인용, 20자 이상)은 FACE_OHAENG_TITLE(관상, 14~16자)보다 훨씬 길어서 두 박스를 나란히 두면
+// 높이가 안 맞았다. OHAENG_TITLE 자체는 다른 탭에서 이미 쓰고 있어 못 건드리고, FACE_OHAENG_TITLE과
+// 같은 문형("~한, X형 OO")으로 길이를 맞춘 전용 세트를 새로 둔다.
+const OHAENG_TITLE_SHORT = {
+  목: '쭉쭉 뻗어나가는, 목 기운의 사주',
+  화: '열정이 넘쳐나는, 화 기운의 사주',
+  토: '든든하고 묵직한, 토 기운의 사주',
+  금: '칼같이 결단력 있는, 금 기운의 사주',
+  수: '깊고 차분한, 수 기운의 사주',
 };
+
 // ── Zone 아코디언 — 한 번에 하나만 (사용자 요청 2026-08-18) ─────────────────────
 // 리포트가 길어서 Zone을 여러 개 펼쳐두면 지금 어디를 읽고 있는지 놓친다. 하나를 열면 나머지를 닫는다.
 // .zone-accordion만 대상으로 잡는다 — Zone4 안에 중첩된 "사주 분석 근거 보기" 같은 하위 아코디언까지
@@ -1939,7 +2028,11 @@ else initZoneAccordions();
 // elId → 로딩 중임을 표시할 상위 Zone(없으면 스켈레톤만 그린다).
 // 사주·궁합 탭은 Zone 래퍼가 없어 매핑에서 빠지지만, 스켈레톤 자체는 동일하게 그려진다 —
 // 예전엔 이 두 탭만 "🧠 AI 정밀 리포트 생성 중..." 한 줄이라 통합분석과 로딩 경험이 달랐다.
-const AI_ZONE_SKELETON = { cmbFusionSection: 'cmbZone2', cmbAiFaceExtra: 'cmbZone3', cmbAiSajuSection: 'cmbZone4' };
+const AI_ZONE_SKELETON = {
+  cmbZone2Review: 'cmbZone2',
+  cmbZone3Reading1: 'cmbZone3', cmbZone3Reading2: 'cmbZone3', cmbZone3Reading3: 'cmbZone3',
+  cmbZone4Card1: 'cmbZone4', cmbZone4Cards: 'cmbZone4',
+};
 function showAiSkeleton(elId, label) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -1957,19 +2050,14 @@ function clearAiSkeleton(elId) {
   if (zone) zone.classList.remove('is-loading');
 }
 function showAllAiSkeletons() {
-  showAiSkeleton('cmbFusionSection', '관상과 사주를 함께 읽는 중이에요');
-  showAiSkeleton('cmbAiFaceExtra', '얼굴 부위를 자세히 보는 중이에요');
-  showAiSkeleton('cmbAiSajuSection', '사주 풀이를 쓰는 중이에요');
+  showAiSkeleton('cmbZone2Review', '관상과 사주의 케미를 읽는 중이에요');
+  showAiSkeleton('cmbZone3Reading1', '만세력과 기질을 함께 보는 중이에요');
+  showAiSkeleton('cmbZone3Reading2', '오행을 함께 보는 중이에요');
+  showAiSkeleton('cmbZone3Reading3', '대운과 삼정을 함께 보는 중이에요');
+  showAiSkeleton('cmbZone4Card1', '인생의 흐름을 쓰는 중이에요');
+  showAiSkeleton('cmbZone4Cards', '관상x사주 스토리를 쓰는 중이에요');
 }
 
-// Zone3/4 헤드 렌더 — 형태: "{영역}에서 보이는 기운 — {문구}"
-function renderZoneHead(elId, areaLabel, line) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  if (!line) { el.innerHTML = ''; return; }
-  el.innerHTML = `<span class="zone-head-area">${areaLabel}에서 보이는 기운</span>`
-    + `<span class="zone-head-line">${line}</span>`;
-}
 function renderFaceOhaengBars(count, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -2114,7 +2202,7 @@ function hideCmbAnalyzing() {
 
 // AI가 끝내 못 채운 영역이 "불러오는 중"·스켈레톤 상태로 완성 리포트에 섞이지 않게 정리한다.
 function finalizeAiSections() {
-  ['cmbFusionSection', 'cmbAiFaceExtra', 'cmbAiSajuSection'].forEach(id => {
+  ['cmbZone2Review', 'cmbZone3Reading1', 'cmbZone3Reading2', 'cmbZone3Reading3', 'cmbZone4Card1', 'cmbZone4Cards'].forEach(id => {
     clearAiSkeleton(id);
     const el = document.getElementById(id);
     if (!el) return;
@@ -2159,73 +2247,62 @@ async function buildCombinedReport(dateVal, preloadedLm) {
   const rel = state.combined.relation;
   document.getElementById('cmbResultTitle').textContent = `🔮 AI 관상 X 사주 개운 리포트 (${rel})`;
 
-  // ① 사주 먼저 계산 (사진 없어도 항상 실행) — 원국 표는 참고용으로만 노출
+  // ① 사주 먼저 계산 (사진 없어도 항상 실행) — Zone3 데이터 페어(만세력·오행·대운)의 사주 쪽 절반.
   const hourVal = document.getElementById('cmbBirthHour').value;
   const pillars = computePillars(dateVal, hourVal);
   const ohaeng = computeOhaeng(pillars);
+  const daeun = computeDaeun(dateVal, hourVal, cmbGender);
   state.combined.pillars = pillars;
   state.combined.ohaeng = ohaeng;
+  state.combined.daeun = daeun; // requestDeepReport의 zone3Extra + renderLifeline이 재사용
   renderPillarsTable(pillars, 'cmbPillarsTable');
-  // 스펙 §6 삭제 — 십이운성·십이신살·귀인/살 "목록형" 3종은 용어 정의 나열이라 통합분석에서 뺀다.
-  // 같은 정보의 의미는 Zone4 사주 풀이(AI 종합 서술)가 이미 소화하고, 원국 표의 신살 라벨도 남는다.
-  // 사주보기·궁합보기 탭은 성격이 다른 화면이라 기존대로 유지한다.
-  const cmbLegend = document.getElementById('cmbUnseongLegend');
-  if (cmbLegend) { cmbLegend.innerHTML = ''; cmbLegend.classList.add('hidden'); }
-  renderDaeunTable(computeDaeun(dateVal, hourVal, cmbGender), 'cmbDaeunTable');
-  renderOhaengBars(ohaeng, 'cmbOhaengBars');
-  renderOhaengDeepDive(ohaeng, pillars[2].stem, 'cmbOhaengDeepDive');
 
-  // ② 관상 섹션 초기화 — 사진 관련 부분(관상 포인트·관상 형상)은 AI 보완까지 끝난 뒤 한번에 공개
-  document.getElementById('cmbInsightSection').style.display = 'none';
+  // ② 관상 섹션 초기화 — 사진 관련 부분은 AI 보완까지 끝난 뒤 한번에 공개
   document.getElementById('cmbPhotoLoading').classList.add('hidden');
-  document.getElementById('cmbPhotoSection').classList.add('hidden');
+  // 사진 없으면 케미 점수 계산이 불가하므로(computeGwansangSajuChemi는 관상+사주 둘 다 필요) 사주만의
+  // 룰베이스 헤드로 대체 — 궁합보기 heroScores.gwansang:null과 같은 처리 원칙.
   if (!state.combined.file) {
-    document.getElementById('cmbGwansangCards').innerHTML = '<div style="color:var(--text2);font-size:13px;padding:4px 0 8px;">📸 사진을 업로드하면 얼굴 관상 포인트와 타고난 기운의 시너지를 함께 볼 수 있어요.</div>';
-    document.getElementById('cmbHeadline').innerHTML = `"${buildHeadline(pillars[2].stem)}"`;
-    document.getElementById('cmbPhotoSection').classList.remove('hidden');
+    document.getElementById('cmbZone2Headline').innerHTML = `"${buildHeadline(pillars[2].stem)}"`;
   } else {
     document.getElementById('cmbPhotoLoading').classList.remove('hidden'); // 사진 분석이 끝날 때까지 "관상 분석중~"만 노출
   }
 
-  // Zone4 헤드 — 예전 p1 최상단 헤드라인(OHAENG_TITLE)이 있던 정보다. 근거가 사주 오행 하나뿐이라
-  // 종합 자리에 두면 Zone1 캐릭터와 충돌해서, 어미를 "~기운"으로 바꿔 사주 섹션 헤드로 내렸다(스펙 §5-A).
-  const domSaju = Object.entries(ohaeng).sort((a, b) => b[1] - a[1])[0];
-  renderZoneHead('cmbSajuHead', '사주', domSaju ? (OHAENG_VIBE[domSaju[0]] || {}).line : '');
-
   if (state.combined.file) showAllAiSkeletons(); // 리포트 안 AI 영역의 자리(공개 전이라 화면엔 아직 안 보인다)
 
-  // ③ 사진이 있으면 관상 분석 + 사주 시너지까지 한번에 렌더링
+  // ③ 사진이 있으면 관상 분석 + Zone2 케미 점수/헤드 + Zone3/4 AI까지 한번에 렌더링
   let lm = null;
   if (state.combined.file) {
     setCmbAnalyzingMsg('얼굴을 살펴보는 중이에요');
     lm = preloadedLm || await runFaceAnalysis('combined');
     if (lm) {
-      renderPersonalReportV2(lm, { headline:'cmbHeadline', cards:'cmbGwansangCards', synergy:'cmbSynergyBox', summary:null, result:'cmbResult' }, pillars, ohaeng);
-      const ext = renderExtendedAnalysis(lm, { asymmetry:'cmbAsymmetry', faceOhaeng:'cmbFaceOhaeng', asymmetryDetail:false });
-      renderGoldenTime('cmbGoldenTime', ext.samjeong, calcAge(dateVal), pillars[2].stem);
-      renderSnapshotHighlights(ext.ratios, 'cmbSnapshot');
-      // Zone3 헤드 — 관상 오행(얼굴)만 근거로 삼는 문구. Zone4(사주)와 문형을 맞춰 나란히 읽히게 한다.
-      // calcFaceOhaeng은 랜드마크 배열을 받는다(비율 객체가 아니다). 여기서 잘못 넘겨 예외가 나면
-      // runCombined가 그대로 중단돼 뒤따르는 AI 호출까지 통째로 날아갔다 — Zone 헤드 하나 때문에
-      // 리포트 전체가 멈추지 않도록 인자도 바로잡고 try로 감쌌다.
-      try {
-        const faceOh = calcFaceOhaeng(lm);
-        const domFace = faceOh ? Object.entries(faceOh).sort((a, b) => b[1] - a[1])[0] : null;
-        renderZoneHead('cmbFaceHead', '얼굴', domFace ? FACE_OHAENG_HEAD[domFace[0]] : '');
-      } catch (e) { console.error('[combined] Zone3 헤드 렌더 실패 — 나머지는 계속 진행', e); }
+      const ext = renderExtendedAnalysis(lm, {});
+      renderOhaengCompareTable(ohaeng, ext.faceOh, 'cmbOhaengFaceHead', 'cmbOhaengSajuHead', 'cmbOhaengCompareTable');
+      renderLifeline('cmbLifelineNow', 'cmbLifeline', daeun, pillars[2].stem, ext.samjeong, calcAge(dateVal));
       // AI가 실패해도 사주·관상 로컬 분석 결과는 이미 완성돼 있다 — 예외로 함수가 중단되면 아래
-      // 개운 루틴 렌더와 보관함 저장까지 통째로 건너뛰므로, 여기서 흡수하고 진행한다.
+      // 보관함 저장까지 통째로 건너뛰므로, 여기서 흡수하고 진행한다.
       try {
         setCmbAnalyzingMsg('관상과 사주를 함께 읽는 중이에요');
-        await requestPersonalAi('combined'); // 키가 없어도 룰베이스 약식 추정으로 대체됨 — 로컬+AI(or 약식)가 다 끝난 뒤에 사진 섹션을 공개
-        setCmbAnalyzingMsg('사주 풀이를 쓰는 중이에요');
+        await requestPersonalAi('combined'); // classifyAndBuildCharacter가 characterResult.chemiScore까지 확정
+        // Zone2 헤드/케미점수 — 룰베이스, characterResult 확정 직후 바로 노출(AI 응답을 기다리지 않는다).
+        const chemi = state.combined.characterResult && state.combined.characterResult.chemiScore;
+        const dominance = state.combined.characterResult && state.combined.characterResult.dominance;
+        document.getElementById('cmbZone2Headline').innerHTML = `"${chemi != null ? buildChemiHeadline(chemi) : buildHeadline(pillars[2].stem)}"`;
+        document.getElementById('cmbChemiScore').textContent = chemi != null ? chemi : '-';
+        if (dominance) {
+          document.getElementById('cmbDomBar').classList.remove('hidden');
+          document.getElementById('cmbDomBarFace').style.width = dominance.facePct + '%';
+          document.getElementById('cmbDomBarSaju').style.width = dominance.sajuPct + '%';
+          document.getElementById('cmbDomFacePct').textContent = dominance.facePct;
+          document.getElementById('cmbDomSajuPct').textContent = dominance.sajuPct;
+          document.getElementById('cmbDomLine').textContent = buildDominanceLine(dominance);
+        }
+        setCmbAnalyzingMsg('관상x사주 스토리를 쓰는 중이에요');
         await requestDeepReport('combined');
       } catch (e) {
         console.error('[combined] AI 해설 실패 — 나머지 렌더와 보관은 계속 진행', e);
       }
       finalizeAiSections();
       document.getElementById('cmbPhotoLoading').classList.add('hidden');
-      document.getElementById('cmbPhotoSection').classList.remove('hidden');
     } else {
       document.getElementById('cmbPhotoLoading').classList.add('hidden');
       // 얼굴 인식 실패 — 에러 메시지(#cmbErr)는 사진 등록 영역 안에 있어서, 접어둔 채로 두면 보이지 않는다.
@@ -2234,18 +2311,6 @@ async function buildCombinedReport(dateVal, preloadedLm) {
     }
   }
 
-  // ④ Daily 개운 루틴 — 얼굴 사진이 있으면 부위 기반, 없으면 오행 생활 팁으로 대체
-  setCmbAnalyzingMsg('개운 루틴을 고르는 중이에요');
-  if (lm) {
-    const r = getGwansangRatios(lm);
-    const statusMap = judgePartStatus(r);
-    const routines = buildDailyRoutines(statusMap);
-    document.getElementById('cmbComplementCards').innerHTML = `<ol class="routine-list">${routines.map(rt => `<li>${rt}</li>`).join('')}</ol>`;
-  } else {
-    const items = [...generateOhaengLifestyle(ohaeng), ...generatePersonalBehavior(pillars, ohaeng)];
-    renderComplementCards(items, 'cmbComplementCards', null);
-  }
-  document.getElementById('cmbComplementSection').classList.remove('hidden');
   return lm;
 }
 
@@ -2408,14 +2473,6 @@ async function runGungham() {
   }
 }
 
-// ── 나이 → 인생 시기(초년/중년/말년) 및 골든타임 서술 (설계문서 §3-2,3) ──
-function calcAge(birthDateStr) {
-  const today = new Date();
-  const [y, m, d] = birthDateStr.split('-').map(Number);
-  let age = today.getFullYear() - y;
-  if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
-  return age;
-}
 // 오행 상생상극 — 사주 세운(올해의 간지) 판정용. 목생화, 화생토... 순서로 서로를 살려주는 관계(상생),
 // 목극토, 토극수... 순서로 서로를 억누르는 관계(상극).
 const OHAENG_GENERATES = { 목:'화', 화:'토', 토:'금', 금:'수', 수:'목' };
@@ -2437,48 +2494,6 @@ function getSewoonRelation(dStem) {
   if (OHAENG_CONTROLS[dOh] === yearOh) return { yearOh, text: `올해는 내가 ${yearOh} 기운을 다스리는 해라, 결과물이나 재물로 연결하기 좋은 시기예요.` };
   return { yearOh, text: `올해는 ${yearOh} 기운이 나를 다잡아주는 해라, 책임감 있게 도전해보기 좋은 시기예요.` };
 }
-// 골든타임 "타입" 4종 — 나이 구간(초년/중년/말년) 하나만으로는 문구가 획일화되는 문제(버그 리포트
-// 4번 항목)를 넘어서, 실제 삼정 % 격차와 시기 전후 관계까지 반영해 4가지 서사로 나눈다.
-// ① 현재=최고조 ② 다음 시기가 크게 앞서있음(격차≥15%p) ③ 다음 시기가 완만하게 앞서있음
-// ④ 이미 지난 시기가 가장 발달(대기만성형) — 실측 %는 그대로 문장에 넣어 매번 다른 숫자가 나오게 한다.
-const STAGE_ORDER = ['sangjeong', 'jungjeong', 'hajeong'];
-const STAGE_AGE_LABEL = { sangjeong:'20대', jungjeong:'30대', hajeong:'40대 이후' };
-const STAGE_PART_LABEL = { sangjeong:'이마', jungjeong:'눈과 코', hajeong:'하관과 턱선' };
-function buildGoldenTime(samjeong, age, dStem) {
-  const stage = age <= 30 ? 'sangjeong' : age <= 50 ? 'jungjeong' : 'hajeong';
-  const stageLabel = { sangjeong:'초년(이마)', jungjeong:'중년(코와 눈가)', hajeong:'말년(턱과 하관)' };
-  const value = samjeong[stage];
-  const sorted = Object.entries(samjeong).sort((a, b) => b[1] - a[1]);
-  const topStage = sorted[0][0];
-  const isPeak = topStage === stage;
-  const sewoon = getSewoonRelation(dStem);
-
-  const curIdx = STAGE_ORDER.indexOf(stage), topIdx = STAGE_ORDER.indexOf(topStage);
-  const gap = samjeong[topStage] - samjeong[stage];
-
-  let typeLabel, baseText;
-  if (isPeak) {
-    typeLabel = '🎯 지금이 딱 내 세상 타이머';
-    baseText = `만 ${age}세인 지금은 ${STAGE_AGE_LABEL[stage]}를 대표하는 ${STAGE_PART_LABEL[stage]}의 비율과 기운이 현재 나이대와 완벽하게 맞아떨어지는 타이밍이에요. 내 나이와 얼굴의 기운이 동시에 상향 곡선을 그리는 아주 귀한 구간이니, 지금 밀어붙이는 일에서 최고의 시너지를 얻을 수 있어요.`;
-  } else if (topIdx > curIdx) {
-    if (gap >= 15) {
-      typeLabel = '🚀 포텐 터지는 스타터';
-      baseText = `현재 만 ${age}세로, 관상학적으로는 ${STAGE_PART_LABEL[stage]}(${STAGE_AGE_LABEL[stage]})에서 ${STAGE_PART_LABEL[topStage]}(${STAGE_AGE_LABEL[topStage]})로 넘어가는 중요한 길목에 서 있어요. ${STAGE_AGE_LABEL[stage]} 기운보다 ${STAGE_AGE_LABEL[topStage]}를 담당하는 ${STAGE_PART_LABEL[topStage]}의 포텐이 ${samjeong[topStage]}%로 먼저 터져있는 타입이에요! 남들보다 빠르게 다음 시기의 재물운과 커리어 포텐을 먼저 당겨쓰는 '스타트 부스터' 시기이니, 망설이지 말고 하고 싶었던 일을 바로 추진해보세요.`;
-    } else {
-      typeLabel = '❄️ 차곡차곡 스노우볼 러너';
-      baseText = `만 ${age}세로 한창 ${STAGE_PART_LABEL[stage]}(${STAGE_AGE_LABEL[stage]})의 기운을 쓰는 구간이지만, ${STAGE_PART_LABEL[topStage]}(${STAGE_AGE_LABEL[topStage]})에 매력과 운의 저력이 꽉 차 있는 타입이에요. 지금 당장 결과가 빠르게 안 나온다고 조급해할 필요가 전혀 없어요! 시간이 갈수록 운의 크기가 눈덩이처럼 커지는 '스노우볼 러너' 흐름이니, 지금 기운을 예쁘게 다져두면 나이가 들수록 재물과 인복이 크게 불어나요.`;
-    }
-  } else {
-    typeLabel = '🌙 저력으로 승부하는 관록형';
-    baseText = `만 ${age}세로 ${STAGE_PART_LABEL[stage]}(${STAGE_AGE_LABEL[stage]}) 기운을 쓰는 지금이지만, 사실 ${STAGE_PART_LABEL[topStage]}(${STAGE_AGE_LABEL[topStage]})에 이미 다져둔 저력이 가장 크게 자리 잡은 타입이에요. 화려하게 새로 터뜨리기보다, 그동안 쌓아온 경험과 관록으로 지금을 헤쳐나가는 힘이 있어요. 과거의 강점을 지금 상황에 맞게 다시 꺼내 쓰는 지혜가 필요한 시기예요.`;
-  }
-
-  return {
-    stage, stageLabel: stageLabel[stage], value, isPeak, topStage, sewoon, typeLabel,
-    text: sewoon ? `${baseText} ${sewoon.text}` : baseText,
-  };
-}
-
 // 좌우 비대칭 + 관상오행 렌더링 — 관상 탭·통합분석 탭 공용 (나이가 없어도 항상 표시 가능한 부분만)
 function renderExtendedAnalysis(lm, ids) {
   const asym = calcAsymmetry(lm);
@@ -2521,14 +2536,6 @@ function renderExtendedAnalysis(lm, ids) {
     }
   }
   return { asym, faceOh, samjeong: calcSamjeongRatio(lm), ratios };
-}
-
-function renderGoldenTime(elId, samjeong, age, dStem) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  const gt = buildGoldenTime(samjeong, age, dStem);
-  el.innerHTML = `<strong style="color:var(--gold);">☯️ 나이 골든타임 — ${gt.typeLabel}</strong><br><br>${gt.text}`;
-  el.classList.remove('hidden');
 }
 
 // ── 커플 케미 콘텐츠 엔진 (지침서 예시② 구조, CONTENT_SPEC.md §5 — db/MATCHING·SAJU_LINK 재사용) ──
@@ -2643,7 +2650,7 @@ function buildMoneyChemi(lmA, lmB, genderA, genderB, rel) {
   const similarity = 100 - Math.abs(levelA - levelB);
   return { text, levelA, levelB, similarity };
 }
-// 생애주기(초년·중년·말년) 궁합(궁합 리포트 구성.md 4-1) — 개인 골든타임(buildGoldenTime)과 달리 두 사람의
+// 생애주기(초년·중년·말년) 궁합(궁합 리포트 구성.md 4-1) — 개인 삼정 해석과 달리 두 사람의
 // 삼정 값을 겹쳐서 "관계가 어느 시기에 강한가"만 본다.
 function buildLifeStageChemi(lmA, lmB) {
   if (!lmA || !lmB) return null;

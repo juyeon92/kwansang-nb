@@ -235,11 +235,56 @@ body {
 .zone-basis-title { font-size: 15px; font-weight: 800; color: var(--text-title); }
 .ztrait-bars { margin: 14px 0 6px; }
 .ztrait-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.ztrait-name { flex: none; width: 26px; font-size: 11.5px; color: var(--text-sub); }
+.ztrait-name { flex: none; width: 30px; font-size: 11.5px; color: var(--text-sub); line-height: 1.3; }
 .ztrait-track { flex: 1; height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; }
 .ztrait-fill { display: block; height: 100%; border-radius: 999px; background: var(--border-gray); }
 .ztrait-row.is-top .ztrait-name { font-weight: 800; color: var(--text-title); }
 .ztrait-row.is-top .ztrait-fill { background: var(--mint); }
+
+/* ── Zone3 데이터 페어 카드 (통합분석) ── */
+.z3-pair-card { border: 1px solid var(--border); border-radius: 16px; background: var(--card2); padding: 16px; }
+.z3-pair-title { font-size: 13px; font-weight: 800; color: var(--jade); margin-bottom: 10px; }
+
+/* 오행능력치 비교 — 관상%(좌) · 관상바 · 오행 라벨(중앙) · 사주바 · 사주%(우) */
+.oh-vs-row { display: grid; grid-template-columns: 32px 1fr 52px 1fr 32px; align-items: center; gap: 6px; margin-top: 9px; }
+.oh-vs-head { margin-top: 2px; font-size: 11.5px; font-weight: 800; }
+.oh-vs-head span { text-align: center; }
+.oh-vs-head span.face { grid-column: 1 / 3; color: var(--jade); }
+.oh-vs-head span.saju { grid-column: 4 / 6; color: var(--beige-chip-text); }
+.oh-vs-pct { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text2); text-align: center; }
+.oh-vs-track { height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; display: flex; }
+.oh-vs-track.left { justify-content: flex-end; }
+.oh-vs-fill { display: block; height: 100%; border-radius: 999px; }
+.oh-vs-label { font-size: 12px; font-weight: 700; text-align: center; white-space: nowrap; }
+
+/* 오행능력치 한줄평 — 그래프 아래, 관상/사주 각자 영역에 가운데 정렬 */
+.oh-headline-split { display: grid; grid-template-columns: 32px 1fr 52px 1fr 32px; gap: 6px; margin-top: 14px; }
+.oh-headline-box { grid-column: span 2; font-size: 11.5px; font-weight: 800; line-height: 1.6; padding: 8px 9px; border-radius: 10px; text-align: center; }
+.oh-headline-box.face { grid-column: 1 / 3; background: var(--mint-10); color: var(--jade); }
+.oh-headline-box.saju { grid-column: 4 / 6; background: rgba(103,85,54,0.08); color: var(--beige-chip-text); }
+
+/* 대운x삼정 인생 타임라인 */
+.lifeline-group-head { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 0 8px; }
+.lifeline-group-head:first-child { margin-top: 2px; }
+.lifeline-group-name { font-size: 12.5px; font-weight: 800; }
+.lifeline-group-pct { font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.lifeline-group-head.early .lifeline-group-name, .lifeline-group-head.early .lifeline-group-pct { color: var(--jade); }
+.lifeline-group-head.mid .lifeline-group-name, .lifeline-group-head.mid .lifeline-group-pct { color: var(--beige-chip-text); }
+.lifeline-group-head.late .lifeline-group-name, .lifeline-group-head.late .lifeline-group-pct { color: var(--text2); }
+.lifeline-item { display: flex; align-items: center; gap: 10px; padding: 5px 0 5px 4px; border-left: 3px solid; margin-left: 4px; }
+.lifeline-item.early { border-color: var(--mint); }
+.lifeline-item.mid { border-color: var(--beige); }
+.lifeline-item.late { border-color: var(--border); }
+.lifeline-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-left: -8px; }
+.lifeline-item.early .lifeline-dot { background: var(--mint); }
+.lifeline-item.mid .lifeline-dot { background: var(--beige); }
+.lifeline-item.late .lifeline-dot { background: var(--text3); }
+.lifeline-unseong { flex: 1; font-size: 13px; font-weight: 700; color: var(--text); }
+.lifeline-unseong .age { display: block; font-size: 10.5px; font-weight: 600; color: var(--text2); margin-bottom: 1px; }
+.lifeline-item.is-now { background: var(--mint-10); border-radius: 0 10px 10px 0; }
+.lifeline-now-tag { flex: none; font-size: 10px; font-weight: 800; color: #fff; background: var(--jade); border-radius: 999px; padding: 2px 8px; }
+.lifeline-good-tag { flex: none; font-size: 10px; font-weight: 800; color: #b8860b; background: #fff3cd; border-radius: 999px; padding: 2px 8px; }
+
 .zone-basis-summary { font-size: 13px; line-height: 1.85; color: var(--text); margin-top: 12px; }
 .zone-basis-summary b { color: var(--jade); }
 
@@ -649,6 +694,16 @@ body {
 .chemi-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
 .chemi-title { font-size: 13px; font-weight: 800; color: var(--jade); margin-bottom: 8px; }
 .chemi-role { font-size: 12.5px; color: var(--text); line-height: 1.8; margin-bottom: 4px; }
+/* ── 기운 줄다리기 바 (통합분석 Zone2) ── */
+.dom-bar { margin-top: 14px; }
+.dom-bar-track { display: flex; height: 10px; border-radius: 999px; overflow: hidden; }
+.dom-bar-fill { height: 100%; }
+.dom-bar-fill.face { background: var(--mint); }
+.dom-bar-fill.saju { background: var(--beige-chip-text); }
+.dom-bar-labels { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11.5px; font-weight: 700; }
+.dom-bar-labels .face { color: var(--jade); }
+.dom-bar-labels .saju { color: var(--beige-chip-text); }
+.dom-line { margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--text2); text-align: left; }
 .moment-card { background: var(--beige-bg); border: 1px solid var(--beige); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
 .moment-title { font-size: 13px; font-weight: 800; color: var(--beige-chip-text); margin-bottom: 6px; }
 .moment-tip { font-size: 12.5px; color: var(--text); line-height: 1.7; margin-top: 6px; }
@@ -1395,10 +1450,6 @@ body.overlay-open { overflow: hidden; }
 
     <div class="card hidden shell-strip" id="cmbResult">
       <div class="card-title" id="cmbResultTitle">🔮 AI 관상 X 사주 개운 리포트</div>
-      <!-- ⚠️ 스펙 §6 — OHAENG_TITLE 헤드라인은 사주 오행 1개만 보고 만든 문구라 Zone1 캐릭터와
-           정면 충돌한다("이 사람은 누구인가는 Zone1만 말한다"). 화면에서는 감추고, 같은 정보는
-           어미를 "~기운"으로 바꿔 Zone4 헤드(cmbSajuHead)에서 노출한다. -->
-      <div class="headline-quote hidden" id="cmbHeadline"></div>
 
       <!-- ══ Zone1 · 관상 캐릭터 ══ 관상70 + 사주30 융합 결과. AI를 안 쓰므로 분석 직후 바로 뜬다. -->
       <!-- Zone1도 다른 Zone과 같은 아코디언으로 맞춘다(사용자 요청 2026-08-18) — 예전엔 일반 div라
@@ -1412,90 +1463,69 @@ body.overlay-open { overflow: hidden; }
 
       <div id="cmbPhotoLoading" class="hidden" style="text-align:center;color:var(--text2);font-size:13px;padding:24px 0;">🔮 관상 분석중~</div>
 
-      <!-- ══ Zone2 · 종합 분석 ══ Zone1이 "누구인가"를 가져갔으므로 여기는 관상과 사주가 서로
-           어떤 관계인지를 다룬다. 전부 AI라 로딩 구간이 있다. -->
+      <!-- ══ Zone2 · 총평 히어로 ══ 통합분석 리포트 구성.md §1. 헤드/케미점수는 룰베이스(항상 즉시
+           노출), 총평만 AI라 그 부분만 로딩 스켈레톤을 탄다. -->
       <details class="report-accordion zone-accordion" id="cmbZone2">
-        <summary>ZONE 2 · 종합 분석 — 관상과 사주가 만나면</summary>
-        <div id="cmbFusionSection" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-
-        <!-- 사용자 요청 2026-08-19 — Zone4에 있던 관상×사주 종합 서술(cmbSynergyBox, 룰베이스)을
-             통째로 여기로 옮겼다. Zone2가 이미 "관상과 사주가 만나면"을 다루는 종합 분석 영역이라
-             일부 문단만 골라내지 않고 전체를 그대로 이관함. 제자리 배치는 추후 정리. -->
-        <div id="cmbInsightSection" style="display:none;margin-top:14px;">
-          <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">*zone4에서 넘어옴(정리 필요)</div>
-          <div class="summary-box" id="cmbSynergyBox" style="margin-top:0;"></div>
+        <summary>ZONE 2 · 관상x사주 총평</summary>
+        <!-- 영역1: 헤드 문구 (궁합보기 ggHeadline과 같은 독립 박스) -->
+        <div class="headline-quote" id="cmbZone2Headline"></div>
+        <!-- 영역2: 케미 점수 + 총평 (궁합보기 chemi-card와 같은 구조) -->
+        <div class="chemi-card" style="text-align:center;">
+          <div class="chemi-title">🧠 관상x사주 케미 점수</div>
+          <div class="gg-hero-total" style="margin-top:6px;"><b id="cmbChemiScore">-</b><span>점</span></div>
+          <!-- 기운 줄다리기 바 — chemiScore(방향 일치도)와 별개로 "어느 쪽 기운이 더 센지"를 보여준다 -->
+          <div class="dom-bar hidden" id="cmbDomBar">
+            <div class="dom-bar-track">
+              <div class="dom-bar-fill face" id="cmbDomBarFace"></div>
+              <div class="dom-bar-fill saju" id="cmbDomBarSaju"></div>
+            </div>
+            <div class="dom-bar-labels">
+              <span class="face">관상 <b id="cmbDomFacePct">-</b>%</span>
+              <span class="saju">사주 <b id="cmbDomSajuPct">-</b>%</span>
+            </div>
+            <div class="dom-line" id="cmbDomLine"></div>
+          </div>
+          <div class="chemi-role" style="text-align:left;margin-top:8px;" id="cmbZone2Review">사진 분석이 끝나면 표시돼요.</div>
         </div>
       </details>
 
-      <!-- ══ Zone3 · 관상 분석 ══ 얼굴만 근거로 삼는 영역. 예전 "1️⃣ 기본 관상 리포트"와
-           "3️⃣ AI가 판단한 관상"이 같은 부위를 두 번 설명하던 걸 한 아코디언으로 합쳤다(스펙 §4). -->
+      <!-- ══ Zone3 · 데이터 풀이 ══ 통합분석 리포트 구성.md §1 — 만세력+6기질 / 오행+오행 / 대운+삼정,
+           페어마다 AI 융합풀이 1개. 세 풀이 모두 AI라 로딩 스켈레톤을 탄다. -->
       <details class="report-accordion zone-accordion" id="cmbZone3">
-        <summary>ZONE 3 · 관상 분석 — 얼굴에서 보이는 기운</summary>
-        <div class="zone-head" id="cmbFaceHead"></div>
+        <summary>ZONE 3 · 관상x사주 데이터 풀이</summary>
 
-        <div class="card-title" style="margin-top:12px;">📊 나만의 관상 오행 능력치</div>
-        <div class="ohaeng-bars" id="cmbFaceOhaeng" style="margin-bottom:8px;"></div>
-
-        <div class="card-title" style="margin-top:16px;">🧠 관상 종합 분석</div>
-        <div id="cmbAiFaceExtra" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-
-        <div class="snapshot-box hidden" id="cmbSnapshot"></div>
-
-        <!-- 전통 형상 2카드(눈 유형·전체 인상)만 남긴다. 이 둘은 눈13·얼굴9종의 전통 물형 축이라
-             아래 7카드(생김새 축)와 계열이 달라 별도로 앞에 둔다(스펙 §4-B). -->
-        <div id="cmbPhotoSection" class="hidden">
-          <div class="hidden" id="cmbArchetype" style="margin-bottom:16px;"></div>
+        <div class="z3-pair-card">
+          <div class="z3-pair-title">☯ 사주 원국</div>
+          <div class="pillars-table" id="cmbPillarsTable"></div>
         </div>
+        <div id="cmbZone3Reading1" style="margin-top:10px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
 
-        <!-- 부위별 상세 — 부위 1개 = 카드 1장. AI 해석 + 생김새 유형(DB) + 실측 포인트(룰)를 한 카드에
-             층으로 쌓는다. 예전의 "부위별 생김새 유형" 섹션과 "내 얼굴 관상 포인트" 그리드는 이 안으로
-             흡수돼 사라졌다(사용자 요청 2026-08-17). -->
-        <div class="card-title" style="margin-top:16px;margin-bottom:12px;">🧩 부위별 상세</div>
-        <div id="cmbPartCards"></div>
-        <!-- 아래 두 컨테이너는 화면에 안 보인다. 기존 렌더 함수(renderPersonalReportV2·renderArchetypes)가
-             이 id로 직접 쓰기 때문에 지우면 예외가 나고, 내용은 위 #cmbPartCards로 합쳐져 나간다.
-             app.js 계산 로직을 건드리지 않기 위해 빈 그릇만 남겨두는 방식. -->
-        <div class="part-grid hidden" id="cmbGwansangCards"></div>
-        <div class="hidden" id="cmbShapeDetailsSink"></div>
-
-        <div class="card-title" style="margin-top:20px;">🎭 좌우 비대칭으로 본 내면 vs 사회적 모습</div>
-        <div id="cmbAsymmetry" style="margin-bottom:8px;"></div>
-
-        <div class="summary-box hidden" id="cmbGoldenTime"></div>
-
-        <!-- 스펙 §6 이동 — Daily 루틴은 내용이 전부 Zone3 "채워볼 포인트"에서 파생되므로
-             진단(발달 부위) → 행동(루틴)으로 닫히도록 Zone3 최하단으로 옮겼다. -->
-        <div class="hidden" id="cmbComplementSection" style="margin-top:20px;">
-          <div class="card-title" style="color:var(--jade);">📌 Daily 개운 루틴</div>
-          <div id="cmbComplementCards"></div>
+        <div class="z3-pair-card" style="margin-top:16px;">
+          <div class="z3-pair-title">🌳 오행능력치 비교</div>
+          <div class="oh-vs-row oh-vs-head"><span class="face">관상</span><span class="saju">사주</span></div>
+          <div id="cmbOhaengCompareTable" style="color:var(--text2);font-size:12.5px;">사진이 있어야 볼 수 있어요.</div>
+          <div class="oh-headline-split">
+            <div class="oh-headline-box face" id="cmbOhaengFaceHead"></div>
+            <div class="oh-headline-box saju" id="cmbOhaengSajuHead"></div>
+          </div>
         </div>
+        <div id="cmbZone3Reading2" style="margin-top:10px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+
+        <div class="z3-pair-card" style="margin-top:16px;">
+          <div class="z3-pair-title">🌊 대운 x 🎭 삼정 — 인생 타임라인</div>
+          <div id="cmbLifelineNow" style="font-size:12.5px;color:var(--text);margin-bottom:6px;"></div>
+          <div class="lifeline" id="cmbLifeline" style="color:var(--text2);font-size:12.5px;">사진이 있어야 볼 수 있어요.</div>
+          <!-- 사주보기 탭과 같은 renderDaeunTable을 쓰지 않으므로 숨은 그릇 불필요 -->
+        </div>
+        <div id="cmbZone3Reading3" style="margin-top:10px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
       </details>
 
-      <!-- ══ Zone4 · 사주 분석 ══ 사주만 근거로 삼는 영역. 예전 "2️⃣ 기본 사주 구성"과
-           "4️⃣ AI가 판단한 사주"를 합쳤다. -->
+      <!-- ══ Zone4 · 스토리 풀이 ══ 통합분석 리포트 구성.md §1 — 고정 카드1(인생의 흐름, early_life/
+           mid_life/late_life 재사용) + 가변 카드(1~3개, 하이브리드 제목). 전부 AI라 로딩 스켈레톤을 탄다. -->
       <details class="report-accordion zone-accordion" id="cmbZone4">
-        <summary>ZONE 4 · 사주 분석 — 사주에서 보이는 기운</summary>
-        <div class="zone-head" id="cmbSajuHead"></div>
-
-        <!-- 사용자 요청 2026-08-17 — 풀이(설명)를 먼저 읽히고, 원국·오행·대운 같은 근거는 그 뒤에 둔다.
-             예전엔 한자 표부터 나와서 "이게 무슨 뜻인지" 모른 채 표를 먼저 마주해야 했다. -->
-        <div class="card-title" style="margin-top:12px;">🔮 사주 풀이</div>
-        <div id="cmbAiSajuSection" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-
-        <details class="report-accordion" style="margin-top:18px;">
-          <summary>사주 분석 근거 보기 (원국 · 오행 분포 · 대운)</summary>
-
-          <div class="card-title" style="margin-bottom:12px;">☯ 사주 원국</div>
-          <div class="pillars-table" id="cmbPillarsTable"></div>
-          <div class="hidden" id="cmbUnseongLegend"></div>
-
-          <div class="card-title" style="margin-top:16px;margin-bottom:12px;">오행 분포</div>
-          <div class="ohaeng-bars" id="cmbOhaengBars"></div>
-          <div class="summary-box hidden" id="cmbOhaengDeepDive" style="margin-top:12px;"></div>
-
-          <div class="card-title" style="margin-top:16px;margin-bottom:12px;">🌊 대운(大運) — 10년 단위 인생 흐름</div>
-          <div class="hidden" id="cmbDaeunTable"></div>
-        </details>
+        <summary>ZONE 4 · 관상x사주 스토리 풀이</summary>
+        <div id="cmbZone4Card1" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+        <div id="cmbZone4Cards" style="margin-top:16px;"></div>
       </details>
 
       <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:14px;">print</span> 결과 인쇄</button>

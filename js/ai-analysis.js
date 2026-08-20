@@ -379,6 +379,23 @@ ${buildGunghapSajuBlock(nameB, cache.pillarsB, cache.ohB, cache.sajuInsightB)}
 // 싶다고 함. schema에서 필드 자체를 빼면 Gemini가 만들어낼 일이 없어 화면에서 숨길 필요도 없어진다.
 // hasFace=false(사주 탭, 사진 없음)일 땐 part_deep_dive를 뺀다 — 관상 실측값이 아예 없어서 부위별
 // 해설 자체를 지어낼 근거가 없기 때문(2026-08-13: 사주 탭에 AI 리포트가 아예 안 붙어있던 문제 반영).
+// 통합분석 Zone4 카드 제목 — ⚠️ 2026-08-21 수정: "후보뱅크에서 골라 쓰거나 살짝 변형"하는 하이브리드로
+// 만들었었는데, AI가 이 예시 문장을 그대로(또는 단어만 살짝 바꿔) 베껴 쓰는 문제가 실제로 나왔다
+// (사용자 리포트). "고를 수 있는 후보"로 제시하면 그대로 골라버리니, 톤/형식만 참고하고 반드시 새로
+// 쓰게 "말투 참고용"으로만 프롬프트에 넣는다 — 아래는 후보가 아니라 참고 예시일 뿐이다.
+const CMB_ZONE4_TITLE_STYLE_EXAMPLES = [
+  '누가 뭐래도 당신은 모두가 기댈 수 있는 든든한 산',
+  '재물 바다를 품은 거대한 태산, 스케일이 다른 K-여사장님 재질',
+  '알잘딱깔센 재테크의 신, 근데 통제는 살짝 힘들어함',
+  '사장님 할 거 아니면 답답해서 어찌 사시나? 팩폭 들어갑니다',
+  '돈 복은 타고났네, 머니 파이프라인 심는 재능 만렙',
+  '연애는 프리스타일, 결혼은 비혼주의? No, 숨은 인연 찾기',
+  '아버지는 태평양, 어머니는 등대... 나는 그 사이의 섬',
+  '서울보다는 강릉, 해외는 캐나다? 따스한 햇살과 숲이 필요해',
+  '애증의 K-가족, 그래도 내 편인 거 알지?',
+  '인싸인 듯 아싸, 아싸인 듯 인싸',
+];
+
 function buildPersonalDeepReportSchema(hasSaju, hasFace) {
   const properties = {
     catchphrase: {
@@ -399,22 +416,40 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
         '사용자가 먼저 읽는 전체 성향 풀이. 전문용어보다 실제 성격·행동·대인관계 장면을 중심으로 5~7문장. 장점과 장점이 과했을 때의 이면까지 함께 설명하고 마지막에는 사용자가 자신의 경험과 맞춰볼 수 있는 구체적인 일상 장면이나 공감형 질문을 넣을 것.'
     },
 
+    early_life_headline: {
+      type: 'STRING',
+      description:
+        '초년운(~29세) 문단 바로 위에 붙는 짧은 헤드 카피. 반드시 한 줄(줄바꿈 없이)로 끝낼 것 — "주변의 기대를 품고 스스로의 기준을 단단하게 다져가던 시기" 정도 길이를 넘지 말 것. 이 시기의 핵심을 한 문장으로 압축.'
+    },
+
     early_life: {
       type: 'STRING',
       description:
-        '초년운(유년~20대)을 3~5문장으로. 실제 삶과 비교할 수 있는 성향·환경·선택 패턴 위주로 서술. 지나치게 구체적인 사건을 지어내지 말 것.'
+        '초년운(~29세)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것(관상만 또는 사주만으로 쓰지 말 것). 실제 삶과 비교할 수 있는 성향·환경·선택 패턴 위주로 서술. 지나치게 구체적인 사건을 지어내지 말 것.'
+    },
+
+    mid_life_headline: {
+      type: 'STRING',
+      description:
+        '중년운(30~59세) 문단 바로 위에 붙는 짧은 헤드 카피. 반드시 한 줄(줄바꿈 없이)로 끝낼 것 — "주변의 기대를 품고 스스로의 기준을 단단하게 다져가던 시기" 정도 길이를 넘지 말 것.'
     },
 
     mid_life: {
       type: 'STRING',
       description:
-        '중년운(30~50대)을 3~5문장으로. 사회생활·관계·책임·선택 방식처럼 현실적으로 확인 가능한 패턴 위주로 설명.'
+        '중년운(30~59세)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것. 사회생활·관계·책임·선택 방식처럼 현실적으로 확인 가능한 패턴 위주로 설명.'
+    },
+
+    late_life_headline: {
+      type: 'STRING',
+      description:
+        '말년운(60세~) 문단 바로 위에 붙는 짧은 헤드 카피. 반드시 한 줄(줄바꿈 없이)로 끝낼 것 — "주변의 기대를 품고 스스로의 기준을 단단하게 다져가던 시기" 정도 길이를 넘지 말 것.'
     },
 
     late_life: {
       type: 'STRING',
       description:
-        '말년운(60대 이후)을 3~5문장으로. 단정적인 미래예언이 아니라 성향이 어떻게 성숙하거나 안정되는지 중심으로 설명.'
+        '말년운(60세~)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것. 단정적인 미래예언이 아니라 성향이 어떻게 성숙하거나 안정되는지 중심으로 설명.'
     },
 
     past_reflection: {
@@ -434,8 +469,11 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     'catchphrase',
     'personality_type',
     'personality_detail',
+    'early_life_headline',
     'early_life',
+    'mid_life_headline',
     'mid_life',
+    'late_life_headline',
     'late_life',
     'past_reflection',
     'growth_guidance'
@@ -540,44 +578,74 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
   }
 
   // 관상×사주 "융합" 필드 — 통합분석 탭(사진+생년월일시 둘 다 있음)처럼 두 데이터가 모두 있을 때만
-  // 의미가 있다. 5단 아코디언의 5번째 섹션(총평·매칭율·올해운·보완점)이 이 필드들로 채워진다.
+  // 의미가 있다. 통합분석 리포트 구성.md §1·§2 개편(2026-08-21) — Zone2 히어로(헤드/케미점수)는
+  // 이미 룰베이스(computeGwansangSajuChemi)로 계산되므로 AI는 그 숫자를 설명만 하고 새로 짓지
+  // 않는다(궁합보기 hero_reason과 동일 원칙). Zone3 데이터 페어 3개의 융합풀이, Zone4 스토리
+  // 카드(고정 1 + 가변 1~3)가 이 블록으로 채워진다.
   if (hasSaju && hasFace) {
-    properties.fusion_match_score = {
-      type: 'INTEGER',
-      description:
-        '관상과 사주가 서로 얼마나 조화로운지 나타내는 0~100 사이 정수 점수. 극단적으로 낮은 점수(30 미만)는 피하고, 실제 데이터의 정합도에 따라 통상 55~95 사이에서 판단'
-    };
-
-    properties.fusion_match_label = {
+    properties.zone2_review = {
       type: 'STRING',
       description:
-        '그 점수를 짧은 캐치프레이즈 한 줄로 표현 (예: "팔자대로 사는 상")'
+        '[관상x사주 케미 점수]가 왜 그렇게 나왔는지 설명하는 총평 3~5문장. 점수는 이미 계산되어 주어지므로 새로운 숫자를 만들지 말고, 관상에서의 근거 1개와 사주에서의 근거 1개를 섞어 그 점수를 뒷받침할 것.'
     };
 
-    properties.this_year_flow = {
+    properties.zone3_manseryeok_reading = {
       type: 'STRING',
       description:
-        '[올해 세운 정보]를 근거로 올해 전반적인 운의 흐름을 3~4문장으로 서술. 단정적 예언이 아니라 성향·선택의 흐름 중심으로.'
+        '[사주 원국]과 [관상 6기질 점수]를 함께 근거로 들어, 타고난 사주 구조와 얼굴에 드러난 기질이 어떻게 이어지는지 3~4문장으로 설명.'
     };
 
-    properties.compensation_reading = {
+    properties.zone3_ohaeng_reading = {
       type: 'STRING',
       description:
-        '사주에서 약하거나 부족한 오행·기운을 관상의 어떤 부위·특징(가능하면 [AI 관상 분류 결과]의 실제 판별 유형)이 구체적으로 보완해주고 있는지 3~4문장으로 서술'
+        '[사주 오행 분포]와 [관상 오행 분포]를 비교해서 두 오행이 서로 겹치는 부분과 다른 부분을 3~4문장으로 설명. 오행의 한자를 괄호 병기하지 말 것.'
     };
 
-    properties.overall_verdict = {
+    properties.zone3_daeun_reading = {
       type: 'STRING',
       description:
-        '관상×사주 융합에 대한 최종 총평 — 성향·초중말년운·오행·신살·매칭율·올해운·보완점을 종합하는 마무리 문단. 3~5문장'
+        '[대운 정보]와 [삼정 비율(상정/중정/하정 = 초년/중년/말년)]을 함께 근거로 들어, 인생 시기별 흐름이 사주와 얼굴 양쪽에서 어떻게 나타나는지 3~4문장으로 설명.'
+    };
+
+    properties.zone4_cards = {
+      type: 'ARRAY',
+      minItems: 7,
+      maxItems: 18,
+      description:
+        '[Zone4 후보 주제 목록](family/work/money/love/relationships/rest, 6개) 전부를 반드시 다룰 것 — 이 사람에게 안 맞는다고 주제를 아예 빼면 안 됨. 각 주제는 기본 카드 1개, 그 주제로 할 말이 특히 많으면(예: 돈 풀이에서 사업가 기질까지 강하게 나옴) 같은 주제를 최대 3개까지 세부 카드로 나눠도 된다. 전체 카드 수는 반드시 최소 7개 이상이어야 하므로, 6개 주제 중 최소 1개 이상은 2개 이상의 세부 카드로 나눠 쓸 것 — 6개(주제당 정확히 1개씩)로 끝내면 안 됨. "전체에서 최대 3개를 고르는" 게 아니라 "주제마다 1~3개씩, 총합은 7~18개"가 규칙.',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          topic_key: {
+            type: 'STRING',
+            description: 'family(가족), work(일), money(돈), love(사랑), relationships(대인관계), rest(쉼/힐링) 중 하나. 세부 분리 시에도 가장 가까운 키를 쓸 것.'
+          },
+          title: {
+            type: 'STRING',
+            description:
+              '[Zone4 제목 말투 참고 예시]와 같은 2030 타깃 위트 있는 톤으로, 이 사람 데이터에 맞는 완전히 새로운 제목을 지어 쓸 것. ⚠️ 참고 예시 문장을 그대로 쓰거나 단어 몇 개만 바꿔 쓰는 것은 금지 — 반드시 이 카드의 실제 풀이 내용에서 나온 표현으로 새로 지을 것. 화면 두 줄을 넘지 않게. 전문용어·자음 표현 금지(시스템 지침 참고).'
+          },
+          reading: {
+            type: 'STRING',
+            description:
+              '사주x관상 데이터를 근거로 한 실제 풀이. MBTI 풀이처럼 2030이 이해하기 쉽게 3~4문장. 전문용어·자음 표현 금지.'
+          },
+          basis: {
+            type: 'STRING',
+            description:
+              '위 풀이가 어떤 사주x관상 데이터 근거로 나왔는지 1~3문장으로 설명("왜 이렇게 풀이했나요?" 영역에 노출됨).'
+          },
+        },
+        required: ['topic_key', 'title', 'reading', 'basis'],
+      },
     };
 
     required.push(
-      'fusion_match_score',
-      'fusion_match_label',
-      'this_year_flow',
-      'compensation_reading',
-      'overall_verdict'
+      'zone2_review',
+      'zone3_manseryeok_reading',
+      'zone3_ohaeng_reading',
+      'zone3_daeun_reading',
+      'zone4_cards'
     );
   }
 
@@ -761,21 +829,29 @@ personality_detail의 근거가 되어야 해.
 일상의 성향으로 풀어서 설명해.
 
 
-[관상×사주 융합 총평 — 관상 실측 데이터와 사주 정보가 둘 다 있을 때만 요청됨]
+[관상×사주 데이터 풀이·스토리 — 관상 실측 데이터와 사주 정보가 둘 다 있을 때만 요청됨]
 
-fusion_match_score/fusion_match_label/this_year_flow/compensation_reading/overall_verdict가
+zone2_review/zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading/zone4_cards가
 스키마에 있다면 아래 기준으로 채워.
 
-- fusion_match_score/fusion_match_label: 관상과 사주 데이터가 서로 얼마나 맞아떨어지는지를
-  근거를 들어 점수화하고, 그 점수를 짧은 한 줄 캐치프레이즈로 표현해.
-- this_year_flow: [올해 세운 정보]에 있는 오행·일간과의 관계를 근거로, 올해 흐름을
-  단정적 예언이 아니라 성향·선택의 흐름 중심으로 설명해.
-- compensation_reading: 사주에서 약한 오행을 관상의 어떤 부위(가능하면 [AI 관상 분류 결과]에
-  실제로 있는 유형)가 어떻게 메워주는지 구체적으로 짚어.
-- overall_verdict: 성향·초중말년운·오행·신살·매칭율·올해운·보완점을 전부 아우르는 마무리 문단으로 써.
+- zone2_review: [관상x사주 케미 점수]는 이미 계산되어 주어진다. 새 숫자를 만들지 말고, 그
+  점수가 왜 나왔는지만 관상 근거 1개 + 사주 근거 1개로 설명해.
+- zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading: 각각 [사주 원국]↔[관상
+  6기질 점수], [사주 오행 분포]↔[관상 오행 분포], [대운 정보]↔[삼정 비율]을 짝지어, 두 데이터가
+  같은 이야기를 하는지 다른 이야기를 하는지 구체적으로 짚어.
+- zone4_cards: [Zone4 후보 주제 목록] 6개(가족/일/돈/사랑/대인관계/쉼힐링)를 전부 다뤄 — 하나도
+  빼면 안 돼. 전체 카드 수는 최소 7개 이상이어야 하니, 6개 주제 중 최소 1개 이상은 할 말이
+  풍부한 걸 찾아서 2~3개 세부 카드로 나눠(주제당 정확히 1개씩만 써서 6개로 끝내지 말 것). 각
+  카드 제목은 [Zone4 제목 말투 참고 예시]와 같은 톤으로 이 카드의 실제 풀이 내용에 맞게 새로
+  지어. 참고 예시 문장을 그대로 쓰거나 단어만 바꿔 쓰는 것은 절대 금지.
 
-이 다섯 필드도 지어내지 말고, 반드시 앞서 준 [관상 실측 데이터]·[AI 관상 분류 결과]·[사주 정보]·
-[사주 신살·귀인 목록]·[올해 세운 정보]에 실제로 있는 내용만 근거로 삼아.
+이 필드들도 지어내지 말고, 반드시 앞서 준 [관상 실측 데이터]·[AI 관상 분류 결과]·[사주 정보]·
+[사주 신살·귀인 목록]·[관상x사주 케미 점수]·[대운 정보]·[삼정 비율]에 실제로 있는 내용만 근거로 삼아.
+
+[Zone4 제목·풀이 말투 — 통합분석 리포트 구성.md §3]
+- 2030 타깃, MBTI 풀이처럼 이해가 쉽게. 사주·관상 전문용어(현침살, 자충수, 천정이 밝다, 재백궁 등)를
+  그대로 노출하지 말고 풀어서 표현해.
+- 자음 표현(ㄴㄴ, ㄱㄱ 등) 사용을 금지해.
 
 
 [말투]
@@ -810,7 +886,8 @@ function buildDeepReportUserPrompt(
   relLabel,
   archetypeAnalysis = null,
   sewoonInfo = null,
-  characterResult = null
+  characterResult = null,
+  zone3Extra = null // {chemiScore, faceTraitScores, faceOhaeng, samjeong, daeunList} — 통합분석 Zone2/3/4 전용
 ) {
   // 스펙 §8-2 — Zone1(16캐릭터) 결과를 프롬프트에 넣고 "이것과 어긋나게 쓰지 말 것"을 못박는다.
   // 안 넣으면 AI가 "우직한 신뢰가형" 같은 새 유형명을 만들어 Zone1 캐릭터명과 화면에서 충돌한다
@@ -910,6 +987,32 @@ ${JSON.stringify(archetypeContext)}`
     : '';
 
 
+  // 통합분석 Zone2/3/4 전용 근거 블록 — chemiScore가 없으면(사진 없거나 사주 없어 hasSaju&&hasFace가
+  // 애초에 false인 경우) 스키마에 해당 필드가 없으므로 빈 문자열이어도 무방하다.
+  const zone2ChemiBlock = zone3Extra && zone3Extra.chemiScore != null
+    ? `[관상x사주 케미 점수]\n${zone3Extra.chemiScore} (0~100, 이미 계산됨 — 새로 만들지 말 것)`
+    : '';
+
+  const faceTraitBlock = zone3Extra && zone3Extra.faceTraitScores
+    ? `[관상 6기질 점수]\n${JSON.stringify(zone3Extra.faceTraitScores)}`
+    : '';
+
+  const faceOhaengBlock = zone3Extra && zone3Extra.faceOhaeng
+    ? `[관상 오행 분포]\n${JSON.stringify(zone3Extra.faceOhaeng)}`
+    : '';
+
+  const samjeongBlock = zone3Extra && zone3Extra.samjeong
+    ? `[삼정 비율]\n${JSON.stringify(zone3Extra.samjeong)}`
+    : '';
+
+  const daeunBlock = zone3Extra && zone3Extra.daeunList
+    ? `[대운 정보]\n${JSON.stringify(zone3Extra.daeunList)}`
+    : '';
+
+  const zone4TitleBankBlock = zone3Extra && zone3Extra.chemiScore != null
+    ? `[Zone4 후보 주제 목록]\nfamily(가족) / work(일) / money(돈) / love(사랑) / relationships(대인관계) / rest(쉼·힐링)\n\n[Zone4 제목 말투 참고 예시 — 그대로 쓰거나 단어만 바꿔 쓰지 말고 톤만 참고할 것]\n${JSON.stringify(CMB_ZONE4_TITLE_STYLE_EXAMPLES)}`
+    : '';
+
   const requestLine = ratios
     ? `[요청]
 
@@ -936,9 +1039,9 @@ analysis_basis와 principle은 별도 필드로 분리하세요.
 
 같은 내용을 interpretation / analysis_basis / principle에서 반복하지 마세요.
 
-fusion_match_score/fusion_match_label/this_year_flow/compensation_reading/overall_verdict가
-스키마에 있다면, 관상과 사주 데이터가 서로 얼마나 맞아떨어지는지·[올해 세운 정보]로 본 이번 해
-흐름·관상이 사주의 약한 오행을 어떻게 메워주는지까지 근거를 들어 채워주세요.`
+zone2_review/zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading/zone4_cards가
+스키마에 있다면, [관상x사주 케미 점수]·[관상 6기질 점수]·[관상 오행 분포]·[삼정 비율]·[대운 정보]·
+[Zone4 후보 주제 목록]·[Zone4 제목 말투 참고 예시]를 근거로 채워주세요. 제목 말투 참고 예시는 절대 그대로 베끼지 마세요.`
     : `[요청]
 
 사진 없이 사주 정보만으로 스키마의 모든 필드를 채워주세요.
@@ -971,10 +1074,28 @@ ${sinsalBlock}
 ${sewoonBlock}
 
 
+${zone2ChemiBlock}
+
+
+${faceTraitBlock}
+
+
+${faceOhaengBlock}
+
+
+${samjeongBlock}
+
+
+${daeunBlock}
+
+
+${zone4TitleBankBlock}
+
+
 ${requestLine}`;
 }
 
-// part_deep_dive 항목(section_key) → 화면 라벨. renderDeepReport와 renderAiFaceSection이 공유한다.
+// part_deep_dive 항목(section_key) → 화면 라벨. renderDeepReport(관상보기 탭)가 사용한다.
 function getDeepSectionLabel(key) {
   const labels = {
     eye_archetype: '👁 눈의 형상',
@@ -1002,7 +1123,7 @@ function getDeepSectionLabel(key) {
 }
 
 // part_deep_dive 항목 1개 → "쉬운 풀이 → 관상 분석 → 전통 원리 → 현실 조언" 카드 1장.
-// renderDeepReport(관상 탭 전체 카드)와 renderAiFaceSection(통합분석 3️⃣ 섹션)이 동일하게 재사용한다.
+// renderDeepReport(관상보기 탭 전체 카드)가 사용한다.
 function partDeepDiveCardHtml(p) {
   const label = getDeepSectionLabel(p.section_key);
 
@@ -1313,165 +1434,66 @@ function renderDeepReport(elId, data) {
 // 올해운+보완점) 구조로 재구성하면서, 하나의 큰 카드(renderDeepReport)가 아니라 같은 data를
 // 여러 컨테이너에 나눠 붓는 용도로 추가함(사용자 요청 2026-08-13, 참고: 다른 관상×사주 앱의
 // "융합 풀이" 섹션 구조를 보고 우리도 매칭율·올해운·보완점을 5번 섹션으로 넣기로 함).
-function renderAiFaceSection(elId, data) {
+// 통합분석 리포트 구성.md §1 개편(2026-08-21) — 아래는 새 Zone2/3/4 렌더 함수.
+
+function setHtmlIfExists(elId, html) {
   const el = document.getElementById(elId);
-  if (!el) return;
-  const partHtml = (data.part_deep_dive || []).map(partDeepDiveCardHtml).join('');
-  el.innerHTML = partHtml || `<div style="color:var(--text2);font-size:13px;">사진이 있어야 볼 수 있는 섹션이에요.</div>`;
+  if (el) el.innerHTML = html || '';
 }
 
-// "관상 종합 분석" 자리 — 부위 카드가 아래로 분리됐으므로 여기엔 전체를 훑는 요약만 남긴다.
-// 부위별 문단을 여기서도 보여주면 바로 아래 병합 카드와 같은 내용이 두 번 나온다.
-function renderFaceSummaryOnly(elId, data) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  const overall = data.face_overall || data.face_reading || '';
-  el.innerHTML = overall
-    ? `<div style="font-size:13px;line-height:1.85;color:var(--text);">${overall}</div>`
-    : `<div style="font-size:12.5px;color:var(--text2);">부위별 해석은 아래 <b>부위별 상세</b>에서 볼 수 있어요.</div>`;
+// Zone2 총평 — 헤드/케미점수는 이미 룰베이스로 채워져 있으므로(buildChemiHeadline, computeGwansangSajuChemi)
+// 여기서는 총평 텍스트만 채운다.
+function renderZone2Review(elId, data) {
+  setHtmlIfExists(elId, `<div style="font-size:13px;line-height:1.85;color:var(--text);">${data.zone2_review || ''}</div>`);
 }
 
-// ═══ Zone3 부위별 상세 — 3층 병합 (스펙 §4-B, 사용자 요청 2026-08-17) ═══
-// 예전엔 같은 부위가 세 곳에 흩어져 있었다: ①"부위별 생김새 유형"(DB) ②"내 얼굴 관상 포인트"(실측)
-// ③"관상 종합 분석"의 AI 심층 카드. 사용자는 이마 하나를 알기 위해 세 군데를 오가며 같은 부위를
-// 세 번 읽어야 했다. 이제 부위 1개 = 카드 1장으로 합치고, 카드 안을 층으로 쌓는다.
-// 세 소스가 답하는 질문이 서로 달라서(무엇인가/얼마나인가/그래서 어떤 사람인가) 층으로 쌓으면
-// 중복이 아니라 깊이가 된다.
-//
-// 11개 실측 부위가 7개 카드에 전부 흡수되도록 묶었다 — 하나도 버려지지 않는다.
-// 배열 순서 = 화면 노출 순서. 얼굴을 위에서 아래로 훑는 순서로 두고, 전체를 보는 얼굴형을 마지막에
-// 둔다(사용자 요청 2026-08-18) — 부위를 눈으로 따라 내려가며 읽을 수 있어야 한다.
-//   이마 → 눈썹 → 눈 → 코 → 입 → 턱 → 얼굴형
-const ZONE3_PART_CARDS = [
-  { key: 'forehead',   label: '📍 이마',  shapeIdField: 'forehead_type_id',    shapeDb: () => FOREHEAD_TYPE_DB,    measures: ['forehead'] },
-  { key: 'eyebrow',    label: '🌿 눈썹',  shapeIdField: 'eyebrow_type_id',     shapeDb: () => EYEBROW_TYPE_DB,     measures: ['eyebrow', 'midbrow'] },
-  { key: 'eye_shape',  label: '👁 눈',    shapeIdField: 'eye_shape_id',        shapeDb: () => EYE_SHAPE_DB,        measures: ['undereye'] },
-  { key: 'nose',       label: '👃 코',    shapeIdField: 'nose_shape_id',       shapeDb: () => NOSE_SHAPE_DB,       measures: ['nosebridge', 'nosetip'] },
-  { key: 'mouth',      label: '👄 입',    shapeIdField: 'mouth_shape_id',      shapeDb: () => MOUTH_SHAPE_DB,      measures: ['mouth', 'philtrum', 'smilelines'] },
-  { key: 'chin',       label: '📍 턱',    shapeIdField: 'chin_shape_id',       shapeDb: () => CHIN_SHAPE_DB,       measures: ['jaw'] },
-  { key: 'face_shape', label: '⬡ 얼굴형', shapeIdField: 'face_shape_type_id', shapeDb: () => FACE_SHAPE_TYPE_DB, measures: ['cheekbone'] },
-];
-// AI가 세부 부위(미간·코끝 등)로 따로 써준 문단은 그 부위를 품은 카드로 흡수한다 — 안 그러면
-// 병합해놓고 옆에 같은 내용이 또 붙는다.
-const ZONE3_MEASURE_OWNER = {};
-ZONE3_PART_CARDS.forEach(c => c.measures.forEach(m => { ZONE3_MEASURE_OWNER[m] = c.key; }));
-
-function zone3MeasureRowHtml(partKey, ratios, statusMap) {
-  const def = (typeof PART_DEF !== 'undefined') && PART_DEF.find(p => p.key === partKey);
-  if (!def) return '';
-  const st = statusMap[partKey];
-  const c = PART_CONTENT[partKey] && PART_CONTENT[partKey][st];
-  if (!c) return '';
-  const measureKey = PART_KEY_TO_MEASURE[partKey];
-  const level = gwansangLevel(measureKey, ratios[measureKey]);
-  const strong = st === 'strength';
-  return `<div class="z3-measure">
-      <div class="z3-measure-head">
-        <span class="z3-measure-name">${def.icon} ${def.label}</span>
-        <span class="z3-measure-badge ${strong ? 'is-strong' : 'is-fill'}">${strong ? '탁월한 강점' : '채워볼 포인트'}</span>
-        <span class="z3-measure-level">${level}/100</span>
-      </div>
-      <div class="z3-measure-text">${c.meaning}</div>
-      <div class="z3-measure-tip">💄 ${c.makeup}</div>
-      <div class="z3-measure-tip">🌿 ${c.lifestyle}</div>
-    </div>`;
-}
-
-// deepDive: data.part_deep_dive · shapeIds: 룰베이스 분류 결과(state[ctx].archetypeAnalysis)
-function renderZone3PartCards(elId, deepDive, shapeIds, ratios, statusMap) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-
-  // AI 문단을 카드별로 모은다. 7카드에 속하지 않는 key(전통 형상 등)는 여기서 제외한다.
-  const aiByCard = {};
-  (deepDive || []).forEach(p => {
-    const owner = ZONE3_MEASURE_OWNER[p.section_key] || (ZONE3_PART_CARDS.some(c => c.key === p.section_key) ? p.section_key : null);
-    if (!owner) return;
-    (aiByCard[owner] = aiByCard[owner] || []).push(p);
-  });
-
-  const cards = ZONE3_PART_CARDS.map(card => {
-    const shapeId = shapeIds && shapeIds[card.shapeIdField];
-    const shape = shapeId && card.shapeDb()[shapeId];
-    const ai = aiByCard[card.key] || [];
-    // 세 층이 모두 비면 카드 자체를 만들지 않는다(사진 없이 사주만 본 경우 등).
-    if (!shape && !ai.length && !(ratios && statusMap)) return '';
-
-    // 필드명은 part_deep_dive 스키마 그대로 — title / interpretation / analysis_basis / principle / reality_tip
-    const aiHtml = ai.map(p => `<div class="z3-ai">
-        ${p.title ? `<div class="z3-ai-title">${p.title}</div>` : ''}
-        ${p.interpretation ? `<div class="z3-ai-body">${p.interpretation}</div>` : ''}
-        ${p.analysis_basis ? `<div class="z3-ai-sub"><b>관상 분석</b> · ${p.analysis_basis}</div>` : ''}
-        ${p.principle ? `<div class="z3-ai-sub"><b>전통 관상 원리</b> · ${p.principle}</div>` : ''}
-        ${p.reality_tip ? `<div class="z3-ai-sub"><b>현실 조언</b> · ${p.reality_tip}</div>` : ''}
-      </div>`).join('');
-
-    const shapeHtml = shape ? `<div class="z3-shape">
-        <div class="z3-shape-head">생김새 유형 · <strong>${shape.nameKo}</strong></div>
-        <div class="z3-shape-line">✅ ${shape.strength}</div>
-        <div class="z3-shape-line">⚠️ ${shape.weakness}</div>
-        ${shape.detail ? `<div class="z3-shape-line is-dim">📝 ${shape.detail}</div>` : ''}
-      </div>` : '';
-
-    const measureHtml = (ratios && statusMap)
-      ? card.measures.map(m => zone3MeasureRowHtml(m, ratios, statusMap)).filter(Boolean).join('')
-      : '';
-
-    return `<div class="z3-card">
-        <div class="z3-card-head">${card.label}</div>
-        ${aiHtml}${shapeHtml}${measureHtml}
-      </div>`;
-  }).filter(Boolean).join('');
-
-  el.innerHTML = cards || `<div style="color:var(--text2);font-size:13px;">사진이 있어야 볼 수 있는 섹션이에요.</div>`;
-}
-
-function renderAiSajuSection(elId, data) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  if (!data.ohaeng_reading) {
-    el.innerHTML = `<div style="color:var(--text2);font-size:13px;">생년월일시 정보가 있어야 볼 수 있는 섹션이에요.</div>`;
-    return;
-  }
-  el.innerHTML = `
-    <p style="margin-bottom:10px;"><strong style="color:var(--purple-light);">🌱 초년운</strong> — ${data.early_life}</p>
-    <p style="margin-bottom:10px;"><strong style="color:var(--purple-light);">🌳 중년운</strong> — ${data.mid_life}</p>
-    <p style="margin-bottom:14px;"><strong style="color:var(--purple-light);">🍂 말년운</strong> — ${data.late_life}</p>
-    <p style="margin-bottom:10px;"><strong style="color:var(--gold);">☯ 음양오행</strong> — ${data.ohaeng_reading}</p>
-    <p style="margin-bottom:14px;"><strong style="color:var(--gold);">🔮 신살·귀인</strong> — ${data.sinsal_reading}</p>
-    <p style="margin-bottom:10px;"><strong style="color:var(--gold-light);">📌 살아온 패턴과 맞춰보기</strong> — ${data.past_reflection}</p>
-    <p style="margin-bottom:0;"><strong style="color:var(--gold-light);">🌿 앞으로 보완하면 좋은 점</strong> — ${data.growth_guidance}</p>`;
-}
-
-function renderFusionSection(elId, data) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  if (data.fusion_match_score == null) {
-    el.innerHTML = `<div style="color:var(--text2);font-size:13px;">사진과 생년월일시가 모두 있어야 볼 수 있는 섹션이에요.</div>`;
-    return;
-  }
-  el.innerHTML = `
-    <div class="headline-quote" style="margin-bottom:12px;">"${data.catchphrase}"</div>
-    <p style="margin-bottom:14px;"><strong style="color:var(--gold);">${data.personality_type}</strong> — ${data.personality_detail}</p>
-    <div class="compat-score-box" style="margin-bottom:14px;">
-      <div class="compat-num">${data.fusion_match_score}</div>
-      <div class="compat-grade">${data.fusion_match_label}</div>
+// Zone4 카드1(고정) — "OO의 인생의 흐름을 살펴본다면". early_life/mid_life/late_life는 combined
+// 컨텍스트에서 이미 관상+사주를 함께 근거로 생성되는 필드라 새로 만들지 않고 재사용한다.
+// 나이대 경계(~29세/30~59세/60세~)는 Zone3 라이프라인(app.js의 lifelineStage)과 동일하게 맞춘다.
+function renderZone4Card1(elId, data) {
+  setHtmlIfExists(elId, `
+    <div class="card-title" style="margin-top:0;">📖 인생의 흐름을 살펴본다면</div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--text2);font-weight:700;">🌱 초년운 (~29세)</div>
+      <div style="font-size:13px;font-weight:800;color:var(--purple-light);margin:2px 0 4px;">${data.early_life_headline || ''}</div>
+      <p style="margin:0;">${data.early_life}</p>
     </div>
-    <p style="margin-bottom:10px;"><strong style="color:var(--purple-light);">📅 올해의 흐름</strong> — ${data.this_year_flow}</p>
-    <p style="margin-bottom:10px;"><strong style="color:var(--purple-light);">🧩 관상이 보완하는 사주의 약점</strong> — ${data.compensation_reading}</p>
-    <p style="margin-bottom:0;"><strong style="color:var(--gold);">✨ 총평</strong> — ${data.overall_verdict}</p>`;
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--text2);font-weight:700;">🌳 중년운 (30세~59세)</div>
+      <div style="font-size:13px;font-weight:800;color:var(--purple-light);margin:2px 0 4px;">${data.mid_life_headline || ''}</div>
+      <p style="margin:0;">${data.mid_life}</p>
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--text2);font-weight:700;">🍂 말년운 (60세~)</div>
+      <div style="font-size:13px;font-weight:800;color:var(--purple-light);margin:2px 0 4px;">${data.late_life_headline || ''}</div>
+      <p style="margin:0;">${data.late_life}</p>
+    </div>`);
+}
+
+// Zone4 카드2~N(가변) — topic_key별 고정 이모지(궁합보기 GUNGHAP_ZONE2_META와 같은 패턴).
+const CMB_ZONE4_TOPIC_EMOJI = { family: '🌳', work: '💼', money: '💰', love: '💘', relationships: '🤝', rest: '🌿' };
+function renderZone4Cards(elId, cards) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!cards || !cards.length) { el.innerHTML = ''; return; }
+  el.innerHTML = cards.map(c => `
+    <div class="gg-item">
+      <div class="gg-item-head">${CMB_ZONE4_TOPIC_EMOJI[c.topic_key] || '✨'} ${c.title}</div>
+      <div class="gg-item-reading">${c.reading}</div>
+      <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${c.basis}</div>
+    </div>`).join('');
 }
 
 // 로컬 룰베이스 카드(renderPersonalReportV2)는 그대로 두고, 이 함수는 별도의 완전한 장문 리포트를
 // 덧붙이는 용도다 — 기존 requestPersonalAi(부위별 한 문장 보완 + 형상 분류)와는 별개의 Gemini 호출.
 // 키가 없거나 실패하면 조용히 스킵(로컬 카드만으로도 화면이 비지 않으므로 기존 패턴과 동일한 철학).
-// 통합분석 탭(cfg.aiFaceId 등이 채워진 경우)은 같은 data를 5단 아코디언의 3/4/5번 섹션에 나눠 렌더링하고,
+// 통합분석 탭(cfg.zone2ReviewId 등이 채워진 경우)은 같은 data를 Zone2/3/4로 나눠 렌더링하고,
 // 그 외(관상 탭)는 기존처럼 cfg.deepReportId 하나에 전체를 렌더링한다.
 async function requestDeepReport(ctx) {
   const cfg =
     (CTX_CONFIG[ctx] || CTX_CONFIG.combined)();
 
-  const splitIds = [cfg.aiFaceId, cfg.aiSajuId, cfg.fusionId].filter(Boolean);
+  const splitIds = [cfg.zone2ReviewId, cfg.zone3Reading1Id, cfg.zone3Reading2Id, cfg.zone3Reading3Id, cfg.zone4Card1Id, cfg.zone4CardsId].filter(Boolean);
   if (!cfg.deepReportId && !splitIds.length) return;
 
 
@@ -1570,6 +1592,21 @@ async function requestDeepReport(ctx) {
       buildDeepReportSystemInstruction();
 
 
+    // Zone1 결과를 넣어 AI가 다른 유형명을 만들지 못하게 한다.
+    const zone1Character = state[ctx] && state[ctx].characterResult;
+
+    // 통합분석 Zone2/3/4 전용 근거 — 사주(pillars)와 관상(zone1Character.faceRaw)이 둘 다 있을 때만
+    // 의미가 있다(스키마도 hasSaju&&hasFace일 때만 이 필드들을 요청한다).
+    const zone3Extra = (cfg.pillars && zone1Character && zone1Character.faceRaw)
+      ? {
+          chemiScore: zone1Character.chemiScore,
+          faceTraitScores: computeTraitScoresFromRaw(zone1Character.faceRaw, FACE_TRAIT_BASELINE),
+          faceOhaeng: calcFaceOhaeng(lm),
+          samjeong: calcSamjeongRatio(lm),
+          daeunList: state[ctx].daeun || null,
+        }
+      : null;
+
     const userText =
       buildDeepReportUserPrompt(
         ratios,
@@ -1580,7 +1617,8 @@ async function requestDeepReport(ctx) {
         cfg.relVal,
         archetypeAnalysis,
         sewoonInfo,
-        state[ctx] && state[ctx].characterResult // Zone1 결과를 넣어 AI가 다른 유형명을 만들지 못하게 한다
+        zone1Character,
+        zone3Extra
       );
 
 
@@ -1601,19 +1639,15 @@ async function requestDeepReport(ctx) {
 
 
     if (splitIds.length) {
-      if (cfg.aiFaceId) {
-        // 통합분석은 부위 카드를 3층으로 병합해 따로 그리고, "관상 종합 분석" 자리에는 전체 요약만 둔다.
-        if (cfg.partCardsId) {
-          const r = getGwansangRatios(state[ctx].lm);
-          renderZone3PartCards(cfg.partCardsId, data.part_deep_dive, state[ctx].archetypeAnalysis, r, judgePartStatus(r));
-          renderFaceSummaryOnly(cfg.aiFaceId, data);
-        } else {
-          renderAiFaceSection(cfg.aiFaceId, data);
-        }
-        clearAiSkeleton(cfg.aiFaceId);
+      if (cfg.zone2ReviewId) {
+        renderZone2Review(cfg.zone2ReviewId, data);
+        clearAiSkeleton(cfg.zone2ReviewId);
       }
-      if (cfg.aiSajuId) { renderAiSajuSection(cfg.aiSajuId, data); clearAiSkeleton(cfg.aiSajuId); }
-      if (cfg.fusionId) { renderFusionSection(cfg.fusionId, data); clearAiSkeleton(cfg.fusionId); }
+      if (cfg.zone3Reading1Id) { setHtmlIfExists(cfg.zone3Reading1Id, data.zone3_manseryeok_reading); clearAiSkeleton(cfg.zone3Reading1Id); }
+      if (cfg.zone3Reading2Id) { setHtmlIfExists(cfg.zone3Reading2Id, data.zone3_ohaeng_reading); clearAiSkeleton(cfg.zone3Reading2Id); }
+      if (cfg.zone3Reading3Id) { setHtmlIfExists(cfg.zone3Reading3Id, data.zone3_daeun_reading); clearAiSkeleton(cfg.zone3Reading3Id); }
+      if (cfg.zone4Card1Id) { renderZone4Card1(cfg.zone4Card1Id, data); clearAiSkeleton(cfg.zone4Card1Id); }
+      if (cfg.zone4CardsId) { renderZone4Cards(cfg.zone4CardsId, data.zone4_cards); clearAiSkeleton(cfg.zone4CardsId); }
     } else {
       renderDeepReport(
         cfg.deepReportId,
@@ -1858,7 +1892,7 @@ const CTX_CONFIG = {
   gwansang: () => ({ canvasId:'gwansangCanvas', cardsId:'gwansangCards', archetypeId:'gwansangArchetype', shapeDetailId:'gwansangShapeDetails', deepReportId:'gwansangDeepReport', relVal:state.gwansang.relation, pillars:null, ohaeng:null, genderVal:gender }),
   // shapeDetailId를 안 보이는 그릇으로 돌려, "부위별 생김새 유형" 블록이 전통 형상 카드(cmbArchetype)에
   // 붙지 않게 한다 — 그 내용은 이제 부위별 병합 카드(#cmbPartCards) 안에서만 보인다.
-  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', deepReportId:null, aiFaceId:'cmbAiFaceExtra', aiSajuId:'cmbAiSajuSection', fusionId:'cmbFusionSection', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
+  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', deepReportId:null, zone2ReviewId:'cmbZone2Review', zone3Reading1Id:'cmbZone3Reading1', zone3Reading2Id:'cmbZone3Reading2', zone3Reading3Id:'cmbZone3Reading3', zone4Card1Id:'cmbZone4Card1', zone4CardsId:'cmbZone4Cards', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
   // personLabel: "당신" 대신 실제 이름 사용. hideShapeDetails: 궁합 탭 Zone1에선 "🧩 부위별 생김새
   // 유형"을 아예 안 보여주기로 함(사용자 요청 2026-08-20) — shapeDetailId 싱크도 안 주고 shapeIds 자체를
   // 호출부에서 null로 넘기게 하는 플래그.

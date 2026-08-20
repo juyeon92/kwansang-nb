@@ -133,6 +133,56 @@ function zScoreNormalize(raw, baseline) {
   return z;
 }
 
+// ── 관상×사주 케미(시너지) 점수 — 통합분석 Zone2 히어로용 (통합분석 리포트 구성.md §1) ──
+// "관상과 사주가 같은 방향을 가리키는 정도"를 z-벡터 코사인 유사도로 계산한다. 위 zScoreNormalize와
+// 같은 baseline을 재사용해 combineFinalTraitScore와 항상 같은 기준으로 비교되게 한다. 두 도메인
+// 중 하나라도 없으면(사진만 있거나 생년월일시만 있는 경우) null — 궁합보기 heroScores.gwansang:null과
+// 동일한 처리 원칙.
+function computeGwansangSajuChemi(faceRaw, sajuRaw) {
+  if (!faceRaw || !sajuRaw) return null;
+  const zFace = zScoreNormalize(faceRaw, FACE_TRAIT_BASELINE);
+  const zSaju = zScoreNormalize(sajuRaw, SAJU_TRAIT_BASELINE);
+  let dot = 0, magFace = 0, magSaju = 0;
+  TRAITS.forEach(t => {
+    dot += zFace[t] * zSaju[t];
+    magFace += zFace[t] * zFace[t];
+    magSaju += zSaju[t] * zSaju[t];
+  });
+  if (magFace === 0 || magSaju === 0) return null;
+  const cos = dot / (Math.sqrt(magFace) * Math.sqrt(magSaju));
+  const clamped = Math.max(-1, Math.min(1, cos));
+  return Math.round(((clamped + 1) / 2) * 100);
+}
+
+// ── 관상 vs 사주 "기운 세기" 비교 — 통합분석 Zone2 기운 줄다리기 바용 ──────────────
+// chemiScore(코사인 유사도 = 방향이 같은지)와는 완전히 독립된 축이다. 여기서는 z-벡터의 크기
+// (magnitude)만 비교해 "이 사람 안에서 어느 도메인 신호가 더 뚜렷한지"를 본다 — 방향 일치 여부와
+// 무관하므로 chemiScore가 낮아도 한쪽 magnitude가 클 수 있다(실제로 그런 경우가 흔하다).
+function computeChemiDominance(faceRaw, sajuRaw) {
+  if (!faceRaw || !sajuRaw) return null;
+  const zFace = zScoreNormalize(faceRaw, FACE_TRAIT_BASELINE);
+  const zSaju = zScoreNormalize(sajuRaw, SAJU_TRAIT_BASELINE);
+  let magFace = 0, magSaju = 0;
+  TRAITS.forEach(t => { magFace += zFace[t] * zFace[t]; magSaju += zSaju[t] * zSaju[t]; });
+  magFace = Math.sqrt(magFace);
+  magSaju = Math.sqrt(magSaju);
+  const total = magFace + magSaju;
+  if (total === 0) return null;
+  const facePct = Math.round((magFace / total) * 100);
+  return { facePct, sajuPct: 100 - facePct };
+}
+
+// raw(0~1 가중평균) → 화면 표시용 0~100 점수. combineFinalTraitScore와 같은 T-score 변환을
+// 도메인 하나에만 적용한 버전 — 통합분석 Zone3의 "관상 6기질표"처럼 융합 전 원본 도메인 하나만
+// 단독으로 보여줄 때 쓴다.
+function computeTraitScoresFromRaw(raw, baseline) {
+  if (!raw) return null;
+  const z = zScoreNormalize(raw, baseline);
+  const scores = {};
+  TRAITS.forEach(t => { scores[t] = Math.max(0, Math.min(100, Math.round(T_SCORE_CENTER + z[t] * T_SCORE_SPREAD))); });
+  return scores;
+}
+
 // ── 관상×사주 최종 통합 (기획서 §12) ──────────────────────────────────────────
 // hasFace/hasSaju/hasHour: 어떤 데이터가 있는지에 따라 FUSION_WEIGHT 중 하나를 고른다.
 // z-score로 정규화한 뒤 가중합하고, 화면/판정용으로 T-score 변환(평균 50, ±1표준편차 15점)해
@@ -249,6 +299,9 @@ function computeCharacterResult(opts) {
     // 정규화 전 원시 벡터 — baseline(FACE_TRAIT_BASELINE) 재보정 때 이 값의 분포가 기준이 된다.
     // traitScores는 0~100으로 잘리기 때문에(clamp) 역산하면 극단값에서 분산이 왜곡된다.
     faceRaw: faceResult ? faceResult.raw : null,
+    sajuRaw: sajuResult ? sajuResult.raw : null,
+    chemiScore: computeGwansangSajuChemi(faceResult && faceResult.raw, sajuResult && sajuResult.raw),
+    dominance: computeChemiDominance(faceResult && faceResult.raw, sajuResult && sajuResult.raw),
     basisLabel: combined.basisLabel, // '관상 + 사주 종합 유형' | '관상 기반 유형' | '사주 기반 유형'
     faceEvidence: faceResult ? faceResult.evidence.map(e => e.id).filter(id => id !== undefined) : [],
     faceEvidenceDetail: faceResult ? faceResult.evidence : [],
