@@ -1029,27 +1029,41 @@ function buildSipseongCross(pillarsA, pillarsB) {
     dayOhA: CG_OH[dStemA], dayOhB: CG_OH[dStemB],
   };
 }
+// SIPSEONG_MEANING은 "짧은 명사구. 부연 설명."의 2문장 구조다(예: "나를 채워주는 다정한 힘. 학문·
+// 문서운, 보살핌을 받는 편안함을 뜻해요."). 앞의 명사구에 서술어(이에요)가 없어서, 카드 안에 그대로
+// 넣으면 문장이 서술어 없이 뚝 끊긴 것처럼 읽힌다(사용자 리포트 2026-08-20). 역할명을 주어로 붙이고
+// 첫 문장에 "이에요"를 넣어 완결된 문장 두 개로 만든다.
+// ⚠️ 2026-08-20 추가 수정: "그래서 ~ 다가오는 관계예요" 같은 요약 줄은 구체적인 내용이 없어 오히려
+// "무슨 말인지 모르겠다"는 반응을 받았다(사용자 리포트) — 정의문 자체가 이미 관계 함의를 담고
+// 있으므로 뺐다.
+// 한글 받침 유무로 "은/는" 조사를 고른다 — 십성 10개 중 겁재·편재·정재는 받침 없는 "재"로 끝나서
+// "은"을 붙이면 문법이 깨진다(예: "편재은" → "편재는").
+function josaEunNeun(word) {
+  const ch = word.charCodeAt(word.length - 1);
+  if (ch < 0xAC00 || ch > 0xD7A3) return '는';
+  return (ch - 0xAC00) % 28 !== 0 ? '은' : '는';
+}
+function sipseongMeaningSentence(role, meaning) {
+  const dot = meaning.indexOf('.');
+  const subject = `${role}${josaEunNeun(role)}`;
+  if (dot < 0) return `${subject} ${meaning}`;
+  return `${subject} ${meaning.slice(0, dot)}이에요.${meaning.slice(dot + 1)}`;
+}
 function renderSipseongCross(cross, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
   if (!cross) { el.innerHTML = ''; return; }
-  // ⚠️ 문장 정리(2026-08-20 사용자 리포트: "존재예요 — [사전 설명]"으로 이어붙여서 구조가 어색함) —
-  // SIPSEONG_MEANING 문구는 원래 명사형 정의문("~ 힘. ~을 뜻해요")이라 앞 문장에 대시로 이어붙이면
-  // 서술어 없이 뚝 끊긴 것처럼 읽힌다. "역할 문장 → 정의 → 관계 함의"로 문단을 나눠 각자 완결된
-  // 문장으로 만들고, 마지막에 관계 결론 한 줄을 덧붙여 무슨 뜻인지 풀어서 이해되게 한다.
   el.innerHTML = `
     <div class="chemi-card">
       <div class="chemi-title">상대 → 나</div>
       <div class="chemi-role">상대는 나에게 <strong>${cross.partnerToMe}</strong> 같은 존재예요.</div>
-      <div class="chemi-role" style="margin-top:4px;">${cross.partnerToMe}이란 — ${cross.meaningPartnerToMe}</div>
-      <div class="chemi-role" style="margin-top:4px;">그래서 상대는 나에게 이런 기운으로 다가오는 관계예요.</div>
+      <div class="chemi-role" style="margin-top:4px;">${sipseongMeaningSentence(cross.partnerToMe, cross.meaningPartnerToMe)}</div>
       <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 내 일간(${cross.dayOhA}) 기준 상대 일간(${cross.dayOhB}) → ${cross.partnerToMe}</div>
     </div>
     <div class="chemi-card">
       <div class="chemi-title">나 → 상대</div>
       <div class="chemi-role">나는 상대에게 <strong>${cross.meToPartner}</strong> 같은 존재예요.</div>
-      <div class="chemi-role" style="margin-top:4px;">${cross.meToPartner}이란 — ${cross.meaningMeToPartner}</div>
-      <div class="chemi-role" style="margin-top:4px;">그래서 나는 상대에게 이런 기운으로 다가가는 관계예요.</div>
+      <div class="chemi-role" style="margin-top:4px;">${sipseongMeaningSentence(cross.meToPartner, cross.meaningMeToPartner)}</div>
       <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 상대 일간(${cross.dayOhB}) 기준 내 일간(${cross.dayOhA}) → ${cross.meToPartner}</div>
     </div>`;
 }
