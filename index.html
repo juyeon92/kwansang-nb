@@ -653,6 +653,9 @@ body {
 /* ══ 궁합보기 AI 리포트 — 히어로(총합/관상만/사주만 점수) + Zone1 관상궁합 + Zone2 사주궁합 (2026-08-19) ══
    모든 풀이 항목은 "풀이 먼저 → 근거 나중" 순서로 쌓는다(.gg-item-reading 다음 .gg-item-basis).
    기존 report-accordion.zone-accordion(통합분석 탭)을 그대로 재사용해 Zone1/Zone2를 접고 펼친다. */
+/* 총점만 큰 숫자로 — 박스 자체(.gg-hero)는 없앴지만 총점 숫자 크기는 기존처럼 유지(사용자 요청 2026-08-20) */
+.gg-hero-total { font-size: 40px; font-weight: 900; color: var(--jade); line-height: 1; }
+.gg-hero-total span { font-size: 16px; font-weight: 700; margin-left: 4px; }
 .gg-item { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 14px 16px; margin-bottom: 10px; }
 .gg-item-head { font-size: 13.5px; font-weight: 800; color: var(--jade); margin-bottom: 8px; }
 .gg-item-reading { font-size: 13px; line-height: 1.85; color: var(--text); }
@@ -1699,6 +1702,18 @@ body.overlay-open { overflow: hidden; }
          보관된 기록이 있으면 app.js의 renderGunghamSavedReport()가 이 블록을 감추고
          아래 #ggSavedStep(저장된 내역 + 다른 상대와 궁합보기)을 대신 노출한다. -->
     <div id="ggInputStep">
+    <!-- 진입 후킹 배너 — 통합분석 탭의 #cmbHero(cmb-hero-card)와 같은 클래스를 그대로 재사용
+         (사용자 요청 2026-08-20: "통합 분석처럼 배너 넣어줘"). 문구는 실제 궁합보기 리포트 구성
+         (얼굴형·눈·코·광대·입·턱 조합 + 관상 궁합 + 사주 궁합 + 매칭 점수)을 근거로 새로 썼다. -->
+    <div class="cmb-hero-card" id="ggHeroBanner">
+      <div class="cmb-hero-text">
+        <div class="cmb-hero-badge">🐱 관상냥반</div>
+        <div class="cmb-hero-title">냥반이<br>두 분의 궁합을<br>봐드릴게요</div>
+        <p class="cmb-hero-sub">두 사람의 사진과 생년월일이면, 얼굴형·눈·코·입·턱 조합부터 사주 신살·귀인까지 짚어서 궁합 점수와 케미를 알려드려요.</p>
+      </div>
+      <div class="cmb-hero-img"><img src="images/Logo.png" alt=""></div>
+    </div>
+
     <!-- Person A: 대표 프로필 고정 -->
     <div class="person-block is-open" id="ggBlockA">
       <button type="button" class="gg-acc-head" onclick="Profile.toggleGgAcc('A')">
@@ -1812,6 +1827,12 @@ body.overlay-open { overflow: hidden; }
     </div>
 
     <div class="card hidden" id="ggCanvasCard" style="margin-top:16px;">
+      <!-- 뒤로가기 — 관상보기 탭의 #gwansangBackBtn과 같은 패턴(사용자 요청 2026-08-20). 궁합보기는
+           사람이 둘이라 resetUpload 하나로는 안 되고, 둘 다 리셋하는 resetGunghamResult를 그대로 쓴다
+           (이미 "다른 궁합 분석하기"에서 쓰던 함수라 별도 로직 추가 없음). -->
+      <button type="button" class="report-back-btn" id="gunghamBackBtn" onclick="resetGunghamResult();">
+        <span class="material-symbols-outlined">arrow_back</span>궁합보기 메인으로
+      </button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div>
           <p style="font-size:12px;color:var(--jade);font-weight:700;margin-bottom:8px;" id="ggCanvasLabelA">나의 관상</p>
@@ -1835,10 +1856,11 @@ body.overlay-open { overflow: hidden; }
            "하나 열면 나머지 닫힘" 그룹에 자동으로 포함된다(사용자 요청 2026-08-19). -->
       <details class="report-accordion zone-accordion" open id="ggHero">
         <summary>🧠 종합 점수 &amp; 케미 분석</summary>
-        <div class="chemi-card">
+        <div class="chemi-card" style="text-align:center;">
           <div class="chemi-title">🧠 AI 궁합 종합 점수</div>
-          <div class="chemi-role"><strong id="ggHeroTotalNum">-</strong>점 (관상만 <span id="ggHeroGwansangNum">-</span>점 · 사주만 <span id="ggHeroSajuNum">-</span>점)</div>
-          <div class="chemi-role" id="ggHeroReason"></div>
+          <div class="gg-hero-total" style="margin-top:6px;"><b id="ggHeroTotalNum">-</b><span>점</span></div>
+          <div class="chemi-role" style="margin-top:8px;">관상만 <span id="ggHeroGwansangNum">-</span>점 · 사주만 <span id="ggHeroSajuNum">-</span>점</div>
+          <div class="chemi-role" style="text-align:left;" id="ggHeroReason"></div>
         </div>
         <div class="headline-quote" id="ggHeadline" style="margin:16px 0 0;"></div>
 
