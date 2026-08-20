@@ -414,6 +414,15 @@ const FACE_OHAENG_WEIGHT = {
   R4: { 목:0.1, 화:0.5, 토:0.1, 금:1.0, 수:0.1 }, // 높음: 턱선이 각지다 → 금형
   R5: { 목:0.1, 화:1.0, 토:0.5, 금:0.5, 수:0.1 }, // 높음: 광대가 돌출 → 화형
 };
+// ⚠️ 버그 수정(2026-08-20 사용자 리포트: 궁합보기 "관상오행 비교"에서 나/상대방 %가 완전히 똑같게
+// 나옴) — 저/중/고 3단계뿐이면 조합이 3×3×3=27가지밖에 안 나오고, 대부분의 "평범한" 얼굴 비율이
+// 중간 밴드에 몰려서 서로 다른 두 사람이 자주 똑같은 결과를 받았다. 7단계로 세분화해 충돌 확률을
+// 낮춘다 — 순위(우열)를 정하는 방식 자체는 그대로 두고 구간만 촘촘하게 나눈다.
+const OHAENG_BAND_MULS = [0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 1.0];
+function ohaengBandMul(level) {
+  const idx = Math.min(OHAENG_BAND_MULS.length - 1, Math.floor(level / (100 / OHAENG_BAND_MULS.length)));
+  return OHAENG_BAND_MULS[idx];
+}
 function calcFaceOhaeng(lm) {
   const faceH = Math.abs(lm[IDX.chin].y - lm[IDX.hairline].y);
   const cheekW = Math.abs(lm[IDX.cheekR].x - lm[IDX.cheekL].x);
@@ -426,12 +435,12 @@ function calcFaceOhaeng(lm) {
     R4: jawTaperW / cheekW,
     R5: foreheadW / cheekW,
   };
-  // 각 R값을 자체 범위 안에서 0~100 레벨로 정규화 → 저(0.1)/중(0.5)/고(1.0) 가중치를 오행별로 합산
+  // 각 R값을 자체 범위 안에서 0~100 레벨로 정규화 → 7단계 밴드 가중치를 오행별로 합산
   const totals = { 목:0, 화:0, 토:0, 금:0, 수:0 };
   Object.entries(raw).forEach(([key, value]) => {
     const [min, max] = FACE_OHAENG_RANGE[key];
     const level = Math.max(0, Math.min(100, (value - min) / (max - min) * 100));
-    const bandMul = level >= 66 ? 1.0 : level >= 33 ? 0.5 : 0.1;
+    const bandMul = ohaengBandMul(level);
     Object.entries(FACE_OHAENG_WEIGHT[key]).forEach(([oh, w]) => { totals[oh] += w * bandMul; });
   });
   const sum = Object.values(totals).reduce((a, b) => a + b, 0) || 1;
