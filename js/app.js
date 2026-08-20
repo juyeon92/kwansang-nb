@@ -872,16 +872,6 @@ function buildPersonNarrative(lm, pillars, ohaeng) {
   return { paragraphs: [OHAENG_DETAIL[oh], '사진을 추가하면 관상까지 더해진 훨씬 상세한 리포트를 볼 수 있어요.'], statusMap: null };
 }
 
-// 궁합보기 Zone1(관상)/Zone2(사주) 재배치용(2026-08-19 사용자 요청) — buildPersonNarrative의 문단은
-// 관상·사주가 한 흐름으로 섞여 있어서, 어느 문단이 어느 정보에서 나왔는지에 따라 나눈다.
-// 사진이 있을 때 순서는 buildFullNarrative의 [typeCardP, natureP, strongP, compP, synergyP, closingP] 고정 —
-// natureP(오행 성격)만 순수 사주고, 나머지(관상 유형·강점·보완·시너지·종합)는 관상 쪽으로 묶는다.
-function splitPersonNarrative(paragraphs, hasPhoto) {
-  if (!hasPhoto) return { gwansang: [], saju: paragraphs };
-  const [typeCardP, natureP, strongP, compP, synergyP, closingP] = paragraphs;
-  return { gwansang: [typeCardP, strongP, compP, synergyP, closingP], saju: [natureP] };
-}
-
 function renderNarrativeParagraphs(elId, paragraphs) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -1806,30 +1796,22 @@ async function runGungham() {
     const ohB = computeOhaeng(pillarsB);
     const rel = state.gungham.relation;
 
-    // 리포트 전체에서 "나"/"상대방" 대신 실제 이름 + "님"을 쓴다(사용자 요청 2026-08-19) — 섹션 제목은
-    // 여기서 바로 바꿔두고(재분석 때마다 다시 실행되므로 매번 고정 포맷으로 다시 써서 이름이 바뀌어도
-    // 안전), AI가 쓰는 본문 문장은 requestCoupleAi가 이 이름을 프롬프트에 넘겨 반영한다.
+    // 리포트 전체에서 "나"/"상대방" 대신 실제 이름 + "님"을 쓴다(사용자 요청 2026-08-19) — AI가 쓰는
+    // 본문 문장은 requestCoupleAi가 이 이름을 프롬프트에 넘겨 반영한다. 관상/사주 Zone 제목은 이제
+    // 개인 서술이 없어 이름을 넣을 자리가 없으므로(2026-08-20 재편) 캔버스 라벨만 갱신한다.
     const nameA = state.gunghamA.name ? state.gunghamA.name + '님' : '나';
     const nameB = state.gunghamB.name ? state.gunghamB.name + '님' : '상대방';
     const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-    setText('ggZone1TitleA', `🙋 ${nameA}의 관상`);
-    setText('ggZone1TitleB', `🙋‍♂️ ${nameB}의 관상`);
-    setText('ggZone2TitleA', `🙋 ${nameA}의 사주`);
-    setText('ggZone2TitleB', `🙋‍♂️ ${nameB}의 사주`);
     setText('ggCanvasLabelA', `${nameA}의 관상`);
     setText('ggCanvasLabelB', `${nameB} 관상`);
 
-    // 사주가 들어가는 다른 탭(사주 탭·통합분석 탭)과 동일하게 오행 분포를 준비해둔다 — 화면 공개는
-    // 마지막에 한 번에 하지만, 계산·렌더 자체는 여기서 먼저 끝내둔다. 원국(만세력)은 두 사람을 한
-    // 화면에 비교하는 renderGunghamManseryeok 하나로 통일하고(사용자 요청 2026-08-19), 근거성
-    // 정보(12운성·신살·귀인)인 renderUnseongLegend는 이 탭에서 노출하지 않는다.
+    // 사주가 들어가는 다른 탭(사주 탭·통합분석 탭)과 동일하게 오행 분포를 계산해둔다 — 개인별 오행바·
+    // 딥다이브 렌더는 통합분석 탭에 이미 있으므로 여기서는 그리지 않는다(2026-08-20 재편). 원국(만세력)은
+    // 두 사람을 한 화면에 비교하는 renderGunghamManseryeok 하나로 통일하고(사용자 요청 2026-08-19),
+    // 근거성 정보(12운성·신살·귀인)인 renderUnseongLegend는 이 탭에서 노출하지 않는다.
     state.gunghamA.pillars = pillarsA; state.gunghamA.ohaeng = ohA;
     state.gunghamB.pillars = pillarsB; state.gunghamB.ohaeng = ohB;
     renderGunghamManseryeok(nameA, dateA, hourA, pillarsA, nameB, dateB, hourB, pillarsB);
-    renderOhaengBars(ohA, 'ggOhaengA');
-    renderOhaengDeepDive(ohA, pillarsA[2].stem, 'ggOhaengDeepDiveA');
-    renderOhaengBars(ohB, 'ggOhaengB');
-    renderOhaengDeepDive(ohB, pillarsB[2].stem, 'ggOhaengDeepDiveB');
 
     // ① 참고용 궁합 점수(접힌 상세 영역에만 노출)
     function renderCompatScore(compat) {
@@ -1863,23 +1845,15 @@ async function runGungham() {
       heroScores = { total: blended.score, saju: sajuOnlyCompat.score, gwansang: Math.round(gVals.reduce((s, v) => s + v, 0) / gVals.length) };
     }
 
-    // ②-2 골든타임 + 관상 형상(눈모양·동물상) — 사진이 있는 사람만, 사주 탭·통합분석 탭과 동일하게 반영
-    const aiTasks = [];
-    if (lmA) {
-      renderGoldenTime('ggGoldenTimeA', calcSamjeongRatio(lmA), calcAge(dateA), pillarsA[2].stem);
-      // 궁합보기 Zone1(관상 궁합)이 16캐릭터 이름(무관상·책사상 등)을 인용할 수 있도록 여기서 확정해둔다 —
-      // 통합분석 탭과 같은 룰베이스 엔진(classifyAndBuildCharacter)을 그대로 재사용.
-      classifyAndBuildCharacter('gunghamA', CTX_CONFIG.gunghamA(), lmA);
-      aiTasks.push(requestPersonalAi('gunghamA'));
-    }
-    if (lmB) {
-      renderGoldenTime('ggGoldenTimeB', calcSamjeongRatio(lmB), calcAge(dateB), pillarsB[2].stem);
-      classifyAndBuildCharacter('gunghamB', CTX_CONFIG.gunghamB(), lmB);
-      aiTasks.push(requestPersonalAi('gunghamB'));
-    }
-    if (aiTasks.length) { setGgAnalyzingMsg('관상 형상을 살펴보는 중이에요'); await Promise.all(aiTasks); }
+    // ②-2 관상 캐릭터 판정 — 개인별 관상 형상(눈모양·동물상) 카드·골든타임은 통합분석 탭에 이미 있어
+    // 여기서는 그리지 않는다(2026-08-20 재편). 궁합보기 Zone1(관상 궁합)이 16캐릭터 이름(무관상·책사상
+    // 등)을 인용할 수 있도록 캐릭터 판정만 확정해둔다 — 통합분석 탭과 같은 룰베이스 엔진
+    // (classifyAndBuildCharacter)을 그대로 재사용.
+    if (lmA) classifyAndBuildCharacter('gunghamA', CTX_CONFIG.gunghamA(), lmA);
+    if (lmB) classifyAndBuildCharacter('gunghamB', CTX_CONFIG.gunghamB(), lmB);
 
-    // ③ 나 / 상대방 각각의 관상 X 사주 종합 리포트 (STEP1·STEP2에 해당)
+    // ③ 나 / 상대방 각각의 관상 X 사주 상태맵 — 화면에 개인 서술로 그리진 않지만, statusMap은
+    // buildRoleChemi(역할분담 케미)와 아래 캐시(AI 프롬프트 근거)가 그대로 참조한다.
     const narrativeA = buildPersonNarrative(lmA, pillarsA, ohA);
     const narrativeB = buildPersonNarrative(lmB, pillarsB, ohB);
 
@@ -1900,7 +1874,7 @@ async function runGungham() {
     const faceCombo = buildFaceComboChemi(lmA, lmB, ggGenderA, ggGenderB, rel);
     const energy = buildEnergyChemi(ohA, ohB);
     const moments = buildMoments(ohA, ohB, narrativeA.statusMap, narrativeB.statusMap);
-    renderCoupleReport(narrativeA, narrativeB, chemi, faceCombo, energy, moments);
+    renderCoupleReport(chemi, faceCombo, energy, moments);
 
     // ⑤ Gemini 정밀 해석 자동 요청(수동 버튼 없음) — 키가 없으면 requestCoupleAi 내부에서 조용히 스킵된다.
     setGgAnalyzingMsg('AI가 두 사람의 궁합을 읽는 중이에요');
@@ -2244,16 +2218,10 @@ function buildCoupleHeadline(sameRole) {
     : '누가 이끄냐로 다투지 않는다! 서로의 영역을 확실히 나누는 "전략적 파트너" 궁합';
 }
 
-function renderCoupleReport(narrativeA, narrativeB, chemi, faceCombo, energy, moments) {
+// 개인별 관상/사주 서술은 통합분석 탭에 이미 있으므로 여기서는 그리지 않는다(2026-08-20 재편) —
+// narrativeA/B는 이제 이 함수 밖(buildRoleChemi의 statusMap 등)에서만 쓰인다.
+function renderCoupleReport(chemi, faceCombo, energy, moments) {
   document.getElementById('ggHeadline').innerHTML = `"${buildCoupleHeadline(chemi.sameRole)}"`;
-
-  // STEP1·STEP2 — 나 / 상대방 각각의 관상 X 사주 종합 리포트를 Zone1(관상)/Zone2(사주)로 나눠 배치
-  const splitA = splitPersonNarrative(narrativeA.paragraphs, !!narrativeA.statusMap);
-  const splitB = splitPersonNarrative(narrativeB.paragraphs, !!narrativeB.statusMap);
-  renderNarrativeParagraphs('ggPersonAGwansang', splitA.gwansang.length ? splitA.gwansang : ['📸 사진을 등록하면 관상 정보를 볼 수 있어요.']);
-  renderNarrativeParagraphs('ggPersonASaju', splitA.saju);
-  renderNarrativeParagraphs('ggPersonBGwansang', splitB.gwansang.length ? splitB.gwansang : ['📸 사진을 등록하면 관상 정보를 볼 수 있어요.']);
-  renderNarrativeParagraphs('ggPersonBSaju', splitB.saju);
 
   // STEP3 — 관상 케미 (역할 분담 + 총평)
   document.getElementById('ggRoleCards').innerHTML = `

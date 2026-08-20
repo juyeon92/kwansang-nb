@@ -1861,47 +1861,44 @@ body.overlay-open { overflow: hidden; }
     <div class="card hidden" id="ggResult" style="margin-top:16px;">
       <div class="card-title" id="ggResultTitle">👩‍❤️‍👨 AI 관상 &amp; 사주 궁합 리포트</div>
 
-      <!-- ══ Zone0 · 종합(히어로) ══ — Zone1/Zone2와 같은 zone-accordion이라 initZoneAccordions()의
-           "하나 열면 나머지 닫힘" 그룹에 자동으로 포함된다(사용자 요청 2026-08-19). -->
+      <!-- ══ Zone0 · 종합(히어로) ══ — 개인별 서술은 통합분석 탭에서 이미 다루므로, 여기서는 "두 사람의
+           관계"만 다룬다(궁합 리포트 구성.md 기준, 2026-08-20 재편). Zone1/Zone2와 같은 zone-accordion이라
+           initZoneAccordions()의 "하나 열면 나머지 닫힘" 그룹에 자동으로 포함된다(사용자 요청 2026-08-19). -->
       <details class="report-accordion zone-accordion" open id="ggHero">
         <summary>🧠 종합 점수 &amp; 케미 분석</summary>
-        <div class="chemi-card" style="text-align:center;">
+        <div class="headline-quote" id="ggHeadline"></div>
+
+        <div class="chemi-card" style="text-align:center;margin-top:16px;">
           <div class="chemi-title">🧠 AI 궁합 종합 점수</div>
           <div class="gg-hero-total" style="margin-top:6px;"><b id="ggHeroTotalNum">-</b><span>점</span></div>
           <div class="chemi-role" style="margin-top:8px;">관상만 <span id="ggHeroGwansangNum">-</span>점 · 사주만 <span id="ggHeroSajuNum">-</span>점</div>
           <div class="chemi-role" style="text-align:left;" id="ggHeroReason"></div>
         </div>
-        <div class="headline-quote" id="ggHeadline" style="margin:16px 0 0;"></div>
+
+        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">📊 영역별 궁합 점수 &amp; 오행 분포</div>
+        <div class="compat-score-box">
+          <div class="compat-num" id="ggScore">0</div>
+          <div class="compat-grade" id="ggGrade">분석 중</div>
+          <div class="compat-desc" id="ggDesc"></div>
+        </div>
+        <div class="compat-bars" id="ggBars"></div>
+      </details>
+
+      <!-- ══ Zone1 · 관상 궁합 ══ — 두 사람의 관상 "조합"만 다룬다. 개인별 관상 서술·아키타입·황금타임은
+           통합분석 탭에 이미 있으므로 여기서는 반복하지 않는다(2026-08-20 재편). -->
+      <details class="report-accordion zone-accordion" id="ggZone1">
+        <summary>🎭 Zone 1 · 관상 궁합</summary>
+        <div class="gg-item" id="ggZone1AiShape"></div>
 
         <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🎭 관상 케미 분석 (두 얼굴의 합)</div>
         <div id="ggRoleCards"></div>
 
         <div class="card-title" style="margin-top:20px;margin-bottom:12px;">👥 얼굴형·눈·입·광대 조합으로 보는 궁합</div>
         <div id="ggFaceComboCards"></div>
-
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 사주 기운의 케미 (에너지의 합)</div>
-        <div id="ggEnergyCards"></div>
       </details>
 
-      <!-- ══ Zone1 · 관상 궁합 ══ -->
-      <details class="report-accordion zone-accordion" id="ggZone1">
-        <summary>🎭 Zone 1 · 관상 궁합</summary>
-        <div class="gg-item" id="ggZone1AiShape"></div>
-
-        <div class="card-title" style="margin-top:16px;margin-bottom:12px;" id="ggZone1TitleA">🙋 나의 관상</div>
-        <div id="ggZone1AiPersonA"></div>
-        <div class="summary-box" id="ggPersonAGwansang" style="margin-bottom:12px;"></div>
-        <div class="hidden" id="ggArchetypeA" style="margin-top:12px;"></div>
-        <div class="summary-box hidden" id="ggGoldenTimeA" style="margin-top:12px;margin-bottom:20px;"></div>
-
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;" id="ggZone1TitleB">🙋‍♂️ 상대방의 관상</div>
-        <div id="ggZone1AiPersonB"></div>
-        <div class="summary-box" id="ggPersonBGwansang" style="margin-bottom:12px;"></div>
-        <div class="hidden" id="ggArchetypeB" style="margin-top:12px;"></div>
-        <div class="summary-box hidden" id="ggGoldenTimeB" style="margin-top:12px;margin-bottom:20px;"></div>
-      </details>
-
-      <!-- ══ Zone2 · 사주 궁합 ══ -->
+      <!-- ══ Zone2 · 사주 궁합 ══ — 두 사람의 사주 "조합"만 다룬다. 개인별 사주 서술·오행바·오행 딥다이브는
+           통합분석 탭에 이미 있으므로 여기서는 반복하지 않는다(2026-08-20 재편). -->
       <details class="report-accordion zone-accordion" id="ggZone2">
         <summary>☯️ Zone 2 · 사주 궁합</summary>
 
@@ -1911,29 +1908,12 @@ body.overlay-open { overflow: hidden; }
 
         <div id="ggZone2AiItems"></div>
 
-        <div class="card-title" style="margin-top:16px;margin-bottom:12px;" id="ggZone2TitleA">🙋 나의 사주</div>
-        <div class="summary-box" id="ggPersonASaju" style="margin-bottom:12px;"></div>
-        <div class="ohaeng-bars" id="ggOhaengA" style="margin-top:8px;"></div>
-        <div class="summary-box hidden" id="ggOhaengDeepDiveA" style="margin-top:8px;margin-bottom:20px;"></div>
-
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;" id="ggZone2TitleB">🙋‍♂️ 상대방의 사주</div>
-        <div class="summary-box" id="ggPersonBSaju" style="margin-bottom:12px;"></div>
-        <div class="ohaeng-bars" id="ggOhaengB" style="margin-top:8px;"></div>
-        <div class="summary-box hidden" id="ggOhaengDeepDiveB" style="margin-top:8px;"></div>
+        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 사주 기운의 케미 (에너지의 합)</div>
+        <div id="ggEnergyCards"></div>
       </details>
 
       <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🚨 티격태격 모먼트 &amp; 극복 전략</div>
       <div id="ggMomentCards"></div>
-
-      <details style="margin-top:20px;">
-        <summary style="cursor:pointer;font-size:11px;color:var(--text2);">참고용 궁합 점수·오행 분포 보기</summary>
-        <div class="compat-score-box" style="margin-top:12px;">
-          <div class="compat-num" id="ggScore">0</div>
-          <div class="compat-grade" id="ggGrade">분석 중</div>
-          <div class="compat-desc" id="ggDesc"></div>
-        </div>
-        <div class="compat-bars" id="ggBars"></div>
-      </details>
 
       <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:14px;">print</span> 결과 인쇄</button>
       <button class="submit-btn" style="margin-top:20px;" onclick="resetGunghamResult()">다른 궁합 분석하기</button>
