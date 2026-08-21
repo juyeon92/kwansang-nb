@@ -2418,7 +2418,7 @@ function getGwansangOnlyCharacterId() {
   const live = (typeof state !== 'undefined' && state.gwansang && state.gwansang.characterResult) || null;
   if (live && live.characterId) return live.characterId;
   try {
-    const saved = JSON.parse(localStorage.getItem('inyeonLastCharacter') || 'null');
+    const saved = JSON.parse(localStorage.getItem(inyeonCharacterKey()) || 'null');
     return (saved && saved.characterId) || null;
   } catch (e) { return null; }
 }
@@ -2593,10 +2593,22 @@ function renderCharacterDetail(elId, characterResult, opts) {
 // 대신 이 브라우저에 남은 마지막 결과만 localStorage로 가볍게 기억해뒀다가 "다시 보기"로 보여준다 —
 // 사진·생년월일 등 원본 개인정보는 저장하지 않고 캐릭터 ID/이름/시각만 남긴다(명세서의 "최소 보관" 원칙).
 const INYEON_LAST_CHARACTER_KEY = 'inyeonLastCharacter';
+// ⚠️ 버그 수정(2026-08-21 사용자 리포트: "통합분석 관상 유형이 무관상으로 나왔는데 한 번도 무관상이
+// 나온 적이 없다") — 이 키가 계정(uid) 구분 없이 기기 전체가 공유하는 bare key였다. 같은 기기/브라우저를
+// 다른 카카오 계정으로 재로그인하면(또는 계정을 넘겨받으면) 이전 계정이 인연도감에서 뽑은 캐릭터가
+// 그대로 남아있다가 새 계정의 통합분석 "관상 유형 → 관상+사주 유형" 비교 카드에 새어 들어갔다 —
+// 실측 재현(다른 사진으로 이전 값을 심어두고 실제 사진을 분석) 결과 정확히 이 증상이 나왔다.
+// 로그인 상태면 uid로 키를 분리해 다른 계정의 값을 읽거나 덮어쓰지 못하게 막는다. 비로그인(게스트)은
+// 애초에 계정이 없어 기존처럼 기기 전체가 공유하는 bare key를 그대로 쓴다(인연도감의 "로그인 전
+// 이 기기에 저장 → 로그인 시 계정으로 편입" 정책과 같은 전제 — migrateLocalOnLogin이 그 편입을 맡는다).
+function inyeonCharacterKey() {
+  const u = window.fbAuth && fbAuth.currentUser;
+  return (u && !u.isAnonymous) ? (INYEON_LAST_CHARACTER_KEY + ':' + u.uid) : INYEON_LAST_CHARACTER_KEY;
+}
 function saveLastCharacterToStorage(characterResult) {
   if (!characterResult || !characterResult.characterId) return;
   try {
-    localStorage.setItem(INYEON_LAST_CHARACTER_KEY, JSON.stringify({
+    localStorage.setItem(inyeonCharacterKey(), JSON.stringify({
       characterId: characterResult.characterId,
       characterName: characterResult.characterName,
       // 6대 기질 바(노출스펙 §3-2)를 "다시 보기"에서도 그리려면 점수까지 남겨야 한다 —
@@ -2616,7 +2628,7 @@ function renderGwansangRevisitCard() {
   const label = document.getElementById('gwansangRevisitLabel');
   if (!card || !body) return;
   let saved = null;
-  try { saved = JSON.parse(localStorage.getItem(INYEON_LAST_CHARACTER_KEY) || 'null'); } catch (e) { saved = null; }
+  try { saved = JSON.parse(localStorage.getItem(inyeonCharacterKey()) || 'null'); } catch (e) { saved = null; }
   const character = saved && CHARACTER_DB[saved.characterId];
   if (!character) {
     card.style.display = 'none';
@@ -2650,7 +2662,7 @@ function renderGwansangRevisitCard() {
 function populateGwansangReportFromSaved(characterId) {
   // 저장해둔 기질 점수까지 함께 복원한다 — 없으면 6대 기질 바가 빠져 최초 결과 화면과 구조가 달라진다.
   let saved = null;
-  try { saved = JSON.parse(localStorage.getItem(INYEON_LAST_CHARACTER_KEY) || 'null'); } catch (e) { saved = null; }
+  try { saved = JSON.parse(localStorage.getItem(inyeonCharacterKey()) || 'null'); } catch (e) { saved = null; }
   const restored = (saved && saved.characterId === characterId) ? saved : {};
   const fake = {
     characterId: characterId,

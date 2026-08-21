@@ -154,7 +154,7 @@
   function myCharacterId() {
     const saved = (typeof state !== 'undefined' && state.gwansang && state.gwansang.characterResult) || null;
     if (saved && saved.characterId) return saved.characterId;
-    try { return (JSON.parse(localStorage.getItem('inyeonLastCharacter') || 'null') || {}).characterId || null; }
+    try { return (JSON.parse(localStorage.getItem(inyeonCharacterKey()) || 'null') || {}).characterId || null; }
     catch (e) { return null; }
   }
   // ⚠️ 사용자 리포트(2026-08-18): "공유하기"로 도감을 처음 만들 때는 닉네임을 입력받는 화면이
@@ -352,6 +352,18 @@
   async function migrateLocalOnLogin() {
     const uid = currentUid();
     if (!uid || isAnonymousUser() || !window.fbDb) return;
+
+    // inyeonLastCharacter를 계정별 key로 나누면서(ai-analysis.js의 inyeonCharacterKey 참고) 생긴
+    // 이관 지점 — 게스트 때 이 기기에서 이미 뽑아둔 캐릭터가 있는데 방금 로그인한 계정엔 아직 그
+    // 기록이 없으면 그대로 넘겨준다. 계정 쪽에 이미 값이 있으면(다른 기기에서 만든 계정 캐릭터 등)
+    // 게스트 값으로 덮어쓰지 않는다 — 위 도감 이관과 같은 "이미 내 것이면 손대지 않는다" 원칙.
+    try {
+      const guestRaw = localStorage.getItem(INYEON_LAST_CHARACTER_KEY);
+      if (guestRaw && !localStorage.getItem(inyeonCharacterKey())) {
+        localStorage.setItem(inyeonCharacterKey(), guestRaw);
+      }
+    } catch (e) { /* 프라이빗 브라우징 등 localStorage 불가 — 조용히 스킵 */ }
+
     const localSlug = localStorage.getItem(SLUG_KEY);
     if (!localSlug) return;
     const local = await loadDogam(localSlug).catch(function (e) {
@@ -541,7 +553,7 @@
     // 하는 것이라 재분석은 안 일어난다.
     if (charId && !myCharacterId()) {
       try {
-        localStorage.setItem('inyeonLastCharacter', JSON.stringify({
+        localStorage.setItem(inyeonCharacterKey(), JSON.stringify({
           characterId: charId,
           characterName: (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[charId]) ? CHARACTER_DB[charId].name : null,
           ts: Date.now(),
@@ -750,7 +762,7 @@
   function forgetLocalDogam() {
     localStorage.removeItem(SLUG_KEY);
     lastMatch = null;
-    localStorage.removeItem('inyeonLastCharacter');
+    localStorage.removeItem(inyeonCharacterKey());
     localStorage.removeItem('gwansangReportOpen'); // 도감을 지웠으니 새로고침 시 리포트도 되살리지 않는다
     if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
   }

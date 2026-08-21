@@ -503,7 +503,7 @@
     // (이 연결이 안전하려면 보관함이 실제 도감과 항상 정확히 같아야 한다 — paintOwnerView가 렌더할
     // 때마다 Archive.save('gwansang')로 다시 맞춰두는 것과 세트로 봐야 한다.)
     if (rec && rec.type === 'gwansang' && !left.some(r => r.type === 'gwansang')) {
-      localStorage.removeItem('inyeonLastCharacter');
+      localStorage.removeItem(inyeonCharacterKey());
       if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
       console.log('[archive] 관상 기록이 모두 삭제돼 재방문 카드도 정리');
       if (window.Dogam && Dogam.deleteMyDogam) {
