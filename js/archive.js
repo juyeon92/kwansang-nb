@@ -655,12 +655,12 @@
       sections;
   }
 
+  // ⚠️ 뒤로가기 버튼 제거(2026-08-21 사용자 요청) — 보관함이 마이페이지에서 들어오는 오버레이였을
+  // 때는 "이전 탭으로 돌아가기"가 필요했지만, 이제는 하단 네비의 동등한 탭이라 다른 탭을 누르면
+  // 되므로 이 버튼은 더 이상 필요 없다. Archive.closePage()는 여전히 남겨둔다 — 이 버튼 말고도
+  // 다른 진입 경로(예: 저장 직후 자동으로 열리는 경우)에서 쓰일 수 있어 함수 자체는 지우지 않는다.
   function pageHeader() {
-    return '<div class="arc-page-head">' +
-             '<button class="arc-back" aria-label="뒤로" onclick="Archive.closePage()">' +
-               '<span class="material-symbols-outlined">arrow_back</span></button>' +
-             '<h2>보관함</h2>' +
-           '</div>';
+    return '<div class="arc-page-head"><h2>보관함</h2></div>';
   }
 
   function openReport(id) {

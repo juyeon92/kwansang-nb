@@ -669,7 +669,7 @@
           '<div class="mypage-menu">' +
             menuItem('보관함', 'inventory_2', 'Archive.openPage()') +
             menuItem('문의하기', 'mail', "KakaoAuth._todo('문의하기')") +
-            menuItem('결제내역', 'receipt_long', "KakaoAuth._todo('결제내역')") +
+            menuItem('결제내역', 'receipt_long', 'PayHistory.open()') +
           '</div>' +
           '<div class="mypage-divider"></div>' +
           '<div class="mypage-menu">' +

@@ -1208,6 +1208,28 @@ body.overlay-open { overflow: hidden; }
   font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
 }
 
+/* ══ 결제내역 (js/pay-history.js — #panel-payhistory) ══ */
+.ph-summary {
+  display: flex; gap: 14px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 10px;
+  border-radius: 12px; background: var(--card2); font-size: 12.5px; font-weight: 700; color: var(--text-sub);
+}
+.ph-summary .is-plus { color: var(--jade); }
+.ph-summary .is-minus { color: var(--icon-orange); }
+.ph-row { padding: 13px 4px; border-bottom: 1px solid var(--border); }
+.ph-row-main { display: flex; align-items: center; gap: 8px; }
+.ph-badge {
+  flex: none; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800;
+  background: var(--card2); color: var(--text-sub);
+}
+.ph-badge.is-plus { background: var(--mint-10); color: var(--jade); }
+.ph-badge.is-minus { background: rgba(255,149,51,0.14); color: #a15c12; }
+.ph-desc { flex: 1; font-size: 14px; font-weight: 700; color: var(--text-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-amount { flex: none; font-size: 14px; font-weight: 800; }
+.ph-amount.is-plus { color: var(--jade); }
+.ph-amount.is-minus { color: var(--icon-orange); }
+.ph-row-sub { font-size: 12px; color: var(--text-sub); margin-top: 5px; line-height: 1.5; }
+.ph-empty { font-size: 13px; color: var(--text-sub2); padding: 28px 4px; text-align: center; line-height: 1.7; }
+
 .transition-loading {
   position: fixed; z-index: 103; left: 50%; top: 50%; transform: translate(-50%, -50%);
   display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -1316,6 +1338,7 @@ body.overlay-open { overflow: hidden; }
 
   <!-- ===== 통합 분석 패널 ===== -->
   <div class="panel active" id="panel-combined">
+    <div class="arc-page-head"><h2>통합분석</h2></div>
     <div class="upload-section" id="cmbUploadSection">
       <!-- 진입 후킹 배너 — "사주도령" 레퍼런스 구도(배지 + 굵은 헤드라인 + 캐릭터 일러스트)를 따르되
            배경은 그 노란/한지색 대신 브랜드 민트 톤으로 맞췄다(사용자 요청 2026-08-17: "전체 터트려서
@@ -1559,6 +1582,7 @@ body.overlay-open { overflow: hidden; }
 
   <!-- ===== 관상 패널 ===== -->
   <div class="panel" id="panel-gwansang">
+    <div class="arc-page-head"><h2>인연도감</h2></div>
     <div class="upload-section" id="gwansangUploadSection">
       <!-- 인연도감 첫 진입 화면(인연도감_정책및개발명세서.md "화면 구성") — 아무것도 입력 안 한 상태에서만
            보이고, markAnalyzed()가 이 섹션 전체(#gwansangUploadSection)를 숨기면 같이 사라진다.
@@ -1690,6 +1714,7 @@ body.overlay-open { overflow: hidden; }
 
   <!-- ===== 궁합 패널 ===== -->
   <div class="panel" id="panel-gungham">
+    <div class="arc-page-head"><h2>궁합보기</h2></div>
     <!-- 진입 후킹 배너 — 통합분석 탭의 #cmbHero(cmb-hero-card)와 같은 클래스를 그대로 재사용
          (사용자 요청 2026-08-20: "통합 분석처럼 배너 넣어줘"). 문구는 실제 궁합보기 리포트 구성
          (얼굴형·눈·코·광대·입·턱 조합 + 관상 궁합 + 사주 궁합 + 매칭 점수)을 근거로 새로 썼다.
@@ -1940,6 +1965,8 @@ body.overlay-open { overflow: hidden; }
   <div class="panel" id="panel-nyangshop"></div>
   <!-- 냥 지급·사용 내역(js/nyang-history.js) — 관리자 CS 대응용 -->
   <div class="panel" id="panel-nyanghistory"></div>
+  <!-- 결제내역(js/pay-history.js) — 사용자 본인의 냥 지급·사용·구매 내역 -->
+  <div class="panel" id="panel-payhistory"></div>
 
 </div><!-- /wrap -->
 
@@ -1963,27 +1990,28 @@ body.overlay-open { overflow: hidden; }
 <!-- 로컬 스크립트의 ?v= 는 캐시 무효화용 버전이다. 브라우저(및 Firebase Hosting의 기본 캐시 헤더)가
      수정된 js를 옛 버전 그대로 재사용해 "코드를 고쳤는데 반영이 안 되는" 문제가 반복돼서 붙였다.
      js/*.js 를 수정하고 배포할 때마다 아래 v 값을 모두 함께 올려야 한다(날짜+연번). -->
-<script src="js/archetype-db.js?v=20260822c"></script>
-<script src="js/landmark-engine.js?v=20260822c"></script>
-<script src="js/config.js?v=20260822c"></script>
-<script src="js/firebase-init.js?v=20260822c"></script>
-<script src="js/kakao-auth.js?v=20260822c"></script>
+<script src="js/archetype-db.js?v=20260822d"></script>
+<script src="js/landmark-engine.js?v=20260822d"></script>
+<script src="js/config.js?v=20260822d"></script>
+<script src="js/firebase-init.js?v=20260822d"></script>
+<script src="js/kakao-auth.js?v=20260822d"></script>
 <!-- 냥(포인트) 지갑 — fbAuth/fbDb가 필요해 firebase-init.js 다음, 통합분석/궁합보기에서 써야 해 profile.js보다 먼저 -->
-<script src="js/wallet.js?v=20260822c"></script>
+<script src="js/wallet.js?v=20260822d"></script>
 <!-- 16캐릭터 시스템(신규 별도 레이어) — archetype-db.js/landmark-engine.js 다음, app.js보다 먼저 로드 -->
-<script src="js/character/trait-config.js?v=20260822c"></script>
-<script src="js/character/face-trait-map.js?v=20260822c"></script>
-<script src="js/character/saju-trait-map.js?v=20260822c"></script>
-<script src="js/character/character-db.js?v=20260822c"></script>
-<script src="js/character/character-engine.js?v=20260822c"></script>
+<script src="js/character/trait-config.js?v=20260822d"></script>
+<script src="js/character/face-trait-map.js?v=20260822d"></script>
+<script src="js/character/saju-trait-map.js?v=20260822d"></script>
+<script src="js/character/character-db.js?v=20260822d"></script>
+<script src="js/character/character-engine.js?v=20260822d"></script>
 <!-- 궁합(good/spark/clash) 엔진 — trait-config.js의 TRAITS를 재사용하므로 반드시 그 뒤에 로드할 것 -->
-<script src="js/character/compatibility-engine.js?v=20260822c"></script>
-<script src="js/ai-analysis.js?v=20260822c"></script>
-<script src="js/app.js?v=20260822c"></script>
-<script src="js/profile.js?v=20260822c"></script>
-<script src="js/archive.js?v=20260822c"></script>
-<script src="js/inyeon-dogam.js?v=20260822c"></script>
-<script src="js/nyang-shop.js?v=20260822c"></script>
-<script src="js/nyang-history.js?v=20260822c"></script>
+<script src="js/character/compatibility-engine.js?v=20260822d"></script>
+<script src="js/ai-analysis.js?v=20260822d"></script>
+<script src="js/app.js?v=20260822d"></script>
+<script src="js/profile.js?v=20260822d"></script>
+<script src="js/archive.js?v=20260822d"></script>
+<script src="js/inyeon-dogam.js?v=20260822d"></script>
+<script src="js/nyang-shop.js?v=20260822d"></script>
+<script src="js/nyang-history.js?v=20260822d"></script>
+<script src="js/pay-history.js?v=20260822d"></script>
 </body>
 </html>
