@@ -449,7 +449,7 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     late_life: {
       type: 'STRING',
       description:
-        '말년운(60세~)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것. 단정적인 미래예언이 아니라 성향이 어떻게 성숙하거나 안정되는지 중심으로 설명. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면, 이 구간(60세~)에 해당하는 항목의 십이운성·뜻을 반드시 그대로 따를 것 — 거기 없는 다른 십이운성 명칭이나 뜻을 새로 끌어오거나 어긋나는 서술을 하지 말 것. [사주 신살·귀인 목록]의 십이운성(사주 원국 자체 십이운성)은 나이 흐름과 무관한 별개 데이터이므로 초년/중년/말년 서사에 쓰지 말 것.'
+        '말년운(60세~)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것. 단정적인 미래예언이 아니라 성향이 어떻게 성숙하거나 안정되는지 중심으로 설명. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면, 이 구간(60세~)에 해당하는 항목의 십이운성·뜻을 반드시 그대로 따를 것 — 거기 없는 다른 십이운성 명칭이나 뜻을 새로 끌어오거나 어긋나는 서술을 하지 말 것. [사주 신살·귀인 목록]의 십이운성(사주 원국 자체 십이운성)은 나이 흐름과 무관한 별개 데이터이므로 초년/중년/말년 서사에 쓰지 말 것. ⚠️ 마지막 1문장은 지금까지의 풀이 전체를 관통하는 이 사람의 애씀·강점을 따뜻하게 알아주는 위로 한마디로 마무리할 것(예: "스스로를 태워 여기까지 온 만큼, 이제는 잠시 내려놓아도 괜찮아요" 같은 톤 — 그대로 베끼지 말고 이 사람의 실제 풀이 내용에서 나온 표현으로 새로 쓸 것).'
     },
 
     past_reflection: {
@@ -583,6 +583,14 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
   // 않는다(궁합보기 hero_reason과 동일 원칙). Zone3 데이터 페어 3개의 융합풀이, Zone4 스토리
   // 카드(고정 1 + 가변 1~3)가 이 블록으로 채워진다.
   if (hasSaju && hasFace) {
+    // 통합분석 리포트 구성.md §4(2026-08-21 4차 개편) — "개인 기질"·"남이 모르는 내 모습"은
+    // 처음엔 각각 zone3_ohaeng_reading 보강/personality_detail 조건부 강화로 흡수했었는데, 실제
+    // 개인 서술이 화면에 안 보인다는 피드백으로 Zone4 전용 고정 카드(zone4_temperament_*/
+    // zone4_hidden_self_*)로 독립시켰다. growth_guidance도 이번에 Zone4 고정카드4("조언")로
+    // 재활용한다 — 근거만 아래에서 hasSaju&&hasFace 전용으로 보강.
+    properties.growth_guidance.description +=
+      ' 통합분석 화면에서는 이 필드가 Zone4 마지막 고정 카드("조언")로도 노출된다 — [십성 목록]·[신강/신약]·[용신]·[사주 신살·귀인 목록]·[관상 실측 데이터] 중 이 리포트 전체에서 이미 다룬 근거를 종합해서, "당신은 ~형이에요"(정체성 선언)가 아니라 "그래서 지금은 ~하면 좋아요"(방향 제시)로 마무리할 것.';
+
     properties.zone2_review = {
       type: 'STRING',
       description:
@@ -592,13 +600,13 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     properties.zone3_manseryeok_reading = {
       type: 'STRING',
       description:
-        '[사주 원국]과 [관상 6기질 점수]를 함께 근거로 들어, 타고난 사주 구조와 얼굴에 드러난 기질이 어떻게 이어지는지 3~4문장으로 설명.'
+        '[사주 원국]과 [관상 6기질 점수]를 함께 근거로 들어, 타고난 사주 구조와 얼굴에 드러난 기질이 어떻게 이어지는지 3~4문장으로 설명. ⚠️ 순수 비교만 할 것 — 신강/신약·용신 판단은 Zone4 고정카드("나의 기질")에서 별도로 다루니 여기서는 언급하지 말 것(중복 방지).'
     };
 
     properties.zone3_ohaeng_reading = {
       type: 'STRING',
       description:
-        '[사주 오행 분포]와 [관상 오행 분포]를 비교해서 두 오행이 서로 겹치는 부분과 다른 부분을 3~4문장으로 설명. 오행의 한자를 괄호 병기하지 말 것. ⚠️ 반드시 두 분포의 실제 숫자를 먼저 비교한 뒤 쓸 것 — 목/화/토/금/수 5개 중 값 차이가 큰(예: 5%p 이상) 오행만 "다른 부분"으로 짚고, 어느 쪽이 실제로 더 높은지 방향에 맞게 서술할 것. "관상이 사주의 부족한 기운을 보완/받쳐준다" 같은 표현은 관상 쪽 수치가 실제로 사주보다 높은 오행에만 쓸 것 — 반대(사주가 더 높은데 관상이 보완한다고 쓰는 것)는 금지. 값 차이가 5%p 미만인 오행은 "겹친다/비슷하다"고만 쓰고 보완 서사를 만들지 말 것.'
+        '[사주 오행 분포]와 [관상 오행 분포]를 비교해서 두 오행이 서로 겹치는 부분과 다른 부분을 3~4문장으로 설명. 오행의 한자를 괄호 병기하지 말 것. ⚠️ 반드시 두 분포의 실제 숫자를 먼저 비교한 뒤 쓸 것 — 목/화/토/금/수 5개 중 값 차이가 큰(예: 5%p 이상) 오행만 "다른 부분"으로 짚고, 어느 쪽이 실제로 더 높은지 방향에 맞게 서술할 것. "관상이 사주의 부족한 기운을 보완/받쳐준다" 같은 표현은 관상 쪽 수치가 실제로 사주보다 높은 오행에만 쓸 것 — 반대(사주가 더 높은데 관상이 보완한다고 쓰는 것)는 금지. 값 차이가 5%p 미만인 오행은 "겹친다/비슷하다"고만 쓰고 보완 서사를 만들지 말 것. ⚠️ 오행 zero(0개)나 과다(3개 이상)에 대한 개인 서사, 용신(필요 오행) 언급은 여기서 하지 말 것 — Zone4 고정카드("나의 기질")에서 전담한다(중복 방지).'
     };
 
     properties.zone3_daeun_reading = {
@@ -607,18 +615,48 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
         '[대운 정보]와 [삼정 비율(상정/중정/하정 = 초년/중년/말년)]을 함께 근거로 들어, 인생 시기별 흐름이 사주와 얼굴 양쪽에서 어떻게 나타나는지 3~4문장으로 설명. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면 그 목록의 십이운성·뜻과 어긋나는 명칭·서술을 새로 만들지 말 것 — 바로 위 "대운x삼정 타임라인" 위젯에 같은 계산 결과가 이미 노출되어 있어 모순되면 바로 눈에 띔.'
     };
 
+    // Zone4 고정카드 2~4(2026-08-21 4차 개편) — "나는 누구인가"를 다루는 순수 개인 서술. 제목은
+    // 룰베이스 고정 문구(renderZone4FixedExtra)로 붙이고, 여기서는 reading/basis만 받는다.
+    properties.zone4_temperament_reading = {
+      type: 'STRING',
+      description:
+        'Zone4 고정카드2("나의 기질") 본문 3~5문장. [사주 오행 분포]의 zero(0개)·과다(3개 이상) 오행을 먼저 짚고, [신강/신약]·[용신(필요 오행)]을 이어서 근거로 엮을 것 — 셋을 따로따로 나열하지 말고 "이 사람의 에너지 밸런스"라는 하나의 이야기로 묶을 것. [관상 오행 분포]·[관상 6기질 점수]도 함께 근거로 섞을 것. 오행 zero가 있으면 비유적으로 표현해도 좋음(예: "뿌리내릴 흙이 없는 나무").'
+    };
+    properties.zone4_temperament_basis = {
+      type: 'STRING',
+      description:
+        '위 풀이의 근거를 1~3문장으로 — 실제 사용한 오행 개수·[신강/신약]·[용신] 값을 구체적으로 짚을 것.'
+    };
+
+    properties.zone4_hidden_self_reading = {
+      type: 'STRING',
+      description:
+        'Zone4 고정카드3("남이 모르는 내 모습") 본문 3~5문장. 관상에서 보이는 겉인상(예: 강해 보이는 얼굴형, 날카로운 눈매)과 사주(오행·십성 — 예: 편인·정인 같은 섬세한 십성, 감성적인 오행)에서 드러나는 실제 성향이 서로 다른 얘기를 하고 있다면 그 반전을 중심으로 쓸 것. 관상과 사주가 같은 얘기만 하면 억지로 반전을 만들지 말고 "겉과 속이 같은 사람"이라는 방향으로 풀어도 됨.'
+    };
+    properties.zone4_hidden_self_basis = {
+      type: 'STRING',
+      description:
+        '위 풀이의 근거를 1~3문장으로 — 관상 쪽 근거와 사주 쪽 근거를 각각 짚을 것.'
+    };
+
+    properties.zone4_advice_basis = {
+      type: 'STRING',
+      description:
+        'Zone4 고정카드4("조언")의 근거를 1~3문장으로 — growth_guidance 풀이가 이 리포트의 어떤 사주x관상 데이터(십성·신살조합·용신 등)를 근거로 나왔는지 설명. growth_guidance 본문과 내용이 겹치지 않게, "왜 그런 조언이 나왔는지"만 쓸 것.'
+    };
+
     properties.zone4_cards = {
       type: 'ARRAY',
-      minItems: 7,
+      minItems: 8,
       maxItems: 18,
       description:
-        '[Zone4 후보 주제 목록](family/work/money/love/relationships/rest, 6개) 전부를 반드시 다룰 것 — 이 사람에게 안 맞는다고 주제를 아예 빼면 안 됨. 각 주제는 기본 카드 1개, 그 주제로 할 말이 특히 많으면(예: 돈 풀이에서 사업가 기질까지 강하게 나옴) 같은 주제를 최대 3개까지 세부 카드로 나눠도 된다. 전체 카드 수는 반드시 최소 7개 이상이어야 하므로, 6개 주제 중 최소 1개 이상은 2개 이상의 세부 카드로 나눠 쓸 것 — 6개(주제당 정확히 1개씩)로 끝내면 안 됨. "전체에서 최대 3개를 고르는" 게 아니라 "주제마다 1~3개씩, 총합은 7~18개"가 규칙.',
+        '[Zone4 후보 주제 목록](family/work/money/love/relationships/rest, 6개) 전부를 반드시 다룰 것 — 이 사람에게 안 맞는다고 주제를 아예 빼면 안 됨. ⚠️ family와 love는 반드시 각각 2개 이상의 카드로 나눠 쓸 것(아래 [주제별 근거 가이드] 참고 — 자라온 환경 카드와 부모님과의 관계 카드를 분리, 연애·결혼 스타일 카드와 매력·인기 카드를 분리). 나머지 4개 주제(work/money/relationships/rest)는 기본 1개 카드, 할 말이 특히 많으면 최대 3개까지 세부 카드로 나눠도 된다. 전체 카드 수는 반드시 최소 8개 이상. "전체에서 최대 3개를 고르는" 게 아니라 "주제마다 1~3개씩(단, family·love는 2~3개), 총합은 8~18개"가 규칙.\n\n[주제별 근거 가이드 — 2026-08-21 강화, 카드 순서 포함]\n- family(가족): 순서대로 카드1 "자라온 환경"(전반), 카드2 "부모님과의 관계"(신규) — 카드2는 반드시 [십성 목록]에 편재·정재(재성)가 있는지로 아버지와의 인연을, 편인·정인(인성)이 있는지로 어머니와의 인연을 풀이할 것 — 있으면 그 인연이 뚜렷함을, 3개 자리(year/month/hour) 중 전혀 없으면 그 인연이 약하거나 독립적으로 형성됐음을 풀이. 실제 가족 구성원을 예언·평가하지 말고 "성향에 미쳤을 습관·태도 차이" 중심으로.\n- love(사랑): ⚠️ 순서대로 카드1 "매력·인기"(신규, 먼저), 카드2 "연애·결혼 스타일"(기존, 나중) — 이 순서를 반드시 지킬 것(가볍게 시작해서 구체적인 스타일로 들어가는 흐름). 카드1은 [사주 신살·귀인 목록]의 홍염살·년살 같은 매력 계열 신살과, [AI 관상 분류 결과]의 눈 유형(도화안·난안처럼 매력·사교성 계열)을 엮어서 "주변에 인기가 많은지"를 풀이할 것 — 둘 다 없으면 이 카드는 억지로 만들지 말고 love를 다른 세부 카드(예: 연애할 때의 진심 표현 방식)로 채울 것. 카드2는 연애·결혼에서 추구하는 스타일.\n- money(돈): [십성 목록]의 재성(편재=통 큰 씀씀이·사업감각, 정재=성실한 축적) 유무·종류를 우선 근거로 쓰고, [관상 실측 데이터]의 코끝(nosetip)·입(mouth) 관련 수치가 있으면 함께 엮을 것.\n- work(일): [십성 목록] 조합(상관=말재주·표현력, 편관=카리스마·결단력, 편인=독창성, 정관=책임감·조직 적응 등)으로 구체적인 직업 성향을 풀이할 것. Zone1 캐릭터 카드의 work 문구를 그대로 반복하지 말고, 십성 근거로 더 구체적인 스타일을 추가할 것.\n- relationships(대인관계): [사주 신살·귀인 목록] 중 화개살(혼자만의 시간 선호)·귀문관살(몰입력)·겁살·재살(관계 마찰) 같은 항목과, [관상 실측 데이터]의 눈썹·미간(대인관계·형제운 부위) 특징을 엮어서 풀이.\n- rest(쉼/힐링): [용신(필요 오행)]의 yongsinOh(그 사람에게 부족해서 필요한 오행)를 반드시 근거로 써서, 그 기운을 채워주는 활동·공간·색·환경을 제안할 것.',
       items: {
         type: 'OBJECT',
         properties: {
           topic_key: {
             type: 'STRING',
-            description: 'family(가족), work(일), money(돈), love(사랑), relationships(대인관계), rest(쉼/힐링) 중 하나. 세부 분리 시에도 가장 가까운 키를 쓸 것.'
+            description: 'family(가족), work(일), money(돈), love(사랑), relationships(대인관계), rest(쉼/힐링) 중 하나. 세부 분리 시에도 가장 가까운 키를 쓸 것. family·love는 반드시 2개 이상의 카드가 이 키를 가져야 함.'
           },
           title: {
             type: 'STRING',
@@ -628,12 +666,12 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
           reading: {
             type: 'STRING',
             description:
-              '사주x관상 데이터를 근거로 한 실제 풀이. MBTI 풀이처럼 2030이 이해하기 쉽게 3~4문장. 전문용어·자음 표현 금지.'
+              '사주x관상 데이터를 근거로 한 실제 풀이. [주제별 근거 가이드]에서 이 topic_key에 해당하는 근거를 반드시 활용할 것. MBTI 풀이처럼 2030이 이해하기 쉽게 3~4문장. 전문용어·자음 표현 금지.'
           },
           basis: {
             type: 'STRING',
             description:
-              '위 풀이가 어떤 사주x관상 데이터 근거로 나왔는지 1~3문장으로 설명("왜 이렇게 풀이했나요?" 영역에 노출됨).'
+              '위 풀이가 어떤 사주x관상 데이터 근거로 나왔는지 1~3문장으로 설명("왜 이렇게 풀이했나요?" 영역에 노출됨). [주제별 근거 가이드]에서 실제로 사용한 데이터(신살명·십성명·관상 부위 등)를 구체적으로 짚을 것.'
           },
         },
         required: ['topic_key', 'title', 'reading', 'basis'],
@@ -645,6 +683,11 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
       'zone3_manseryeok_reading',
       'zone3_ohaeng_reading',
       'zone3_daeun_reading',
+      'zone4_temperament_reading',
+      'zone4_temperament_basis',
+      'zone4_hidden_self_reading',
+      'zone4_hidden_self_basis',
+      'zone4_advice_basis',
       'zone4_cards'
     );
   }
@@ -828,25 +871,55 @@ personality_detail의 근거가 되어야 해.
 음양오행은 딱딱한 한자 나열보다
 일상의 성향으로 풀어서 설명해.
 
+[신살·귀인 조합 해석 — 2026-08-21 강화]
+
+[사주 신살·귀인 목록]에 항목이 2개 이상 있으면
+각각을 따로따로 나열하지 말고, 그 조합이 만들어내는 "하나의 이야기"로 묶어서 풀이해.
+
+나쁜 예(따로 나열):
+"홍염살이 있어 매력이 있고, 년살도 있어 사교성이 좋아요."
+
+좋은 예(조합으로 묶기):
+"홍염살과 년살이 함께 있어서, 가만히 있어도 시선을 끄는 그런 사람이에요."
+
+가진 신살·귀인 중 서로 같은 방향(둘 다 매력/둘 다 예민함 등)을 가리키는 조합을 우선 찾아서 쓰고,
+그런 조합이 없으면 가장 뚜렷한 신살·귀인 1개만 골라서 써도 돼.
+목록에 없는 신살·귀인을 조합해서 지어내지는 마.
+
 
 [관상×사주 데이터 풀이·스토리 — 관상 실측 데이터와 사주 정보가 둘 다 있을 때만 요청됨]
 
-zone2_review/zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading/zone4_cards가
-스키마에 있다면 아래 기준으로 채워.
+zone2_review/zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading/
+zone4_temperament_reading/zone4_temperament_basis/zone4_hidden_self_reading/zone4_hidden_self_basis/
+zone4_advice_basis/zone4_cards가 스키마에 있다면 아래 기준으로 채워.
 
 - zone2_review: [관상x사주 케미 점수]는 이미 계산되어 주어진다. 새 숫자를 만들지 말고, 그
   점수가 왜 나왔는지만 관상 근거 1개 + 사주 근거 1개로 설명해.
 - zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading: 각각 [사주 원국]↔[관상
   6기질 점수], [사주 오행 분포]↔[관상 오행 분포], [대운 정보]↔[삼정 비율]을 짝지어, 두 데이터가
-  같은 이야기를 하는지 다른 이야기를 하는지 구체적으로 짚어.
+  같은 이야기를 하는지 다른 이야기를 하는지 구체적으로 짚어. ⚠️ [신강/신약]·[용신(필요 오행)]과
+  오행 zero/과다 개인 서사는 여기서 쓰지 마 — Zone4 고정카드(zone4_temperament_reading)가 전담해.
+- zone4_temperament_reading("나의 기질"): 오행 zero·과다를 먼저 짚고 [신강/신약]·[용신]을 하나의
+  이야기로 엮어서 이 사람의 에너지 밸런스를 설명해. Zone3에서 이미 언급 안 한 내용이니 여기서
+  처음 등장시켜.
+- zone4_hidden_self_reading("남이 모르는 내 모습"): 관상 겉인상과 사주(오행·십성)가 서로 다른
+  얘기를 할 때만 반전 포인트로 써. 같은 얘기면 "겉과 속이 같다"는 방향으로 풀어도 돼.
+- zone4_advice_basis: growth_guidance 조언이 이 리포트의 어떤 데이터(십성·신살조합·용신 등)를
+  근거로 나왔는지만 짧게 짚어(조언 내용 자체는 growth_guidance에 이미 있으니 반복하지 마).
 - zone4_cards: [Zone4 후보 주제 목록] 6개(가족/일/돈/사랑/대인관계/쉼힐링)를 전부 다뤄 — 하나도
-  빼면 안 돼. 전체 카드 수는 최소 7개 이상이어야 하니, 6개 주제 중 최소 1개 이상은 할 말이
-  풍부한 걸 찾아서 2~3개 세부 카드로 나눠(주제당 정확히 1개씩만 써서 6개로 끝내지 말 것). 각
-  카드 제목은 [Zone4 제목 말투 참고 예시]와 같은 톤으로 이 카드의 실제 풀이 내용에 맞게 새로
-  지어. 참고 예시 문장을 그대로 쓰거나 단어만 바꿔 쓰는 것은 절대 금지.
+  빼면 안 돼. family(가족)와 love(사랑)는 반드시 각각 2개 이상의 카드로 나눠(스키마의 [주제별
+  근거 가이드]에 각 카드가 어떤 데이터를 근거로 써야 하는지, 그리고 카드 순서가 어떻게 되는지
+  적혀 있어 — family는 카드1 "자라온 환경" → 카드2 "부모님과의 관계"([십성 목록]의 재성·인성
+  유무), love는 카드1 "매력·인기"([사주 신살·귀인 목록]의 홍염살·년살 + [AI 관상 분류 결과]의
+  매력 계열 눈 유형) → 카드2 "연애·결혼 스타일" 순서를 반드시 지켜). 나머지 주제(work/money/
+  relationships/rest)도 [주제별 근거 가이드]에 지정된 데이터(십성 조합, 신살·귀인, 관상 부위,
+  용신)를 반드시 활용해 — 전체 카드 수는 최소 8개 이상. 각 카드 제목은 [Zone4 제목 말투 참고
+  예시]와 같은 톤으로 이 카드의 실제 풀이 내용에 맞게 새로 지어. 참고 예시 문장을 그대로 쓰거나
+  단어만 바꿔 쓰는 것은 절대 금지.
 
 이 필드들도 지어내지 말고, 반드시 앞서 준 [관상 실측 데이터]·[AI 관상 분류 결과]·[사주 정보]·
-[사주 신살·귀인 목록]·[관상x사주 케미 점수]·[대운 정보]·[삼정 비율]에 실제로 있는 내용만 근거로 삼아.
+[사주 신살·귀인 목록]·[십성 목록]·[신강/신약]·[용신(필요 오행)]·[관상x사주 케미 점수]·[대운 정보]·
+[삼정 비율]에 실제로 있는 내용만 근거로 삼아.
 
 [Zone4 제목·풀이 말투 — 통합분석 리포트 구성.md §3]
 - 2030 타깃, MBTI 풀이처럼 이해가 쉽게. 사주·관상 전문용어(현침살, 자충수, 천정이 밝다, 재백궁 등)를
@@ -941,6 +1014,34 @@ ${JSON.stringify(sajuInsight.sinsalList)}
 ${JSON.stringify(sajuInsight.gwiinList)}`
     : `[사주 신살·귀인 목록]
 없음 — 생년월일시 정보가 없어 계산 불가.`;
+
+
+  // 십성/신강신약/용신(2026-08-21 추가) — 궁합보기(buildSipseongCross/buildYongsinChemi)에서만 쓰던
+  // 엔진을 개인 리포트에도 연결한다. year/month/hour는 일간 대비 년간·월간·시간의 십성이고, 일간 본인은
+  // "일원"이라 비교 대상에서 제외된다(calcSipseongAll 주석 참고) — 시간 미상이면 hour는 null.
+  const sipseongAll = pillars ? calcSipseongAll(pillars) : null;
+  const sipseongBlock = sipseongAll
+    ? `[십성 목록 — 일간 기준 년주/월주/시주. 일간 자신은 비교 대상에서 빠짐]
+${JSON.stringify(sipseongAll)}
+
+[십성 의미 참고 — 반드시 이 뜻풀이 범위 안에서만 서술할 것]
+${JSON.stringify(SIPSEONG_MEANING)}`
+    : `[십성 목록]
+없음 — 일간 정보가 없어 계산 불가.`;
+
+  const sinkangSinyak = pillars ? calcSinkangSinyak(pillars) : null;
+  const sinkangSinyakBlock = sinkangSinyak
+    ? `[신강/신약]
+${JSON.stringify(sinkangSinyak)}
+※ isStrong=true면 신강(스스로 밀고 나가는 힘이 강함), false면 신약(주변 도움·기운이 필요함). help/drain 숫자는 근거 계산값일 뿐이니 그대로 노출하지 말 것.`
+    : '';
+
+  const yongsin = pillars ? calcYongsin(pillars) : null;
+  const yongsinBlock = yongsin
+    ? `[용신(필요 오행)]
+${JSON.stringify(yongsin)}
+※ yongsinOh가 이 사람에게 부족해서 채우면 좋은 오행. ohCount에서 그 오행의 실제 개수도 함께 확인할 것.`
+    : '';
 
 
   const faceBlock = ratios
@@ -1045,9 +1146,15 @@ analysis_basis와 principle은 별도 필드로 분리하세요.
 
 같은 내용을 interpretation / analysis_basis / principle에서 반복하지 마세요.
 
-zone2_review/zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading/zone4_cards가
-스키마에 있다면, [관상x사주 케미 점수]·[관상 6기질 점수]·[관상 오행 분포]·[삼정 비율]·[대운 정보]·
-[Zone4 후보 주제 목록]·[Zone4 제목 말투 참고 예시]를 근거로 채워주세요. 제목 말투 참고 예시는 절대 그대로 베끼지 마세요.`
+zone2_review/zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading/
+zone4_temperament_reading/zone4_hidden_self_reading/zone4_advice_basis/zone4_cards가 스키마에
+있다면, [관상x사주 케미 점수]·[관상 6기질 점수]·[관상 오행 분포]·[삼정 비율]·[대운 정보]·[십성 목록]·
+[신강/신약]·[용신(필요 오행)]·[Zone4 후보 주제 목록]·[Zone4 제목 말투 참고 예시]를 근거로 채워주세요.
+오행 zero/과다·신강신약·용신은 zone3_* 필드가 아니라 zone4_temperament_reading에만 쓰세요(중복
+금지). zone4_cards는 [주제별 근거 가이드](스키마 설명 참고)에 따라 family는 "자라온 환경"→"부모님과의
+관계", love는 "매력·인기"→"연애·결혼 스타일" 순서로 각각 2개 이상의 카드를 나누고, 나머지 주제도
+지정된 근거(십성·신살귀인·관상 부위)를 반드시 활용하세요. 제목 말투 참고 예시는 절대 그대로 베끼지
+마세요.`
     : `[요청]
 
 사진 없이 사주 정보만으로 스키마의 모든 필드를 채워주세요.
@@ -1075,6 +1182,15 @@ ${sajuBlock}
 
 
 ${sinsalBlock}
+
+
+${sipseongBlock}
+
+
+${sinkangSinyakBlock}
+
+
+${yongsinBlock}
 
 
 ${sewoonBlock}
@@ -1479,13 +1595,34 @@ function renderZone4Card1(elId, data) {
     </div>`);
 }
 
+// Zone4 고정카드 2~4(2026-08-21 4차 개편) — "나의 기질"/"남이 모르는 내 모습"/"조언". 제목은
+// 룰베이스 고정 문구(§2 판단기준 1번 — 항상 등장하는 구조라 AI가 짓지 않음), reading/basis만 AI.
+// 가변 카드(renderZone4Cards)와 같은 gg-item 레이아웃을 재사용해 시각적으로 통일한다.
+function renderZone4FixedCard(elId, emoji, title, reading, basis) {
+  setHtmlIfExists(elId, `
+    <div class="gg-item">
+      <div class="gg-item-head">${emoji} ${title}</div>
+      <div class="gg-item-reading">${reading || ''}</div>
+      <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${basis || ''}</div>
+    </div>`);
+}
+
 // Zone4 카드2~N(가변) — topic_key별 고정 이모지(궁합보기 GUNGHAP_ZONE2_META와 같은 패턴).
 const CMB_ZONE4_TOPIC_EMOJI = { family: '🌳', work: '💼', money: '💰', love: '💘', relationships: '🤝', rest: '🌿' };
+// 카드 노출 순서는 AI 응답 배열 순서에 맡기지 않고 여기서 고정한다(통합분석 리포트 구성.md §4) —
+// "어디서 왔는지(가족) → 사람을 어떻게 대하는지(대인관계·사랑) → 무얼 하며 사는지(일·돈) → 어떻게
+// 쉬는지(쉼/힐링)"로 읽히는 순서. Array.sort는 안정 정렬이라 같은 topic_key 카드들의 상대 순서는
+// AI가 준 순서 그대로 유지된다. 목록에 없는 topic_key는 맨 뒤로 보낸다.
+const ZONE4_TOPIC_ORDER = ['family', 'relationships', 'love', 'work', 'money', 'rest'];
 function renderZone4Cards(elId, cards) {
   const el = document.getElementById(elId);
   if (!el) return;
   if (!cards || !cards.length) { el.innerHTML = ''; return; }
-  el.innerHTML = cards.map(c => `
+  const ordered = [...cards].sort((a, b) => {
+    const ia = ZONE4_TOPIC_ORDER.indexOf(a.topic_key), ib = ZONE4_TOPIC_ORDER.indexOf(b.topic_key);
+    return (ia < 0 ? ZONE4_TOPIC_ORDER.length : ia) - (ib < 0 ? ZONE4_TOPIC_ORDER.length : ib);
+  });
+  el.innerHTML = ordered.map(c => `
     <div class="gg-item">
       <div class="gg-item-head">${CMB_ZONE4_TOPIC_EMOJI[c.topic_key] || '✨'} ${c.title}</div>
       <div class="gg-item-reading">${c.reading}</div>
@@ -1502,7 +1639,7 @@ async function requestDeepReport(ctx) {
   const cfg =
     (CTX_CONFIG[ctx] || CTX_CONFIG.combined)();
 
-  const splitIds = [cfg.zone2ReviewId, cfg.zone3Reading1Id, cfg.zone3Reading2Id, cfg.zone3Reading3Id, cfg.zone4Card1Id, cfg.zone4CardsId].filter(Boolean);
+  const splitIds = [cfg.zone2ReviewId, cfg.zone3Reading1Id, cfg.zone3Reading2Id, cfg.zone3Reading3Id, cfg.zone4Card1Id, cfg.zone4TemperamentId, cfg.zone4HiddenSelfId, cfg.zone4AdviceId, cfg.zone4CardsId].filter(Boolean);
   if (!cfg.deepReportId && !splitIds.length) return;
 
 
@@ -1670,6 +1807,9 @@ async function requestDeepReport(ctx) {
       if (cfg.zone3Reading2Id) { setHtmlIfExists(cfg.zone3Reading2Id, data.zone3_ohaeng_reading); clearAiSkeleton(cfg.zone3Reading2Id); }
       if (cfg.zone3Reading3Id) { setHtmlIfExists(cfg.zone3Reading3Id, data.zone3_daeun_reading); clearAiSkeleton(cfg.zone3Reading3Id); }
       if (cfg.zone4Card1Id) { renderZone4Card1(cfg.zone4Card1Id, data); clearAiSkeleton(cfg.zone4Card1Id); }
+      if (cfg.zone4TemperamentId) { renderZone4FixedCard(cfg.zone4TemperamentId, '⚖️', '나의 기질과 에너지 밸런스', data.zone4_temperament_reading, data.zone4_temperament_basis); clearAiSkeleton(cfg.zone4TemperamentId); }
+      if (cfg.zone4HiddenSelfId) { renderZone4FixedCard(cfg.zone4HiddenSelfId, '🎭', '남이 모르는 내 모습', data.zone4_hidden_self_reading, data.zone4_hidden_self_basis); clearAiSkeleton(cfg.zone4HiddenSelfId); }
+      if (cfg.zone4AdviceId) { renderZone4FixedCard(cfg.zone4AdviceId, '🧭', '이제는 이렇게 해보세요', data.growth_guidance, data.zone4_advice_basis); clearAiSkeleton(cfg.zone4AdviceId); }
       if (cfg.zone4CardsId) { renderZone4Cards(cfg.zone4CardsId, data.zone4_cards); clearAiSkeleton(cfg.zone4CardsId); }
     } else {
       renderDeepReport(
@@ -1915,7 +2055,10 @@ const CTX_CONFIG = {
   gwansang: () => ({ canvasId:'gwansangCanvas', cardsId:'gwansangCards', archetypeId:'gwansangArchetype', shapeDetailId:'gwansangShapeDetails', deepReportId:'gwansangDeepReport', relVal:state.gwansang.relation, pillars:null, ohaeng:null, genderVal:gender }),
   // shapeDetailId를 안 보이는 그릇으로 돌려, "부위별 생김새 유형" 블록이 전통 형상 카드(cmbArchetype)에
   // 붙지 않게 한다 — 그 내용은 이제 부위별 병합 카드(#cmbPartCards) 안에서만 보인다.
-  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', deepReportId:null, zone2ReviewId:'cmbZone2Review', zone3Reading1Id:'cmbZone3Reading1', zone3Reading2Id:'cmbZone3Reading2', zone3Reading3Id:'cmbZone3Reading3', zone4Card1Id:'cmbZone4Card1', zone4CardsId:'cmbZone4Cards', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
+  // zone4TemperamentId/zone4HiddenSelfId/zone4AdviceId(2026-08-21 4차 개편) — index.html에 아직
+  // 담을 컨테이너 div가 없어서 지금은 조용히 no-op(setHtmlIfExists가 null-safe)이다. 컨테이너
+  // div를 추가하는 순간 바로 렌더링되니, 그때 이 id들과 이름을 맞추면 된다.
+  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', deepReportId:null, zone2ReviewId:'cmbZone2Review', zone3Reading1Id:'cmbZone3Reading1', zone3Reading2Id:'cmbZone3Reading2', zone3Reading3Id:'cmbZone3Reading3', zone4Card1Id:'cmbZone4Card1', zone4TemperamentId:'cmbZone4Temperament', zone4HiddenSelfId:'cmbZone4HiddenSelf', zone4AdviceId:'cmbZone4Advice', zone4CardsId:'cmbZone4Cards', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
   // personLabel: "당신" 대신 실제 이름 사용. hideShapeDetails: 궁합 탭 Zone1에선 "🧩 부위별 생김새
   // 유형"을 아예 안 보여주기로 함(사용자 요청 2026-08-20) — shapeDetailId 싱크도 안 주고 shapeIds 자체를
   // 호출부에서 null로 넘기게 하는 플래그.
