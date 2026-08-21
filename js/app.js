@@ -389,11 +389,16 @@ async function openCombinedSavedReport(id) {
   if (!ok) body.innerHTML = '<div class="arc-empty">저장된 리포트를 찾을 수 없습니다. 분석을 다시 실행해주세요.</div>';
 }
 
+// ⚠️ 버그 수정(2026-08-21 사용자 리포트: "리포트 보다가 통합분석으로 나오면 내역이 안 보인다") —
+// 예전엔 여기서 목록(cmbSavedStep)을 그냥 다시 보여주기만 했다. 보고 있던 사이 다른 기기에서
+// 삭제했거나 새로 저장된 기록이 있어도 cmbSavedList의 innerHTML은 리포트를 열기 전 상태 그대로라
+// 반영이 안 됐다. cmbSavedReport를 먼저 숨긴 뒤 renderCombinedSavedReport()를 불러 목록을 최신
+// Archive.listOf('combined') 기준으로 다시 그린다 — 그 함수가 빈 목록이면 업로드 화면으로 보내는
+// 것까지 함께 처리해준다.
 function closeCombinedSavedReport() {
   cmbViewingReportId = null;
   document.getElementById('cmbSavedReport').classList.add('hidden');
-  document.getElementById('cmbSavedStep').classList.remove('hidden');
-  setCmbHeroVisible(true);
+  renderCombinedSavedReport();
   window.scrollTo(0, 0);
 }
 
