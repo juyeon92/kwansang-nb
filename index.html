@@ -1552,7 +1552,7 @@ body.overlay-open { overflow: hidden; }
         
         <div class="z3-pair-card" style="margin-top:16px;">
           <div class="z3-pair-title">🌊 대운 x 🎭 삼정 — 인생 타임라인</div>
-          <div class="metric-caption" style="margin-bottom:8px;">%는 그 시기 전체에 배정된 기운의 비중이고, ⭐좋은 시기는 그 안의 특정 10년이 상승기라는 별개의 표시예요 — 서로 무관한 기준이라 %가 낮아도 좋은 시기가 있을 수 있어요</div>
+          <div class="metric-caption" style="margin-bottom:8px;">%는 실제 얼굴에서 이마(초년)·눈코(중년)·인중~턱(말년)이 차지하는 비율이에요 — 셋을 합치면 100%인 파이 조각이라 낮다고 그 시기가 나쁜 게 아니에요. ⭐좋은 시기는 이 얼굴 비율과 무관하게, 사주로 계산한 그 10년의 십이운성이 상승기라는 별개의 표시예요.</div>
           <div id="cmbLifelineNow" style="font-size:12.5px;color:var(--text);margin-bottom:6px;"></div>
           <div class="lifeline" id="cmbLifeline" style="color:var(--text2);font-size:12.5px;">사진이 있어야 볼 수 있어요.</div>
           <!-- 사주보기 탭과 같은 renderDaeunTable을 쓰지 않으므로 숨은 그릇 불필요 -->       
@@ -1990,28 +1990,28 @@ body.overlay-open { overflow: hidden; }
 <!-- 로컬 스크립트의 ?v= 는 캐시 무효화용 버전이다. 브라우저(및 Firebase Hosting의 기본 캐시 헤더)가
      수정된 js를 옛 버전 그대로 재사용해 "코드를 고쳤는데 반영이 안 되는" 문제가 반복돼서 붙였다.
      js/*.js 를 수정하고 배포할 때마다 아래 v 값을 모두 함께 올려야 한다(날짜+연번). -->
-<script src="js/archetype-db.js?v=20260822h"></script>
-<script src="js/landmark-engine.js?v=20260822h"></script>
-<script src="js/config.js?v=20260822h"></script>
-<script src="js/firebase-init.js?v=20260822h"></script>
-<script src="js/kakao-auth.js?v=20260822h"></script>
+<script src="js/archetype-db.js?v=20260822i"></script>
+<script src="js/landmark-engine.js?v=20260822i"></script>
+<script src="js/config.js?v=20260822i"></script>
+<script src="js/firebase-init.js?v=20260822i"></script>
+<script src="js/kakao-auth.js?v=20260822i"></script>
 <!-- 냥(포인트) 지갑 — fbAuth/fbDb가 필요해 firebase-init.js 다음, 통합분석/궁합보기에서 써야 해 profile.js보다 먼저 -->
-<script src="js/wallet.js?v=20260822h"></script>
+<script src="js/wallet.js?v=20260822i"></script>
 <!-- 16캐릭터 시스템(신규 별도 레이어) — archetype-db.js/landmark-engine.js 다음, app.js보다 먼저 로드 -->
-<script src="js/character/trait-config.js?v=20260822h"></script>
-<script src="js/character/face-trait-map.js?v=20260822h"></script>
-<script src="js/character/saju-trait-map.js?v=20260822h"></script>
-<script src="js/character/character-db.js?v=20260822h"></script>
-<script src="js/character/character-engine.js?v=20260822h"></script>
+<script src="js/character/trait-config.js?v=20260822i"></script>
+<script src="js/character/face-trait-map.js?v=20260822i"></script>
+<script src="js/character/saju-trait-map.js?v=20260822i"></script>
+<script src="js/character/character-db.js?v=20260822i"></script>
+<script src="js/character/character-engine.js?v=20260822i"></script>
 <!-- 궁합(good/spark/clash) 엔진 — trait-config.js의 TRAITS를 재사용하므로 반드시 그 뒤에 로드할 것 -->
-<script src="js/character/compatibility-engine.js?v=20260822h"></script>
-<script src="js/ai-analysis.js?v=20260822h"></script>
-<script src="js/app.js?v=20260822h"></script>
-<script src="js/profile.js?v=20260822h"></script>
-<script src="js/archive.js?v=20260822h"></script>
-<script src="js/inyeon-dogam.js?v=20260822h"></script>
-<script src="js/nyang-shop.js?v=20260822h"></script>
-<script src="js/nyang-history.js?v=20260822h"></script>
-<script src="js/pay-history.js?v=20260822h"></script>
+<script src="js/character/compatibility-engine.js?v=20260822i"></script>
+<script src="js/ai-analysis.js?v=20260822i"></script>
+<script src="js/app.js?v=20260822i"></script>
+<script src="js/profile.js?v=20260822i"></script>
+<script src="js/archive.js?v=20260822i"></script>
+<script src="js/inyeon-dogam.js?v=20260822i"></script>
+<script src="js/nyang-shop.js?v=20260822i"></script>
+<script src="js/nyang-history.js?v=20260822i"></script>
+<script src="js/pay-history.js?v=20260822i"></script>
 </body>
 </html>
