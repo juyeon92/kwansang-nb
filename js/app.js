@@ -1878,13 +1878,15 @@ function renderOhaengCompareTable(sajuCount, faceCount, headFaceElId, headSajuEl
 
   const table = document.getElementById(tableElId);
   if (!table) return;
+  // 막대 길이는 항상 "100% 기준"으로 채운다 — 예전에는 5개 오행 중 최댓값(maxPct)을 기준으로
+  // 다시 정규화해서 최댓값이 무조건 꽉 찬 막대로 보였다(예: 화 34%인데 막대는 100%처럼 꽉 참) —
+  // 바로 옆 숫자(%)는 그대로 실제값인데 막대만 상대값이라 서로 안 맞았다(사용자 리포트 2026-08-21).
   const pcts = order.map(k => ({ k, facePct: Math.round(faceCount[k] || 0), sajuPct: Math.round((sajuCount[k] || 0) / sajuTotal * 100) }));
-  const maxPct = Math.max(1, ...pcts.map(p => Math.max(p.facePct, p.sajuPct)));
   table.innerHTML = pcts.map(({ k, facePct, sajuPct }) => `<div class="oh-vs-row">
         <span class="oh-vs-pct">${facePct}%</span>
-        <div class="oh-vs-track left"><div class="oh-vs-fill" style="width:${Math.round(facePct / maxPct * 100)}%;background:${fillColor[k]};"></div></div>
+        <div class="oh-vs-track left"><div class="oh-vs-fill" style="width:${Math.min(100, facePct)}%;background:${fillColor[k]};"></div></div>
         <span class="oh-vs-label" style="color:${textColor[k]};">${emojis[k]}${k}</span>
-        <div class="oh-vs-track"><div class="oh-vs-fill" style="width:${Math.round(sajuPct / maxPct * 100)}%;background:${fillColor[k]};"></div></div>
+        <div class="oh-vs-track"><div class="oh-vs-fill" style="width:${Math.min(100, sajuPct)}%;background:${fillColor[k]};"></div></div>
         <span class="oh-vs-pct">${sajuPct}%</span>
       </div>`).join('');
 }

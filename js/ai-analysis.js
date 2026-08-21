@@ -489,12 +489,19 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     properties.sinsal_reading = {
       type: 'STRING',
       description:
-        '[사주 신살·귀인 목록]에 실제 존재하는 항목만 사용해 4~6문장으로 해석. 없는 신살이나 귀인을 창작하지 말 것. ⚠️ 목록을 그냥 나열하지 말 것 — 먼저 이 사람이 가진 신살·귀인의 개수·다양성 자체가 무슨 의미인지 한 문장으로 짚고(예: 여러 개면 "인생에 굴곡이나 전환점이 잦은 편", 적으면 "무난하고 평탄한 흐름"), 그 다음 같은 방향을 가리키는 항목들을 조합해서(예: 홍염살+년살 → "매력") 1~2개 이야기로 묶어서 풀이할 것. 신살은 전부 나쁜 게 아니라 길신(귀인)·흉살이 섞여 있다는 것도 자연스럽게 짚을 것.'
+        '[사주 신살·귀인 목록]에 실제 존재하는 항목만 사용해 4~6문장으로 해석. 없는 신살이나 귀인을 창작하지 말 것. ⚠️ 목록을 그냥 나열하지 말 것 — 먼저 이 사람이 가진 신살·귀인의 개수·다양성 자체가 무슨 의미인지 한 문장으로 짚고(예: 여러 개면 "인생에 굴곡이나 전환점이 잦은 편", 적으면 "무난하고 평탄한 흐름"), 그 다음 같은 방향을 가리키는 항목들을 조합해서(예: 홍염살+년살 → "매력") 1~2개 이야기로 묶어서 풀이할 것. 신살은 전부 나쁜 게 아니라 길신(귀인)·흉살이 섞여 있다는 것도 자연스럽게 짚을 것. ⚠️ "다양한 기운들이 조화롭게 섞여 있다" 같은 뭉뚱그린 문장으로 때우지 말고, 이 문장 안에서도 실제로 근거로 쓴 신살·귀인 이름을 최소 2개 이상 그대로 언급할 것(예: "홍염살과 문곡귀인이 있어서").'
+    };
+
+    properties.sinsal_basis = {
+      type: 'STRING',
+      description:
+        '위 sinsal_reading이 어떤 데이터를 근거로 나왔는지 2~4문장으로 밝히는 "왜 이렇게 풀이했나요?" 영역. ⚠️ 반드시 구체적으로 인용할 것 — 일간 오행(예: "일간 갑목(甲木)"), 어느 기둥(년주/월주/일주/시주)에 있는지, 신살·귀인의 실제 명칭을 그대로 쓸 것. "다양한 기운" "여러 살" 같은 추상적 표현만 쓰는 것은 금지 — 반드시 [사주 신살·귀인 목록]에 실제로 있는 이름을 문장에 그대로 적을 것.'
     };
 
     required.push(
       'ohaeng_reading',
-      'sinsal_reading'
+      'sinsal_reading',
+      'sinsal_basis'
     );
   }
 
@@ -551,12 +558,6 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
             description:
               '해당 특징을 전통 관상에서 어떻게 해석하는지를 2~3문장으로 설명. 반드시 제공된 DB 내용에 근거하고 새로운 전통 해석을 만들지 말 것.'
           },
-
-          reality_tip: {
-            type: 'STRING',
-            description:
-              '위 특징의 강점을 살리고 과할 때 생길 수 있는 단점을 줄이는 현실적인 조언 2~3문장. 습관·태도·관계 행동 중심.'
-          },
         },
 
         required: [
@@ -564,8 +565,7 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
           'title',
           'interpretation',
           'analysis_basis',
-          'principle',
-          'reality_tip'
+          'principle'
         ],
       },
     };
@@ -600,7 +600,13 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     properties.zone3_manseryeok_reading = {
       type: 'STRING',
       description:
-        '[사주 원국]과 [관상 6기질 점수]를 함께 근거로 들어, 타고난 사주 구조와 얼굴에 드러난 기질이 어떻게 이어지는지 3~4문장으로 설명. ⚠️ 순수 비교만 할 것 — 신강/신약·용신 판단은 Zone4 고정카드("나의 기질")에서 별도로 다루니 여기서는 언급하지 말 것(중복 방지).'
+        '[사주 원국]과 [관상 6기질 점수]를 함께 근거로 들어, 타고난 사주 구조와 얼굴에 드러난 기질이 어떻게 이어지는지 3~4문장으로 설명. ⚠️ 순수 비교만 할 것 — 신강/신약·용신 판단은 Zone4 고정카드("나의 기질")에서 별도로 다루니 여기서는 언급하지 말 것(중복 방지). ⚠️ "차분하고 신중한 에너지" 같은 뭉뚱그린 표현만 쓰지 말고, 문장 안에 일간 오행(예: "일간 갑목")과 관상 6기질 중 실제로 높게 나온 기질 이름을 최소 하나씩 그대로 언급할 것.'
+    };
+
+    properties.zone3_manseryeok_basis = {
+      type: 'STRING',
+      description:
+        '위 zone3_manseryeok_reading이 어떤 데이터를 근거로 나왔는지 1~3문장으로 밝히는 "왜 이렇게 풀이했나요?" 영역. ⚠️ 반드시 구체적으로 인용할 것 — 일간 오행(예: "일간 갑목(甲木)")과 [관상 6기질 점수]에서 실제로 높게/낮게 나온 기질명·점수를 그대로 쓸 것. "두 데이터 모두에서 드러나요" 같은 추상적 마무리만 쓰는 것은 금지.'
     };
 
     properties.zone3_ohaeng_reading = {
@@ -681,6 +687,7 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     required.push(
       'zone2_review',
       'zone3_manseryeok_reading',
+      'zone3_manseryeok_basis',
       'zone3_ohaeng_reading',
       'zone3_daeun_reading',
       'zone4_temperament_reading',
@@ -725,7 +732,7 @@ analysis_basis / face_analysis_basis:
 principle / face_principle:
 그 판별을 전통 관상에서 어떤 의미로 보는지 설명한다.
 
-reality_tip / growth_guidance:
+growth_guidance:
 현실에서 어떻게 활용하거나 보완할지 알려준다.
 
 
@@ -823,20 +830,6 @@ DB 원문을 그대로 복사하지 말고 현대적인 문장으로 풀어줘.
 하지만 DB에 없는 관상 원리를 새로 만들어서는 안 돼.
 
 
-5. reality_tip
-
-해당 성향을 없애라고 하지 말고
-강점을 유지하면서 과한 부분만 조절하는 방법을 알려줘.
-
-추상적으로
-"마음을 편하게 가지세요"
-라고 하지 말고,
-
-"다른 사람의 분위기가 불편해 보여도 바로 해결하려 하기보다 한 번 기다려보세요."
-
-처럼 행동 수준으로 제안해.
-
-
 [전체 성향 풀이]
 
 personality_detail도 전문용어 나열이 아니라
@@ -889,7 +882,7 @@ personality_detail의 근거가 되어야 해.
 
 [관상×사주 데이터 풀이·스토리 — 관상 실측 데이터와 사주 정보가 둘 다 있을 때만 요청됨]
 
-zone2_review/zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading/
+zone2_review/zone3_manseryeok_reading/zone3_manseryeok_basis/zone3_ohaeng_reading/zone3_daeun_reading/
 zone4_temperament_reading/zone4_temperament_basis/zone4_hidden_self_reading/zone4_hidden_self_basis/
 zone4_advice_basis/zone4_cards가 스키마에 있다면 아래 기준으로 채워.
 
@@ -897,7 +890,9 @@ zone4_advice_basis/zone4_cards가 스키마에 있다면 아래 기준으로 채
   점수가 왜 나왔는지만 관상 근거 1개 + 사주 근거 1개로 설명해.
 - zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading: 각각 [사주 원국]↔[관상
   6기질 점수], [사주 오행 분포]↔[관상 오행 분포], [대운 정보]↔[삼정 비율]을 짝지어, 두 데이터가
-  같은 이야기를 하는지 다른 이야기를 하는지 구체적으로 짚어. ⚠️ zone3_ohaeng_reading에서 어느
+  같은 이야기를 하는지 다른 이야기를 하는지 구체적으로 짚어. ⚠️ zone3_manseryeok_reading·
+  zone3_manseryeok_basis는 "다양한 기운" "차분한 에너지" 같은 뭉뚱그린 표현 대신 일간 오행·관상
+  기질명을 실제로 언급해(스키마 설명 참고). ⚠️ zone3_ohaeng_reading에서 어느
   쪽이 더 높은지는 [오행 비교표]에 이미 계산돼 있다 — [사주 오행 분포]·[관상 오행 분포] 원본으로
   직접 다시 비교하지 말고(스케일이 달라 방향이 틀리기 쉬움) [오행 비교표]의 방향을 그대로 따라.
   ⚠️ [신강/신약]·[용신(필요 오행)]과 오행 zero/과다 개인 서사는 여기서 쓰지 마 — Zone4 고정카드
@@ -1291,7 +1286,7 @@ function partDeepDiveCardHtml(p) {
       class="face-reading-card"
       style="
         margin-top:16px;
-        padding:18px 16px;
+        padding:18px 0;
         border-radius:16px;
         background:rgba(255,255,255,0.04);
         border:1px solid rgba(255,255,255,0.08);
@@ -1340,7 +1335,7 @@ function partDeepDiveCardHtml(p) {
         style="
           padding:14px;
           border-radius:12px;
-          background:rgba(0,0,0,0.12);
+          background:#fff;
           font-size:13px;
           line-height:1.75;
         "
@@ -1354,19 +1349,11 @@ function partDeepDiveCardHtml(p) {
         </div>
 
 
-        <div style="margin-bottom:9px;">
+        <div>
           <strong style="color:var(--gold);">
             전통 관상 원리 :
           </strong>
           ${p.principle}
-        </div>
-
-
-        <div>
-          <strong style="color:var(--gold-light);">
-            현실 조언 :
-          </strong>
-          ${p.reality_tip}
         </div>
 
       </div>
@@ -1610,6 +1597,13 @@ function setHtmlIfExists(elId, html) {
   if (el) el.innerHTML = html || '';
 }
 
+// 신살 종합 풀이·원국x관상 융합 풀이(2026-08-21 추가) — 풀이만 있고 "왜 이렇게 풀이했나요?" 근거가
+// 없어서 뭉뚱그린 서술을 걸러낼 방법이 없다는 사용자 피드백으로 basis를 추가했다. Zone4 가변카드의
+// gg-item-basis와 같은 스타일을 재사용해 톤을 통일한다.
+function renderReadingBasis(elId, reading, basis) {
+  setHtmlIfExists(elId, `<div>${reading || ''}</div>${basis ? `<div class="gg-item-basis" style="margin-top:8px;"><b>왜 이렇게 풀이했나요?</b> ${basis}</div>` : ''}`);
+}
+
 // Zone2 총평 — 헤드/케미점수는 이미 룰베이스로 채워져 있으므로(buildChemiHeadline, computeGwansangSajuChemi)
 // 여기서는 총평 텍스트만 채운다.
 function renderZone2Review(elId, data) {
@@ -1848,8 +1842,8 @@ async function requestDeepReport(ctx) {
         renderZone2Review(cfg.zone2ReviewId, data);
         clearAiSkeleton(cfg.zone2ReviewId);
       }
-      if (cfg.sinsalReadingId) { setHtmlIfExists(cfg.sinsalReadingId, data.sinsal_reading); clearAiSkeleton(cfg.sinsalReadingId); }
-      if (cfg.zone3Reading1Id) { setHtmlIfExists(cfg.zone3Reading1Id, data.zone3_manseryeok_reading); clearAiSkeleton(cfg.zone3Reading1Id); }
+      if (cfg.sinsalReadingId) { renderReadingBasis(cfg.sinsalReadingId, data.sinsal_reading, data.sinsal_basis); clearAiSkeleton(cfg.sinsalReadingId); }
+      if (cfg.zone3Reading1Id) { renderReadingBasis(cfg.zone3Reading1Id, data.zone3_manseryeok_reading, data.zone3_manseryeok_basis); clearAiSkeleton(cfg.zone3Reading1Id); }
       if (cfg.zone3Reading2Id) { setHtmlIfExists(cfg.zone3Reading2Id, data.zone3_ohaeng_reading); clearAiSkeleton(cfg.zone3Reading2Id); }
       if (cfg.zone3Reading3Id) { setHtmlIfExists(cfg.zone3Reading3Id, data.zone3_daeun_reading); clearAiSkeleton(cfg.zone3Reading3Id); }
       if (cfg.zone4Card1Id) { renderZone4Card1(cfg.zone4Card1Id, data); clearAiSkeleton(cfg.zone4Card1Id); }
