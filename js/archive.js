@@ -19,6 +19,14 @@
   // "이 기기"에 저장해둔다. 나중에 언제 로그인하든(새로고침·기기 재방문 다 포함) 그 순간 로그인한
   // uid로 그대로 편입한다 — Dogam이 로컬 slug를 계정에 편입하는 것과 같은 구조.
   const PENDING_KEY = 'gwansang_archive_pending_v1';
+  // ⚠️ 버그 수정(2026-08-21 사용자 리포트: "모바일에서 통합분석 리포트를 지웠는데 아직도 남아있다") —
+  // mergeIndex(로컬∪클라우드 합집합)는 삭제를 표현할 방법이 없다. 삭제 직후 saveIndex()의 클라우드
+  // 쓰기가 아직 반영되기 전에(특히 remove()는 쓰기를 기다리지 않고 바로 location.reload()한다) 같은
+  // 기기든 다른 기기든 loadFromCloud()가 한 번 더 돌면, 옛 클라우드 배열에 남아있던 그 기록이 "로컬엔
+  // 없지만 클라우드엔 있으니" 다시 합쳐져 되살아난다. 지운 id를 별도로 기억해두고(로컬+클라우드 양쪽),
+  // 병합할 때 그 목록에 있는 id는 항상 제외한다 — profile.js의 mergeProfiles류 합집합 병합이 갖고
+  // 있던 것과 같은 구조적 빈틈이다.
+  const DELETED_KEY_PREFIX = 'gwansang_archive_deleted_v1:';
 
   const SECTIONS = [
     { type: 'combined', label: '통합분석' },
@@ -62,6 +70,30 @@
     try { return JSON.parse(localStorage.getItem(IDX_PREFIX + uid)) || []; }
     catch (e) { return []; }
   }
+
+  // ── 삭제 무덤(tombstone) — mergeIndex가 되살리면 안 되는 id 목록 ─────────
+  function loadDeletedIds() {
+    const uid = currentUid();
+    if (!uid) return [];
+    try { return JSON.parse(localStorage.getItem(DELETED_KEY_PREFIX + uid)) || []; }
+    catch (e) { return []; }
+  }
+  function saveDeletedIdsLocal(uid, list) {
+    try { localStorage.setItem(DELETED_KEY_PREFIX + uid, JSON.stringify(list)); }
+    catch (e) { /* 프라이빗 브라우징 등 — 로컬에 못 남겨도 클라우드 쓰기는 그대로 진행한다 */ }
+  }
+  // 무한정 커지지 않게 최근 200개까지만 유지한다 — 그보다 오래된 기록이 다시 합쳐 들어올 일은
+  // 실질적으로 없다(다른 기기가 그만큼 오래 로그인을 안 했다는 뜻이라 감내할 만한 손해).
+  function markDeleted(id) {
+    const uid = currentUid();
+    if (!uid || !id) return;
+    const list = loadDeletedIds();
+    if (list.indexOf(id) === -1) {
+      list.push(id);
+      while (list.length > 200) list.shift();
+      saveDeletedIdsLocal(uid, list);
+    }
+  }
   // ⚠️ 버그 수정(2026-08-20 사용자 리포트: 기기마다 보관함 내용이 다르게 보이는 근본 원인).
   // 로그인 직후 Dogam.render()(paintOwnerView의 자가복구 저장, Archive.save('gwansang'))가
   // loadFromCloud()의 병합이 끝나기도 전에 먼저 실행되면, 이 기기가 아직 못 받아온 클라우드
@@ -87,9 +119,11 @@
     const write = function () {
       // 게이트가 풀리기까지 기다린 경우, 그 사이 로컬이 더 바뀌어 있을 수 있어 이 시점의
       // 최신 로컬 목록을 올린다(호출 당시의 list를 그대로 쓰면 뒤늦게 덮어쓰는 꼴이 된다).
+      // 삭제 무덤도 같은 문서에 함께 올려야 다른 기기의 merge가 방금 지운 항목을 되살리지 않는다.
       const latest = loadIndex();
-      console.log('[archive] 클라우드 쓰기 실행', { uid: uid, count: latest.length, types: latest.map(r => r.type) });
-      fbDb.collection('users').doc(uid).set({ archive: latest }, { merge: true })
+      const deletedIds = loadDeletedIds();
+      console.log('[archive] 클라우드 쓰기 실행', { uid: uid, count: latest.length, types: latest.map(r => r.type), deletedCount: deletedIds.length });
+      fbDb.collection('users').doc(uid).set({ archive: latest, archiveDeleted: deletedIds }, { merge: true })
         .catch(e => console.error('[archive] 목록 클라우드 저장 실패', e));
     };
     const gate = cloudGates[uid];
@@ -149,11 +183,15 @@
   // 궁합보기·인연도감이 다 있는데 모바일엔 인연도감 하나만 있고 이름도 "나"로 나옴). 예전엔
   // loadFromCloud가 병합 없이 그냥 덮어써서, 한쪽 기기의(특히 아직 다른 기록을 못 받아온) 로컬
   // 목록이 나중에 saveIndex로 다시 올라가면 클라우드의 다른 기록을 통째로 지워버릴 수 있었다.
-  function mergeIndex(localList, cloudList) {
-    const merged = localList.slice();
+  // deletedIds — 삭제 무덤(위 DELETED_KEY_PREFIX 설명 참고). 클라우드에만 남아있던 기록이라도
+  // 이 목록에 있으면 절대 되살리지 않는다.
+  function mergeIndex(localList, cloudList, deletedIds) {
+    const deletedSet = {};
+    (deletedIds || []).forEach(function (id) { deletedSet[id] = true; });
+    const merged = localList.filter(function (r) { return !deletedSet[r.id]; });
     const seen = {};
     merged.forEach(function (r) { seen[r.id] = true; });
-    (cloudList || []).forEach(function (r) { if (r && !seen[r.id]) { merged.push(r); seen[r.id] = true; } });
+    (cloudList || []).forEach(function (r) { if (r && !seen[r.id] && !deletedSet[r.id]) { merged.push(r); seen[r.id] = true; } });
     // 인연도감(gwansang)은 계정당 한 건이어야 한다는 게 commitSave의 전제다 — 두 기기가 로그인 전에
     // 각자 만든 서로 다른 gwansang 기록이 병합되면 이 전제가 깨진다. 가장 최근 것만 남긴다(실제
     // 친구 참여 기록은 이 스냅샷이 아니라 별도 dogam 컬렉션에 있어서, 스냅샷 하나를 정리해도
@@ -196,19 +234,25 @@
         console.log('[archive] 재조회 결과', { uid: uid, exists: doc.exists, hasArchive: doc.exists && Array.isArray(doc.data().archive) });
       }
       const cloud = (doc.exists && Array.isArray(doc.data().archive)) ? doc.data().archive : [];
+      const cloudDeleted = (doc.exists && Array.isArray(doc.data().archiveDeleted)) ? doc.data().archiveDeleted : [];
       const local = loadIndex();
-      const merged = mergeIndex(local, cloud);
+      // 삭제 무덤도 로컬↔클라우드를 합쳐둔다 — 다른 기기에서 지운 걸 이 기기도 알아야 그 기록을
+      // 되살리지 않는다. 합집합이라 여기선 지워질 일이 없다(만료 정리는 markDeleted의 200개 캡만).
+      const deletedIds = Array.from(new Set(loadDeletedIds().concat(cloudDeleted)));
+      saveDeletedIdsLocal(uid, deletedIds);
+      const merged = mergeIndex(local, cloud, deletedIds);
       console.log('[archive] 클라우드 병합', {
         uid: uid, exists: doc.exists, hasArchiveField: doc.exists ? Array.isArray(doc.data().archive) : null,
         cloudCount: cloud.length, cloudTypes: cloud.map(r => r.type),
         localCount: local.length, localTypes: local.map(r => r.type),
         mergedCount: merged.length, mergedTypes: merged.map(r => r.type),
+        deletedCount: deletedIds.length,
       });
       localStorage.setItem(IDX_PREFIX + uid, JSON.stringify(merged));
       gate.done = true; gate.resolve(); // 로컬은 이미 맞춰졌으니 여기서 게이트를 먼저 푼다
-      // 합친 결과가 클라우드본과 다르면(로컬에만 있던 게 있었거나, 중복 gwansang을 정리했으면)
-      // 다시 올려서 양쪽을 맞춘다. 완전히 같으면 불필요한 쓰기를 하지 않는다.
-      if (JSON.stringify(merged) !== JSON.stringify(cloud)) saveIndex(merged);
+      // 합친 결과가 클라우드본과 다르면(로컬에만 있던 게 있었거나, 중복 gwansang을 정리했거나,
+      // 삭제 무덤이 늘었으면) 다시 올려서 양쪽을 맞춘다. 완전히 같으면 불필요한 쓰기를 하지 않는다.
+      if (JSON.stringify(merged) !== JSON.stringify(cloud) || JSON.stringify(deletedIds) !== JSON.stringify(cloudDeleted)) saveIndex(merged);
       if (isOpen()) renderPage();
       notifyChanged();
     } catch (e) {
@@ -446,6 +490,7 @@
     const rec = loadIndex().find(r => r.id === id);
     if (!confirm('이 리포트를 삭제할까요?\n' + (rec ? rec.title : '') + '\n삭제하면 되돌릴 수 없습니다.')) return;
     removeReportHtml(uid, id);
+    markDeleted(id); // 다음 loadFromCloud 병합이 이 id를 되살리지 않도록 무덤에 남긴다
     const left = loadIndex().filter(r => r.id !== id);
     saveIndex(left);
 
@@ -483,7 +528,7 @@
     const list = loadIndex();
     const toRemove = list.filter(r => r.type === type);
     if (!toRemove.length) return;
-    toRemove.forEach(r => removeReportHtml(uid, r.id));
+    toRemove.forEach(r => { removeReportHtml(uid, r.id); markDeleted(r.id); });
     const left = list.filter(r => r.type !== type);
     saveIndex(left);
     if (viewingId && toRemove.some(r => r.id === viewingId)) viewingId = null;
