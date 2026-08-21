@@ -681,6 +681,7 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace, q1, q2) {
       minItems: 8,
       maxItems: 18,
       description:
+        '⚠️ 이 필드를 쓰기 전에, 지금까지 이 응답에서 이미 쓴 zone2_review·zone3_manseryeok_reading· zone3_ohaeng_reading·zone3_daeun_reading·zone4_temperament_reading·zone4_hidden_self_reading을 되짚어, 거기서 이미 근거로 쓴 십성·신살·귀인·관상 부위가 무엇인지 확인할 것. zone4_cards의 각 카드는 그 목록과 다른 데이터 포인트를 근거로 써야 한다 — 예를 들어 zone4_temperament_reading에서 이미 용신(yongsinOh)을 언급했다면 rest 카드에서 같은 용신을 근거로 또 쓰지 말고, 위에서 안 쓴 다른 데이터로 풀이할 것. 같은 근거를 다른 카드에서 표현만 바꿔 반복하면 리포트 전체가 같은 얘기의 재탕처럼 느껴진다.\n\n' +
         '[Zone4 후보 주제 목록](family/work/money/love/relationships/rest, 6개) 전부를 반드시 다룰 것 — 이 사람에게 안 맞는다고 주제를 아예 빼면 안 됨. ⚠️ family와 love는 반드시 각각 2개 이상의 카드로 나눠 쓸 것(아래 [주제별 근거 가이드] 참고 — 자라온 환경 카드와 부모님과의 관계 카드를 분리, love는 아래 안내에 따름). 나머지 4개 주제(work/money/relationships/rest)는 기본 1개 카드, 할 말이 특히 많으면 최대 3개까지 세부 카드로 나눠도 된다. 전체 카드 수는 반드시 최소 8개 이상. "전체에서 최대 3개를 고르는" 게 아니라 "주제마다 1~3개씩(단, family·love는 2개 이상), 총합은 8~18개"가 규칙.\n\n' +
         '[주제별 근거 가이드 — 카드 순서 포함, 사용자 현재 상황(q1/q2)에 따라 사랑·일 카드는 아래처럼 각도가 달라짐]\n' +
         '- family(가족): 순서대로 카드1 "자라온 환경"(전반), 카드2 "부모님과의 관계"(신규) — 카드2는 반드시 [십성 목록]에 편재·정재(재성)가 있는지로 아버지와의 인연을, 편인·정인(인성)이 있는지로 어머니와의 인연을 풀이할 것 — 있으면 그 인연이 뚜렷함을, 3개 자리(year/month/hour) 중 전혀 없으면 그 인연이 약하거나 독립적으로 형성됐음을 풀이. 실제 가족 구성원을 예언·평가하지 말고 "성향에 미쳤을 습관·태도 차이" 중심으로.\n' +
@@ -938,7 +939,11 @@ zone4_advice_basis/zone4_cards가 스키마에 있다면 아래 기준으로 채
   얘기를 할 때만 반전 포인트로 써. 같은 얘기면 "겉과 속이 같다"는 방향으로 풀어도 돼.
 - zone4_advice_basis: 조언(마지막 고정카드)이 이 리포트의 어떤 데이터(십성·신살조합·용신 등)를
   근거로 나왔는지만 짧게 짚어(조언 내용 자체는 이미 다른 필드에 있으니 반복하지 마).
-- zone4_cards: [Zone4 후보 주제 목록] 6개(가족/일/돈/사랑/대인관계/쉼힐링)를 전부 다뤄 — 하나도
+- zone4_cards: ⚠️ 쓰기 전에 반드시 zone2_review·zone3_manseryeok_reading·zone3_ohaeng_reading·
+  zone3_daeun_reading·zone4_temperament_reading·zone4_hidden_self_reading에서 이미 근거로 쓴
+  십성·신살·귀인·관상 부위·용신을 되짚어보고, zone4_cards의 카드들은 거기 없던 다른 데이터
+  포인트를 근거로 써 — 같은 근거를 표현만 바꿔 다시 쓰면 리포트 전체가 같은 얘기의 재탕처럼
+  느껴져. [Zone4 후보 주제 목록] 6개(가족/일/돈/사랑/대인관계/쉼힐링)를 전부 다뤄 — 하나도
   빼면 안 돼. family(가족)와 love(사랑)는 반드시 각각 2개 이상의 카드로 나눠(스키마의 [주제별
   근거 가이드]에 각 카드가 어떤 데이터를 근거로 써야 하는지, 그리고 카드 순서가 어떻게 되는지
   적혀 있어 — family는 카드1 "자라온 환경" → 카드2 "부모님과의 관계"([십성 목록]의 재성·인성
