@@ -425,7 +425,7 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     early_life: {
       type: 'STRING',
       description:
-        '초년운(~29세)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것(관상만 또는 사주만으로 쓰지 말 것). 실제 삶과 비교할 수 있는 성향·환경·선택 패턴 위주로 서술. 지나치게 구체적인 사건을 지어내지 말 것.'
+        '초년운(~29세)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것(관상만 또는 사주만으로 쓰지 말 것). 실제 삶과 비교할 수 있는 성향·환경·선택 패턴 위주로 서술. 지나치게 구체적인 사건을 지어내지 말 것. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면, 이 구간(~29세)에 해당하는 항목의 십이운성·뜻을 반드시 그대로 따를 것 — 거기 없는 다른 십이운성 명칭이나 뜻을 새로 끌어오거나 어긋나는 서술을 하지 말 것. [사주 신살·귀인 목록]의 십이운성(사주 원국 자체 십이운성)은 나이 흐름과 무관한 별개 데이터이므로 초년/중년/말년 서사에 쓰지 말 것.'
     },
 
     mid_life_headline: {
@@ -437,7 +437,7 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     mid_life: {
       type: 'STRING',
       description:
-        '중년운(30~59세)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것. 사회생활·관계·책임·선택 방식처럼 현실적으로 확인 가능한 패턴 위주로 설명.'
+        '중년운(30~59세)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것. 사회생활·관계·책임·선택 방식처럼 현실적으로 확인 가능한 패턴 위주로 설명. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면, 이 구간(30~59세)에 해당하는 항목의 십이운성·뜻을 반드시 그대로 따를 것 — 거기 없는 다른 십이운성 명칭이나 뜻을 새로 끌어오거나 어긋나는 서술을 하지 말 것. [사주 신살·귀인 목록]의 십이운성(사주 원국 자체 십이운성)은 나이 흐름과 무관한 별개 데이터이므로 초년/중년/말년 서사에 쓰지 말 것.'
     },
 
     late_life_headline: {
@@ -449,7 +449,7 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     late_life: {
       type: 'STRING',
       description:
-        '말년운(60세~)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것. 단정적인 미래예언이 아니라 성향이 어떻게 성숙하거나 안정되는지 중심으로 설명.'
+        '말년운(60세~)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것. 단정적인 미래예언이 아니라 성향이 어떻게 성숙하거나 안정되는지 중심으로 설명. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면, 이 구간(60세~)에 해당하는 항목의 십이운성·뜻을 반드시 그대로 따를 것 — 거기 없는 다른 십이운성 명칭이나 뜻을 새로 끌어오거나 어긋나는 서술을 하지 말 것. [사주 신살·귀인 목록]의 십이운성(사주 원국 자체 십이운성)은 나이 흐름과 무관한 별개 데이터이므로 초년/중년/말년 서사에 쓰지 말 것.'
     },
 
     past_reflection: {
@@ -598,13 +598,13 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     properties.zone3_ohaeng_reading = {
       type: 'STRING',
       description:
-        '[사주 오행 분포]와 [관상 오행 분포]를 비교해서 두 오행이 서로 겹치는 부분과 다른 부분을 3~4문장으로 설명. 오행의 한자를 괄호 병기하지 말 것.'
+        '[사주 오행 분포]와 [관상 오행 분포]를 비교해서 두 오행이 서로 겹치는 부분과 다른 부분을 3~4문장으로 설명. 오행의 한자를 괄호 병기하지 말 것. ⚠️ 반드시 두 분포의 실제 숫자를 먼저 비교한 뒤 쓸 것 — 목/화/토/금/수 5개 중 값 차이가 큰(예: 5%p 이상) 오행만 "다른 부분"으로 짚고, 어느 쪽이 실제로 더 높은지 방향에 맞게 서술할 것. "관상이 사주의 부족한 기운을 보완/받쳐준다" 같은 표현은 관상 쪽 수치가 실제로 사주보다 높은 오행에만 쓸 것 — 반대(사주가 더 높은데 관상이 보완한다고 쓰는 것)는 금지. 값 차이가 5%p 미만인 오행은 "겹친다/비슷하다"고만 쓰고 보완 서사를 만들지 말 것.'
     };
 
     properties.zone3_daeun_reading = {
       type: 'STRING',
       description:
-        '[대운 정보]와 [삼정 비율(상정/중정/하정 = 초년/중년/말년)]을 함께 근거로 들어, 인생 시기별 흐름이 사주와 얼굴 양쪽에서 어떻게 나타나는지 3~4문장으로 설명.'
+        '[대운 정보]와 [삼정 비율(상정/중정/하정 = 초년/중년/말년)]을 함께 근거로 들어, 인생 시기별 흐름이 사주와 얼굴 양쪽에서 어떻게 나타나는지 3~4문장으로 설명. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면 그 목록의 십이운성·뜻과 어긋나는 명칭·서술을 새로 만들지 말 것 — 바로 위 "대운x삼정 타임라인" 위젯에 같은 계산 결과가 이미 노출되어 있어 모순되면 바로 눈에 띔.'
     };
 
     properties.zone4_cards = {
@@ -1009,6 +1009,12 @@ ${JSON.stringify(archetypeContext)}`
     ? `[대운 정보]\n${JSON.stringify(zone3Extra.daeunList)}`
     : '';
 
+  const daeunStagesBlock = zone3Extra && zone3Extra.daeunStages
+    ? `[화면에 이미 표시된 대운 시기 흐름 — "대운x삼정 타임라인" 위젯과 100% 동일한 계산 결과]
+※ early_life/mid_life/late_life을 쓸 때는 반드시 이 목록의 십이운성·뜻만 근거로 쓸 것. [사주 신살·귀인 목록]에 있는 십이운성(사주 원국 자체 십이운성, 나이 흐름과 무관)을 가져다 쓰지 말 것.
+${JSON.stringify(zone3Extra.daeunStages)}`
+    : '';
+
   const zone4TitleBankBlock = zone3Extra && zone3Extra.chemiScore != null
     ? `[Zone4 후보 주제 목록]\nfamily(가족) / work(일) / money(돈) / love(사랑) / relationships(대인관계) / rest(쉼·힐링)\n\n[Zone4 제목 말투 참고 예시 — 그대로 쓰거나 단어만 바꿔 쓰지 말고 톤만 참고할 것]\n${JSON.stringify(CMB_ZONE4_TITLE_STYLE_EXAMPLES)}`
     : '';
@@ -1087,6 +1093,9 @@ ${samjeongBlock}
 
 
 ${daeunBlock}
+
+
+${daeunStagesBlock}
 
 
 ${zone4TitleBankBlock}
@@ -1604,6 +1613,20 @@ async function requestDeepReport(ctx) {
           faceOhaeng: calcFaceOhaeng(lm),
           samjeong: calcSamjeongRatio(lm),
           daeunList: state[ctx].daeun || null,
+          // "대운x삼정 타임라인" 위젯(renderLifeline)이 계산하는 것과 완전히 같은 방식으로 미리
+          // 12운성·뜻을 계산해서 넘긴다 — AI가 원국 자체 십이운성([사주 신살·귀인 목록])과 헷갈리거나
+          // 자기 나름대로 재계산해서 화면 위젯과 다른 시기 서사를 지어내는 것을 막기 위함.
+          daeunStages: (state[ctx].daeun && state[ctx].daeun.list && cfg.pillars && cfg.pillars[2] && cfg.pillars[2].stem >= 0)
+            ? state[ctx].daeun.list.map(d => {
+                const unseong = d.branchIdx >= 0 ? get12Unseong(cfg.pillars[2].stem, d.branchIdx) : null;
+                return {
+                  ageRange: `${d.startAge}~${d.endAge}세`,
+                  삼정구간: LIFELINE_STAGE_LABEL[lifelineStage(d.startAge)],
+                  십이운성: unseong,
+                  뜻: unseong ? SIBIUNSEONG_MEANING[unseong] : null,
+                };
+              })
+            : null,
         }
       : null;
 
