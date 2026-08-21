@@ -560,9 +560,20 @@
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     host().classList.add('active');
+    // 보관함이 하단 네비 탭으로도 들어온 뒤(2026-08-21)에는, 마이페이지 메뉴로 들어와도 그 탭이
+    // 눌린 것처럼 보여야 자연스럽다 — closePage()가 prevTab을 찾는 것과 같은 방식으로 탭 버튼을 찾는다.
+    const tabBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => (b.getAttribute('onclick') || '').indexOf("'archive'") >= 0);
+    if (tabBtn) tabBtn.classList.add('active');
     viewingId = null;
     renderPage();
     window.scrollTo(0, 0);
+  }
+
+  // 하단 네비 "보관함" 탭 클릭 시 app.js의 switchTab()이 부른다 — 패널/탭 버튼의 active 클래스는
+  // switchTab이 이미 처리했으므로 여기서는 내용만 최신 상태(목록으로, 상세보기 아님)로 그린다.
+  function enterTab() {
+    viewingId = null;
+    renderPage();
   }
 
   // 보관함에서 나가기 — 들어오기 전 보던 탭으로 되돌린다.
@@ -714,7 +725,7 @@
   }
 
   window.Archive = {
-    openPage: openPage, closePage: closePage,
+    openPage: openPage, closePage: closePage, enterTab: enterTab,
     latestOf: latestOf, listOf: listOf, renderInto: renderInto,
     save: save, commitPending: commitPending, discardPending: discardPending, remove: remove, removeReportsByType: removeReportsByType, debug: debug,
     toggle: toggle, toggleSort: toggleSort,

@@ -1924,7 +1924,7 @@ async function requestDeepReport(ctx) {
   } catch (e) {
     // 사용자에게는 "AI 리포트 생성 실패" 같은 문구를 보여주지 않는다(사용자 피드백) — 로컬 룰베이스
     // 카드는 이미 화면에 떠 있으니 그걸로 충분하고, 실패 사유는 개발자만 보면 되므로 콘솔에만 남긴다.
-    // requestSajuDeepReport와 동일한 원칙: 로딩 문구를 지우고 섹션을 그냥 숨긴다.
+    // 다른 탭의 AI 정밀 리포트 실패 처리와 동일한 원칙: 로딩 문구를 지우고 섹션을 그냥 숨긴다.
     console.error('[Gemini 정밀 리포트 실패]', e);
 
     loadingIds.forEach(id => {
@@ -1938,26 +1938,6 @@ async function requestDeepReport(ctx) {
 // CTX_CONFIG(canvasId 등 사진 관련 필드 위주)에 억지로 끼워맞추지 않고 별도 함수로 뒀다.
 // 사주 탭은 지금까지 이 리포트 자체가 연결돼 있지 않아서 여전히 짧은 로컬 카드 3장만 보였다
 // (사용자 피드백 2026-08-13: "관상 쪽은 디테일해졌는데 사주 쪽은 아직도 안 그렇다").
-async function requestSajuDeepReport(pillars, ohaeng, elId, relLabel) {
-  if (!isGeminiConfigured()) return;
-  const sajuInsight = collectSajuInsightSummary(pillars);
-
-  const el = document.getElementById(elId);
-  // 통합분석과 같은 스켈레톤을 쓴다 — 한 줄짜리 "생성 중" 문구는 이미 다 뜬 화면처럼 보여서
-  // 사용자가 기다리지 않고 넘겨버린다(통합분석에서 같은 이유로 스켈레톤을 도입했다).
-  if (el) { el.classList.remove('hidden'); showAiSkeleton(elId, 'AI가 사주 풀이를 쓰는 중이에요'); }
-  try {
-    const sys = buildDeepReportSystemInstruction();
-    const userText = buildDeepReportUserPrompt(null, null, pillars, ohaeng, sajuInsight, relLabel);
-    // 통합분석 쪽과 같은 이유로 0.3 사용 — analysis_basis/principle이 매번 흔들리면 신뢰를 깎는다.
-    const data = await callGeminiAPI(sys, userText, [], buildPersonalDeepReportSchema(true, false), 0.3);
-    renderDeepReport(elId, data);
-  } catch (e) {
-    console.error('[Gemini 정밀 리포트 실패]', e);
-    if (el) el.classList.add('hidden');
-  }
-}
-
 // 실제 Gemini 요청 조립(systemInstruction/contents/generationConfig)과 키 사용은 이제 서버 쪽
 // geminiProxy Cloud Function 안에서만 일어난다 — 여기서는 재료만 보내고 원본 응답만 그대로 받는다.
 async function callGeminiAPI(

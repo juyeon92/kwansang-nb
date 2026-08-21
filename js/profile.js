@@ -287,13 +287,11 @@
     if (!profile) return;
     const relLabel = profile.relationDetail || profile.relation;
     if (ctx === 'gwansang' || ctx === 'combined') state[ctx].relation = relLabel;
-    if (ctx === 'saju') state.saju.relation = relLabel;
 
-    const dateFieldMap = { saju: 'birthDate', combined: 'cmbBirthDate' };
-    const hourFieldMap = { saju: 'birthHour', combined: 'cmbBirthHour' };
+    const dateFieldMap = { combined: 'cmbBirthDate' };
+    const hourFieldMap = { combined: 'cmbBirthHour' };
     if (dateFieldMap[ctx]) { const el = document.getElementById(dateFieldMap[ctx]); if (el) el.value = profile.solarDate || ''; }
     if (hourFieldMap[ctx]) { const el = document.getElementById(hourFieldMap[ctx]); if (el) el.value = profile.birthHour || '-1'; }
-    if (ctx === 'saju') gender = profile.gender || '남';
     if (ctx === 'combined') cmbGender = profile.gender || '남';
   }
   function applyToGunghamA(profile) {
@@ -319,7 +317,6 @@
     const rep = getRepresentative();
     if (!rep) return;
     applyToContext('gwansang', rep);
-    applyToContext('saju', rep);
     applyToContext('combined', rep);
     applyToGunghamA(rep);
     renderGunghamA(rep);
@@ -536,7 +533,6 @@
   // 자연히 문구가 안 뜬다.
   const PROFILE_GATE_NOTICE = {
     combined: '사주를 등록해야 관상과 함께 분석이 가능해요',
-    saju: '먼저 사주 등록부터 진행해주세요',
     gungham: '사주를 등록해야 궁합 분석이 가능해요',
   };
 
@@ -642,8 +638,7 @@
       setRepresentative(savedId); // 방금 만든/고친 사주로 분석을 이어가는 흐름이라 대표로 세운다
       onPick(savedId);
     }
-    if (onSavedRun === 'saju') runSaju();
-    else if (onSavedRun === 'combined') runCombinedWrapped();
+    if (onSavedRun === 'combined') runCombinedWrapped();
     // gungham은 저장만으로 끝나지 않는다(상대 프로필도 필요) — 이어서 부르면 기존 안내
     // ("상대방 프로필을 선택해주세요")로 자연스럽게 이어진다.
     else if (onSavedRun === 'gungham') runGunghamWrapped();
@@ -732,13 +727,6 @@
 
   function closeSub() { renderForm(); }
 
-  // ── 궁합 탭 진입 버튼 ────────────────────────────────────────────────
-  function runSaju() {
-    const rep = getRepresentative();
-    if (!rep) { openForm(null, { onSavedRun: 'saju' }); return; }
-    applyToContext('saju', rep);
-    calcSaju('saju');
-  }
   // 냥(포인트) 시스템 — 통합분석·궁합보기는 유료(냥 1개) 상품이다(관상냥반_냥시스템_기획서.md v2.0 §3.2).
   // "확인 → 차감 → 실행" 순서를 반드시 지킨다 — 차감 성공(서버가 확인해준 뒤)에만 실제 분석을 시작한다.
   // 차감 실패 이유가 로그인 필요/잔액 부족 둘 다 있을 수 있어 code로 구분해서 안내 문구를 다르게 보여준다.
@@ -981,7 +969,7 @@
     getGunghamPartner: function () { return gunghamPartnerId ? getProfile(gunghamPartnerId) : null; },
     _dismissSwitcher: finishSwitcher, _dismissForm: dismissForm,
     _closeSpend: closeSpendDialog, _changeSpendProfile: changeSpendProfile,
-    runSaju, runCombined: runCombinedWrapped, runGungham: runGunghamWrapped,
+    runCombined: runCombinedWrapped, runGungham: runGunghamWrapped,
     openPartnerPicker: (opts) => openSwitcher(Object.assign({}, opts, { forPartner: true })),
     toggleGgAcc, syncGgAccordion,
     _pickRow: pickRow, _editRow: editRow, _openAdd: openAdd, _deleteRow: deleteRow,

@@ -10,7 +10,6 @@ const state = {
   gunghamA: { file: null, lm: null },
   gunghamB: { file: null, lm: null },
   gungham: { relation: '연인/배우자' },
-  saju: { relation: '본인', q1: '', q2: '', q3: '' }, // 프로필 시스템(js/profile.js)이 대표 프로필의 관계를 여기 채워 넣는다
 };
 
 // 인쇄 시 접힌 상세 리포트(.report-accordion)를 전부 강제로 펼쳤다가, 인쇄가 끝나면 원래 상태로 되돌림.
@@ -33,9 +32,9 @@ const LAST_TAB_KEY = 'gwansangLastTab';
 // "인연도감 메인으로"로 직접 닫은 경우와 구분해야 해서 별도 플래그로 남긴다.
 const GWANSANG_REPORT_OPEN_KEY = 'gwansangReportOpen';
 
-// 통합분석·사주보기·궁합보기는 로그인해야만 들어올 수 있다(사용자 요청 2026-08-18) — 인연도감만
+// 통합분석·궁합보기·보관함은 로그인해야만 들어올 수 있다(사용자 요청 2026-08-18) — 인연도감만
 // 비로그인(익명)으로도 계속 열 수 있다. 익명 인증은 로그인이 아니라 그대로 막는다.
-const TAB_LOGIN_REQUIRED = { combined: 1, saju: 1, gungham: 1 };
+const TAB_LOGIN_REQUIRED = { combined: 1, gungham: 1, archive: 1 };
 function isRealLoggedIn() {
   return !!(window.fbAuth && fbAuth.currentUser && !fbAuth.currentUser.isAnonymous);
 }
@@ -58,6 +57,9 @@ function switchTab(tab, btn) {
   // 그려지지 않아 "캐릭터를 뽑고 인연도감으로 돌아왔는데 새로 만든 도감이 안 보이고 새로고침해야
   // 뜨는" 상태가 됐다(사용자 리포트 2026-08-17). 들어올 때마다 최신 상태로 다시 그린다.
   if (tab === 'gwansang' && window.Dogam) Dogam.render();
+  // 보관함도 인연도감과 같은 이유로 들어올 때마다 다시 그린다 — 방금 분석한 리포트가 목록에
+  // 바로 보여야 새로고침 없이도 최신 상태로 보인다.
+  if (tab === 'archive' && window.Archive && Archive.enterTab) Archive.enterTab();
   // 비로그인 사용자가 이미 만든 도감(캐릭터)이 있으면, 요약 카드+업로드 폼만 보여주고 클릭해야
   // 상세를 보여주는 대신 상세 리포트를 바로 펼쳐서 보여준다(사용자 요청 2026-08-18) — 로그인
   // 사용자는 인연도감 카드로 바로 이어지는 다른 흐름이라 대상이 아니다.
@@ -160,19 +162,14 @@ function setSajuCustom(ctx, q, value) {
   state[ctx][q] = value.trim();
   updateSajuGate(ctx);
 }
-// saju는 전용 함수로, combined는 사진 업로드 여부까지 같이 보는 updateCtaDock으로 게이트를 거는 창구를 통일
+// combined는 사진 업로드 여부까지 같이 보는 updateCtaDock으로 게이트를 건다(사주보기 탭 삭제로
+// 이 함수가 다루던 다른 분기는 없어졌다).
 function updateSajuGate(ctx) {
-  if (ctx === 'saju') updateSajuSubmitState();
-  else if (ctx === 'combined') updateCtaDock('combined');
+  if (ctx === 'combined') updateCtaDock('combined');
 }
 function onSajuQ3Input(ctx, el) {
   state[ctx].q3 = el.value;
   document.getElementById(ctx === 'combined' ? 'cmbQ3Counter' : 'sajuQ3Counter').textContent = el.value.length + '/100';
-}
-function updateSajuSubmitState() {
-  const dock = document.getElementById('sajuCtaDock');
-  if (!dock) return;
-  dock.classList.toggle('hidden', !(state.saju.q1 && state.saju.q2));
 }
 
 // ═══ GENDER ═══
@@ -212,7 +209,7 @@ function handleFile(ctx, e) {
 }
 
 // 사진 업로드에 따라 나타나는 CTA(관상보기/통합분석/궁합보기)
-const ctaDockMap = { gwansang: 'gwansangCtaDock', combined: 'cmbCtaDock', gunghamA: 'ggCtaDock', gunghamB: 'ggCtaDock', saju: 'sajuCtaDock', gungham: 'ggCtaDock' };
+const ctaDockMap = { gwansang: 'gwansangCtaDock', combined: 'cmbCtaDock', gunghamA: 'ggCtaDock', gunghamB: 'ggCtaDock', gungham: 'ggCtaDock' };
 function updateCtaDock(ctx) {
   const id = ctaDockMap[ctx];
   if (!id) return;
@@ -420,23 +417,6 @@ function startCombinedForOther() {
       window.scrollTo(0, 0);
     },
   });
-}
-
-// ═══ 사주보기 재입력 — "다른 사주 분석하기" ═══
-function resetSajuForm() {
-  state.saju.q1 = ''; state.saju.q2 = ''; state.saju.q3 = '';
-  document.querySelectorAll('#panel-saju .rel-chip').forEach(b => b.classList.remove('on'));
-  ['sajuQ1Custom', 'sajuQ2Custom'].forEach(id => {
-    const el = document.getElementById(id);
-    el.classList.add('hidden'); el.value = '';
-  });
-  const q3 = document.getElementById('sajuQ3');
-  q3.value = '';
-  document.getElementById('sajuQ3Counter').textContent = '0/100';
-  document.getElementById('sajuResult').classList.add('hidden');
-  document.getElementById('sajuComplement').classList.add('hidden');
-  updateSajuSubmitState();
-  document.getElementById('panel-saju').scrollIntoView({ behavior: 'smooth' });
 }
 
 // ═══ 궁합보기 재입력 — "다른 궁합 분석하기" ═══
@@ -2137,58 +2117,6 @@ function renderLifeStageChemi(life, elId) {
       <div class="gg-ohaeng-pct right">${life.b[k]}%</div>
     </div>`).join('');
   el.innerHTML = rows + `<div class="chemi-card" style="margin-top:10px;"><div class="chemi-role">${life.text}</div></div>`;
-}
-
-function renderSajuCards(pillars, g, cardsId, summaryId) {
-  const dStem = pillars[2].stem, mBranch = pillars[1].branch;
-  const count = computeOhaeng(pillars);
-  const maxOh = Object.entries(count).sort((a,b)=>b[1]-a[1]);
-  const minOh = Object.entries(count).sort((a,b)=>a[1]-b[1]);
-
-  const pers = ['강한 리더십과 개척 정신의 소유자입니다.','유연하고 섬세한 감각의 소유자입니다.','밝고 활발한 에너지의 소유자입니다.','집중력과 통찰력이 뛰어납니다.','믿음직하고 포용력 있는 성품입니다.','현실적이고 세밀한 처리 능력을 가집니다.','결단력 있고 의리를 중시합니다.','완벽주의적 성향으로 날카로운 판단력을 가집니다.','지혜롭고 포용력이 큽니다.','깊은 감수성과 직관력의 소유자입니다.'];
-  const jobs = ['무역·IT·연구·유통 분야','공직·부동산·금융·서비스업','창의·교육·기획·컨설팅 분야','창의·교육·기획·컨설팅 분야','공직·부동산·금융·서비스업','예술·방송·영업·리더십 분야','예술·방송·영업·리더십 분야','공직·부동산·금융·서비스업','법조·의료·정밀기술·금융 분야','법조·의료·정밀기술·금융 분야','공직·부동산·금융·서비스업','무역·IT·연구·유통 분야'];
-  const overMsg = {목:'목 기운이 강해 추진력은 넘치나, 유연성을 기르면 도움이 됩니다.',화:'화 기운이 강해 열정이 넘치나, 감정 조절이 필요합니다.',토:'토 기운이 강해 안정적이나, 변화를 수용하는 자세가 필요합니다.',금:'금 기운이 강해 의지가 굳건하나, 융통성을 기르면 더욱 발전합니다.',수:'수 기운이 강해 지혜롭지만, 빠른 결단력 강화가 좋습니다.'};
-  const underMsg = {목:'목 기운 보강 권장. 녹색 식물 가꾸기, 창의적 활동이 도움됩니다.',화:'화 기운 보강 권장. 밝은 색상 활용, 적극적인 사교 활동이 좋습니다.',토:'토 기운 보강 권장. 규칙적인 생활이 운을 키웁니다.',금:'금 기운 보강 권장. 명확한 목표 설정이 도움됩니다.',수:'수 기운 보강 권장. 독서와 사색의 시간을 늘리세요.'};
-
-  const cards = [
-    {name:`⭐ 일간 성격 (${dStem>=0?CG_KO[dStem]+'일간':'미상'})`, text: dStem>=0?pers[dStem]:'출생 정보 확인 필요.'},
-    {name:`💼 직업운`, text: mBranch>=0?`${jobs[mBranch]}에서 두각을 나타냅니다.`:'-'},
-    {name:`🌊 오행 조언`, text: maxOh[0][1]>=3?overMsg[maxOh[0][0]]:minOh[0][1]===0?underMsg[minOh[0][0]]:'오행이 비교적 균형 잡혀 있습니다.'},
-  ];
-
-  document.getElementById(cardsId).innerHTML = cards.map(c => `<div class="result-card"><div class="rc-name">${c.name}</div><div class="rc-text">${c.text}</div></div>`).join('');
-  const sn = dStem>=0?CG_KO[dStem]+'('+CHEONGAN[dStem]+')':'?';
-  document.getElementById(summaryId).innerHTML = `<strong style="color:var(--gold);">✨ 종합 사주 해석</strong><br><br>일간이 <strong>${sn}</strong>인 ${g==='여'?'그녀':'그'}는 ${dStem>=0?pers[dStem].replace('입니다.','입니다'):''}. ${mBranch>=0?jobs[mBranch]+'에서 타고난 재능을 발휘할 가능성이 높습니다.':''} 사주란 타고난 기질과 환경의 흐름을 보여주는 지도와 같습니다. 의지와 노력으로 더 좋은 길을 만들어 나갈 수 있습니다. 🌟`;
-}
-
-async function calcSaju(ctx) {
-  const dateVal = document.getElementById('birthDate').value;
-  const hourVal = document.getElementById('birthHour').value;
-  if (!dateVal) { alert('생년월일을 입력해주세요.'); return; }
-  const pillars = computePillars(dateVal, hourVal);
-  renderPillarsTable(pillars, 'pillarsTable');
-  renderUnseongLegend(pillars, 'sajuUnseongLegend');
-  renderDaeunTable(computeDaeun(dateVal, hourVal, gender), 'sajuDaeunTable');
-  const count = computeOhaeng(pillars);
-  renderOhaengBars(count, 'ohaengBars');
-  renderOhaengDeepDive(count, pillars[2].stem, 'sajuOhaengDeepDive');
-  renderSajuCards(pillars, gender, 'sajuCards', 'sajuSummary');
-  document.getElementById('sajuResult').classList.remove('hidden');
-  document.getElementById('sajuResult').scrollIntoView({behavior:'smooth'});
-  markAnalyzed('saju');
-
-  const complementItems = [...generateOhaengLifestyle(count), ...generatePersonalBehavior(pillars, count)];
-  renderComplementCards(complementItems, 'sajuComplementCards', 'sajuComplement');
-
-  // 사진이 없는 탭이라 requestPersonalAi/requestDeepReport(사진 전제)를 못 쓰므로 별도 함수로 연결.
-  // AI 해설이 실패해도(프록시 장애·한도 초과 등) 사주 원국·오행 등 로컬 계산 결과는 이미 완성돼 있으므로
-  // 보관까지는 반드시 도달해야 한다 — 여기서 예외를 흡수한다.
-  try {
-    await requestSajuDeepReport(pillars, count, 'sajuDeepReport', state.saju.relation);
-  } catch (e) {
-    console.error('[saju] AI 해설 실패 — 보관은 계속 진행', e);
-  }
-  if (window.Archive) Archive.save('saju'); // 보관함 — AI 해설까지 끝난 뒤에 스냅샷
 }
 
 // ═══ COMBINED ═══
