@@ -222,6 +222,16 @@
   //   ② 조회 자체가 실패(네트워크 등)해도 그냥 삼켜서 null을 리턴했는데, 호출부(render)는 null을
   //      "정말 도감이 없다"로 오해해 새 도감을 만들어버렸다 — 그래서 아래에서는 실패를 삼키지 않고
   //      그대로 던져서, 호출부가 "확인 못 함"과 "확인했는데 없음"을 구분할 수 있게 한다.
+  // 조회는 성공했지만 참여 인원이 0명일 때만 쓰는 안전망 — dogamSlug 참조 자체는 "유효"해서 위
+  // 두 분기가 정상 종료해버리므로, 참조가 가리키는 도감이 방금 잘못 만들어진 빈 도감일 가능성을
+  // 놓치지 않으려면 여기서 한 번 더 확인해야 한다(참여 인원이 있으면 이 확인은 건너뛴다 — 매번
+  // 여러 문서를 훑는 비용을 정상 케이스에는 물리지 않기 위함). 사용자 리포트(2026-08-20).
+  async function preferNonEmptySibling(uid, found) {
+    if (!found || found.entries.length > 0) return found;
+    const better = await recoverDogamByOwner(uid);
+    return (better && better.entries.length > found.entries.length) ? better : found;
+  }
+
   async function ensureMyDogam() {
     const uid = currentUid();
     if (!window.fbDb) return null;
@@ -237,21 +247,31 @@
       const cachedFound = await loadDogam(cachedSlug);
       if (cachedFound && (!uid || cachedFound.ownerUid === uid)) {
         if (uid) touchDogam(cachedSlug, uid);
-        return cachedFound;
+        return uid ? await preferNonEmptySibling(uid, cachedFound) : cachedFound;
       }
     }
 
     if (!uid) return null; // 비로그인이고 이 기기에 도감 흔적도 없으면 정말 없는 상태
 
     // 캐시가 없거나 다른 uid의 것이었다면, 계정 문서의 역인덱스로 "진짜 내 도감"을 확인한다.
-    const u = await fbDb.collection('users').doc(uid).get();
+    // ⚠️ 사용자 리포트(2026-08-20: 인연도감 친구 6명이 사라짐) — archive.js의 loadFromCloud()가
+    // 이미 겪고 고친 것과 같은 증상: 로그인 직후 이 users/{uid} 문서의 "첫" 조회가 가끔 dogamSlug
+    // 필드까지 통째로 빠진 스냅샷을 돌려준다(같은 조회를 한 번 더 하면 항상 정상). 여기서 그걸 그대로
+    // "도감이 없다"로 오판하면 아래 recoverDogamByOwner도 못 찾을 경우 새 빈 도감을 만들고
+    // dogamSlug를 그쪽으로 덮어써서, 원래 도감(과 친구 전원)이 참조를 잃고 미아가 된다.
+    let u = await fbDb.collection('users').doc(uid).get();
+    if (u.exists && u.data().dogamSlug === undefined && u.data().archive === undefined && u.data().profiles === undefined) {
+      console.warn('[dogam] 첫 조회가 비어 보임 — 700ms 뒤 한 번 더 조회', { uid: uid });
+      await new Promise(function (r) { setTimeout(r, 700); });
+      u = await fbDb.collection('users').doc(uid).get();
+    }
     const slug = (u.exists && u.data().dogamSlug) || null;
     if (slug) {
       const found = await loadDogam(slug);
       if (found && found.ownerUid === uid) {
         localStorage.setItem(SLUG_KEY, slug);
         touchDogam(slug, uid);
-        return found;
+        return await preferNonEmptySibling(uid, found);
       }
     }
     // ⚠️ 사고 리포트(2026-08-18): users/{uid}.dogamSlug 참조가 (버그로) 다른 값으로 덮어써지거나
@@ -262,20 +282,36 @@
     return await recoverDogamByOwner(uid);
   }
 
+  // ⚠️ 사용자 리포트(2026-08-20)로 강화 — 예전엔 limit(1)로 아무거나 하나 집었는데, ensureMyDogam이
+  // "도감이 없다"고 오판해 새 빈 도감을 만들어버린 뒤라면 이 uid로 도감이 2개 이상 존재하는 상태다
+  // (원래 있던 것 + 방금 잘못 만들어진 빈 것). limit(1)은 그중 무엇이 나올지 보장이 없어 빈 도감을
+  // "복구"해버릴 수 있었다. 이제 전부 조회해서 참여 인원이 가장 많은 도감을 진짜로 취급한다 —
+  // 잘못 만들어진 빈 도감이 우연히 먼저 나오는 경우까지 막는다.
   async function recoverDogamByOwner(uid) {
     try {
-      const snap = await fbDb.collection('dogam').where('ownerUid', '==', uid).limit(1).get();
+      const snap = await fbDb.collection('dogam').where('ownerUid', '==', uid).get();
       if (snap.empty) return null;
-      const doc = snap.docs[0];
-      const data = doc.data();
-      const recovered = { slug: doc.id, ownerUid: data.ownerUid, ownerName: data.ownerName, ownerCharacterId: data.ownerCharacterId, createdAt: data.createdAt || null, entries: [] };
-      const entriesSnap = await fbDb.collection('dogam').doc(doc.id).collection('entries').get();
-      entriesSnap.forEach(function (d) { recovered.entries.push(d.data()); });
-      recovered.entries.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
-      console.warn('[dogam] 끊어진 참조를 도감 직접 검색으로 복구', { uid: uid, slug: doc.id, entries: recovered.entries.length });
-      await fbDb.collection('users').doc(uid).set({ dogamSlug: doc.id }, { merge: true });
-      localStorage.setItem(SLUG_KEY, doc.id);
-      touchDogam(doc.id, uid);
+      const candidates = await Promise.all(snap.docs.map(async function (doc) {
+        const data = doc.data();
+        const entriesSnap = await fbDb.collection('dogam').doc(doc.id).collection('entries').get();
+        const entries = [];
+        entriesSnap.forEach(function (d) { entries.push(d.data()); });
+        entries.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
+        return { slug: doc.id, ownerUid: data.ownerUid, ownerName: data.ownerName, ownerCharacterId: data.ownerCharacterId, createdAt: data.createdAt || null, entries: entries };
+      }));
+      if (candidates.length > 1) {
+        console.warn('[dogam] 같은 계정에 도감이 여러 개 발견됨 — 참여 인원이 가장 많은 것을 진짜로 취급',
+          candidates.map(function (c) { return { slug: c.slug, entries: c.entries.length, createdAt: c.createdAt }; }));
+      }
+      candidates.sort(function (a, b) {
+        if (b.entries.length !== a.entries.length) return b.entries.length - a.entries.length;
+        return (a.createdAt || '') < (b.createdAt || '') ? -1 : 1; // 인원 같으면 더 오래된 것
+      });
+      const recovered = candidates[0];
+      console.warn('[dogam] 끊어진 참조를 도감 직접 검색으로 복구', { uid: uid, slug: recovered.slug, entries: recovered.entries.length });
+      await fbDb.collection('users').doc(uid).set({ dogamSlug: recovered.slug }, { merge: true });
+      localStorage.setItem(SLUG_KEY, recovered.slug);
+      touchDogam(recovered.slug, uid);
       return recovered;
     } catch (e) {
       console.error('[dogam] 소유자 기준 도감 복구 실패', e);

@@ -1688,75 +1688,6 @@ body.overlay-open { overflow: hidden; }
     </div>
   </div>
 
-  <!-- ===== 사주 패널 ===== -->
-  <div class="panel" id="panel-saju">
-    <div class="upload-section">
-      <div class="upload-label">사주 분석</div>
-
-      <div class="saju-q-block">
-        <div class="saju-q-title">지금의 상황을 알려주세요</div>
-        <div class="saju-chip-row">
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q1','솔로',this)">솔로</button>
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q1','연애중',this)">연애중</button>
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q1','결혼했어요',this)">결혼했어요</button>
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q1','새로운 출발 (돌싱/기타)',this)">새로운 출발 (돌싱/기타)</button>
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q1','직접 입력할게요',this)">직접 입력할게요</button>
-        </div>
-        <input type="text" class="field-input saju-q-custom hidden" id="sajuQ1Custom" placeholder="상황을 입력해주세요" oninput="setSajuCustom('saju','q1', this.value)">
-      </div>
-
-      <div class="saju-divider"></div>
-
-      <div class="saju-q-block">
-        <div class="saju-q-title">주로 어떤 일상을 보내고 계세요</div>
-        <div class="saju-chip-row">
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','학생',this)">학생</button>
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','취업 준비중',this)">취업 준비중</button>
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','주부',this)">주부</button>
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','직장인',this)">직장인</button>
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','자영업/프리랜서',this)">자영업/프리랜서</button>
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','은퇴함',this)">은퇴함</button>
-          <button type="button" class="rel-chip" onclick="setSajuAnswer('saju','q2','직접 입력할게요',this)">직접 입력할게요</button>
-        </div>
-        <input type="text" class="field-input saju-q-custom hidden" id="sajuQ2Custom" placeholder="하시는 일을 입력해주세요" oninput="setSajuCustom('saju','q2', this.value)">
-      </div>
-
-      <div class="saju-divider"></div>
-
-      <div class="saju-q-block">
-        <div class="saju-q-title">특별히 더 궁금한 내용이 있나요. <span class="saju-q-optional">(선택사항)</span></div>
-        <textarea class="field-input saju-textarea" id="sajuQ3" maxlength="100" placeholder="예: 올해 이직운이 있는지 궁금해요, 결혼 시기가 언제쯤일지 등" oninput="onSajuQ3Input('saju', this)"></textarea>
-        <div class="saju-char-counter" id="sajuQ3Counter">0/100</div>
-      </div>
-
-      <input type="hidden" id="birthDate" value="">
-      <input type="hidden" id="birthHour" value="-1">
-    </div>
-    <div class="cta-dock hidden" id="sajuCtaDock">
-      <button class="submit-btn" id="sajuSubmitBtn" onclick="Profile.runSaju()">사주 분석하기</button>
-    </div>
-    <div class="card hidden" id="sajuResult">
-      <div class="card-title">사주 원국 (四柱原局)</div>
-      <div class="pillars-table" id="pillarsTable"></div>
-      <div class="hidden" id="sajuUnseongLegend"></div>
-      <div class="card-title" style="margin-top:16px;">🌊 대운(大運) — 10년 단위 인생 흐름</div>
-      <div class="hidden" id="sajuDaeunTable"></div>
-      <div class="card-title" style="margin-top:16px;">오행 분포</div>
-      <div class="ohaeng-bars" id="ohaengBars"></div>
-      <div class="summary-box hidden" id="sajuOhaengDeepDive" style="margin-top:12px;"></div>
-      <div class="result-grid" id="sajuCards" style="margin-top:12px;"></div>
-      <div class="summary-box" id="sajuSummary"></div>
-      <div class="hidden" id="sajuDeepReport" style="margin-top:16px;"></div>
-      <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:14px;">print</span> 결과 인쇄</button>
-    </div>
-
-    <div class="card hidden" id="sajuComplement">
-      <div class="card-title" style="color:var(--jade);">✨ 오행 · 행동 보완 제안</div>
-      <div id="sajuComplementCards" style="display:flex;flex-direction:column;gap:10px;"></div>
-      <button class="submit-btn" style="margin-top:20px;" onclick="resetSajuForm()">다른 사주 분석하기</button>
-    </div>
-  </div>
-
   <!-- ===== 궁합 패널 ===== -->
   <div class="panel" id="panel-gungham">
     <!-- 진입 후킹 배너 — 통합분석 탭의 #cmbHero(cmb-hero-card)와 같은 클래스를 그대로 재사용
@@ -2013,10 +1944,10 @@ body.overlay-open { overflow: hidden; }
 </div><!-- /wrap -->
 
 <nav class="bottom-nav">
-  <button class="tab-btn active" onclick="switchTab('combined', this)"><span class="nav-icon material-symbols-outlined">auto_awesome</span><span>통합분석</span></button>
   <button class="tab-btn" onclick="switchTab('gwansang', this)"><span class="nav-icon material-symbols-outlined">face</span><span>인연도감</span></button>
-  <button class="tab-btn" onclick="switchTab('saju', this)"><span class="nav-icon material-symbols-outlined">nightlight</span><span>사주보기</span></button>
+  <button class="tab-btn active" onclick="switchTab('combined', this)"><span class="nav-icon material-symbols-outlined">auto_awesome</span><span>통합분석</span></button>
   <button class="tab-btn" onclick="switchTab('gungham', this)"><span class="nav-icon material-symbols-outlined">favorite</span><span>궁합보기</span></button>
+  <button class="tab-btn" onclick="switchTab('archive', this)"><span class="nav-icon material-symbols-outlined">inventory_2</span><span>보관함</span></button>
 </nav>
 
 <div id="profileOverlayRoot"></div>
@@ -2032,27 +1963,27 @@ body.overlay-open { overflow: hidden; }
 <!-- 로컬 스크립트의 ?v= 는 캐시 무효화용 버전이다. 브라우저(및 Firebase Hosting의 기본 캐시 헤더)가
      수정된 js를 옛 버전 그대로 재사용해 "코드를 고쳤는데 반영이 안 되는" 문제가 반복돼서 붙였다.
      js/*.js 를 수정하고 배포할 때마다 아래 v 값을 모두 함께 올려야 한다(날짜+연번). -->
-<script src="js/archetype-db.js?v=20260822b"></script>
-<script src="js/landmark-engine.js?v=20260822b"></script>
-<script src="js/config.js?v=20260822b"></script>
-<script src="js/firebase-init.js?v=20260822b"></script>
-<script src="js/kakao-auth.js?v=20260822b"></script>
+<script src="js/archetype-db.js?v=20260822c"></script>
+<script src="js/landmark-engine.js?v=20260822c"></script>
+<script src="js/config.js?v=20260822c"></script>
+<script src="js/firebase-init.js?v=20260822c"></script>
+<script src="js/kakao-auth.js?v=20260822c"></script>
 <!-- 냥(포인트) 지갑 — fbAuth/fbDb가 필요해 firebase-init.js 다음, 통합분석/궁합보기에서 써야 해 profile.js보다 먼저 -->
-<script src="js/wallet.js?v=20260822b"></script>
+<script src="js/wallet.js?v=20260822c"></script>
 <!-- 16캐릭터 시스템(신규 별도 레이어) — archetype-db.js/landmark-engine.js 다음, app.js보다 먼저 로드 -->
-<script src="js/character/trait-config.js?v=20260822b"></script>
-<script src="js/character/face-trait-map.js?v=20260822b"></script>
-<script src="js/character/saju-trait-map.js?v=20260822b"></script>
-<script src="js/character/character-db.js?v=20260822b"></script>
-<script src="js/character/character-engine.js?v=20260822b"></script>
+<script src="js/character/trait-config.js?v=20260822c"></script>
+<script src="js/character/face-trait-map.js?v=20260822c"></script>
+<script src="js/character/saju-trait-map.js?v=20260822c"></script>
+<script src="js/character/character-db.js?v=20260822c"></script>
+<script src="js/character/character-engine.js?v=20260822c"></script>
 <!-- 궁합(good/spark/clash) 엔진 — trait-config.js의 TRAITS를 재사용하므로 반드시 그 뒤에 로드할 것 -->
-<script src="js/character/compatibility-engine.js?v=20260822b"></script>
-<script src="js/ai-analysis.js?v=20260822b"></script>
-<script src="js/app.js?v=20260822b"></script>
-<script src="js/profile.js?v=20260822b"></script>
-<script src="js/archive.js?v=20260822b"></script>
-<script src="js/inyeon-dogam.js?v=20260822b"></script>
-<script src="js/nyang-shop.js?v=20260822b"></script>
-<script src="js/nyang-history.js?v=20260822b"></script>
+<script src="js/character/compatibility-engine.js?v=20260822c"></script>
+<script src="js/ai-analysis.js?v=20260822c"></script>
+<script src="js/app.js?v=20260822c"></script>
+<script src="js/profile.js?v=20260822c"></script>
+<script src="js/archive.js?v=20260822c"></script>
+<script src="js/inyeon-dogam.js?v=20260822c"></script>
+<script src="js/nyang-shop.js?v=20260822c"></script>
+<script src="js/nyang-history.js?v=20260822c"></script>
 </body>
 </html>
