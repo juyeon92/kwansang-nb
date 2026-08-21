@@ -1646,9 +1646,12 @@ function setHtmlIfExists(elId, html) {
 
 // 신살 종합 풀이·원국x관상 융합 풀이(2026-08-21 추가) — 풀이만 있고 "왜 이렇게 풀이했나요?" 근거가
 // 없어서 뭉뚱그린 서술을 걸러낼 방법이 없다는 사용자 피드백으로 basis를 추가했다. Zone4 가변카드의
-// gg-item-basis와 같은 스타일을 재사용해 톤을 통일한다.
+// gg-item-reading/gg-item-basis와 같은 스타일을 재사용해 톤을 통일한다(2026-08-21 — 컨테이너도
+// z3-pair-card 흰 배경으로 옮겨졌으므로, 텍스트도 그 카드 안에서 읽히는 gg-item 타이포를 그대로 쓴다).
+// basis가 없는 필드(zone3_ohaeng_reading·zone3_daeun_reading — 스키마에 대응 basis가 없음)는
+// 두 번째 인자를 생략하면 풀이만 렌더링된다.
 function renderReadingBasis(elId, reading, basis) {
-  setHtmlIfExists(elId, `<div>${reading || ''}</div>${basis ? `<div class="gg-item-basis" style="margin-top:8px;"><b>왜 이렇게 풀이했나요?</b> ${basis}</div>` : ''}`);
+  setHtmlIfExists(elId, `<div class="gg-item-reading">${reading || ''}</div>${basis ? `<div class="gg-item-basis" style="margin-top:8px;"><b>왜 이렇게 풀이했나요?</b> ${basis}</div>` : ''}`);
 }
 
 // Zone2 총평 — 헤드/케미점수는 이미 룰베이스로 채워져 있으므로(buildChemiHeadline, computeGwansangSajuChemi)
@@ -1903,8 +1906,8 @@ async function requestDeepReport(ctx) {
       }
       if (cfg.sinsalReadingId) { renderReadingBasis(cfg.sinsalReadingId, data.sinsal_reading, data.sinsal_basis); clearAiSkeleton(cfg.sinsalReadingId); }
       if (cfg.zone3Reading1Id) { renderReadingBasis(cfg.zone3Reading1Id, data.zone3_manseryeok_reading, data.zone3_manseryeok_basis); clearAiSkeleton(cfg.zone3Reading1Id); }
-      if (cfg.zone3Reading2Id) { setHtmlIfExists(cfg.zone3Reading2Id, data.zone3_ohaeng_reading); clearAiSkeleton(cfg.zone3Reading2Id); }
-      if (cfg.zone3Reading3Id) { setHtmlIfExists(cfg.zone3Reading3Id, data.zone3_daeun_reading); clearAiSkeleton(cfg.zone3Reading3Id); }
+      if (cfg.zone3Reading2Id) { renderReadingBasis(cfg.zone3Reading2Id, data.zone3_ohaeng_reading); clearAiSkeleton(cfg.zone3Reading2Id); }
+      if (cfg.zone3Reading3Id) { renderReadingBasis(cfg.zone3Reading3Id, data.zone3_daeun_reading); clearAiSkeleton(cfg.zone3Reading3Id); }
       if (cfg.zone4Card1Id) { renderZone4Card1(cfg.zone4Card1Id, data); clearAiSkeleton(cfg.zone4Card1Id); }
       if (cfg.zone4TemperamentId) { renderZone4FixedCard(cfg.zone4TemperamentId, '⚖️', '나의 기질과 에너지 밸런스', data.zone4_temperament_reading, data.zone4_temperament_basis); clearAiSkeleton(cfg.zone4TemperamentId); }
       if (cfg.zone4HiddenSelfId) { renderZone4FixedCard(cfg.zone4HiddenSelfId, '🎭', '남이 모르는 내 모습', data.zone4_hidden_self_reading, data.zone4_hidden_self_basis); clearAiSkeleton(cfg.zone4HiddenSelfId); }

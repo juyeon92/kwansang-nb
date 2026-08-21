@@ -1499,9 +1499,12 @@ body.overlay-open { overflow: hidden; }
           <div class="pillars-table" id="cmbPillarsTable"></div>
         </div>
         <!-- 신살·귀인 종합 풀이(2026-08-21 추가) — 원국표 뱃지로만 나열되던 신살·귀인을 "여러 개면
-             무슨 의미인지 + 조합 해석"으로 풀어주는 sinsal_reading을 여기 연결. -->
-        <div id="cmbSinsalReading" style="margin-top:10px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-        <div id="cmbZone3Reading1" style="margin-top:10px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+             무슨 의미인지 + 조합 해석"으로 풀어주는 sinsal_reading을 여기 연결.
+             (2026-08-21 사용자 요청) — .gg-item 자체가 이미 흰 배경(var(--surface))의 카드라, z3-pair-card로
+             한 번 더 감싸면 이중 테두리가 된다. z3-pair-card 대신 .gg-item 클래스를 이 컨테이너에 직접
+             줘서 같은 흰 카드 느낌을 내고, 제목 없이 원래 자리(사주 원국 카드 다음 형제)에 그대로 둔다. -->
+        <div id="cmbSinsalReading" class="gg-item" style="margin-top:10px;">사진 분석이 끝나면 표시돼요.</div>
+        <div id="cmbZone3Reading1" class="gg-item" style="margin-top:10px;">사진 분석이 끝나면 표시돼요.</div>
 
         <!-- 관상 정보(2026-08-21 6차 개편, 사용자 요청) — 사주 원국(사주쪽 데이터) 다음에 관상쪽
              데이터를 나란히 두고, 그 다음에야 둘을 섞는 융합 페어(오행능력치 비교/대운x삼정)로
@@ -1521,7 +1524,7 @@ body.overlay-open { overflow: hidden; }
             <div class="oh-headline-box saju" id="cmbOhaengSajuHead"></div>
           </div>
         </div>
-        <div id="cmbZone3Reading2" style="margin-top:10px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+        <div id="cmbZone3Reading2" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
 
         <div class="z3-pair-card" style="margin-top:16px;">
           <div class="z3-pair-title">🌊 대운 x 🎭 삼정 — 인생 타임라인</div>
@@ -1529,7 +1532,7 @@ body.overlay-open { overflow: hidden; }
           <div class="lifeline" id="cmbLifeline" style="color:var(--text2);font-size:12.5px;">사진이 있어야 볼 수 있어요.</div>
           <!-- 사주보기 탭과 같은 renderDaeunTable을 쓰지 않으므로 숨은 그릇 불필요 -->
         </div>
-        <div id="cmbZone3Reading3" style="margin-top:10px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+        <div id="cmbZone3Reading3" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
       </details>
 
       <!-- ══ Zone4 · 스토리 풀이 ══ 통합분석 리포트 구성.md §1(2026-08-21 5차 개편) — 오프닝 고정

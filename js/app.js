@@ -498,6 +498,13 @@ function renderGunghamSavedReport() {
   if (!input || !saved || !list) return;
   if (ggWantsNewAnalysis) { showGunghamInputStep(); return; }
   if (state.gunghamA.file || state.gunghamB.file) return; // 사진을 올리는 중이면 화면을 갈아끼우지 않는다
+  // ⚠️ 버그 수정(2026-08-21 사용자 리포트: "궁합을 처음 볼 때 진입 배너가 같이 뜬다") — runGungham()이
+  // 분석을 끝내면 #ggResult를 연 다음 Archive.save('gungham')을 부르는데, 그 저장이 notifyChanged()로
+  // 이 함수를 다시 불러서 아래 로직이 "저장 목록으로 돌아가기"로 오해해 #ggSavedStep을 켜고 진입
+  // 배너(setGgHeroVisible(true))까지 되살렸다. 방금 만든 리포트가 떠 있는 중이면 여기서 화면을
+  // 건드리지 않고 그대로 둔다.
+  const liveResult = document.getElementById('ggResult');
+  if (liveResult && !liveResult.classList.contains('hidden')) return;
   const rows = (window.Archive && Archive.listOf) ? Archive.listOf('gungham') : [];
   if (!rows.length) { showGunghamInputStep(); return; }
 
@@ -1597,13 +1604,16 @@ const OHAENG_COLOR = {
   목: { base:'#4ade80', dark:'#22c55e' },
   화: { base:'#f87171', dark:'#ef4444' },
   토: { base:'#fbbf24', dark:'#f59e0b' },
-  금: { base:'#e2e8f0', dark:'#cbd5e1' },
+  // ⚠️ 버그 수정(2026-08-21 사용자 리포트): 금(金)은 배경이 워낙 옅은 회백색이라, 글자색까지 같은
+  // base(#e2e8f0)를 쓰면 배경과 거의 구분이 안 돼 글자가 안 보이는 것처럼 보였다. 배경 그라디언트는
+  // 그대로 두고 글자색만 실제로 읽히는 톤(#838f9f)으로 따로 지정한다.
+  금: { base:'#e2e8f0', dark:'#cbd5e1', text:'#838f9f' },
   수: { base:'#60a5fa', dark:'#3b82f6' },
 };
 function ohaengCellStyle(oh) {
   const c = OHAENG_COLOR[oh];
   if (!c) return '';
-  return `background:linear-gradient(135deg, ${c.base}55, ${c.dark}22);border:1px solid ${c.dark}99;color:${c.base};`;
+  return `background:linear-gradient(135deg, ${c.base}55, ${c.dark}22);border:1px solid ${c.dark}99;color:${c.text || c.base};`;
 }
 // 시주/일주/월주/연주 한 기둥의 기본 셀(라벨+천간+지지, 오행 색상) — 근거성 뱃지(12운성·신살·귀인) 없이
 // 순수 원국만 보여줄 때(renderGunghamManseryeok) renderPillarsTable과 공유한다.
