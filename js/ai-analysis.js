@@ -396,7 +396,31 @@ const CMB_ZONE4_TITLE_STYLE_EXAMPLES = [
   '인싸인 듯 아싸, 아싸인 듯 인싸',
 ];
 
-function buildPersonalDeepReportSchema(hasSaju, hasFace) {
+// Zone4 사랑/일 카드 각도 — 통합분석 리포트 구성.md §4(2026-08-20). "어떤 상황이면 어떤 각도로
+// 풀지"는 q1/q2 값을 보고 여기서 룰베이스로 정하고, 그 각도 안의 실제 문장은 AI가 자유 생성한다.
+// q1/q2가 아래 표에 없으면(미답변·"직접 입력할게요"로 커스텀 텍스트를 쓴 경우 등) 기존 기본 각도로 폴백.
+function buildLoveCardGuidance(q1) {
+  if (q1 === '결혼했어요') {
+    return '- love(사랑): 이 사람은 기혼입니다 — "연애·결혼 스타일" 카드 대신 반드시 3개 카드로 순서대로 구성: 카드1 "매력·인기"(기존과 동일 — [사주 신살·귀인 목록]의 홍염살·년살 + [AI 관상 분류 결과]의 매력 계열 눈 유형), 카드2 "결혼 생활 스타일"(배우자와 함께 살아가는 방식), 카드3 "아이가 생기면"(자녀와의 관계·육아 성향 — 실제 자녀 유무·성별을 단정하지 말고 "이런 기질이 아이를 대하는 방식에 어떻게 나타날지" 중심으로). 이 경우 love만 3개라 zone4_cards 전체 카드 수는 최소 9개.';
+  }
+  if (q1 === '새로운 출발 (돌싱/기타)') {
+    return '- love(사랑): 이 사람은 새로운 출발(돌싱/기타)을 앞두고 있습니다 — 순서대로 카드1 "매력·인기"(기존과 동일), 카드2 "다시 시작하는 인연"("연애·결혼 스타일" 대신 — 새로운 사람을 만날 때 달라진 점, 지금 시점에서의 연애관).';
+  }
+  return '- love(사랑): ⚠️ 순서대로 카드1 "매력·인기"(신규, 먼저), 카드2 "연애·결혼 스타일"(기존, 나중) — 이 순서를 반드시 지킬 것(가볍게 시작해서 구체적인 스타일로 들어가는 흐름). 카드1은 [사주 신살·귀인 목록]의 홍염살·년살 같은 매력 계열 신살과, [AI 관상 분류 결과]의 눈 유형(도화안·난안처럼 매력·사교성 계열)을 엮어서 "주변에 인기가 많은지"를 풀이할 것 — 둘 다 없으면 이 카드는 억지로 만들지 말고 love를 다른 세부 카드(예: 연애할 때의 진심 표현 방식)로 채울 것. 카드2는 연애·결혼에서 추구하는 스타일.';
+}
+function buildWorkCardGuidance(q2) {
+  const sipseongNote = '[십성 목록] 조합(상관=말재주·표현력, 편관=카리스마·결단력, 편인=독창성, 정관=책임감·조직 적응 등)을 근거로 쓸 것.';
+  const map = {
+    '학생': `- work(일): 이 사람은 학생입니다 — 조직 생활 대신 진로로 방향을 바꿔서, ${sipseongNote} 이 성향과 어울리는 전공·직업 적성을 제시할 것.`,
+    '취업 준비중': `- work(일): 이 사람은 취업 준비 중입니다 — ${sipseongNote} 이 성향이 취업 시장에서 어떻게 강점이 되는지, 어떤 직무·업종이 잘 맞는지를 제시할 것.`,
+    '주부': `- work(일): 이 사람은 주부입니다 — ${sipseongNote} 가정을 이끌어가는 스타일을 중심으로 쓰고, 이 성향이 사회활동·부업으로 이어진다면 어떤 방향이 잘 맞을지도 함께 짚을 것.`,
+    '자영업/프리랜서': `- work(일): 이 사람은 자영업/프리랜서입니다 — ${sipseongNote} 조직 소속이 아니라 혼자 일을 이끌 때의 강점·주의할 점(사업가 기질)을 전면에 다룰 것.`,
+    '은퇴함': `- work(일): 이 사람은 은퇴했습니다 — ${sipseongNote} 앞으로의 직장 생활이 아니라, 지금까지 쌓아온 경험이 이어지면 좋을 활동(소일거리·사회공헌·취미)을 제시할 것.`,
+  };
+  return map[q2] || `- work(일): ${sipseongNote} 구체적인 직업 성향을 풀이할 것. Zone1 캐릭터 카드의 work 문구를 그대로 반복하지 말고, 십성 근거로 더 구체적인 스타일을 추가할 것.`;
+}
+
+function buildPersonalDeepReportSchema(hasSaju, hasFace, q1, q2) {
   const properties = {
     catchphrase: {
       type: 'STRING',
@@ -656,7 +680,14 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
       minItems: 8,
       maxItems: 18,
       description:
-        '[Zone4 후보 주제 목록](family/work/money/love/relationships/rest, 6개) 전부를 반드시 다룰 것 — 이 사람에게 안 맞는다고 주제를 아예 빼면 안 됨. ⚠️ family와 love는 반드시 각각 2개 이상의 카드로 나눠 쓸 것(아래 [주제별 근거 가이드] 참고 — 자라온 환경 카드와 부모님과의 관계 카드를 분리, 연애·결혼 스타일 카드와 매력·인기 카드를 분리). 나머지 4개 주제(work/money/relationships/rest)는 기본 1개 카드, 할 말이 특히 많으면 최대 3개까지 세부 카드로 나눠도 된다. 전체 카드 수는 반드시 최소 8개 이상. "전체에서 최대 3개를 고르는" 게 아니라 "주제마다 1~3개씩(단, family·love는 2~3개), 총합은 8~18개"가 규칙.\n\n[주제별 근거 가이드 — 2026-08-21 강화, 카드 순서 포함]\n- family(가족): 순서대로 카드1 "자라온 환경"(전반), 카드2 "부모님과의 관계"(신규) — 카드2는 반드시 [십성 목록]에 편재·정재(재성)가 있는지로 아버지와의 인연을, 편인·정인(인성)이 있는지로 어머니와의 인연을 풀이할 것 — 있으면 그 인연이 뚜렷함을, 3개 자리(year/month/hour) 중 전혀 없으면 그 인연이 약하거나 독립적으로 형성됐음을 풀이. 실제 가족 구성원을 예언·평가하지 말고 "성향에 미쳤을 습관·태도 차이" 중심으로.\n- love(사랑): ⚠️ 순서대로 카드1 "매력·인기"(신규, 먼저), 카드2 "연애·결혼 스타일"(기존, 나중) — 이 순서를 반드시 지킬 것(가볍게 시작해서 구체적인 스타일로 들어가는 흐름). 카드1은 [사주 신살·귀인 목록]의 홍염살·년살 같은 매력 계열 신살과, [AI 관상 분류 결과]의 눈 유형(도화안·난안처럼 매력·사교성 계열)을 엮어서 "주변에 인기가 많은지"를 풀이할 것 — 둘 다 없으면 이 카드는 억지로 만들지 말고 love를 다른 세부 카드(예: 연애할 때의 진심 표현 방식)로 채울 것. 카드2는 연애·결혼에서 추구하는 스타일.\n- money(돈): [십성 목록]의 재성(편재=통 큰 씀씀이·사업감각, 정재=성실한 축적) 유무·종류를 우선 근거로 쓰고, [관상 실측 데이터]의 코끝(nosetip)·입(mouth) 관련 수치가 있으면 함께 엮을 것.\n- work(일): [십성 목록] 조합(상관=말재주·표현력, 편관=카리스마·결단력, 편인=독창성, 정관=책임감·조직 적응 등)으로 구체적인 직업 성향을 풀이할 것. Zone1 캐릭터 카드의 work 문구를 그대로 반복하지 말고, 십성 근거로 더 구체적인 스타일을 추가할 것.\n- relationships(대인관계): [사주 신살·귀인 목록] 중 화개살(혼자만의 시간 선호)·귀문관살(몰입력)·겁살·재살(관계 마찰) 같은 항목과, [관상 실측 데이터]의 눈썹·미간(대인관계·형제운 부위) 특징을 엮어서 풀이.\n- rest(쉼/힐링): [용신(필요 오행)]의 yongsinOh(그 사람에게 부족해서 필요한 오행)를 반드시 근거로 써서, 그 기운을 채워주는 활동·공간·색·환경을 제안할 것.',
+        '[Zone4 후보 주제 목록](family/work/money/love/relationships/rest, 6개) 전부를 반드시 다룰 것 — 이 사람에게 안 맞는다고 주제를 아예 빼면 안 됨. ⚠️ family와 love는 반드시 각각 2개 이상의 카드로 나눠 쓸 것(아래 [주제별 근거 가이드] 참고 — 자라온 환경 카드와 부모님과의 관계 카드를 분리, love는 아래 안내에 따름). 나머지 4개 주제(work/money/relationships/rest)는 기본 1개 카드, 할 말이 특히 많으면 최대 3개까지 세부 카드로 나눠도 된다. 전체 카드 수는 반드시 최소 8개 이상. "전체에서 최대 3개를 고르는" 게 아니라 "주제마다 1~3개씩(단, family·love는 2개 이상), 총합은 8~18개"가 규칙.\n\n' +
+        '[주제별 근거 가이드 — 카드 순서 포함, 사용자 현재 상황(q1/q2)에 따라 사랑·일 카드는 아래처럼 각도가 달라짐]\n' +
+        '- family(가족): 순서대로 카드1 "자라온 환경"(전반), 카드2 "부모님과의 관계"(신규) — 카드2는 반드시 [십성 목록]에 편재·정재(재성)가 있는지로 아버지와의 인연을, 편인·정인(인성)이 있는지로 어머니와의 인연을 풀이할 것 — 있으면 그 인연이 뚜렷함을, 3개 자리(year/month/hour) 중 전혀 없으면 그 인연이 약하거나 독립적으로 형성됐음을 풀이. 실제 가족 구성원을 예언·평가하지 말고 "성향에 미쳤을 습관·태도 차이" 중심으로.\n' +
+        buildLoveCardGuidance(q1) + '\n' +
+        '- money(돈): [십성 목록]의 재성(편재=통 큰 씀씀이·사업감각, 정재=성실한 축적) 유무·종류를 우선 근거로 쓰고, [관상 실측 데이터]의 코끝(nosetip)·입(mouth) 관련 수치가 있으면 함께 엮을 것.\n' +
+        buildWorkCardGuidance(q2) + '\n' +
+        '- relationships(대인관계): [사주 신살·귀인 목록] 중 화개살(혼자만의 시간 선호)·귀문관살(몰입력)·겁살·재살(관계 마찰) 같은 항목과, [관상 실측 데이터]의 눈썹·미간(대인관계·형제운 부위) 특징을 엮어서 풀이.\n' +
+        '- rest(쉼/힐링): [용신(필요 오행)]의 yongsinOh(그 사람에게 부족해서 필요한 오행)를 반드시 근거로 써서, 그 기운을 채워주는 활동·공간·색·환경을 제안할 것.',
       items: {
         type: 'OBJECT',
         properties: {
@@ -963,7 +994,8 @@ function buildDeepReportUserPrompt(
   archetypeAnalysis = null,
   sewoonInfo = null,
   characterResult = null,
-  zone3Extra = null // {chemiScore, faceTraitScores, faceOhaeng, samjeong, daeunList} — 통합분석 Zone2/3/4 전용
+  zone3Extra = null, // {chemiScore, faceTraitScores, faceOhaeng, samjeong, daeunList} — 통합분석 Zone2/3/4 전용
+  situation = null // {q1, q2, q3} — 통합분석 진입 질문(지금의 상황/일상/자유입력). 통합분석 리포트 구성.md §4
 ) {
   // 스펙 §8-2 — Zone1(16캐릭터) 결과를 프롬프트에 넣고 "이것과 어긋나게 쓰지 말 것"을 못박는다.
   // 안 넣으면 AI가 "우직한 신뢰가형" 같은 새 유형명을 만들어 Zone1 캐릭터명과 화면에서 충돌한다
@@ -1149,6 +1181,13 @@ ${JSON.stringify(zone3Extra.daeunStages)}`
     ? `[Zone4 후보 주제 목록]\nfamily(가족) / work(일) / money(돈) / love(사랑) / relationships(대인관계) / rest(쉼·힐링)\n\n[Zone4 제목 말투 참고 예시 — 그대로 쓰거나 단어만 바꿔 쓰지 말고 톤만 참고할 것]\n${JSON.stringify(CMB_ZONE4_TITLE_STYLE_EXAMPLES)}`
     : '';
 
+  // 통합분석 리포트 구성.md §4(2026-08-20) — q1(지금의 상황)/q2(일상)에 따라 zone4_cards의
+  // love/work 카드 각도가 스키마 설명(buildLoveCardGuidance/buildWorkCardGuidance)에서 바뀐다.
+  // 여기서는 AI가 실제 값을 참고할 수 있게 원본 데이터만 넘긴다.
+  const situationBlock = (situation && (situation.q1 || situation.q2 || situation.q3))
+    ? `[사용자 현재 상황]\n지금의 상황: ${situation.q1 || '미답변'}\n주로 보내는 일상: ${situation.q2 || '미답변'}\n${situation.q3 ? '추가로 궁금한 것: ' + situation.q3 : ''}\n※ love(사랑)·work(일) 카드는 이 상황에 맞는 각도로 써야 함 — 자세한 규칙은 zone4_cards 스키마 설명 참고.`
+    : '';
+
   const requestLine = ratios
     ? `[요청]
 
@@ -1249,6 +1288,9 @@ ${daeunStagesBlock}
 
 
 ${zone4TitleBankBlock}
+
+
+${situationBlock}
 
 
 ${requestLine}`;
@@ -1810,6 +1852,11 @@ async function requestDeepReport(ctx) {
         }
       : null;
 
+    // 통합분석 리포트 구성.md §4(2026-08-20) — 진입 시 받은 상황 질문(q1/q2/q3)을 이제 실제로 프롬프트에
+    // 넘긴다. state[ctx]는 'combined'일 때만 q1/q2/q3를 채우므로(사주보기는 이 함수를 안 씀), 다른
+    // 컨텍스트에서는 자연히 undefined → situationBlock/카드 각도 분기 모두 기존 기본값으로 폴백된다.
+    const situation = { q1: state[ctx].q1, q2: state[ctx].q2, q3: state[ctx].q3 };
+
     const userText =
       buildDeepReportUserPrompt(
         ratios,
@@ -1821,7 +1868,8 @@ async function requestDeepReport(ctx) {
         archetypeAnalysis,
         sewoonInfo,
         zone1Character,
-        zone3Extra
+        zone3Extra,
+        situation
       );
 
 
@@ -1832,7 +1880,9 @@ async function requestDeepReport(ctx) {
         [imageDataUrl],
         buildPersonalDeepReportSchema(
           !!cfg.pillars,
-          true
+          true,
+          situation.q1,
+          situation.q2
         ),
 
         // 정밀 풀이에서는 문장 표현의 유연성은 조금 허용하되
