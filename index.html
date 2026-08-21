@@ -147,8 +147,6 @@ body {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r); padding: 24px; margin-bottom: 16px;
 }
-/* 프로필 영역(마인트 톤 info-box) 바로 아래에 오는 카드라 위쪽 간격 없이 붙어 보이는 문제 — 24px 띄움 */
-#canvasCard, #cmbCanvasCard { margin-top: 24px; }
 /* 관상보기 결과(캐릭터 카드 + 리포트)는 카드 껍데기를 벗긴다 — 회색 테두리와 24px 안쪽 패딩을 없애서
    콘텐츠가 .wrap 폭을 그대로 쓰게 함(사용자 요청 2026-08-15). 캐릭터 카드·아코디언 자체가 이미 테두리를
    갖고 있어 바깥 테두리가 이중으로 겹쳐 보이던 문제도 같이 해소된다. .card 공통 규칙은 그대로 두고
@@ -415,7 +413,7 @@ body {
 
 
 /* ── Face Upload Area (피그마 실측 구조: Label → 안심 안내 → 드롭존[아이콘/캡션/노란 팁박스]) ── */
-.upload-section { padding: 28px 20px 40px; }
+.upload-section { padding: 0 20px 40px; }
 
 /* ── 인연도감 첫 진입 히어로(#gwansangHero) ── */
 .hero-section { text-align: center; padding: 8px 4px 28px; }
@@ -654,9 +652,6 @@ body {
    (사용자 요청 2026-08-18: 이름·프로필도 관상 정보와 같은 테두리 안에 넣기). */
 /* 바깥 여백은 다른 탭의 사진 등록 영역(.upload-section — 화면 기준 좌우 20px · 위 28px · 아래 40px)에
    맞춘다. .wrap이 이미 16px을 주고 있어 여기서는 4px만 더한다(사용자 요청 2026-08-18). */
-/* 위쪽 28px은 패널 패딩으로 준다 — 카드에 margin-top으로 주면 부모(.panel)와 마진이 합쳐져(margin
-   collapsing) 실제로는 여백이 생기지 않는다. */
-#panel-gungham { padding-top: 28px; }
 .person-block { margin: 0 4px; }
 .person-block + .person-block { margin-top: 12px; }
 .person-block:last-of-type { margin-bottom: 40px; }
