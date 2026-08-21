@@ -1885,9 +1885,13 @@ async function requestDeepReport(ctx) {
           situation.q2
         ),
 
-        // 정밀 풀이에서는 문장 표현의 유연성은 조금 허용하되
-        // 근거와 분류 결과가 흔들리지 않게 0.65 사용.
-        0.65
+        // ⚠️ 사용자 리포트(2026-08-20): 같은 사주+사진으로 두 번 돌렸는데 analysis_basis/principle
+        // ("왜 이렇게 풀이했나요?") 문장이 눈에 띄게 달라짐 — 그 자리는 "이 숫자가 왜 이 결론으로
+        // 이어지는지"를 설명하는 근거라, 매번 다르게 설명되면 지어내는 것처럼 보여 신뢰를 깎는다.
+        // interpretation/제목처럼 표현이 매번 새로워야 하는 자리(문서에도 명시)와는 성격이 다르다.
+        // 0.65에서도 이 문제가 실제로 재현돼 0.3으로 더 낮춘다 — 스키마의 모든 필드가 한 호출을
+        // 공유해서 필드별로 온도를 나눠 줄 수는 없다.
+        0.3
       );
 
 
@@ -1941,7 +1945,8 @@ async function requestSajuDeepReport(pillars, ohaeng, elId, relLabel) {
   try {
     const sys = buildDeepReportSystemInstruction();
     const userText = buildDeepReportUserPrompt(null, null, pillars, ohaeng, sajuInsight, relLabel);
-    const data = await callGeminiAPI(sys, userText, [], buildPersonalDeepReportSchema(true, false), 0.65);
+    // 통합분석 쪽과 같은 이유로 0.3 사용 — analysis_basis/principle이 매번 흔들리면 신뢰를 깎는다.
+    const data = await callGeminiAPI(sys, userText, [], buildPersonalDeepReportSchema(true, false), 0.3);
     renderDeepReport(elId, data);
   } catch (e) {
     console.error('[Gemini 정밀 리포트 실패]', e);
