@@ -2417,22 +2417,19 @@ function characterConfidenceLine(characterResult) {
   }
   return `${name}의 결이 은은하게 나타나는 ${nickname}님!`;
 }
-// 인연도감(관상보기 탭, 얼굴만)에서 이미 뽑은 캐릭터가 있으면 반환한다 — Zone1 비교 블록용.
-// localStorage 키 'inyeonLastCharacter'는 inyeon-dogam.js의 myCharacterId()와 같은 저장소를 본다.
-function getGwansangOnlyCharacterId() {
-  const live = (typeof state !== 'undefined' && state.gwansang && state.gwansang.characterResult) || null;
-  if (live && live.characterId) return live.characterId;
-  try {
-    const saved = JSON.parse(localStorage.getItem(inyeonCharacterKey()) || 'null');
-    return (saved && saved.characterId) || null;
-  } catch (e) { return null; }
-}
-
-// §2-A(신규) — "관상만 봤을 때 vs 관상+사주를 더했을 때" 비교. 사용자 요청 2026-08-18: 인연도감에서
-// 이미 뽑은 캐릭터가 사주를 더해 바뀌었다면 그 차이를 후킹포인트로 보여준다. 결과가 같으면(바뀐 게
-// 없으면) 후킹 효과가 없으므로 블록 자체를 숨긴다.
+// §2-A(신규) — "관상만 봤을 때 vs 관상+사주를 더했을 때" 비교. 사용자 요청 2026-08-18: 사주를 더해
+// 캐릭터가 바뀌었다면 그 차이를 후킹포인트로 보여준다. 결과가 같으면(바뀐 게 없으면) 블록을 숨긴다.
+//
+// ⚠️ 버그 수정(2026-08-21 사용자 리포트: "관상 유형이 무관상인데 나는 그런 적이 없다") — 원래는
+// 여기 비교 기준을 인연도감(관상보기 탭)에서 "이미 뽑아본 적 있는" 캐릭터로 썼다(localStorage
+// 'inyeonLastCharacter'). 그런데 그건 몇 주 전에 다른 사진으로 만든 결과이거나, 로그인 직후
+// Dogam.render()의 자가복구(inyeon-dogam.js paintOwnerView)가 계정에 저장된 예전 도감 값을
+// 그대로 되살려 넣은 것일 수 있어 — 계정 스코프를 나눠도(095952c) 지금 업로드한 사진과 무관한
+// 값이 "관상 유형"으로 표시되는 문제가 그대로 남아 있었다. "관상만 봤을 때"가 참이려면 반드시
+// 지금 이 사진을 얼굴만으로(사주 없이) 다시 판정한 값이어야 한다 — classifyAndBuildCharacter가
+// characterResult.faceOnlyCharacterId로 항상 "이 사진"의 값만 넘겨준다.
 function characterCompareBlock(characterResult) {
-  const gwansangId = getGwansangOnlyCharacterId();
+  const gwansangId = characterResult.faceOnlyCharacterId;
   if (!gwansangId || gwansangId === characterResult.characterId) return '';
   const faceOnly = CHARACTER_DB[gwansangId];
   const combined = CHARACTER_DB[characterResult.characterId];
@@ -2451,11 +2448,11 @@ function characterCompareBlock(characterResult) {
     </div>`;
 }
 
-// 헤드 타이틀 3분기(사용자 요청 2026-08-18b) — 인연도감(관상만)에서 이미 뽑은 캐릭터가 있는지,
-// 있다면 이번 관상+사주 결과와 같은지에 따라 문구가 달라진다.
-//  · 관상 캐릭터 없음            → "왜 OOO이 나왔을까요?"
-//  · 관상 캐릭터 있음 + 같은 결과 → "사주를 더해도 여전히 OOO이에요!"
-//  · 관상 캐릭터 있음 + 다른 결과 → "사주를 더하니 OOO이 되었어요!"
+// 헤드 타이틀 3분기(사용자 요청 2026-08-18b) — 지금 이 사진을 관상만으로 판정한 결과(gwansangId,
+// characterResult.faceOnlyCharacterId)가 이번 관상+사주 결과와 같은지에 따라 문구가 달라진다.
+//  · 얼굴 단독 판정 실패           → "왜 OOO이 나왔을까요?"
+//  · 얼굴 단독 결과 == 최종 결과  → "사주를 더해도 여전히 OOO이에요!"
+//  · 얼굴 단독 결과 != 최종 결과  → "사주를 더하니 OOO이 되었어요!"
 function characterBasisTitle(characterResult, gwansangId) {
   const name = (CHARACTER_DB[characterResult.characterId] || {}).name || '';
   if (!gwansangId) return `왜 ${name}이 나왔을까요?`;
@@ -2487,7 +2484,7 @@ function renderCharacterBasis(elId, characterResult) {
   if (!character) { el.innerHTML = ''; return; }
 
   const { traitScores, primaryTrait, secondaryTrait } = characterResult;
-  const gwansangId = getGwansangOnlyCharacterId();
+  const gwansangId = characterResult.faceOnlyCharacterId;
 
   // §2-A — 6대 기질은 바만, 숫자는 노출하지 않는다.
   // 이유: traitScores의 기준선(FACE_TRAIT_BASELINE 등)이 아직 실사용자 분포가 아닌 근사치라
@@ -2713,6 +2710,14 @@ function classifyAndBuildCharacter(ctx, cfg, lm) {
     gwiinList: cfg.pillars ? collectSajuInsightSummary(cfg.pillars).gwiinList : null,
     hasHour: cfg.pillars ? cfg.pillars[3].stem >= 0 : false,
   });
+  // §2-A 비교 카드("관상만 봤을 때 → 관상+사주 유형")용 — 반드시 지금 이 사진의 얼굴 단독 판정이어야
+  // 한다(위 버그 수정 주석 참고). 사주가 실제로 섞인 경우에만 같은 ids/confidences/partStatusMap으로
+  // 얼굴만 다시 판정한다 — 사주가 없으면 characterResult 자체가 이미 얼굴 단독 결과다.
+  if (characterResult) {
+    characterResult.faceOnlyCharacterId = cfg.pillars
+      ? (computeCharacterResult({ featureIds: ids, confidences, partStatusMap }) || {}).characterId || null
+      : characterResult.characterId;
+  }
   state[ctx].characterResult = characterResult;
   // 이 시점부터 형상 분류는 확정이다 — 뒤이어 도는 Gemini 호출이 자기 분류로 덮어쓰지 못하게 막는다.
   // (getOrRequestPersonalAiData가 이 플래그를 보고 archetypeAnalysis 갱신을 건너뛴다)
