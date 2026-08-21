@@ -1529,15 +1529,6 @@ body.overlay-open { overflow: hidden; }
           <div id="cmbZone3Reading1" class="gg-item" style="margin-top:10px;">사진 분석이 끝나면 표시돼요.</div>
           
         </div>
-        <!-- 관상 정보(2026-08-21 6차 개편, 사용자 요청) — 사주 원국(사주쪽 데이터) 다음에 관상쪽
-             데이터를 나란히 두고, 그 다음에야 둘을 섞는 융합 페어(오행능력치 비교/대운x삼정)로
-             넘어가는 구조. part_deep_dive(눈·코·미간 등 실측 근거 부위별 상세해설, 관상탭과 동일한
-             카드 UI)를 여기로 연결 — Zone1은 캐릭터 판정만 다루는 원칙을 지키기 위해 Zone1에서 뺐다. -->
-        <div class="z3-pair-card" style="margin-top:16px;">
-          <div class="z3-pair-title">🔮 관상 정보</div>
-          <div id="cmbPartDeepDive" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-        </div>
-
         <div class="z3-pair-card" style="margin-top:16px;">
           <div class="z3-pair-title">🌳 오행능력치 비교</div>
           <div class="oh-vs-row oh-vs-head"><span class="face">관상</span><span class="saju">사주</span></div>
@@ -1557,6 +1548,15 @@ body.overlay-open { overflow: hidden; }
           <div class="lifeline" id="cmbLifeline" style="color:var(--text2);font-size:12.5px;">사진이 있어야 볼 수 있어요.</div>
           <!-- 사주보기 탭과 같은 renderDaeunTable을 쓰지 않으므로 숨은 그릇 불필요 -->       
           <div id="cmbZone3Reading3" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
+        </div>
+
+        <!-- 관상 정보(2026-08-21 6차 개편, 사용자 요청) — part_deep_dive(눈·코·미간 등 실측 근거
+             부위별 상세해설, 관상탭과 동일한 카드 UI)를 여기로 연결 — Zone1은 캐릭터 판정만 다루는
+             원칙을 지키기 위해 Zone1에서 뺐다. 순서 변경(사용자 요청 2026-08-21b) — 사주 원국 →
+             오행능력치 비교 → 대운x삼정 순으로 사주 쪽 풀이를 먼저 다 보여준 뒤 관상 정보를 맨 뒤로. -->
+        <div class="z3-pair-card" style="margin-top:16px;">
+          <div class="z3-pair-title">🔮 관상 정보</div>
+          <div id="cmbPartDeepDive" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         </div>
         </details>
 
