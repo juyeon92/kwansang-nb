@@ -1498,7 +1498,19 @@ body.overlay-open { overflow: hidden; }
           <div class="z3-pair-title">☯ 사주 원국</div>
           <div class="pillars-table" id="cmbPillarsTable"></div>
         </div>
+        <!-- 신살·귀인 종합 풀이(2026-08-21 추가) — 원국표 뱃지로만 나열되던 신살·귀인을 "여러 개면
+             무슨 의미인지 + 조합 해석"으로 풀어주는 sinsal_reading을 여기 연결. -->
+        <div id="cmbSinsalReading" style="margin-top:10px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         <div id="cmbZone3Reading1" style="margin-top:10px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+
+        <!-- 관상 정보(2026-08-21 6차 개편, 사용자 요청) — 사주 원국(사주쪽 데이터) 다음에 관상쪽
+             데이터를 나란히 두고, 그 다음에야 둘을 섞는 융합 페어(오행능력치 비교/대운x삼정)로
+             넘어가는 구조. part_deep_dive(눈·코·미간 등 실측 근거 부위별 상세해설, 관상탭과 동일한
+             카드 UI)를 여기로 연결 — Zone1은 캐릭터 판정만 다루는 원칙을 지키기 위해 Zone1에서 뺐다. -->
+        <div class="z3-pair-card" style="margin-top:16px;">
+          <div class="z3-pair-title">🔮 관상 정보</div>
+          <div id="cmbPartDeepDive" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+        </div>
 
         <div class="z3-pair-card" style="margin-top:16px;">
           <div class="z3-pair-title">🌳 오행능력치 비교</div>
@@ -1520,18 +1532,19 @@ body.overlay-open { overflow: hidden; }
         <div id="cmbZone3Reading3" style="margin-top:10px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
       </details>
 
-      <!-- ══ Zone4 · 스토리 풀이 ══ 통합분석 리포트 구성.md §1(2026-08-21 4차 개편) — 고정 카드
-           4개("나는 누구인가": 인생의 흐름 → 나의 기질 → 남이 모르는 내 모습 → 조언) + 가변 카드
-           8개("생활 속의 나": family2/relationships1/love2/work1/money1/rest1). 전부 AI라 로딩
-           스켈레톤을 탄다. 고정 카드 2~4의 제목은 룰베이스(renderZone4FixedCard에 고정 문구로
+      <!-- ══ Zone4 · 스토리 풀이 ══ 통합분석 리포트 구성.md §1(2026-08-21 5차 개편) — 오프닝 고정
+           카드 3개(인생의 흐름 → 나의 기질 → 남이 모르는 내 모습) → 가변 카드 8개("생활 속의 나":
+           family2/relationships1/love2/work1/money1/rest1) → 클로징 고정 카드("조언", 맨 마지막
+           — 사용자 요청 2026-08-21: 리포트 전체를 다 읽은 다음 마지막에 조언으로 마무리). 전부 AI라
+           로딩 스켈레톤을 탄다. 고정 카드의 제목은 룰베이스(renderZone4FixedCard에 고정 문구로
            박아둠) — reading/basis만 AI. -->
       <details class="report-accordion zone-accordion" id="cmbZone4">
         <summary>ZONE 4 · 관상x사주 스토리 풀이</summary>
         <div id="cmbZone4Card1" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         <div id="cmbZone4Temperament" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         <div id="cmbZone4HiddenSelf" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-        <div id="cmbZone4Advice" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         <div id="cmbZone4Cards" style="margin-top:16px;"></div>
+        <div id="cmbZone4Advice" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
       </details>
 
       <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:14px;">print</span> 결과 인쇄</button>
@@ -2011,27 +2024,27 @@ body.overlay-open { overflow: hidden; }
 <!-- 로컬 스크립트의 ?v= 는 캐시 무효화용 버전이다. 브라우저(및 Firebase Hosting의 기본 캐시 헤더)가
      수정된 js를 옛 버전 그대로 재사용해 "코드를 고쳤는데 반영이 안 되는" 문제가 반복돼서 붙였다.
      js/*.js 를 수정하고 배포할 때마다 아래 v 값을 모두 함께 올려야 한다(날짜+연번). -->
-<script src="js/archetype-db.js?v=20260821v"></script>
-<script src="js/landmark-engine.js?v=20260821v"></script>
-<script src="js/config.js?v=20260821v"></script>
-<script src="js/firebase-init.js?v=20260821v"></script>
-<script src="js/kakao-auth.js?v=20260821v"></script>
+<script src="js/archetype-db.js?v=20260821w"></script>
+<script src="js/landmark-engine.js?v=20260821w"></script>
+<script src="js/config.js?v=20260821w"></script>
+<script src="js/firebase-init.js?v=20260821w"></script>
+<script src="js/kakao-auth.js?v=20260821w"></script>
 <!-- 냥(포인트) 지갑 — fbAuth/fbDb가 필요해 firebase-init.js 다음, 통합분석/궁합보기에서 써야 해 profile.js보다 먼저 -->
-<script src="js/wallet.js?v=20260821v"></script>
+<script src="js/wallet.js?v=20260821w"></script>
 <!-- 16캐릭터 시스템(신규 별도 레이어) — archetype-db.js/landmark-engine.js 다음, app.js보다 먼저 로드 -->
-<script src="js/character/trait-config.js?v=20260821v"></script>
-<script src="js/character/face-trait-map.js?v=20260821v"></script>
-<script src="js/character/saju-trait-map.js?v=20260821v"></script>
-<script src="js/character/character-db.js?v=20260821v"></script>
-<script src="js/character/character-engine.js?v=20260821v"></script>
+<script src="js/character/trait-config.js?v=20260821w"></script>
+<script src="js/character/face-trait-map.js?v=20260821w"></script>
+<script src="js/character/saju-trait-map.js?v=20260821w"></script>
+<script src="js/character/character-db.js?v=20260821w"></script>
+<script src="js/character/character-engine.js?v=20260821w"></script>
 <!-- 궁합(good/spark/clash) 엔진 — trait-config.js의 TRAITS를 재사용하므로 반드시 그 뒤에 로드할 것 -->
-<script src="js/character/compatibility-engine.js?v=20260821v"></script>
-<script src="js/ai-analysis.js?v=20260821v"></script>
-<script src="js/app.js?v=20260821v"></script>
-<script src="js/profile.js?v=20260821v"></script>
-<script src="js/archive.js?v=20260821v"></script>
-<script src="js/inyeon-dogam.js?v=20260821v"></script>
-<script src="js/nyang-shop.js?v=20260821v"></script>
-<script src="js/nyang-history.js?v=20260821v"></script>
+<script src="js/character/compatibility-engine.js?v=20260821w"></script>
+<script src="js/ai-analysis.js?v=20260821w"></script>
+<script src="js/app.js?v=20260821w"></script>
+<script src="js/profile.js?v=20260821w"></script>
+<script src="js/archive.js?v=20260821w"></script>
+<script src="js/inyeon-dogam.js?v=20260821w"></script>
+<script src="js/nyang-shop.js?v=20260821w"></script>
+<script src="js/nyang-history.js?v=20260821w"></script>
 </body>
 </html>

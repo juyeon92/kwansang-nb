@@ -489,7 +489,7 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     properties.sinsal_reading = {
       type: 'STRING',
       description:
-        '[사주 신살·귀인 목록]에 실제 존재하는 항목만 사용해 3~5문장으로 해석. 없는 신살이나 귀인을 창작하지 말 것.'
+        '[사주 신살·귀인 목록]에 실제 존재하는 항목만 사용해 4~6문장으로 해석. 없는 신살이나 귀인을 창작하지 말 것. ⚠️ 목록을 그냥 나열하지 말 것 — 먼저 이 사람이 가진 신살·귀인의 개수·다양성 자체가 무슨 의미인지 한 문장으로 짚고(예: 여러 개면 "인생에 굴곡이나 전환점이 잦은 편", 적으면 "무난하고 평탄한 흐름"), 그 다음 같은 방향을 가리키는 항목들을 조합해서(예: 홍염살+년살 → "매력") 1~2개 이야기로 묶어서 풀이할 것. 신살은 전부 나쁜 게 아니라 길신(귀인)·흉살이 섞여 있다는 것도 자연스럽게 짚을 것.'
     };
 
     required.push(
@@ -606,7 +606,7 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace) {
     properties.zone3_ohaeng_reading = {
       type: 'STRING',
       description:
-        '[사주 오행 분포]와 [관상 오행 분포]를 비교해서 두 오행이 서로 겹치는 부분과 다른 부분을 3~4문장으로 설명. 오행의 한자를 괄호 병기하지 말 것. ⚠️ 반드시 두 분포의 실제 숫자를 먼저 비교한 뒤 쓸 것 — 목/화/토/금/수 5개 중 값 차이가 큰(예: 5%p 이상) 오행만 "다른 부분"으로 짚고, 어느 쪽이 실제로 더 높은지 방향에 맞게 서술할 것. "관상이 사주의 부족한 기운을 보완/받쳐준다" 같은 표현은 관상 쪽 수치가 실제로 사주보다 높은 오행에만 쓸 것 — 반대(사주가 더 높은데 관상이 보완한다고 쓰는 것)는 금지. 값 차이가 5%p 미만인 오행은 "겹친다/비슷하다"고만 쓰고 보완 서사를 만들지 말 것. ⚠️ 오행 zero(0개)나 과다(3개 이상)에 대한 개인 서사, 용신(필요 오행) 언급은 여기서 하지 말 것 — Zone4 고정카드("나의 기질")에서 전담한다(중복 방지).'
+        '[사주 오행 분포]와 [관상 오행 분포]를 비교해서 두 오행이 서로 겹치는 부분과 다른 부분을 3~4문장으로 설명. 오행의 한자를 괄호 병기하지 말 것. ⚠️ 어느 쪽이 더 높은지는 [오행 비교표]에 오행별로 이미 계산돼 있다 — 그 표의 "더높은쪽"·"차이_관상마이너스사주" 값을 그대로 따르고, [사주 오행 분포]·[관상 오행 분포] 원본 숫자로 직접 다시 비교·계산하지 말 것(두 블록은 스케일이 달라 — 사주는 8글자 중 개수, 관상은 0~100 퍼센트 — 직접 비교하면 방향이 틀리기 쉬움). [오행 비교표]에서 차이가 큰(5%p 이상) 오행만 "다른 부분"으로 짚을 것. "관상이 사주의 부족한 기운을 보완/받쳐준다" 같은 표현은 더높은쪽이 "관상"인 오행에만 쓸 것 — 반대는 금지. 차이가 5%p 미만(더높은쪽 "동일" 포함)인 오행은 "겹친다/비슷하다"고만 쓰고 보완 서사를 만들지 말 것. ⚠️ 오행 zero(0개)나 과다(3개 이상)에 대한 개인 서사, 용신(필요 오행) 언급은 여기서 하지 말 것 — Zone4 고정카드("나의 기질")에서 전담한다(중복 방지).'
     };
 
     properties.zone3_daeun_reading = {
@@ -897,8 +897,11 @@ zone4_advice_basis/zone4_cards가 스키마에 있다면 아래 기준으로 채
   점수가 왜 나왔는지만 관상 근거 1개 + 사주 근거 1개로 설명해.
 - zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading: 각각 [사주 원국]↔[관상
   6기질 점수], [사주 오행 분포]↔[관상 오행 분포], [대운 정보]↔[삼정 비율]을 짝지어, 두 데이터가
-  같은 이야기를 하는지 다른 이야기를 하는지 구체적으로 짚어. ⚠️ [신강/신약]·[용신(필요 오행)]과
-  오행 zero/과다 개인 서사는 여기서 쓰지 마 — Zone4 고정카드(zone4_temperament_reading)가 전담해.
+  같은 이야기를 하는지 다른 이야기를 하는지 구체적으로 짚어. ⚠️ zone3_ohaeng_reading에서 어느
+  쪽이 더 높은지는 [오행 비교표]에 이미 계산돼 있다 — [사주 오행 분포]·[관상 오행 분포] 원본으로
+  직접 다시 비교하지 말고(스케일이 달라 방향이 틀리기 쉬움) [오행 비교표]의 방향을 그대로 따라.
+  ⚠️ [신강/신약]·[용신(필요 오행)]과 오행 zero/과다 개인 서사는 여기서 쓰지 마 — Zone4 고정카드
+  (zone4_temperament_reading)가 전담해.
 - zone4_temperament_reading("나의 기질"): 오행 zero·과다를 먼저 짚고 [신강/신약]·[용신]을 하나의
   이야기로 엮어서 이 사람의 에너지 밸런스를 설명해. Zone3에서 이미 언급 안 한 내용이니 여기서
   처음 등장시켜.
@@ -1102,6 +1105,32 @@ ${JSON.stringify(archetypeContext)}`
     ? `[관상 오행 분포]\n${JSON.stringify(zone3Extra.faceOhaeng)}`
     : '';
 
+  // 오행 비교표(2026-08-21 버그 수정) — [사주 오행 분포]는 사주 8글자 중 개수(0~8, 예: 목:1)이고
+  // [관상 오행 분포](calcFaceOhaeng)는 이미 0~100 퍼센트라, 두 블록을 그대로 나란히 주면 AI가 서로
+  // 다른 스케일의 숫자를 직접 비교하다가 방향을 헷갈린다(실사용 리포트에서 "관상 쪽 목 기운이 낮다"고
+  // 썼는데 실제 화면 그래프는 관상이 더 높았던 버그로 발견). 사주도 퍼센트로 미리 정규화해서 화면에
+  // 실제로 보이는 값과 똑같은 스케일로 맞추고, 오행별로 어느 쪽이 더 높은지까지 코드로 미리 계산해서
+  // 넘긴다 — AI는 이 표의 방향을 그대로 따르기만 하면 된다.
+  const ohaengCompareBlock = (ohaeng && zone3Extra && zone3Extra.faceOhaeng)
+    ? (() => {
+        const sajuTotal = Object.values(ohaeng).reduce((a, b) => a + b, 0) || 1;
+        const rows = Object.keys(ohaeng).map(oh => {
+          const sajuPct = Math.round((ohaeng[oh] / sajuTotal) * 100);
+          const facePct = Math.round(zone3Extra.faceOhaeng[oh] || 0);
+          const diff = facePct - sajuPct;
+          return {
+            오행: oh,
+            사주퍼센트: sajuPct,
+            관상퍼센트: facePct,
+            차이_관상마이너스사주: diff,
+            더높은쪽: diff > 0 ? '관상' : diff < 0 ? '사주' : '동일',
+          };
+        });
+        return `[오행 비교표 — 이미 계산됨. 직접 다시 비교·계산하지 말고 이 표의 "더높은쪽"과 "차이_관상마이너스사주" 값을 그대로 따를 것]
+${JSON.stringify(rows)}`;
+      })()
+    : '';
+
   const samjeongBlock = zone3Extra && zone3Extra.samjeong
     ? `[삼정 비율]\n${JSON.stringify(zone3Extra.samjeong)}`
     : '';
@@ -1148,10 +1177,12 @@ analysis_basis와 principle은 별도 필드로 분리하세요.
 
 zone2_review/zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading/
 zone4_temperament_reading/zone4_hidden_self_reading/zone4_advice_basis/zone4_cards가 스키마에
-있다면, [관상x사주 케미 점수]·[관상 6기질 점수]·[관상 오행 분포]·[삼정 비율]·[대운 정보]·[십성 목록]·
-[신강/신약]·[용신(필요 오행)]·[Zone4 후보 주제 목록]·[Zone4 제목 말투 참고 예시]를 근거로 채워주세요.
-오행 zero/과다·신강신약·용신은 zone3_* 필드가 아니라 zone4_temperament_reading에만 쓰세요(중복
-금지). zone4_cards는 [주제별 근거 가이드](스키마 설명 참고)에 따라 family는 "자라온 환경"→"부모님과의
+있다면, [관상x사주 케미 점수]·[관상 6기질 점수]·[관상 오행 분포]·[오행 비교표]·[삼정 비율]·[대운 정보]·
+[십성 목록]·[신강/신약]·[용신(필요 오행)]·[Zone4 후보 주제 목록]·[Zone4 제목 말투 참고 예시]를 근거로
+채워주세요. 오행 중 어느 쪽이 더 높은지는 [오행 비교표]에 이미 계산돼 있으니 그 표만 따르고 원본
+분포로 직접 다시 비교하지 마세요. 오행 zero/과다·신강신약·용신은 zone3_* 필드가 아니라
+zone4_temperament_reading에만 쓰세요(중복 금지). zone4_cards는 [주제별 근거 가이드](스키마 설명
+참고)에 따라 family는 "자라온 환경"→"부모님과의
 관계", love는 "매력·인기"→"연애·결혼 스타일" 순서로 각각 2개 이상의 카드를 나누고, 나머지 주제도
 지정된 근거(십성·신살귀인·관상 부위)를 반드시 활용하세요. 제목 말투 참고 예시는 절대 그대로 베끼지
 마세요.`
@@ -1203,6 +1234,9 @@ ${faceTraitBlock}
 
 
 ${faceOhaengBlock}
+
+
+${ohaengCompareBlock}
 
 
 ${samjeongBlock}
@@ -1339,6 +1373,16 @@ function partDeepDiveCardHtml(p) {
 
     </div>
   `;
+}
+
+// 통합분석 Zone1 전용(2026-08-21 추가) — part_deep_dive(관상 부위별 상세해설)는 이미 관상 탭에서
+// AI에게 요청·생성되고 있었는데 통합분석 화면엔 담을 곳이 없어 계속 버려지고 있었다(사용자 피드백:
+// "눈이 작다·코가 좋다 같은 실측 데이터 때문에 이렇게 해석된다는 상세 풀이가 있었으면 좋겠다"). 카드
+// HTML은 관상 탭과 완전히 같은 partDeepDiveCardHtml을 그대로 재사용해 톤·구조를 통일한다.
+function renderPartDeepDive(elId, data) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = (data.part_deep_dive || []).map(partDeepDiveCardHtml).join('');
 }
 
 function renderDeepReport(elId, data) {
@@ -1578,20 +1622,20 @@ function renderZone2Review(elId, data) {
 function renderZone4Card1(elId, data) {
   setHtmlIfExists(elId, `
     <div class="card-title" style="margin-top:0;">📖 인생의 흐름을 살펴본다면</div>
-    <div style="margin-bottom:14px;">
-      <div style="font-size:11px;color:var(--text2);font-weight:700;">🌱 초년운 (~29세)</div>
-      <div style="font-size:13px;font-weight:800;color:var(--purple-light);margin:2px 0 4px;">${data.early_life_headline || ''}</div>
-      <p style="margin:0;">${data.early_life}</p>
+    <div class="chemi-card">
+      <div style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:4px;">🌱 초년운 (~29세)</div>
+      <div class="chemi-title">${data.early_life_headline || ''}</div>
+      <div class="chemi-role">${data.early_life}</div>
     </div>
-    <div style="margin-bottom:14px;">
-      <div style="font-size:11px;color:var(--text2);font-weight:700;">🌳 중년운 (30세~59세)</div>
-      <div style="font-size:13px;font-weight:800;color:var(--purple-light);margin:2px 0 4px;">${data.mid_life_headline || ''}</div>
-      <p style="margin:0;">${data.mid_life}</p>
+    <div class="chemi-card">
+      <div style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:4px;">🌳 중년운 (30세~59세)</div>
+      <div class="chemi-title">${data.mid_life_headline || ''}</div>
+      <div class="chemi-role">${data.mid_life}</div>
     </div>
-    <div>
-      <div style="font-size:11px;color:var(--text2);font-weight:700;">🍂 말년운 (60세~)</div>
-      <div style="font-size:13px;font-weight:800;color:var(--purple-light);margin:2px 0 4px;">${data.late_life_headline || ''}</div>
-      <p style="margin:0;">${data.late_life}</p>
+    <div class="chemi-card" style="margin-bottom:0;">
+      <div style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:4px;">🍂 말년운 (60세~)</div>
+      <div class="chemi-title">${data.late_life_headline || ''}</div>
+      <div class="chemi-role">${data.late_life}</div>
     </div>`);
 }
 
@@ -1639,7 +1683,7 @@ async function requestDeepReport(ctx) {
   const cfg =
     (CTX_CONFIG[ctx] || CTX_CONFIG.combined)();
 
-  const splitIds = [cfg.zone2ReviewId, cfg.zone3Reading1Id, cfg.zone3Reading2Id, cfg.zone3Reading3Id, cfg.zone4Card1Id, cfg.zone4TemperamentId, cfg.zone4HiddenSelfId, cfg.zone4AdviceId, cfg.zone4CardsId].filter(Boolean);
+  const splitIds = [cfg.partDeepDiveId, cfg.zone2ReviewId, cfg.sinsalReadingId, cfg.zone3Reading1Id, cfg.zone3Reading2Id, cfg.zone3Reading3Id, cfg.zone4Card1Id, cfg.zone4TemperamentId, cfg.zone4HiddenSelfId, cfg.zone4AdviceId, cfg.zone4CardsId].filter(Boolean);
   if (!cfg.deepReportId && !splitIds.length) return;
 
 
@@ -1799,10 +1843,12 @@ async function requestDeepReport(ctx) {
 
 
     if (splitIds.length) {
+      if (cfg.partDeepDiveId) { renderPartDeepDive(cfg.partDeepDiveId, data); clearAiSkeleton(cfg.partDeepDiveId); }
       if (cfg.zone2ReviewId) {
         renderZone2Review(cfg.zone2ReviewId, data);
         clearAiSkeleton(cfg.zone2ReviewId);
       }
+      if (cfg.sinsalReadingId) { setHtmlIfExists(cfg.sinsalReadingId, data.sinsal_reading); clearAiSkeleton(cfg.sinsalReadingId); }
       if (cfg.zone3Reading1Id) { setHtmlIfExists(cfg.zone3Reading1Id, data.zone3_manseryeok_reading); clearAiSkeleton(cfg.zone3Reading1Id); }
       if (cfg.zone3Reading2Id) { setHtmlIfExists(cfg.zone3Reading2Id, data.zone3_ohaeng_reading); clearAiSkeleton(cfg.zone3Reading2Id); }
       if (cfg.zone3Reading3Id) { setHtmlIfExists(cfg.zone3Reading3Id, data.zone3_daeun_reading); clearAiSkeleton(cfg.zone3Reading3Id); }
@@ -2058,7 +2104,9 @@ const CTX_CONFIG = {
   // zone4TemperamentId/zone4HiddenSelfId/zone4AdviceId(2026-08-21 4차 개편) — index.html에 아직
   // 담을 컨테이너 div가 없어서 지금은 조용히 no-op(setHtmlIfExists가 null-safe)이다. 컨테이너
   // div를 추가하는 순간 바로 렌더링되니, 그때 이 id들과 이름을 맞추면 된다.
-  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', deepReportId:null, zone2ReviewId:'cmbZone2Review', zone3Reading1Id:'cmbZone3Reading1', zone3Reading2Id:'cmbZone3Reading2', zone3Reading3Id:'cmbZone3Reading3', zone4Card1Id:'cmbZone4Card1', zone4TemperamentId:'cmbZone4Temperament', zone4HiddenSelfId:'cmbZone4HiddenSelf', zone4AdviceId:'cmbZone4Advice', zone4CardsId:'cmbZone4Cards', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
+  // partDeepDiveId/sinsalReadingId(2026-08-21 추가) — 관상 부위별 상세해설·신살종합풀이는 관상탭·
+  // 사주탭에서 이미 AI에게 요청하고 있었지만 통합분석에는 담을 그릇이 없어 매번 버려지고 있었다.
+  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', partDeepDiveId:'cmbPartDeepDive', deepReportId:null, zone2ReviewId:'cmbZone2Review', sinsalReadingId:'cmbSinsalReading', zone3Reading1Id:'cmbZone3Reading1', zone3Reading2Id:'cmbZone3Reading2', zone3Reading3Id:'cmbZone3Reading3', zone4Card1Id:'cmbZone4Card1', zone4TemperamentId:'cmbZone4Temperament', zone4HiddenSelfId:'cmbZone4HiddenSelf', zone4AdviceId:'cmbZone4Advice', zone4CardsId:'cmbZone4Cards', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
   // personLabel: "당신" 대신 실제 이름 사용. hideShapeDetails: 궁합 탭 Zone1에선 "🧩 부위별 생김새
   // 유형"을 아예 안 보여주기로 함(사용자 요청 2026-08-20) — shapeDetailId 싱크도 안 주고 shapeIds 자체를
   // 호출부에서 null로 넘기게 하는 플래그.
