@@ -1965,31 +1965,51 @@ body.overlay-open { overflow: hidden; }
       </details>
 
       <!-- ══ Zone2 · 사주 궁합 ══ — 두 사람의 사주 "조합"만 다룬다. 개인별 사주 서술·오행바·오행 딥다이브는
-           통합분석 탭에 이미 있으므로 여기서는 반복하지 않는다(2026-08-20 재편). -->
+           통합분석 탭에 이미 있으므로 여기서는 반복하지 않는다(2026-08-20 재편). 2026-08-22 순서 개편 —
+           한줄 총평을 맨 위로 독립시키고, 십성→AI 관계 풀이→에너지 케미→용신 순으로 재배치. 티격태격
+           모먼트는 아래 Zone3로 승격 이동. -->
       <details class="report-accordion zone-accordion" id="ggZone2">
         <summary>☯️ Zone 2 · 사주 궁합</summary>
 
-        <!-- 나/상대방 만세력을 한 화면에 — 이름·생년월일시 헤더 + 8칸(양쪽 시주~연주) 원국표
-             (사용자 요청 2026-08-19). 십이운성·십이신살·귀인 근거 뱃지는 여기서 노출하지 않는다. -->
+        <!-- ① 사주 궁합 한줄 총평(overall_relationship을 목록에서 분리) -->
+        <div id="ggOverallRelationship"></div>
+
+        <!-- ② 만세력 비교표 — 이름·생년월일시 헤더 + 8칸(양쪽 시주~연주) 원국표(사용자 요청 2026-08-19).
+             십이운성·십이신살·귀인 근거 뱃지는 여기서 노출하지 않는다. -->
+        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 만세력 비교</div>
         <div id="ggManseryeokCompare" style="margin-bottom:16px;"></div>
 
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🎴 십성으로 보는 역할</div>
+        <!-- ③ 십성으로 보는 서로의 역할 -->
+        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🎴 십성으로 보는 서로의 역할</div>
         <div id="ggSipseongCross"></div>
 
+        <!-- ④ 사주 관계 풀이 -->
+        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">📖 사주 관계 풀이</div>
+        <div id="ggZone2AiItems"></div>
+
+        <!-- ⑤ 사주 기운의 케미 -->
         <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 사주 기운의 케미 (에너지의 합)</div>
         <div id="ggEnergyCards"></div>
 
+        <!-- ⑥ 용신 궁합 -->
         <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🧭 용신 궁합</div>
         <div id="ggYongsinCard"></div>
+      </details>
 
-        <!-- 위치 변경(사용자 요청) — 용신 궁합 바로 뒤로 옮김 -->
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🚨 티격태격 모먼트 &amp; 극복 전략</div>
+      <!-- ══ Zone3 · 관계 실전 가이드(2026-08-22 신규) ══ — 티격태격 모먼트(기존 Zone2 소속)를 승격
+           이동하고, "그래서 우리는 이렇게 만나요"(연애할 때/대화할 때/... 8항목)를 추가했다. 연인/배우자
+           관계일 때만 노출(runGungham()이 relation으로 hidden 토글) — 친구·가족·지인 관계엔 "아이를
+           낳는다면" 같은 항목이 어색하다는 판단. 티격태격 모먼트는 관계 유형과 무관하게 항상 노출. -->
+      <details class="report-accordion zone-accordion" id="ggZone3">
+        <summary>💌 Zone 3 · 관계 실전 가이드</summary>
+
+        <div class="card-title" style="margin-top:0;margin-bottom:12px;">🚨 티격태격 모먼트 &amp; 극복 전략</div>
         <div id="ggMomentCards"></div>
 
-        <!--상세 궁합 설명 카드-->
-        <div id="ggZone2AiItems"></div>
-
-
+        <div id="ggPracticalSection" class="hidden">
+          <div class="card-title" style="margin-top:20px;margin-bottom:12px;">💌 그래서 우리는 이렇게 만나요</div>
+          <div id="ggPracticalItems"></div>
+        </div>
       </details>
 
       <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:14px;">print</span> 결과 인쇄</button>

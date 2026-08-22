@@ -2365,6 +2365,8 @@ async function runGungham() {
     const sajuInsightB = collectSajuInsightSummary(pillarsB);
 
     // Gemini "AI 정밀 해석" 버튼이 재사용할 수 있도록 계산 결과 캐시
+    // isRomantic(2026-08-22 추가) — 연인/배우자 관계일 때만 Zone3 "그래서 우리는 이렇게 만나요"를
+    // 요청·노출한다(친구·가족·지인 관계에 "아이를 낳는다면" 같은 항목은 어색하다는 사용자 판단).
     state.gungham.cache = {
       nameA, nameB,
       pillarsA, pillarsB, ohA, ohB,
@@ -2373,7 +2375,13 @@ async function runGungham() {
       sajuInsightA, sajuInsightB,
       characterA: state.gunghamA.characterResult || null,
       characterB: state.gunghamB.characterResult || null,
+      isRomantic: rel === '연인/배우자',
     };
+
+    // Zone3 실전 가이드 섹션은 연인/배우자 관계일 때만 보인다 — AI 성공 여부와 무관하게 relation만으로
+    // 즉시 결정(로딩 중에도 스켈레톤 대신 아예 숨어 있어야 자연스러움).
+    const practicalSection = document.getElementById('ggPracticalSection');
+    if (practicalSection) practicalSection.classList.toggle('hidden', rel !== '연인/배우자');
 
     // ④ 지침서 예시② 구조의 4섹션 비교 리포트 (STEP3에 해당, 관상 없어도 사주만으로 생성)
     const chemi = buildRoleChemi(pillarsA[2].stem, narrativeA.statusMap, pillarsB[2].stem, narrativeB.statusMap);
