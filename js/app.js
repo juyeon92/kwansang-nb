@@ -2751,8 +2751,10 @@ function renderHeadlineSub() {
   el.textContent = (nameA && nameB) ? `근거: ${nameA} × ${nameB}` : '';
 }
 // 유형 조합(궁합 리포트 구성.md 4-5) 보조 줄 — typeText가 있을 때만(사진 있을 때만) 카드 안에 덧붙인다.
+// 2026-08-22 — 통합분석/궁합 Zone1·2와 동일하게 "왜 이렇게 풀이했나요?" 아코디언(gg-basis-acc)으로
+// 기본 접힘 처리(이전엔 항상 펼쳐져 있었음).
 function typeComboLine(emoji, typeText) {
-  return typeText ? `<div class="chemi-role" style="font-size:11.5px;color:var(--text2);margin-top:4px;">${emoji} 유형 조합: ${typeText}</div>` : '';
+  return typeText ? `<details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${emoji} 유형 조합: ${typeText}</div></details>` : '';
 }
 
 // 개인별 관상/사주 서술은 통합분석 탭에 이미 있으므로 여기서는 그리지 않는다(2026-08-20 재편) —
