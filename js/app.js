@@ -1986,7 +1986,8 @@ const FACE_OHAENG_TITLE = {
   수: '깊고 지혜로운, 수형(水形) 관상',
 };
 
-// 오행능력치 비교(통합분석 Zone3 페어2)에서만 쓰는 사주 쪽 짧은 헤드 — 기존 OHAENG_TITLE(사주보기 탭
+// 오행능력치 비교(통합분석 Zone2, 2026-08-22 8차 개편으로 Zone3에서 이동)에서만 쓰는 사주 쪽 짧은
+// 헤드 — 기존 OHAENG_TITLE(사주보기 탭
 // 헤드라인용, 20자 이상)은 FACE_OHAENG_TITLE(관상, 14~16자)보다 훨씬 길어서 두 박스를 나란히 두면
 // 높이가 안 맞았다. OHAENG_TITLE 자체는 다른 탭에서 이미 쓰고 있어 못 건드리고, FACE_OHAENG_TITLE과
 // 같은 문형("~한, X형 OO")으로 길이를 맞춘 전용 세트를 새로 둔다.
@@ -2026,8 +2027,8 @@ else initZoneAccordions();
 // 사주·궁합 탭은 Zone 래퍼가 없어 매핑에서 빠지지만, 스켈레톤 자체는 동일하게 그려진다 —
 // 예전엔 이 두 탭만 "🧠 AI 정밀 리포트 생성 중..." 한 줄이라 통합분석과 로딩 경험이 달랐다.
 const AI_ZONE_SKELETON = {
-  cmbZone2Review: 'cmbZone2',
-  cmbZone3Reading1: 'cmbZone3', cmbZone3Reading2: 'cmbZone3', cmbZone3Reading3: 'cmbZone3',
+  cmbZone2Review: 'cmbZone2', cmbZone2CommonDiff: 'cmbZone2', cmbZone2OhaengReading: 'cmbZone2',
+  cmbZone3Reading1: 'cmbZone3', cmbZone3Reading3: 'cmbZone3',
   cmbZone4Card1: 'cmbZone4', cmbZone4Cards: 'cmbZone4',
 };
 function showAiSkeleton(elId, label) {
@@ -2047,9 +2048,10 @@ function clearAiSkeleton(elId) {
   if (zone) zone.classList.remove('is-loading');
 }
 function showAllAiSkeletons() {
+  showAiSkeleton('cmbZone2CommonDiff', '관상과 사주의 같은 점·다른 점을 찾는 중이에요');
+  showAiSkeleton('cmbZone2OhaengReading', '오행을 함께 보는 중이에요');
   showAiSkeleton('cmbZone2Review', '관상과 사주의 케미를 읽는 중이에요');
   showAiSkeleton('cmbZone3Reading1', '만세력과 기질을 함께 보는 중이에요');
-  showAiSkeleton('cmbZone3Reading2', '오행을 함께 보는 중이에요');
   showAiSkeleton('cmbZone3Reading3', '대운과 삼정을 함께 보는 중이에요');
   showAiSkeleton('cmbZone4Card1', '인생의 흐름을 쓰는 중이에요');
   showAiSkeleton('cmbZone4Cards', '관상x사주 스토리를 쓰는 중이에요');
@@ -2147,7 +2149,7 @@ function hideCmbAnalyzing() {
 
 // AI가 끝내 못 채운 영역이 "불러오는 중"·스켈레톤 상태로 완성 리포트에 섞이지 않게 정리한다.
 function finalizeAiSections() {
-  ['cmbZone2Review', 'cmbZone3Reading1', 'cmbZone3Reading2', 'cmbZone3Reading3', 'cmbZone4Card1', 'cmbZone4Cards'].forEach(id => {
+  ['cmbZone2CommonDiff', 'cmbZone2OhaengReading', 'cmbZone2Review', 'cmbZone3Reading1', 'cmbZone3Reading3', 'cmbZone4Card1', 'cmbZone4Cards'].forEach(id => {
     clearAiSkeleton(id);
     const el = document.getElementById(id);
     if (!el) return;

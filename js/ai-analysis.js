@@ -638,6 +638,41 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace, q1, q2) {
         '[관상x사주 케미 점수]가 왜 그렇게 나왔는지 설명하는 총평 3~5문장. 점수는 이미 계산되어 주어지므로 새로운 숫자를 만들지 말고, 관상에서의 근거 1개와 사주에서의 근거 1개를 섞어 그 점수를 뒷받침할 것.'
     };
 
+    // Zone2 "둘이 같은 점 / 다른 점"(2026-08-22 추가) — 케미 점수·총평만으로는 "그래서 구체적으로
+    // 뭐가 같고 뭐가 다른지"가 안 보인다는 사용자 요청으로, [관상 6기질 점수]와 [사주 6기질 점수]를
+    // 직접 대조해서 뽑는 짧은 불릿을 추가한다. 두 블록 모두 이미 같은 baseline(0~100)으로 계산돼
+    // 있으므로 AI는 그 값을 비교만 하고 새로 점수를 만들지 않는다(§2 판단기준 1번과 동일 원칙).
+    properties.zone2_common_points = {
+      type: 'ARRAY',
+      minItems: 2,
+      maxItems: 3,
+      items: { type: 'STRING' },
+      description:
+        '[관상 6기질 점수]와 [사주 6기질 점수] 모두에서 상대적으로 높게 나온 기질 2~3개를 골라, 각각 "실행력이 강함"·"책임감/완수력이 강함"처럼 8~14자 내외의 짧은 구문으로 표현. 기질 원어(lead/strategy/drive/social/stability/sense)나 숫자를 그대로 노출하지 말고 자연스러운 한국어 표현으로 바꿀 것.'
+    };
+
+    properties.zone2_different_points = {
+      type: 'ARRAY',
+      minItems: 1,
+      maxItems: 2,
+      items: {
+        type: 'OBJECT',
+        properties: {
+          face: {
+            type: 'STRING',
+            description: '이 기질이 관상 쪽에서 드러나는 모습 — 8~16자 내외 짧은 구문. 예: "밖으로 밀어붙이는 힘"'
+          },
+          saju: {
+            type: 'STRING',
+            description: '같은 기질(또는 대비되는 기질)이 사주 쪽에서 드러나는 모습 — face와 대비되게, 8~16자 내외. 예: "안에서 신중하게 판단하는 힘"'
+          }
+        },
+        required: ['face', 'saju']
+      },
+      description:
+        '[관상 6기질 점수]와 [사주 6기질 점수]의 순위가 서로 엇갈리는 지점 1~2개를 골라, 관상 쪽 표현(face)과 사주 쪽 표현(saju)을 대비해서 서술. 같은 기질이 한쪽은 높고 한쪽은 낮을 때, 혹은 1순위 기질 자체가 서로 다를 때를 근거로 쓸 것 — 지어내지 말고 실제 점수 차이가 있는 기질만 쓸 것.'
+    };
+
     properties.zone3_manseryeok_reading = {
       type: 'STRING',
       description:
@@ -735,6 +770,8 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace, q1, q2) {
 
     required.push(
       'zone2_review',
+      'zone2_common_points',
+      'zone2_different_points',
       'zone3_manseryeok_reading',
       'zone3_manseryeok_basis',
       'zone3_ohaeng_reading',
@@ -1155,6 +1192,10 @@ ${JSON.stringify(archetypeContext)}`
     ? `[관상 6기질 점수]\n${JSON.stringify(zone3Extra.faceTraitScores)}`
     : '';
 
+  const sajuTraitBlock = zone3Extra && zone3Extra.sajuTraitScores
+    ? `[사주 6기질 점수]\n${JSON.stringify(zone3Extra.sajuTraitScores)}`
+    : '';
+
   const faceOhaengBlock = zone3Extra && zone3Extra.faceOhaeng
     ? `[관상 오행 분포]\n${JSON.stringify(zone3Extra.faceOhaeng)}`
     : '';
@@ -1236,9 +1277,9 @@ analysis_basis와 principle은 별도 필드로 분리하세요.
 
 같은 내용을 interpretation / analysis_basis / principle에서 반복하지 마세요.
 
-zone2_review/zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading/
+zone2_review/zone2_common_points/zone2_different_points/zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading/
 zone4_temperament_reading/zone4_hidden_self_reading/zone4_advice_basis/zone4_cards가 스키마에
-있다면, [관상x사주 케미 점수]·[관상 6기질 점수]·[관상 오행 분포]·[오행 비교표]·[삼정 비율]·[대운 정보]·
+있다면, [관상x사주 케미 점수]·[관상 6기질 점수]·[사주 6기질 점수]·[관상 오행 분포]·[오행 비교표]·[삼정 비율]·[대운 정보]·
 [십성 목록]·[신강/신약]·[용신(필요 오행)]·[Zone4 후보 주제 목록]·[Zone4 제목 말투 참고 예시]를 근거로
 채워주세요. 오행 중 어느 쪽이 더 높은지는 [오행 비교표]에 이미 계산돼 있으니 그 표만 따르고 원본
 분포로 직접 다시 비교하지 마세요. 오행 zero/과다·신강신약·용신은 zone3_* 필드가 아니라
@@ -1292,6 +1333,9 @@ ${zone2ChemiBlock}
 
 
 ${faceTraitBlock}
+
+
+${sajuTraitBlock}
 
 
 ${faceOhaengBlock}
@@ -1399,33 +1443,38 @@ function partDeepDiveCardHtml(p) {
       </div>
 
 
-      <!-- 풀이 아래에 근거를 분리 -->
-      <div
-        style="
-          padding:14px;
-          border-radius:12px;
-          background:#fff;
-          font-size:13px;
-          line-height:1.75;
-        "
-      >
+      <!-- 풀이 아래에 근거를 분리 — 기본 접힘, 버튼 클릭 시에만 펼침(2026-08-22 사용자 요청) -->
+      <details class="gg-basis-acc">
+        <summary>왜 이렇게 풀이했나요?</summary>
+        <div
+          class="gg-basis-content"
+          style="
+            padding:14px;
+            border-radius:12px;
+            background:#fff;
+            font-size:13px;
+            line-height:1.75;
+            border-left:none;
+          "
+        >
 
-        <div style="margin-bottom:9px;">
-          <strong style="color:var(--gold);">
-            관상 분석 :
-          </strong>
-          ${p.analysis_basis}
+          <div style="margin-bottom:9px;">
+            <strong style="color:var(--gold);">
+              관상 분석 :
+            </strong>
+            ${p.analysis_basis}
+          </div>
+
+
+          <div>
+            <strong style="color:var(--gold);">
+              전통 관상 원리 :
+            </strong>
+            ${p.principle}
+          </div>
+
         </div>
-
-
-        <div>
-          <strong style="color:var(--gold);">
-            전통 관상 원리 :
-          </strong>
-          ${p.principle}
-        </div>
-
-      </div>
+      </details>
 
     </div>
   `;
@@ -1673,13 +1722,32 @@ function setHtmlIfExists(elId, html) {
 // basis가 없는 필드(zone3_ohaeng_reading·zone3_daeun_reading — 스키마에 대응 basis가 없음)는
 // 두 번째 인자를 생략하면 풀이만 렌더링된다.
 function renderReadingBasis(elId, reading, basis) {
-  setHtmlIfExists(elId, `<div class="gg-item-reading">${reading || ''}</div>${basis ? `<div class="gg-item-basis" style="margin-top:8px;"><b>왜 이렇게 풀이했나요?</b> ${basis}</div>` : ''}`);
+  setHtmlIfExists(elId, `<div class="gg-item-reading">${reading || ''}</div>${basis ? `<details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${basis}</div></details>` : ''}`);
 }
 
 // Zone2 총평 — 헤드/케미점수는 이미 룰베이스로 채워져 있으므로(buildChemiHeadline, computeGwansangSajuChemi)
 // 여기서는 총평 텍스트만 채운다.
 function renderZone2Review(elId, data) {
   setHtmlIfExists(elId, `<div style="font-size:13px;line-height:1.85;color:var(--text);">${data.zone2_review || ''}</div>`);
+}
+
+// Zone2 "둘이 같은 점 / 다른 점"(2026-08-22 추가) — 같은 점은 char-detail-list(✓ 아이콘)를 재사용,
+// 다른 점은 관상/사주 색 구분(dom-bar-labels·oh-headline-split과 같은 jade/beige 배색)을 그대로 써서
+// 관상=관상색, 사주=사주색이라는 화면 전체 색 규칙을 유지한다.
+function renderZone2CommonDiff(elId, common, different) {
+  const commonHtml = (common && common.length)
+    ? `<div class="cmb-cd-label">✅ 둘이 같은 점</div>
+       <ul class="char-detail-list is-strength">${common.map(s => `<li>${s}</li>`).join('')}</ul>`
+    : '';
+  const diffHtml = (different && different.length)
+    ? `<div class="cmb-cd-label" style="margin-top:14px;">⚖️ 둘이 다른 점</div>
+       ${different.map(d => `
+         <div class="cmb-diff-row">
+           <div class="face">🙂 관상 → ${d.face}</div>
+           <div class="saju">☯ 사주 → ${d.saju}</div>
+         </div>`).join('')}`
+    : '';
+  setHtmlIfExists(elId, commonHtml + diffHtml);
 }
 
 // Zone4 카드1(고정) — "OO의 인생의 흐름을 살펴본다면". early_life/mid_life/late_life는 combined
@@ -1713,7 +1781,7 @@ function renderZone4FixedCard(elId, emoji, title, reading, basis) {
     <div class="gg-item">
       <div class="gg-item-head">${emoji} ${title}</div>
       <div class="gg-item-reading">${reading || ''}</div>
-      <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${basis || ''}</div>
+      <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${basis || ''}</div></details>
     </div>`);
 }
 
@@ -1736,7 +1804,7 @@ function renderZone4Cards(elId, cards) {
     <div class="gg-item">
       <div class="gg-item-head">${CMB_ZONE4_TOPIC_EMOJI[c.topic_key] || '✨'} ${c.title}</div>
       <div class="gg-item-reading">${c.reading}</div>
-      <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${c.basis}</div>
+      <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${c.basis}</div></details>
     </div>`).join('');
 }
 
@@ -1749,7 +1817,7 @@ async function requestDeepReport(ctx) {
   const cfg =
     (CTX_CONFIG[ctx] || CTX_CONFIG.combined)();
 
-  const splitIds = [cfg.partDeepDiveId, cfg.zone2ReviewId, cfg.sinsalReadingId, cfg.zone3Reading1Id, cfg.zone3Reading2Id, cfg.zone3Reading3Id, cfg.zone4Card1Id, cfg.zone4TemperamentId, cfg.zone4HiddenSelfId, cfg.zone4AdviceId, cfg.zone4CardsId].filter(Boolean);
+  const splitIds = [cfg.partDeepDiveId, cfg.zone2ReviewId, cfg.zone2CommonDiffId, cfg.sinsalReadingId, cfg.zone3Reading1Id, cfg.zone2OhaengReadingId, cfg.zone3Reading3Id, cfg.zone4Card1Id, cfg.zone4TemperamentId, cfg.zone4HiddenSelfId, cfg.zone4AdviceId, cfg.zone4CardsId].filter(Boolean);
   if (!cfg.deepReportId && !splitIds.length) return;
 
 
@@ -1857,6 +1925,11 @@ async function requestDeepReport(ctx) {
       ? {
           chemiScore: zone1Character.chemiScore,
           faceTraitScores: computeTraitScoresFromRaw(zone1Character.faceRaw, FACE_TRAIT_BASELINE),
+          // Zone2 "같은 점/다른 점"(2026-08-22 추가) — 관상 6기질만 넘기고 있어 AI가 사주 쪽 기질
+          // 순위를 추측해야 했다. 같은 baseline 변환을 사주 raw에도 적용해 같은 스케일(0~100)로 맞춰
+          // 넘기면, 두 도메인 모두에서 높은 기질(같은 점)·서로 엇갈리는 기질(다른 점)을 AI가 숫자로
+          // 직접 비교해서 짚을 수 있다 — 새로 추정하지 않고 그대로 인용만 하면 되게.
+          sajuTraitScores: zone1Character.sajuRaw ? computeTraitScoresFromRaw(zone1Character.sajuRaw, SAJU_TRAIT_BASELINE) : null,
           faceOhaeng: calcFaceOhaeng(lm),
           samjeong: calcSamjeongRatio(lm),
           daeunList: state[ctx].daeun || null,
@@ -1926,9 +1999,13 @@ async function requestDeepReport(ctx) {
         renderZone2Review(cfg.zone2ReviewId, data);
         clearAiSkeleton(cfg.zone2ReviewId);
       }
+      if (cfg.zone2CommonDiffId) {
+        renderZone2CommonDiff(cfg.zone2CommonDiffId, data.zone2_common_points, data.zone2_different_points);
+        clearAiSkeleton(cfg.zone2CommonDiffId);
+      }
       if (cfg.sinsalReadingId) { renderReadingBasis(cfg.sinsalReadingId, data.sinsal_reading, data.sinsal_basis); clearAiSkeleton(cfg.sinsalReadingId); }
       if (cfg.zone3Reading1Id) { renderReadingBasis(cfg.zone3Reading1Id, data.zone3_manseryeok_reading, data.zone3_manseryeok_basis); clearAiSkeleton(cfg.zone3Reading1Id); }
-      if (cfg.zone3Reading2Id) { renderReadingBasis(cfg.zone3Reading2Id, data.zone3_ohaeng_reading); clearAiSkeleton(cfg.zone3Reading2Id); }
+      if (cfg.zone2OhaengReadingId) { renderReadingBasis(cfg.zone2OhaengReadingId, data.zone3_ohaeng_reading); clearAiSkeleton(cfg.zone2OhaengReadingId); }
       if (cfg.zone3Reading3Id) { renderReadingBasis(cfg.zone3Reading3Id, data.zone3_daeun_reading); clearAiSkeleton(cfg.zone3Reading3Id); }
       if (cfg.zone4Card1Id) { renderZone4Card1(cfg.zone4Card1Id, data); clearAiSkeleton(cfg.zone4Card1Id); }
       if (cfg.zone4TemperamentId) { renderZone4FixedCard(cfg.zone4TemperamentId, '⚖️', '나의 기질과 에너지 밸런스', data.zone4_temperament_reading, data.zone4_temperament_basis); clearAiSkeleton(cfg.zone4TemperamentId); }
@@ -2165,7 +2242,7 @@ const CTX_CONFIG = {
   // div를 추가하는 순간 바로 렌더링되니, 그때 이 id들과 이름을 맞추면 된다.
   // partDeepDiveId/sinsalReadingId(2026-08-21 추가) — 관상 부위별 상세해설·신살종합풀이는 관상탭·
   // 사주탭에서 이미 AI에게 요청하고 있었지만 통합분석에는 담을 그릇이 없어 매번 버려지고 있었다.
-  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', partDeepDiveId:'cmbPartDeepDive', deepReportId:null, zone2ReviewId:'cmbZone2Review', sinsalReadingId:'cmbSinsalReading', zone3Reading1Id:'cmbZone3Reading1', zone3Reading2Id:'cmbZone3Reading2', zone3Reading3Id:'cmbZone3Reading3', zone4Card1Id:'cmbZone4Card1', zone4TemperamentId:'cmbZone4Temperament', zone4HiddenSelfId:'cmbZone4HiddenSelf', zone4AdviceId:'cmbZone4Advice', zone4CardsId:'cmbZone4Cards', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
+  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', partDeepDiveId:'cmbPartDeepDive', deepReportId:null, zone2ReviewId:'cmbZone2Review', zone2CommonDiffId:'cmbZone2CommonDiff', sinsalReadingId:'cmbSinsalReading', zone3Reading1Id:'cmbZone3Reading1', zone2OhaengReadingId:'cmbZone2OhaengReading', zone3Reading3Id:'cmbZone3Reading3', zone4Card1Id:'cmbZone4Card1', zone4TemperamentId:'cmbZone4Temperament', zone4HiddenSelfId:'cmbZone4HiddenSelf', zone4AdviceId:'cmbZone4Advice', zone4CardsId:'cmbZone4Cards', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
   // personLabel: "당신" 대신 실제 이름 사용. hideShapeDetails: 궁합 탭 Zone1에선 "🧩 부위별 생김새
   // 유형"을 아예 안 보여주기로 함(사용자 요청 2026-08-20) — shapeDetailId 싱크도 안 주고 shapeIds 자체를
   // 호출부에서 null로 넘기게 하는 플래그.

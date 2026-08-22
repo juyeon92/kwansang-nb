@@ -721,6 +721,22 @@ body {
 .gg-item-reading { font-size: 13px; line-height: 1.85; color: var(--text); }
 .gg-item-basis { font-size: 12.5px; line-height: 1.75; color: var(--text-sub); margin-top: 10px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
 .gg-item-basis b { color: var(--jade); }
+/* "왜 이렇게 풀이했나요?" 근거 아코디언 — 기존엔 항상 펼쳐져 있어 리포트가 너무 길게 느껴진다는
+   피드백(2026-08-22)으로 기본 접힘 + 버튼 클릭 시에만 펼치도록 전환. char-detail-acc와 같은 패턴. */
+.gg-basis-acc { margin-top: 10px; }
+.gg-basis-acc > summary { font-size: 12.5px; font-weight: 700; color: var(--jade); cursor: pointer; list-style: none; }
+.gg-basis-acc > summary::-webkit-details-marker { display: none; }
+.gg-basis-acc > summary::before { content: '▸ '; }
+.gg-basis-acc[open] > summary::before { content: '▾ '; }
+.gg-basis-acc > .gg-basis-content { font-size: 12.5px; line-height: 1.75; color: var(--text-sub); margin-top: 8px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
+
+/* Zone2 "둘이 같은 점 / 다른 점"(2026-08-22 추가) — 같은 점은 char-detail-list(✓)를 재사용,
+   다른 점은 관상=jade·사주=beige 배색을 dom-bar-labels/oh-headline-split과 통일해서 재사용. */
+.cmb-cd-label { font-size: 12.5px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.cmb-diff-row { padding: 10px 0; border-top: 1px dashed var(--border); }
+.cmb-diff-row:first-of-type { border-top: none; }
+.cmb-diff-row .face { font-size: 12.5px; font-weight: 700; color: var(--jade); }
+.cmb-diff-row .saju { font-size: 12.5px; font-weight: 700; color: var(--beige-chip-text); margin-top: 4px; }
 
 .archetype-card { display: flex; gap: 14px; align-items: flex-start; border: 1.5px solid var(--mint-border); border-radius: var(--r); padding: 14px 16px; margin-top: 10px; background: var(--mint-tint-10); }
 .archetype-icon { flex-shrink: 0; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: var(--surface); border-radius: 12px; }
@@ -1484,19 +1500,22 @@ body.overlay-open { overflow: hidden; }
 
       <div id="cmbPhotoLoading" class="hidden" style="text-align:center;color:var(--text2);font-size:13px;padding:24px 0;">🔮 관상 분석중~</div>
 
-      <!-- ══ Zone2 · 총평 히어로 ══ 통합분석 리포트 구성.md §1. 헤드/케미점수는 룰베이스(항상 즉시
-           노출), 총평만 AI라 그 부분만 로딩 스켈레톤을 탄다. -->
+      <!-- ══ Zone2 · 총평 히어로 ══ 통합분석 리포트 구성.md §1(2026-08-22 8차 개편). 헤드/케미점수는
+           룰베이스(항상 즉시 노출), 같은점/다른점·오행 에너지 비교·최종 총평은 AI/데이터 로딩을
+           기다려야 해서 로딩 스켈레톤을 탄다. 오행 에너지 비교는 원래 Zone3에 있었는데, "총평 자리에서
+           바로 근거 그래프까지 보고 싶다"는 사용자 요청으로 이리로 옮겼다(원 자리는 아래 Zone3 참고). -->
       <details class="report-accordion zone-accordion" id="cmbZone2">
         <summary>ZONE 2 · 관상x사주 총평</summary>
         <!-- 영역1: 헤드 문구 (궁합보기 ggHeadline과 같은 독립 박스) -->
         <div class="headline-quote" id="cmbZone2Headline"></div>
-        <!-- 영역2: 케미 점수 + 총평 (궁합보기 chemi-card와 같은 구조) -->
+        <!-- 영역2: 케미 점수 (궁합보기 chemi-card와 같은 구조) -->
         <div class="chemi-card" style="text-align:center;">
-          <div class="chemi-title">🧠 관상x사주 케미 점수</div>
-          <div class="gg-hero-total" style="margin-top:6px;"><b id="cmbChemiScore">-</b><span>점</span></div>
-          <div class="metric-caption">관상과 사주가 얼마나 같은 방향을 보는지의 정도예요 — 아래 퍼센트(어느 쪽 기운이 더 센지)와는 다른 기준이에요</div>
+          <div class="chemi-title">🧠 관상·사주 싱크</div>
+          <div class="gg-hero-total" style="margin-top:6px;"><b id="cmbChemiScore">-</b><span>%</span></div>
+          <div class="metric-caption">겉모습(관상)과 타고난 기질(사주)이 얼마나 같은 방향을 가리키는지예요. 100%에 가까울수록 겉과 속이 일치하고, 낮을수록 반전 매력이 있다는 뜻이에요 — 아래 비율(어느 쪽 기운이 더 센지)과는 다른 기준이에요</div>
           <!-- 기운 줄다리기 바 — chemiScore(방향 일치도)와 별개로 "어느 쪽 기운이 더 센지"를 보여준다 -->
           <div class="dom-bar hidden" id="cmbDomBar">
+            <div class="metric-caption" style="margin-top:0;">둘 중 어느 쪽 기운이 더 강하게 드러나는지를 100%로 나눈 비율이에요 (예: 관상 65% · 사주 35% → 관상 쪽 기운이 더 뚜렷하다는 뜻)</div>
             <div class="dom-bar-track">
               <div class="dom-bar-fill face" id="cmbDomBarFace"></div>
               <div class="dom-bar-fill saju" id="cmbDomBarSaju"></div>
@@ -1507,19 +1526,43 @@ body.overlay-open { overflow: hidden; }
             </div>
             <div class="dom-line" id="cmbDomLine"></div>
           </div>
-          <div class="chemi-role" style="text-align:left;margin-top:8px;" id="cmbZone2Review">사진 분석이 끝나면 표시돼요.</div>
+        </div>
+
+        <!-- 영역3: 둘이 같은 점 / 다른 점(신규) — 케미 점수·총평만으로는 안 보이던 "구체적으로 뭐가
+             같고 뭐가 다른지"를 관상 6기질 vs 사주 6기질 비교로 짚어준다. -->
+        <div class="z3-pair-card" style="margin-top:16px;">
+          <div class="z3-pair-title">🤝 둘이 같은 점 · 다른 점</div>
+          <div id="cmbZone2CommonDiff" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+        </div>
+
+        <!-- 영역4: 오행 에너지 비교 차트(Zone3에서 이동, 2026-08-22) -->
+        <div class="z3-pair-card" style="margin-top:16px;">
+          <div class="z3-pair-title">🌳 오행 에너지 비교</div>
+          <div class="oh-vs-row oh-vs-head"><span class="face">관상</span><span class="saju">사주</span></div>
+          <div id="cmbOhaengCompareTable" style="color:var(--text2);font-size:12.5px;">사진이 있어야 볼 수 있어요.</div>
+          <div class="oh-headline-split">
+            <div class="oh-headline-box face" id="cmbOhaengFaceHead"></div>
+            <div class="oh-headline-box saju" id="cmbOhaengSajuHead"></div>
+          </div>
+          <div id="cmbZone2OhaengReading" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
+        </div>
+
+        <!-- 영역5: 최종 통합 총평(기존 zone2_review — 내용은 그대로, 위치만 맨 아래로 이동) -->
+        <div class="chemi-card" style="margin-top:16px;">
+          <div class="chemi-title">🧾 최종 통합 총평</div>
+          <div class="chemi-role" id="cmbZone2Review">사진 분석이 끝나면 표시돼요.</div>
         </div>
       </details>
 
-      <!-- ══ Zone3 · 데이터 풀이 ══ 통합분석 리포트 구성.md §1 — 만세력+6기질 / 오행+오행 / 대운+삼정,
-           페어마다 AI 융합풀이 1개. 세 풀이 모두 AI라 로딩 스켈레톤을 탄다. -->
+      <!-- ══ Zone3 · 데이터 풀이 ══ 통합분석 리포트 구성.md §1 — 만세력+6기질 / 대운+삼정, 페어마다
+           AI 융합풀이 1개. 오행능력치 비교는 2026-08-22 8차 개편으로 Zone2로 이동(위 참고). -->
       <details class="report-accordion zone-accordion" id="cmbZone3">
         <summary>ZONE 3 · 관상x사주 데이터 풀이</summary>
 
         <div class="z3-pair-card">
           <div class="z3-pair-title">☯ 사주 원국</div>
           <div class="pillars-table" id="cmbPillarsTable"></div>
-        
+
         <!-- 신살·귀인 종합 풀이(2026-08-21 추가) — 원국표 뱃지로만 나열되던 신살·귀인을 "여러 개면
              무슨 의미인지 + 조합 해석"으로 풀어주는 sinsal_reading을 여기 연결.
              (2026-08-21 사용자 요청) — .gg-item 자체가 이미 흰 배경(var(--surface))의 카드라, z3-pair-card로
@@ -1527,20 +1570,9 @@ body.overlay-open { overflow: hidden; }
              줘서 같은 흰 카드 느낌을 내고, 제목 없이 원래 자리(사주 원국 카드 다음 형제)에 그대로 둔다. -->
           <div id="cmbSinsalReading" class="gg-item" style="margin-top:10px;">사진 분석이 끝나면 표시돼요.</div>
           <div id="cmbZone3Reading1" class="gg-item" style="margin-top:10px;">사진 분석이 끝나면 표시돼요.</div>
-          
-        </div>
-        <div class="z3-pair-card" style="margin-top:16px;">
-          <div class="z3-pair-title">🌳 오행능력치 비교</div>
-          <div class="oh-vs-row oh-vs-head"><span class="face">관상</span><span class="saju">사주</span></div>
-          <div id="cmbOhaengCompareTable" style="color:var(--text2);font-size:12.5px;">사진이 있어야 볼 수 있어요.</div>
-          <div class="oh-headline-split">
-            <div class="oh-headline-box face" id="cmbOhaengFaceHead"></div>
-            <div class="oh-headline-box saju" id="cmbOhaengSajuHead"></div>
-          </div>
-          <div id="cmbZone3Reading2" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
 
         </div>
-        
+
         <div class="z3-pair-card" style="margin-top:16px;">
           <div class="z3-pair-title">🌊 대운 x 🎭 삼정 — 인생 타임라인</div>
           <div class="metric-caption" style="margin-bottom:8px;">%는 실제 얼굴에서 이마(초년)·눈코(중년)·인중~턱(말년)이 차지하는 비율이에요 — 셋을 합치면 100%인 파이 조각이라 낮다고 그 시기가 나쁜 게 아니에요. ⭐좋은 시기는 이 얼굴 비율과 무관하게, 사주로 계산한 그 10년의 십이운성이 상승기라는 별개의 표시예요.</div>
@@ -1552,8 +1584,8 @@ body.overlay-open { overflow: hidden; }
 
         <!-- 관상 정보(2026-08-21 6차 개편, 사용자 요청) — part_deep_dive(눈·코·미간 등 실측 근거
              부위별 상세해설, 관상탭과 동일한 카드 UI)를 여기로 연결 — Zone1은 캐릭터 판정만 다루는
-             원칙을 지키기 위해 Zone1에서 뺐다. 순서 변경(사용자 요청 2026-08-21b) — 사주 원국 →
-             오행능력치 비교 → 대운x삼정 순으로 사주 쪽 풀이를 먼저 다 보여준 뒤 관상 정보를 맨 뒤로. -->
+             원칙을 지키기 위해 Zone1에서 뺐다. 순서: 사주 원국 → 대운x삼정 순으로 사주 쪽 풀이를 먼저
+             다 보여준 뒤 관상 정보를 맨 뒤로(오행능력치 비교는 2026-08-22 8차 개편으로 Zone2로 이동). -->
         <div class="z3-pair-card" style="margin-top:16px;">
           <div class="z3-pair-title">🔮 관상 정보</div>
           <div id="cmbPartDeepDive" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>

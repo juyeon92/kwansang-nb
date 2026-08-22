@@ -793,7 +793,7 @@
               '아니면 전혀 다른 상이 나올까요?</p>' +
           '</div>' +
         '</div>' +
-        '<button class="dogam-cta-btn" onclick="Dogam.goCombined()">관상 + 사주로 다시 보기' +
+        '<button class="dogam-cta-btn" onclick="Dogam.goCombined()">관상에 사주까지 더해 깊게 보기' +
           '<span class="material-symbols-outlined">chevron_right</span></button>' +
       '</div>';
   }
