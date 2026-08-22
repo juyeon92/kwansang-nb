@@ -28,11 +28,13 @@
   // 있던 것과 같은 구조적 빈틈이다.
   const DELETED_KEY_PREFIX = 'gwansang_archive_deleted_v1:';
 
+  // 사주보기 탭 자체가 삭제돼(2026-08-21, c2833dc) 더 이상 새 saju 기록이 쌓이지 않는다 — 보관함
+  // 섹션에서도 제거한다(사용자 요청). 이미 있던 saju 기록은 지우지 않고 그대로 두되(Firestore에
+  // 남아있어도 무해함), 화면 목록에는 더 이상 노출하지 않는다.
   const SECTIONS = [
     { type: 'combined', label: '통합분석' },
     { type: 'gungham',  label: '궁합보기' },
     { type: 'gwansang', label: '인연도감' },
-    { type: 'saju',     label: '사주보기' },
   ];
   // 각 분석 결과가 그려지는 컨테이너 — 이 DOM을 그대로 떠서 보관한다.
   const CONTAINERS = {
@@ -40,7 +42,6 @@
     // canvasCard = 16캐릭터 일러스트 카드(#gwansangCharacterCard). 원래 이 목록에 없어서 보관함에는
     // 캐릭터 카드 없이 상세 리포트만 저장되고 있었다(사용자 리포트 2026-08-16) — 추가해서 같이 스냅샷.
     gwansang: ['canvasCard', 'gwansangResult'],
-    saju: ['sajuResult', 'sajuComplement'],
     gungham: ['ggResult'],
   };
 
@@ -322,9 +323,9 @@
   }
 
   // ── 결제 게이트 ──────────────────────────────────────────────────────
-  // 통합분석·사주보기는 AI를 돌리는 유료 상품이다. 결제 모듈 연동 전이라 지금은 "결제했다"고 전제하고
+  // 통합분석은 AI를 돌리는 유료 상품이다. 결제 모듈 연동 전이라 지금은 "결제했다"고 전제하고
   // 무조건 통과시킨다. 결제 모듈이 붙으면 이 함수 하나만 실제 결제 여부 조회로 바꾸면 된다.
-  const PAID_TYPES = ['combined', 'saju'];
+  const PAID_TYPES = ['combined'];
   function hasPaidFor(type) {
     if (PAID_TYPES.indexOf(type) < 0) return true; // 무료 분석은 게이트 없음
     return true; // TODO(결제 연동): 해당 분석 건의 결제 완료 여부로 교체
