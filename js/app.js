@@ -2754,14 +2754,15 @@ function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lif
   renderHeadlineSub();
   renderFaceOhaengCompare(faceOhaengCompare, 'ggFaceOhaengCompare');
 
-  // STEP3 — 관상 케미 (역할 분담 + 총평)
+  // STEP3 — 관상 케미 (한줄 총평 + 역할 분담) — 2026-08-22 재편으로 총평을 Zone1 맨 위로 독립시켰다.
+  document.getElementById('ggRoleTotal').innerHTML =
+    `<div class="chemi-card"><div class="chemi-title">🎭 관상 케미 한줄 총평</div><div class="chemi-role">${chemi.total}</div></div>`;
   document.getElementById('ggRoleCards').innerHTML = `
     <div class="chemi-card">
       <div class="chemi-title">역할 분담 케미</div>
       <div class="chemi-role">👤 나 → <strong>${chemi.roleA}</strong></div>
       <div class="chemi-role">👤 상대 → <strong>${chemi.roleB}</strong></div>
-    </div>
-    <div class="chemi-card"><div class="chemi-title">관상 궁합 총평</div><div class="chemi-role">${chemi.total}</div></div>`;
+    </div>`;
 
   renderMoneyChemi(moneyChemi, 'ggMoneyChemiCard');
 

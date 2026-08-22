@@ -2197,7 +2197,7 @@ function renderGunghapResult(data) {
 
   setHtml('ggZone1AiShape', `
     <div class="gg-item-reading">${data.zone1_shape_reading}</div>
-    <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${data.zone1_shape_basis}</div>`);
+    <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${data.zone1_shape_basis}</div></details>`);
 
   const itemsByKey = {};
   (data.zone2_items || []).forEach(it => { itemsByKey[it.key] = it; });
@@ -2209,7 +2209,7 @@ function renderGunghapResult(data) {
     <div class="gg-item">
       <div class="gg-item-head">${meta.emoji} ${meta.title}</div>
       <div class="gg-item-reading">${it.reading}</div>
-      <div class="gg-item-basis"><b>왜 이렇게 풀이했나요?</b> ${it.basis}</div>
+      <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${it.basis}</div></details>
     </div>`;
   }).join('');
   setHtml('ggZone2AiItems', zone2Html);
