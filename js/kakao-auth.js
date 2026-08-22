@@ -508,6 +508,50 @@
   // 카카오 로그인은 팝업 창을 띄우므로, 오버레이를 먼저 닫아 화면이 겹치지 않게 한다.
   function loginFromPopup() { closePopup(); login(); }
 
+  // 문의하기(사용자 요청 2026-08-21) — 별도 CS 게시판·이메일이 없어, 운영 카카오톡 계정을 검색해
+  // 친구 추가한 뒤 문의하도록 안내한다. kwansang_nb@kakao.com은 로그인용 계정 이메일이고, 카카오톡
+  // 앱에서 "ID로 추가"할 때 검색되는 값은 그 앞부분(@ 앞)이라 그것만 보여준다.
+  // ⚠️ 카카오는 개인 계정 ID로 채팅을 바로 여는 공개 딥링크를 제공하지 않는다(카카오톡 채널의
+  // pf.kakao.com 링크만 "채팅하기" 버튼을 지원하는데, 이건 채널이 아니라 개인 계정이라 해당 없음).
+  // 그래서 앱을 대신 열어주는 척하지 않고, 아이디를 보여주고 복사할 수 있게만 한다.
+  const INQUIRY_KAKAO_ID = 'kwansang_nb';
+  function openInquiryPopup() {
+    const r = root();
+    if (!r) return;
+    r.innerHTML =
+      '<div class="overlay-backdrop" onclick="KakaoAuth.closePopup()"></div>' +
+      '<div class="form-popup small">' +
+        '<div class="popup-header">' +
+          '<span>문의하기</span>' +
+          '<button class="overlay-close" onclick="KakaoAuth.closePopup()"><span class="material-symbols-outlined">close</span></button>' +
+        '</div>' +
+        '<div class="popup-body login-popup-body">' +
+          '<p class="login-popup-lead">카카오톡에서 아래 아이디를 검색해 친구 추가한 뒤<br>편하게 문의해주세요.<br>' +
+            '(카카오톡 &gt; 친구 탭 &gt; 추가하기 &gt; ID로 추가)</p>' +
+          '<div class="inquiry-id-row">' +
+            '<input type="text" class="field-input" id="inquiryIdInput" value="' + esc(INQUIRY_KAKAO_ID) + '" readonly ' +
+              'onclick="this.select()">' +
+            '<button type="button" class="btn-outline-primary btn-md" onclick="KakaoAuth._copyInquiryId()">복사하기</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.classList.add('overlay-open');
+  }
+  function copyInquiryId() {
+    const done = function () { if (window.showToast) showToast('아이디를 복사했어요.'); };
+    const fail = function () { if (window.showToast) showToast('복사에 실패했어요 — 위 칸을 눌러 직접 선택해주세요.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(INQUIRY_KAKAO_ID).then(done).catch(fail);
+      return;
+    }
+    // 클립보드 API를 못 쓰는 환경(오래된 브라우저·비보안 컨텍스트) — input을 직접 선택해서 복사
+    const input = document.getElementById('inquiryIdInput');
+    try {
+      if (input) { input.select(); document.execCommand('copy'); done(); }
+      else fail();
+    } catch (e) { fail(); }
+  }
+
   // 냥 잔액 카드 — 관상냥반_냥시스템_기획서.md v2.0.
   // "냥 구매하기"는 구매 페이지(js/nyang-shop.js)로 연결한다 — 사용자 요청 2026-08-16으로 활성화.
   // 페이지 안의 실제 결제 버튼은 여전히 준비중 안내로 끝난다(PG 연동은 기획서 스코프 밖).
@@ -668,7 +712,7 @@
           '<div class="mypage-divider"></div>' +
           '<div class="mypage-menu">' +
             menuItem('보관함', 'inventory_2', 'Archive.openPage()') +
-            menuItem('문의하기', 'mail', "KakaoAuth._todo('문의하기')") +
+            menuItem('문의하기', 'mail', 'KakaoAuth.openInquiryPopup()') +
             menuItem('결제내역', 'receipt_long', 'PayHistory.open()') +
           '</div>' +
           '<div class="mypage-divider"></div>' +
@@ -703,6 +747,7 @@
     // showConfirm은 원래 이 파일 안에서만 쓰던 헬퍼인데, 냥 차감 전 확인 다이얼로그(profile.js)에서도
     // 같은 디자인을 써야 해서 외부로 연다 — 브라우저 기본 confirm()을 쓰면 앱 톤과 따로 놀기 때문.
     showConfirm: showConfirm,
+    openInquiryPopup: openInquiryPopup, _copyInquiryId: copyInquiryId,
     _todo: todo, _cancelConfirm: cancelConfirm, _okConfirm: okConfirm,
     _adminSearch: adminSearch, _adminGrant: adminGrant,
     getUser: function () { return currentUser; },
