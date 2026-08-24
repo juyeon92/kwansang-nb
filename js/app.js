@@ -2385,7 +2385,7 @@ async function runGungham() {
 
     // ④ 지침서 예시② 구조의 4섹션 비교 리포트 (STEP3에 해당, 관상 없어도 사주만으로 생성)
     const chemi = buildRoleChemi(pillarsA[2].stem, narrativeA.statusMap, pillarsB[2].stem, narrativeB.statusMap);
-    const faceCombo = buildFaceComboChemi(lmA, lmB, ggGenderA, ggGenderB, rel);
+    const faceCombo = buildFaceComboChemi(lmA, lmB, ggGenderA, ggGenderB, rel, nameA, nameB);
     const faceOhaengCompare = buildFaceOhaengCompare(lmA, lmB);
     const moneyChemi = buildMoneyChemi(lmA, lmB, ggGenderA, ggGenderB, rel);
     const lifeStage = buildLifeStageChemi(lmA, lmB);
@@ -2610,12 +2610,23 @@ function stripTrailingDot(s) { return String(s || '').replace(/\.\s*$/, ''); }
 // combineAxisCombo가 크기 축과 합쳐서 한다(바로 아래 주석 참고). 여기서 "잘 통해요" 같은 자체 결론을
 // 내리지 않는 이유도 같다 — 두 축의 결론이 어긋날 수 있어서, 결론은 반드시 combineAxisCombo에서
 // 두 축을 같이 보고 나서 내려야 앞뒤가 맞는다.
-function describeTypeCombo(entryA, entryB) {
+// nameA/nameB — "나"/"상대" 대신 실제 이름+"님"을 쓴다(사용자 요청 2026-08-19 정책, 얼굴형·눈·코·입·턱
+// 조합 카드에는 그동안 반영이 안 돼 있었다 — 사용자 리포트 2026-08-24: "한쪽은~ 이러지 말고 누군지
+// 제대로 설명해줘"). 이름이 없으면(비로그인 등) 기존처럼 "나"/"상대방"으로 자연스럽게 대체된다.
+//
+// explainerPrefix — 얼굴형 세부 6종(직사각형/정사각형/삼각형/역삼각형/원형/타원형, FACE_SHAPE_TYPE_DB)은
+// 바로 위에서 이미 보여준 얼굴형 큰 틀 3종(원형/사각형/역삼각형, FACE_SHAPE_AXIS_TEXT)과 이름이
+// 겹치는 다른 축이라, 아무 설명 없이 "모양 자체는 둘 다 삼각형이라서"만 나오면 "방금 원형·사각형이라며,
+// 근데 왜 또 삼각형이야?"처럼 모순으로 읽힌다(사용자 리포트 2026-08-24). 얼굴형 조합 카드 호출부에서만
+// 이 축이 실제로 재는 기준(이마·턱 폭 비율)을 짧게 밝혀준다 — 눈/코/입/턱은 겹치는 축이 없어 그대로 둔다.
+function describeTypeCombo(entryA, entryB, nameA, nameB, explainerPrefix) {
   if (!entryA || !entryB) return null;
   const same = entryA.nameKo === entryB.nameKo;
   const traitA = entryA.comboTrait || stripTrailingDot(entryA.strength);
+  const prefix = explainerPrefix || '';
+  const nA = nameA || '나', nB = nameB || '상대방';
   if (same) {
-    return { same, conclusion: traitA, reason: `모양 자체는 둘 다 ${entryA.nameKo}${ira(entryA.nameKo)}서 ${stripTrailingDot(entryA.strength)}` };
+    return { same, conclusion: traitA, reason: `${prefix}모양 자체는 둘 다 ${entryA.nameKo}${ira(entryA.nameKo)}서 ${stripTrailingDot(entryA.strength)}` };
   }
   const traitB = entryB.comboTrait || stripTrailingDot(entryB.strength);
   return {
@@ -2624,7 +2635,7 @@ function describeTypeCombo(entryA, entryB) {
     // 다른지)에 맞춰 "다르다"는 표현을 직접 고르게 해야, "서로 다른 매력은 서로 다른 조합이에요"
     // 처럼 같은 말이 중복되지 않는다.
     conclusion: `${traitA}${gwaWa(traitA)} ${traitB}`,
-    reason: `모양을 보면 나는 ${entryA.nameKo}${ira(entryA.nameKo)} ${stripTrailingDot(entryA.strength)}. 상대는 ${entryB.nameKo}${ira(entryB.nameKo)} ${stripTrailingDot(entryB.strength)}`,
+    reason: `${prefix}모양을 보면 ${nA}${eunNeun(nA)} ${entryA.nameKo}${ira(entryA.nameKo)} ${stripTrailingDot(entryA.strength)}. ${nB}${eunNeun(nB)} ${entryB.nameKo}${ira(entryB.nameKo)} ${stripTrailingDot(entryB.strength)}`,
   };
 }
 // ⚠️ 2026-08-24 사용자 리포트 — 예전엔 "크기 축"(describeSizeCombo, 예: 입 크기가 달라 "온도차
@@ -2656,50 +2667,65 @@ function combineAxisCombo(sizeAxis, typeAxis, tip) {
   return { body: tip ? `${body} ${tip}` : body, basis };
 }
 // 크기(gwansangLevel) 축의 같음/다름 버킷을 고른다 — describeSizeCombo(buildMoneyChemi 등 다른
-// 카드가 여전히 쓰는 원본 함수)와 같은 판정 기준(60/40)을 쓰되, 텍스트 대신 버킷 키만 반환한다.
+// 카드가 여전히 쓰는 원본 함수)와 같은 판정 기준(60/40)을 쓴다.
+// aIsPrimary — maleBig/maleSmall 버킷일 때 "그 특징을 가진 쪽"이 A인지 B인지(성별로 결정되므로
+// 이 함수가 이미 알고 있다). 실제 이름을 붙이려면(resolveAxisEntry) 어느 이름이 주어(primary)로
+// 가는지 알아야 해서 버킷 키 하나만으로는 부족하다 — 그래서 문자열 대신 객체로 반환한다
+// (사용자 리포트 2026-08-24: "한쪽은~ 말고 누군지 제대로 설명해줘").
 function sizeBucketKey(levelA, levelB, genderA, genderB, rel) {
   const bigA = levelA >= 60, smallA = levelA <= 40;
   const bigB = levelB >= 60, smallB = levelB <= 40;
-  if (bigA && bigB) return 'bothBig';
-  if (smallA && smallB) return 'bothSmall';
+  if (bigA && bigB) return { key: 'bothBig' };
+  if (smallA && smallB) return { key: 'bothSmall' };
   if (rel === '연인/배우자' && genderA && genderB && genderA !== genderB) {
-    const maleBig = genderA === '남' ? bigA : bigB;
-    const maleSmall = genderA === '남' ? smallA : smallB;
-    if (maleBig) return 'maleBig';
-    if (maleSmall) return 'maleSmall';
+    const aIsMale = genderA === '남';
+    if (aIsMale ? bigA : bigB) return { key: 'maleBig', aIsPrimary: aIsMale };
+    if (aIsMale ? smallA : smallB) return { key: 'maleSmall', aIsPrimary: aIsMale };
   }
-  return 'mixed';
+  return { key: 'mixed' };
+}
+// entry.reason이 함수면 (주어 이름, 상대 이름) 순으로 호출해 문장을 만들고, 문자열이면(같음 버킷·
+// mixed처럼 누구인지 밝힐 필요 없는 경우) 그대로 쓴다. 항상 이 헬퍼를 거치게 해서 SIZE_AXIS_TEXT·
+// FACE_SHAPE_AXIS_TEXT 양쪽이 같은 규칙을 쓰게 한다.
+function resolveAxisEntry(entry, primaryName, otherName) {
+  if (!entry) return null;
+  return {
+    same: entry.same,
+    conclusion: entry.conclusion,
+    tip: entry.tip,
+    reason: typeof entry.reason === 'function' ? entry.reason(primaryName, otherName) : entry.reason,
+  };
 }
 // 크기 축 원인(reason)·짧은 결론(conclusion)·조언(tip) — bothBig/bothSmall=같음, 나머지=다름.
-// 기존 describeSizeCombo에 넘기던 문장들을 "원인/결론/조언" 3조각으로 쪼갠 것(내용은 같은 근거,
-// 구조만 combineAxisCombo가 유형 축과 합칠 수 있게 분리).
+// maleBig/maleSmall의 reason은 함수다 — 실제 이름(사용자 요청 2026-08-19 정책)을 넣어야 "한쪽은
+// ~, 다른 한쪽은 ~"처럼 누가 누군지 안 보이는 문제가 안 생긴다(resolveAxisEntry가 호출).
 const SIZE_AXIS_TEXT = {
   eye: {
     bothBig: { same: true, reason: '눈이 둘 다 큰 편이라 감정 표현이 풍부해요', conclusion: '감정 표현이 풍부한 점', tip: '큰 지출 전엔 서로 한 번씩 물어보는 습관을 들이면 좋아요.' },
     bothSmall: { same: true, reason: '눈이 둘 다 작은 편이라 표현엔 무던해도 알뜰한 편이에요', conclusion: '표현엔 무던하고 알뜰한 점', tip: '기념일만큼은 의식적으로 챙겨보세요.' },
-    maleBig: { same: false, reason: '한쪽은 눈이 커서 화려하고 감성적이고, 다른 한쪽은 눈이 작아 차분하고 소극적이에요', conclusion: '감정 표현의 결', tip: '취향 차이를 존중하면서 번갈아 리드해보면 균형이 맞아요.' },
-    maleSmall: { same: false, reason: '한쪽은 눈이 작아 내성적이고, 다른 한쪽은 눈이 커서 밝게 이끄는 편이에요', conclusion: '이끄는 쪽과 따라가는 쪽', tip: '서로에게 좋은 자극이 되는 편이에요.' },
+    maleBig: { same: false, reason: (big, small) => `${big}${eunNeun(big)} 눈이 커서 화려하고 감성적이고, ${small}${eunNeun(small)} 눈이 작아 차분하고 소극적이에요`, conclusion: '감정 표현의 결', tip: '취향 차이를 존중하면서 번갈아 리드해보면 균형이 맞아요.' },
+    maleSmall: { same: false, reason: (small, big) => `${small}${eunNeun(small)} 눈이 작아 내성적이고, ${big}${eunNeun(big)} 눈이 커서 밝게 이끄는 편이에요`, conclusion: '이끄는 쪽과 따라가는 쪽', tip: '서로에게 좋은 자극이 되는 편이에요.' },
     mixed: { same: false, reason: '눈 크기가 서로 달라 감정 표현 방식에 차이가 있어요', conclusion: '감정 표현 방식의 차이', tip: '서로 다른 방식을 이해해주면 좋아요.' },
   },
   nose: {
     bothBig: { same: true, reason: '코가 둘 다 시원시원한 편이라 재물운과 자존심이 강해요', conclusion: '재물운과 자존심이 강한 점', tip: '큰 지출은 미리 상의하는 습관을 들이면 좋아요.' },
     bothSmall: { same: true, reason: '코가 둘 다 아담하고 야무진 편이라 알뜰하게 모아요', conclusion: '알뜰하게 모으는 점', tip: '가끔은 자신에게 투자하는 여유도 가져보세요.' },
-    maleBig: { same: false, reason: '한쪽은 코가 커서 배포 크게 쓰고, 다른 한쪽은 코가 작아 알뜰하게 관리해요', conclusion: '벌고 쓰는 역할', tip: '벌고 쓰는 역할을 자연스럽게 나누면 재물운이 잘 굴러가요.' },
-    maleSmall: { same: false, reason: '한쪽은 코가 작아 야무지게 살림을 챙기고, 다른 한쪽은 코가 커서 배포 크게 일을 벌여요', conclusion: '관리와 확장의 역할', tip: '서로 재물 관리 방식을 존중해주면 좋아요.' },
+    maleBig: { same: false, reason: (big, small) => `${big}${eunNeun(big)} 코가 커서 배포 크게 쓰고, ${small}${eunNeun(small)} 코가 작아 알뜰하게 관리해요`, conclusion: '벌고 쓰는 역할', tip: '벌고 쓰는 역할을 자연스럽게 나누면 재물운이 잘 굴러가요.' },
+    maleSmall: { same: false, reason: (small, big) => `${small}${eunNeun(small)} 코가 작아 야무지게 살림을 챙기고, ${big}${eunNeun(big)} 코가 커서 배포 크게 일을 벌여요`, conclusion: '관리와 확장의 역할', tip: '서로 재물 관리 방식을 존중해주면 좋아요.' },
     mixed: { same: false, reason: '코의 재물 기운 크기가 서로 달라요', conclusion: '돈 쓰는 스타일의 차이', tip: '가계부나 공동 목표를 함께 세워보면 도움이 돼요.' },
   },
   mouth: {
     bothBig: { same: true, reason: '입이 둘 다 큰 편이라 애정 표현이 솔직하고 정열적이에요', conclusion: '애정 표현이 솔직한 점', tip: '감정을 숨기지 않고 잘 주고받는 편이에요.' },
     bothSmall: { same: true, reason: '입이 둘 다 작은 편이라 마음은 깊어도 말이나 스킨십 표현엔 서툴 수 있어요', conclusion: '표현이 서툰 점', tip: '가끔은 마음을 직접 말로 꺼내보세요.' },
-    maleBig: { same: false, reason: '한쪽은 입이 커서 애정 표현에 적극적이고, 다른 한쪽은 입이 작아 그걸 받아주는 편이에요', conclusion: '표현하는 쪽과 받아주는 쪽', tip: '표현하는 쪽이 너무 앞서가지 않게 속도를 맞춰주면 좋아요.' },
-    maleSmall: { same: false, reason: '한쪽은 입이 작아 소극적이고, 다른 한쪽은 입이 커서 리드하는 편이에요', conclusion: '이끄는 쪽과 따라가는 쪽', tip: '받는 쪽도 원하는 걸 표현하는 연습을 해보면 더 좋아져요.' },
+    maleBig: { same: false, reason: (big, small) => `${big}${eunNeun(big)} 입이 커서 애정 표현에 적극적이고, ${small}${eunNeun(small)} 입이 작아 그걸 받아주는 편이에요`, conclusion: '표현하는 쪽과 받아주는 쪽', tip: '표현하는 쪽이 너무 앞서가지 않게 속도를 맞춰주면 좋아요.' },
+    maleSmall: { same: false, reason: (small, big) => `${small}${eunNeun(small)} 입이 작아 소극적이고, ${big}${eunNeun(big)} 입이 커서 리드하는 편이에요`, conclusion: '이끄는 쪽과 따라가는 쪽', tip: '받는 쪽도 원하는 걸 표현하는 연습을 해보면 더 좋아져요.' },
     mixed: { same: false, reason: '입 크기가 서로 달라 애정 표현의 온도차가 있을 수 있어요', conclusion: '애정 표현 방식의 온도차', tip: '서로 원하는 표현 방식을 한 번쯤 이야기해보면 좋아요.' },
   },
   chin: {
     bothBig: { same: true, reason: '턱이 둘 다 발달한 편이라 생활력과 추진력이 강해요', conclusion: '뜻을 밀어붙이는 힘이 강한 점', tip: '큰 결정 앞에서는 번갈아 양보하는 습관이 필요해요.' },
     bothSmall: { same: true, reason: '턱이 둘 다 갸름하고 섬세한 편이라 감성적이고 예민해요', conclusion: '큰 결정 앞에서 둘 다 망설이는 점', tip: '한쪽이 먼저 방향을 정해주는 역할을 맡으면 좋아요.' },
-    maleBig: { same: false, reason: '한쪽은 턱이 발달해 뚝심 있게 밀어붙이고, 다른 한쪽은 턱이 갸름해 섬세하게 마음을 챙겨요', conclusion: '미는 역할과 챙기는 역할', tip: '서로의 속도를 존중하면 안정적인 조합이 돼요.' },
-    maleSmall: { same: false, reason: '한쪽은 턱이 갸름해 섬세하고, 다른 한쪽은 턱이 발달해 든든하게 받쳐줘요', conclusion: '받쳐주는 관계', tip: '말년까지 안정적으로 함께할 수 있는 궁합이에요.' },
+    maleBig: { same: false, reason: (big, small) => `${big}${eunNeun(big)} 턱이 발달해 뚝심 있게 밀어붙이고, ${small}${eunNeun(small)} 턱이 갸름해 섬세하게 마음을 챙겨요`, conclusion: '미는 역할과 챙기는 역할', tip: '서로의 속도를 존중하면 안정적인 조합이 돼요.' },
+    maleSmall: { same: false, reason: (small, big) => `${small}${eunNeun(small)} 턱이 갸름해 섬세하고, ${big}${eunNeun(big)} 턱이 발달해 든든하게 받쳐줘요`, conclusion: '받쳐주는 관계', tip: '말년까지 안정적으로 함께할 수 있는 궁합이에요.' },
     mixed: { same: false, reason: '턱선 굵기가 서로 달라요', conclusion: '삶을 꾸려가는 속도의 차이', tip: '서로의 리듬을 맞춰가는 대화가 도움이 돼요.' },
   },
 };
@@ -2707,18 +2733,35 @@ const SIZE_AXIS_TEXT = {
 // "크다/작다"가 아니라 3개 카테고리라 같음/다름만 판정한다. 원인·결론·조언은 기존 FACE_SHAPE_COMBO를
 // 그대로 3조각으로 쪼갠 것(성별 방향성 서술은 이번 개편에서 정리 — 큰틀×세부유형 두 축을 합치는
 // 로직이 새로 생겨서, 성별 전용 문구까지 얹으면 조합이 과하게 늘어난다).
+// 다름 조합(원형_사각형 등)의 reason은 함수다 — 키 순서(첫 번째 자리 = 앞쪽 얼굴형)와 실제 이름을
+// 맞춰 붙여야 해서(resolveAxisEntry), faceShapeAxis가 키가 정방향인지 역방향인지에 따라 이름
+// 순서를 맞춰 넘긴다(사용자 리포트 2026-08-24: "한쪽은~ 말고 누군지 제대로 설명해줘").
 const FACE_SHAPE_AXIS_TEXT = {
   '원형_원형': { same: true, reason: '얼굴형이 둘 다 둥근 원형이라 편안하고 다정한 분위기예요', conclusion: '편안하고 다정한 점', tip: '감정이 격해지면 크게 부딪히기 쉬우니, 서로 진정할 시간을 주는 습관이 필요해요.' },
   '사각형_사각형': { same: true, reason: '얼굴형이 둘 다 각진 사각형이라 생활력과 실행력이 확실해요', conclusion: '생활력과 실행력이 확실한 점', tip: '집안일이든 바깥일이든 한쪽에 쏠리지 않게 의식적으로 나누는 게 좋아요.' },
   '역삼각형_역삼각형': { same: true, reason: '얼굴형이 둘 다 갸름한 역삼각형이라 마음은 잘 통해요', conclusion: '마음이 잘 통하는 점', tip: '감정 표현이 서로 서툴 수 있으니, 걸리는 게 있으면 그때그때 말로 확인해보세요.' },
-  '원형_사각형': { same: false, reason: '한쪽은 여유로운 원형, 다른 한쪽은 부지런한 사각형이에요', conclusion: '여유와 부지런함의 차이', tip: '역할이 한쪽에 쏠리기 쉬우니 의식적으로 나눠보세요.' },
-  '원형_역삼각형': { same: false, reason: '한쪽은 털털한 원형, 다른 한쪽은 섬세한 역삼각형이에요', conclusion: '대범함과 섬세함의 차이', tip: '한쪽이 대범하게 이끌고 다른 한쪽이 세심하게 챙겨주는, 편안하게 잘 맞는 조합이에요.' },
-  '사각형_역삼각형': { same: false, reason: '한쪽은 바깥일에 강한 사각형, 다른 한쪽은 안팎을 챙기는 역삼각형이에요', conclusion: '역할의 차이', tip: '역할이 자연스럽게 나뉘어서 좋아요.' },
+  '원형_사각형': { same: false, reason: (n1, n2) => `${n1}${eunNeun(n1)} 여유로운 원형, ${n2}${eunNeun(n2)} 부지런한 사각형이에요`, conclusion: '여유와 부지런함의 차이', tip: '역할이 한쪽에 쏠리기 쉬우니 의식적으로 나눠보세요.' },
+  '원형_역삼각형': { same: false, reason: (n1, n2) => `${n1}${eunNeun(n1)} 털털한 원형, ${n2}${eunNeun(n2)} 섬세한 역삼각형이에요`, conclusion: '대범함과 섬세함의 차이', tip: '한쪽이 대범하게 이끌고 다른 한쪽이 세심하게 챙겨주는, 편안하게 잘 맞는 조합이에요.' },
+  '사각형_역삼각형': { same: false, reason: (n1, n2) => `${n1}${eunNeun(n1)} 바깥일에 강한 사각형, ${n2}${eunNeun(n2)} 안팎을 챙기는 역삼각형이에요`, conclusion: '역할의 차이', tip: '역할이 자연스럽게 나뉘어서 좋아요.' },
 };
-function faceShapeAxis(shapeA, shapeB) {
-  return FACE_SHAPE_AXIS_TEXT[`${shapeA}_${shapeB}`] || FACE_SHAPE_AXIS_TEXT[`${shapeB}_${shapeA}`];
+function faceShapeAxis(shapeA, shapeB, nameA, nameB) {
+  const direct = FACE_SHAPE_AXIS_TEXT[`${shapeA}_${shapeB}`];
+  if (direct) return resolveAxisEntry(direct, nameA, nameB);
+  const reversed = FACE_SHAPE_AXIS_TEXT[`${shapeB}_${shapeA}`];
+  if (reversed) return resolveAxisEntry(reversed, nameB, nameA);
+  return null;
 }
-function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel) {
+// 크기 축 버킷을 실제 이름과 묶는다 — sizeBucketKey가 반환하는 aIsPrimary(그 특징을 가진 쪽이 A인지)에
+// 맞춰 주어 순서를 맞춰 resolveAxisEntry에 넘긴다. bothBig/bothSmall/mixed는 aIsPrimary가 없고
+// reason도 문자열 그대로라 순서가 의미 없다.
+function resolveSizeAxis(category, levelA, levelB, genderA, genderB, rel, nameA, nameB) {
+  const bucket = sizeBucketKey(levelA, levelB, genderA, genderB, rel);
+  const entry = SIZE_AXIS_TEXT[category][bucket.key];
+  return bucket.aIsPrimary === false ? resolveAxisEntry(entry, nameB, nameA) : resolveAxisEntry(entry, nameA, nameB);
+}
+// nameA/nameB — 실제 이름+"님"(없으면 "나"/"상대방", 사용자 요청 2026-08-19 정책). 호출부(궁합보기
+// 리포트 조립 함수)가 이미 계산해둔 nameA/nameB를 그대로 넘겨받는다.
+function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel, nameA, nameB) {
   if (!lmA || !lmB) return null;
   const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
   const shapeA = classifyFaceShape3(rA), shapeB = classifyFaceShape3(rB);
@@ -2729,17 +2772,23 @@ function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel) {
   const chinLevelA = gwansangLevel('jigakR', rA.jigakR), chinLevelB = gwansangLevel('jigakR', rB.jigakR);
   const idsA = classifyAllFeaturesRuleBased(lmA).ids, idsB = classifyAllFeaturesRuleBased(lmB).ids;
 
-  const eyeSize = SIZE_AXIS_TEXT.eye[sizeBucketKey(eyeLevelA, eyeLevelB, genderA, genderB, rel)];
-  const noseSize = SIZE_AXIS_TEXT.nose[sizeBucketKey(noseLevelA, noseLevelB, genderA, genderB, rel)];
-  const mouthSize = SIZE_AXIS_TEXT.mouth[sizeBucketKey(mouthLevelA, mouthLevelB, genderA, genderB, rel)];
-  const chinSize = SIZE_AXIS_TEXT.chin[sizeBucketKey(chinLevelA, chinLevelB, genderA, genderB, rel)];
-  const faceShapeSize = faceShapeAxis(shapeA, shapeB);
+  const eyeSize = resolveSizeAxis('eye', eyeLevelA, eyeLevelB, genderA, genderB, rel, nameA, nameB);
+  const noseSize = resolveSizeAxis('nose', noseLevelA, noseLevelB, genderA, genderB, rel, nameA, nameB);
+  const mouthSize = resolveSizeAxis('mouth', mouthLevelA, mouthLevelB, genderA, genderB, rel, nameA, nameB);
+  const chinSize = resolveSizeAxis('chin', chinLevelA, chinLevelB, genderA, genderB, rel, nameA, nameB);
+  const faceShapeSize = faceShapeAxis(shapeA, shapeB, nameA, nameB);
 
-  const eyeType = describeTypeCombo(EYE_SHAPE_DB[idsA.eye_shape_id], EYE_SHAPE_DB[idsB.eye_shape_id]);
-  const noseType = describeTypeCombo(NOSE_SHAPE_DB[idsA.nose_shape_id], NOSE_SHAPE_DB[idsB.nose_shape_id]);
-  const mouthType = describeTypeCombo(MOUTH_SHAPE_DB[idsA.mouth_shape_id], MOUTH_SHAPE_DB[idsB.mouth_shape_id]);
-  const chinType = describeTypeCombo(CHIN_SHAPE_DB[idsA.chin_shape_id], CHIN_SHAPE_DB[idsB.chin_shape_id]);
-  const faceShapeType = describeTypeCombo(FACE_SHAPE_TYPE_DB[idsA.face_shape_type_id], FACE_SHAPE_TYPE_DB[idsB.face_shape_type_id]);
+  const eyeType = describeTypeCombo(EYE_SHAPE_DB[idsA.eye_shape_id], EYE_SHAPE_DB[idsB.eye_shape_id], nameA, nameB);
+  const noseType = describeTypeCombo(NOSE_SHAPE_DB[idsA.nose_shape_id], NOSE_SHAPE_DB[idsB.nose_shape_id], nameA, nameB);
+  const mouthType = describeTypeCombo(MOUTH_SHAPE_DB[idsA.mouth_shape_id], MOUTH_SHAPE_DB[idsB.mouth_shape_id], nameA, nameB);
+  const chinType = describeTypeCombo(CHIN_SHAPE_DB[idsA.chin_shape_id], CHIN_SHAPE_DB[idsB.chin_shape_id], nameA, nameB);
+  // 얼굴형 세부 6종은 방금 위(faceShapeSize)에서 본 큰 틀 3종과 이름이 겹치는 별개 축이라(예: 삼각형
+  // vs 역삼각형) 설명 없이 바로 나오면 모순처럼 읽힌다(사용자 리포트 2026-08-24) — 실제로 재는 기준을
+  // 짧게 밝혀준다.
+  const faceShapeType = describeTypeCombo(
+    FACE_SHAPE_TYPE_DB[idsA.face_shape_type_id], FACE_SHAPE_TYPE_DB[idsB.face_shape_type_id], nameA, nameB,
+    '방금 본 원형·사각형·역삼각형은 얼굴 윤곽의 큰 틀이고, 이건 이마와 턱의 폭 비율로 얼굴형을 한 번 더 세밀하게 나눈 것이에요. '
+  );
 
   const eyeCombo = combineAxisCombo(eyeSize, eyeType, eyeSize.tip);
   const noseCombo = combineAxisCombo(noseSize, noseType, noseSize.tip);
