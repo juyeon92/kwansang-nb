@@ -2086,16 +2086,15 @@ function renderFaceOhaengBars(count, elId) {
 function ohaengCompareRowHTML(percent, name) {
   const top = Object.entries(percent).sort((a, b) => b[1] - a[1])[0];
   const label = top ? `${name} · ${top[0]}형` : name;
+  // 사용자 요청 2026-08-24b — 막대를 두껍게 키우고 그 안에 숫자를 바로 넣는다(따로 있던 숫자 줄
+  // 제거). 색은 범례(oh-compare-key)와 항상 같은 팔레트라 굳이 이모지·이름을 조각 안에 또 안 써도
+  // 헷갈리지 않는다.
   const segs = OHAENG_ORDER.map(k =>
-    `<div class="oh-stack-seg ${OHAENG_BAR_CLASS[k]}" style="width:${Math.max(0, Math.min(100, percent[k] || 0))}%"></div>`
-  ).join('');
-  const nums = OHAENG_ORDER.map(k =>
-    `<span class="oh-${k}">${OHAENG_EMOJI[k]}${Math.round(percent[k] || 0)}%</span>`
+    `<div class="oh-stack-seg ${OHAENG_BAR_CLASS[k]}" style="width:${Math.max(0, Math.min(100, percent[k] || 0))}%">${Math.round(percent[k] || 0)}%</div>`
   ).join('');
   return `<div class="oh-compare-person">
       <div class="oh-stack-name">${label}</div>
       <div class="oh-stack-track">${segs}</div>
-      <div class="oh-stack-legend">${nums}</div>
     </div>`;
 }
 function renderFaceOhaengCompare(compare, elId) {
