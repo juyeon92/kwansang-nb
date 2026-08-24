@@ -2782,9 +2782,34 @@ function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel, nameA, nameB) {
   // 얼굴형 세부 6종은 방금 위(faceShapeSize)에서 본 큰 틀 3종과 이름이 겹치는 별개 축이라(예: 삼각형
   // vs 역삼각형) 설명 없이 바로 나오면 모순처럼 읽힌다(사용자 리포트 2026-08-24) — 실제로 재는 기준을
   // 짧게 밝혀준다.
+  // ⚠️ 버그 수정(2026-08-24 사용자 리포트: "역삼각형이라는 단어 자체가 처음 나왔는데 뭔 소린지 모르겠다")
+  // — 세 가지 큰 틀(원형/사각형/역삼각형)을 항상 다 나열하는 문구였는데, 이 둘이 실제로 무엇이었는지와
+  // 무관하게 고정 텍스트라 방금 안 나온 카테고리까지 언급해 혼란을 줬다. shapeA/shapeB(바로 위
+  // faceShapeSize가 실제로 쓴 값)만 골라서 넣는다.
+  const coarseShapeNames = Array.from(new Set([shapeA, shapeB])).join('·');
+  // ⚠️ 버그 수정(2026-08-24 사용자 리포트: "무슨 모양이 삼각형이라는 거야?") — "모양 자체는 둘 다
+  // 삼각형이라서..."처럼 라벨만 나오고, FACE_SHAPE_TYPE_SIGNATURES(landmark-engine.js)가 실제로
+  // 재는 기준(이마폭/턱폭/얼굴길이 비율)은 어디에도 안 보여서 본인 얼굴 어디를 보고 그렇게 판단했는지
+  // 알 길이 없었다. describeTypeCombo는 entry.nameKo를 그대로 문장에 꽂는 범용 함수라 그 함수 자체는
+  // 안 건드리고, 얼굴형 세부 6종 호출 여기서만 nameKo 앞에 실측 기준 문구를 붙인 사본을 만들어 넘긴다
+  // (전역 FACE_SHAPE_TYPE_DB는 부위별 상세 리포트 등 다른 화면에서도 원래 이름 그대로 써야 해서 그대로 둔다).
+  const FACE_SHAPE_TYPE_HINT = {
+    FS_SQUARE: '이마와 턱이 비슷하게 넓고 얼굴이 짧은',
+    FS_RECTANGLE: '이마와 턱 폭은 비슷하고 얼굴이 긴',
+    FS_TRIANGLE: '이마보다 턱이 넓은',
+    FS_INV_TRIANGLE: '턱보다 이마가 넓은',
+    FS_ROUND: '얼굴이 짧고 턱선이 둥근',
+    FS_OVAL: '얼굴이 길고 턱선이 갸름한',
+  };
+  const withShapeHint = (id, entry) => {
+    const hint = FACE_SHAPE_TYPE_HINT[id];
+    return (entry && hint) ? Object.assign({}, entry, { nameKo: `${hint} ${entry.nameKo}` }) : entry;
+  };
   const faceShapeType = describeTypeCombo(
-    FACE_SHAPE_TYPE_DB[idsA.face_shape_type_id], FACE_SHAPE_TYPE_DB[idsB.face_shape_type_id], nameA, nameB,
-    '방금 본 원형·사각형·역삼각형은 얼굴 윤곽의 큰 틀이고, 이건 이마와 턱의 폭 비율로 얼굴형을 한 번 더 세밀하게 나눈 것이에요. '
+    withShapeHint(idsA.face_shape_type_id, FACE_SHAPE_TYPE_DB[idsA.face_shape_type_id]),
+    withShapeHint(idsB.face_shape_type_id, FACE_SHAPE_TYPE_DB[idsB.face_shape_type_id]),
+    nameA, nameB,
+    `방금 본 ${coarseShapeNames}${eunNeun(coarseShapeNames)} 얼굴 윤곽의 큰 틀이고, 이건 이마와 턱의 폭 비율로 얼굴형을 한 번 더 세밀하게 나눈 것이에요. `
   );
 
   const eyeCombo = combineAxisCombo(eyeSize, eyeType, eyeSize.tip);
