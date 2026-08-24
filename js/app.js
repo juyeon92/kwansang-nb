@@ -2073,8 +2073,31 @@ function renderFaceOhaengBars(count, elId) {
     : '';
   el.innerHTML = headline + ohaengStackHTML(count);
 }
-// 궁합보기 Zone1 상단 — 두 사람의 관상오행(calcFaceOhaeng)을 만세력 비교표처럼 나란히 보여준다.
+// 궁합보기 Zone1 상단 — 두 사람의 관상오행(calcFaceOhaeng)을 나란히 보여준다.
 // 사진이 둘 다 있어야 나오므로 buildFaceOhaengCompare가 null을 반환하면 안내 문구만 그린다.
+// ⚠️ 설계(2026-08-24 사용자와 여러 차례 논의) — ohaengStackHTML(공용 헬퍼)을 그대로 안 쓰고 이 함수만
+// 따로 그린다. 이유: ①"나"/"상대방" 라벨은 위 공용 헤더(.gg-manse-head) 대신 이 라벨 한 곳에서만
+// 나와야 하고, 그 옆에 그 사람의 가장 강한 오행을 "· 토형"으로 같이 보여줘야 한다(도넛 안에 넣으려던
+// 강점 표시를 막대 라벨로 옮긴 것). ②목/화/토/금/수 글자 라벨은 사람마다 반복하지 않고 맨 아래
+// 범례 한 번으로 끝낸다 — 이모지만으로는 뭐가 뭔지 모르겠다는 지적 때문에 이름을 반드시 같이 쓰되,
+// 실제 퍼센트(사람마다 다른 값)는 그대로 각자 아래 한 줄씩 남긴다. ③두 사람의 막대가 같은 폭(100%)
+// 기준·같은 순서로 위아래 붙어 있어야 항목별 비교가 그나마 잘 되므로(가로 막대 vs 도넛 비교 논의
+// 끝에 확정), 사람 사이엔 구분선만 넣고 별도 그래프를 두 번 그리지 않는다.
+function ohaengCompareRowHTML(percent, name) {
+  const top = Object.entries(percent).sort((a, b) => b[1] - a[1])[0];
+  const label = top ? `${name} · ${top[0]}형` : name;
+  const segs = OHAENG_ORDER.map(k =>
+    `<div class="oh-stack-seg ${OHAENG_BAR_CLASS[k]}" style="width:${Math.max(0, Math.min(100, percent[k] || 0))}%"></div>`
+  ).join('');
+  const nums = OHAENG_ORDER.map(k =>
+    `<span class="oh-${k}">${OHAENG_EMOJI[k]}${Math.round(percent[k] || 0)}%</span>`
+  ).join('');
+  return `<div class="oh-compare-person">
+      <div class="oh-stack-name">${label}</div>
+      <div class="oh-stack-track">${segs}</div>
+      <div class="oh-stack-legend">${nums}</div>
+    </div>`;
+}
 function renderFaceOhaengCompare(compare, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -2082,7 +2105,9 @@ function renderFaceOhaengCompare(compare, elId) {
     el.innerHTML = `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 관상오행 비교를 볼 수 있어요.</div>`;
     return;
   }
-  el.innerHTML = ohaengStackHTML(compare.a, { name: '나' }) + ohaengStackHTML(compare.b, { name: '상대방' });
+  const key = OHAENG_ORDER.map(k => `<span class="oh-${k}">${OHAENG_EMOJI[k]}${k}</span>`).join('');
+  el.innerHTML = ohaengCompareRowHTML(compare.a, '나') + ohaengCompareRowHTML(compare.b, '상대방') +
+    `<div class="oh-compare-key">${key}</div>`;
 }
 // 재물관상 케미(4-2) 렌더 — buildMoneyChemi가 null(사진 없음)이면 안내 문구만 그린다.
 function renderMoneyChemi(money, elId) {
