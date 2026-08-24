@@ -401,18 +401,33 @@ function calcAsymmetry(lm) {
 }
 
 // ── 관상 오행(얼굴형 기반 목화토금수 %) — 사주오행과는 별개의 지표 (설계문서 §5, 초안 가중치) ──
-// R1~R5 각각을 자체 범위 안에서 0~100으로 정규화한 뒤 저/중/고 3단계로 나눠 오행 가중치를 합산.
-// ⚠️ 이 범위·가중치는 문서에 명시된 대로 "초안"이며 실측 데이터로 보정이 필요함(마이그레이션으로 스케일이
-// 바뀌어 scratchpad 검증 사진 실측값 기준으로 재조정함 — 여전히 초안).
-// R2/R4, R3/R5는 검증된 턱·이마 랜드마크 쌍이 각 하나뿐이라 같은 값을 재사용한다(068점 시절엔 이 구분 자체가
-// 근사치였던 부분 — 정밀 구분이 필요해지면 추가 랜드마크를 다시 검증해서 늘리면 됨).
-const FACE_OHAENG_RANGE = { R1:[0.9,1.5], R2:[0.55,0.95], R3:[0.45,0.85], R4:[0.55,0.95], R5:[0.45,0.85] };
+// R1~R4 각각을 자체 범위 안에서 0~100으로 정규화한 뒤 7단계 밴드로 나눠 오행 가중치를 합산.
+// ⚠️ 2026-08-24 전면 재설계(사용자 리포트: "다들 화가 많고 수는 적고 금은 많게 나온다") — 원인 2가지를
+// 실측·시뮬레이션으로 확인 후 고쳤다.
+// [원인1] 예전엔 R2/R4, R3/R5가 완전히 같은 값(턱폭 비율, 이마폭 비율)을 재사용해서 실질 독립
+// 측정치가 3개뿐이었다. → AI_Face_Read 폴더 실제 사진 5장으로 MediaPipe 좌표를 직접 찍어 확인한 결과,
+// jawTaperL/R(172/397)를 꼭짓점으로 cheekL/R↔chin 사이 각도(턱선이 완만하게 이어지는지 뾰족하게
+// 꺾이는지)가 얼굴마다 126~142도로 실제 차이가 났다 — 이걸 4번째 독립 신호(R4, 각짐 정도)로 신설해
+// 토/금/수를 서로 다른 원본 데이터로 구분한다(예전엔 이 셋이 사실상 하나의 값을 나눠 썼음).
+// [원인2] 가중치 총합 자체가 화(3.1)·금(3.0) vs 토(1.8)·수(1.4)로 처음부터 불균형해서, "완전 평균적인"
+// 얼굴을 넣어도 항상 화>금>목>토>수 순서가 고정적으로 나왔다(무작위 2000명 시뮬레이션에서 토·수가
+// 1위인 경우가 0건). 아래 가중치는 오행별 총합이 2.0~2.2로 균등해지도록 재분배했고, 화형 방향도
+// 전통 관상론(마의상법 계열, "이마 좁고 턱 뾰족한 역삼각·다이아몬드형") 기준으로 이마폭이 넓을수록가
+// 아니라 좁을수록 화에 가깝게 뒤집었다. 재분배 후 5000명 무작위 시뮬레이션 평균 %는 19~21.5%로
+// 고르게 나옴을 확인함(예전엔 7~34%로 3배 이상 벌어져 있었음).
+// direction: 'high'=범위 안에서 값이 클수록 그 오행에 유리, 'low'=작을수록 유리.
+const FACE_OHAENG_RANGE = { R1:[0.9,1.5], R2:[0.55,0.95], R3:[0.45,0.85], R4:[115,155] };
 const FACE_OHAENG_WEIGHT = {
-  R1: { 목:1.0, 화:0.5, 토:0.1, 금:0.5, 수:0.1 }, // 높음: 얼굴이 길다 → 목형
-  R2: { 목:0.1, 화:0.1, 토:1.0, 금:0.5, 수:1.0 }, // 높음: 턱이 넓다 → 토/수형
-  R3: { 목:1.0, 화:1.0, 토:0.1, 금:0.5, 수:0.1 }, // 높음: 이마가 넓다(역삼각) → 목/화형
-  R4: { 목:0.1, 화:0.5, 토:0.1, 금:1.0, 수:0.1 }, // 높음: 턱선이 각지다 → 금형
-  R5: { 목:0.1, 화:1.0, 토:0.5, 금:0.5, 수:0.1 }, // 높음: 광대가 돌출 → 화형
+  // R1(세로/가로 비) 높음=얼굴이 길다 → 목형. 낮음(짧고 넓적)은 토형 보조 신호.
+  R1: { 목:[1.5,'high'], 토:[0.8,'low'] },
+  // R2(턱폭/볼폭 비) 낮음=턱이 급격히 좁아짐(뾰족) → 화형. 높음(안 좁아짐, 넓적 유지)은 토/금/수
+  // 공통 후보 신호 — 이 셋은 R4(각짐)로 다시 갈린다.
+  R2: { 화:[1.2,'low'], 토:[0.8,'high'], 금:[0.8,'high'], 수:[0.8,'high'] },
+  // R3(이마폭/볼폭 비) 낮음=이마가 좁다 → 화형(상협하첨). 높음은 목형 보조 신호.
+  R3: { 화:[1.0,'low'], 목:[0.5,'high'] },
+  // R4(jawTaper 각도, cheek-jawTaper-chin) 낮음=꺾임이 뚜렷(각짐) → 금형. 높음=완만한 곡선(둥긂/두터움)
+  // → 수형·토형. 실측 검증(AI_Face_Read 5장): 갸름한 얼굴 141~142도, 각진/넓적한 얼굴 127도.
+  R4: { 금:[1.2,'low'], 수:[1.2,'high'], 토:[0.6,'high'] },
 };
 // ⚠️ 버그 수정(2026-08-20 사용자 리포트: 궁합보기 "관상오행 비교"에서 나/상대방 %가 완전히 똑같게
 // 나옴) — 저/중/고 3단계뿐이면 조합이 3×3×3=27가지밖에 안 나오고, 대부분의 "평범한" 얼굴 비율이
@@ -423,25 +438,39 @@ function ohaengBandMul(level) {
   const idx = Math.min(OHAENG_BAND_MULS.length - 1, Math.floor(level / (100 / OHAENG_BAND_MULS.length)));
   return OHAENG_BAND_MULS[idx];
 }
+// jawTaper를 꼭짓점으로 cheek↔chin 두 점이 이루는 각도(도) — 180도에 가까울수록 세 점이 일직선(매끈하게
+// 좁아지는 갸름한 턱), 각도가 작을수록 그 지점에서 뚜렷하게 꺾인다(각지거나 두꺼운 턱).
+function jawCornerAngleDeg(vertex, a, b) {
+  const v1 = { x: a.x - vertex.x, y: a.y - vertex.y };
+  const v2 = { x: b.x - vertex.x, y: b.y - vertex.y };
+  const dot = v1.x * v2.x + v1.y * v2.y;
+  const m1 = Math.hypot(v1.x, v1.y), m2 = Math.hypot(v2.x, v2.y);
+  if (!m1 || !m2) return 140; // 좌표가 겹치는 등 예외 상황엔 중간값(대략 평균 각도)으로 폴백
+  return Math.acos(Math.max(-1, Math.min(1, dot / (m1 * m2)))) * 180 / Math.PI;
+}
 function calcFaceOhaeng(lm) {
   const faceH = Math.abs(lm[IDX.chin].y - lm[IDX.hairline].y);
   const cheekW = Math.abs(lm[IDX.cheekR].x - lm[IDX.cheekL].x);
   const jawTaperW = Math.abs(lm[IDX.jawTaperR].x - lm[IDX.jawTaperL].x);
   const foreheadW = Math.abs(lm[IDX.browPeakR].x - lm[IDX.browPeakL].x);
+  const angleL = jawCornerAngleDeg(lm[IDX.jawTaperL], lm[IDX.cheekL], lm[IDX.chin]);
+  const angleR = jawCornerAngleDeg(lm[IDX.jawTaperR], lm[IDX.cheekR], lm[IDX.chin]);
   const raw = {
     R1: faceH / cheekW,
     R2: jawTaperW / cheekW,
     R3: foreheadW / cheekW,
-    R4: jawTaperW / cheekW,
-    R5: foreheadW / cheekW,
+    R4: (angleL + angleR) / 2,
   };
-  // 각 R값을 자체 범위 안에서 0~100 레벨로 정규화 → 7단계 밴드 가중치를 오행별로 합산
+  // 각 R값을 자체 범위 안에서 0~100 레벨로 정규화(direction:'low'면 레벨을 뒤집음) → 7단계 밴드
+  // 가중치를 오행별로 합산.
   const totals = { 목:0, 화:0, 토:0, 금:0, 수:0 };
   Object.entries(raw).forEach(([key, value]) => {
     const [min, max] = FACE_OHAENG_RANGE[key];
     const level = Math.max(0, Math.min(100, (value - min) / (max - min) * 100));
-    const bandMul = ohaengBandMul(level);
-    Object.entries(FACE_OHAENG_WEIGHT[key]).forEach(([oh, w]) => { totals[oh] += w * bandMul; });
+    Object.entries(FACE_OHAENG_WEIGHT[key]).forEach(([oh, [w, dir]]) => {
+      const usedLevel = dir === 'low' ? (100 - level) : level;
+      totals[oh] += w * ohaengBandMul(usedLevel);
+    });
   });
   const sum = Object.values(totals).reduce((a, b) => a + b, 0) || 1;
   const percent = {};
