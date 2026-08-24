@@ -77,6 +77,24 @@ function switchTab(tab, btn) {
   }
 }
 
+// 이용약관/개인정보처리방침 — 새 탭이나 외부 페이지가 아니라 앱 안 화면 전환으로 보여준다(사용자 요청
+// 2026-08-24: "같은 서비스 안에 있는거야 별도 사이트가 아니라"). 내용은 legal/*.html과 똑같이
+// index.html에 그대로 인라인돼 있어(.legal-doc, 사용자 요청 2026-08-25: iframe으로 넣었더니 다른
+// 탭과 달리 안쪽만 따로 스크롤돼 이질감이 있었다) 다른 탭처럼 페이지 자체가 스크롤된다 — 그래서
+// switchTab()과 달리 로그인 게이트나 iframe 높이 계산 같은 처리 없이, 패널만 그대로 바꿔치기하면 된다.
+let __legalReturnPanelId = null;
+function openLegalPanel(which) {
+  const current = document.querySelector('.panel.active');
+  __legalReturnPanelId = current ? current.id : 'panel-gwansang';
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-legal-' + which).classList.add('active');
+  window.scrollTo(0, 0);
+}
+function closeLegalPanel() {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(__legalReturnPanelId || 'panel-gwansang').classList.add('active');
+}
+
 // 기본 활성 탭(통합분석)이나 새로고침 복원(restoreLastTab)은 정적 HTML의 active 클래스나 switchTab을
 // 거치지 않고 그려질 수 있어서, 로그인 상태가 확정되는 시점(kakao-auth의 onAuthStateChanged)에
 // 따로 한 번 더 확인해서 "로그인 안 한 채 로그인 필요 탭에 그려져 있는" 상태를 정리한다.

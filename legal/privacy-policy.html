@@ -1,0 +1,245 @@
+<title>관상냥반 개인정보처리방침</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#163B38; --jade:#2F6F68; --mint:#55CCBB; --mint-soft:#EDF9F6; --mint-border:#CBEDE6;
+  --beige:#E6D1A7; --beige-bg:#F8F4EC; --beige-text:#7A5B22;
+  --rose-bg:#FBEEEE; --rose-border:#F0D3D3; --rose-text:#8C3B3B;
+  --paper:#FFFFFF; --paper2:#FBFAF7;
+  --text:#17201F; --text2:#5B6462; --text3:#8B938F; --border:#E3E9E7;
+  --serif:'Noto Serif KR', 'Malgun Gothic', serif;
+  --sans:'Noto Sans KR', -apple-system, 'Malgun Gothic', sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#DCEFEA; --jade:#7FD9C6; --mint:#55CCBB; --mint-soft:#122C29; --mint-border:#1E4640;
+    --beige:#E6D1A7; --beige-bg:#2A2416; --beige-text:#E3C688;
+    --rose-bg:#2E1B1B; --rose-border:#4A2A2A; --rose-text:#E3A8A8;
+    --paper:#141A19; --paper2:#0F1413;
+    --text:#E7EDEB; --text2:#A2ACA9; --text3:#6C7573; --border:#263230;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#DCEFEA; --jade:#7FD9C6; --mint:#55CCBB; --mint-soft:#122C29; --mint-border:#1E4640;
+  --beige:#E6D1A7; --beige-bg:#2A2416; --beige-text:#E3C688;
+  --rose-bg:#2E1B1B; --rose-border:#4A2A2A; --rose-text:#E3A8A8;
+  --paper:#141A19; --paper2:#0F1413;
+  --text:#E7EDEB; --text2:#A2ACA9; --text3:#6C7573; --border:#263230;
+}
+*{box-sizing:border-box;}
+body{ margin:0; background:var(--paper2); color:var(--text); font-family:var(--sans); -webkit-font-smoothing:antialiased; }
+.page{max-width:740px; margin:0 auto; padding:0 24px 120px;}
+.masthead{ padding:56px 0 32px; border-bottom:1px solid var(--border); margin-bottom:32px; display:flex; flex-direction:column; gap:10px; }
+.masthead .mark{ font-family:var(--serif); font-weight:700; font-size:14px; letter-spacing:0.08em; color:var(--jade); text-transform:uppercase; }
+.masthead h1{ font-family:var(--serif); font-weight:700; font-size:clamp(28px,4vw,38px); margin:0; color:var(--ink); text-wrap:balance; line-height:1.3; }
+.masthead p.lede{ font-size:14px; color:var(--text2); line-height:1.8; max-width:64ch; margin:8px 0 0; }
+.fill{ background:var(--beige-bg); color:var(--beige-text); border:1px solid var(--beige-bg); border-radius:5px; padding:1px 7px; font-size:0.92em; font-weight:600; white-space:nowrap; }
+nav.toc{ background:var(--paper); border:1px solid var(--border); border-radius:14px; padding:20px 24px; margin-bottom:44px; }
+nav.toc .toc-label{ font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--text3); margin-bottom:12px; }
+nav.toc ol{ margin:0; padding:0; list-style:none; columns:2; column-gap:24px; }
+nav.toc li{break-inside:avoid; margin-bottom:7px; font-size:13.5px;}
+nav.toc a{color:var(--jade); text-decoration:none;}
+nav.toc a:hover{text-decoration:underline;}
+article.clause{margin:34px 0; scroll-margin-top:20px; padding-bottom:2px; border-bottom:1px solid var(--border);}
+article.clause:last-of-type{border-bottom:none;}
+article.clause h3{ font-family:var(--sans); font-weight:700; font-size:16.5px; color:var(--ink); margin:0 0 10px; display:flex; gap:8px; align-items:baseline; }
+article.clause h3 .no{ font-family:var(--serif); color:var(--jade); font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0; }
+article.clause p{ margin:0 0 10px; line-height:1.8; font-size:14.5px; color:var(--text); max-width:66ch; }
+article.clause ol.items, article.clause ul.items{ margin:0 0 10px; padding-left:0; list-style:none; max-width:66ch; }
+article.clause ol.items > li, article.clause ul.items > li{ position:relative; padding-left:24px; margin-bottom:7px; line-height:1.75; font-size:14.5px; }
+article.clause ol.items{counter-reset:item;}
+article.clause ol.items > li{counter-increment:item;}
+article.clause ol.items > li::before{ content:counter(item); position:absolute; left:0; top:0; color:var(--jade); font-weight:700; font-size:13px; font-variant-numeric:tabular-nums; }
+article.clause ul.items > li::before{ content:'—'; position:absolute; left:0; top:0; color:var(--text3); }
+.callout{ background:var(--mint-soft); border:1px solid var(--mint-border); border-radius:10px; padding:13px 17px; margin:12px 0; font-size:13.5px; line-height:1.7; color:var(--text); }
+.callout b{color:var(--jade);}
+.callout.warn{ background:var(--rose-bg); border-color:var(--rose-border); }
+.callout.warn b{ color:var(--rose-text); }
+.table-wrap{overflow-x:auto; margin:12px 0 18px;}
+table.data{ width:100%; border-collapse:collapse; font-size:13.5px; min-width:540px; }
+table.data th, table.data td{ border:1px solid var(--border); padding:9px 12px; text-align:left; vertical-align:top; }
+table.data th{background:var(--paper); color:var(--text2); font-weight:700; font-size:12.5px;}
+table.data td{background:var(--paper2);}
+.sub-h{ font-size:13px; font-weight:700; color:var(--jade); margin:16px 0 8px; letter-spacing:0.01em; }
+.addendum{ margin-top:48px; padding-top:24px; border-top:1px solid var(--border); font-size:13.5px; color:var(--text2); line-height:1.9; }
+.addendum .no{font-family:var(--serif); color:var(--jade); font-weight:700; margin-right:6px;}
+@media (max-width:520px){ nav.toc ol{columns:1;} }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <div class="mark">관상냥반</div>
+    <h1>개인정보처리방침</h1>
+    <p class="lede"><span class="fill">【상호/대표자명 기재】</span>(이하 "회사")는 「개인정보 보호법」 제30조에 따라 이용자의 개인정보를 보호하기 위해 다음과 같이 개인정보처리방침을 수립·공개합니다. 본 방침은 관련 법령 및 정부 지침에 따라 변경될 수 있으며 언제든지 이 화면에서 열람하실 수 있습니다.</p>
+  </header>
+
+  <nav class="toc">
+    <div class="toc-label">목차</div>
+    <ol>
+      <li><a href="#p1">제1조 개인정보의 처리 목적</a></li>
+      <li><a href="#p2">제2조 수집하는 개인정보의 항목</a></li>
+      <li><a href="#p3">제3조 처리 및 보유 기간</a></li>
+      <li><a href="#p4">제4조 개인정보의 제3자 제공</a></li>
+      <li><a href="#p5">제5조 처리위탁 및 국외이전</a></li>
+      <li><a href="#p6">제6조 얼굴 이미지 등 민감정보 처리 특칙</a></li>
+      <li><a href="#p7">제7조 정보주체의 권리·행사방법</a></li>
+      <li><a href="#p8">제8조 개인정보의 파기</a></li>
+      <li><a href="#p9">제9조 안전성 확보조치</a></li>
+      <li><a href="#p10">제10조 자동수집장치(쿠키)</a></li>
+      <li><a href="#p11">제11조 개인정보 보호책임자</a></li>
+      <li><a href="#p12">제12조 권익침해 구제방법</a></li>
+      <li><a href="#p13">제13조 처리방침의 변경</a></li>
+    </ol>
+  </nav>
+
+  <article class="clause" id="p1">
+    <h3><span class="no">제1조</span> 개인정보의 처리 목적</h3>
+    <p>회사는 서비스 제공에 필요한 최소한의 개인정보만을 수집하며, 동의받은 범위 내에서만 이용합니다. 처리 목적이 변경되는 경우 「개인정보 보호법」 제18조에 따라 별도의 동의를 받습니다.</p>
+    <ol class="items">
+      <li>회원가입 및 관리 — 본인 식별·인증, 부정가입·어뷰징 방지, 회원자격 유지</li>
+      <li>관상·사주 분석 및 리포트 제공 — 본인 및 등록된 친구의 관상 캐릭터 유형·궁합 점수 산출, 리포트 생성·조회 및 소유권 인증</li>
+      <li>냥 결제 및 이용 — 냥 충전·사용 내역 관리, 취소·환불 처리</li>
+      <li>고객지원 — 문의·민원 처리, 공지사항 전달, 분쟁조정 기록 보존</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="p2">
+    <h3><span class="no">제2조</span> 수집하는 개인정보의 항목</h3>
+    <div class="table-wrap">
+      <table class="data">
+        <tr><th>구분</th><th>수집 항목</th><th>수집 시점</th></tr>
+        <tr><td>회원가입(카카오 로그인)</td><td><b>필수</b>: 카카오계정 식별값(앱 전용 고유ID), 닉네임 / <b>선택</b>: 프로필 이미지, 이메일(제공 동의 시)</td><td>회원가입 시</td></tr>
+        <tr><td>관상·사주 분석</td><td>얼굴 사진, 사진에서 추출한 얼굴 특징점(랜드마크) 좌표, 생년월일시(양/음력), 성별, 이름 또는 별명</td><td>분석·리포트 생성 요청 시</td></tr>
+        <tr><td>인연도감 서비스</td><td>기기 식별값(fingerprint), IP주소 — 익명 리포트 소유권 인증 및 부정이용 방지 목적</td><td>리포트·친구 엔트리 생성 시</td></tr>
+        <tr><td>냥 결제(카카오페이)</td><td>카카오페이 결제승인번호, 결제금액, 결제일시</td><td>냥 결제 시</td></tr>
+        <tr><td>서비스 이용 중 자동수집</td><td>IP주소, 방문일시, 서비스 이용기록, 접속로그, 쿠키</td><td>서비스 이용 시</td></tr>
+      </table>
+    </div>
+  </article>
+
+  <article class="clause" id="p3">
+    <h3><span class="no">제3조</span> 처리 및 보유 기간</h3>
+    <p>회사는 법령에 따른 보유기간 또는 수집 시 동의받은 기간 동안 개인정보를 처리·보유합니다.</p>
+    <div class="table-wrap">
+      <table class="data">
+        <tr><th>항목</th><th>보유기간</th><th>근거</th></tr>
+        <tr><td>회원 정보</td><td>회원 탈퇴 시까지</td><td>서비스 이용계약 유지</td></tr>
+        <tr><td>얼굴 사진 및 얼굴 특징점(랜드마크) 좌표</td><td>분석 처리 즉시 삭제 — 서버에 저장하지 않음(보관함에 저장해도 사진·좌표는 포함되지 않고 리포트 문구만 저장됨)</td><td>목적 달성 후 즉시 파기 원칙</td></tr>
+        <tr><td>인연도감 서비스</td><td>마지막 접속일로부터 <b>90일</b> — 미접속 시 자동 삭제</td><td>비로그인 리포트 스토리지 최소화 정책</td></tr>
+        <tr><td>냥 결제 기록</td><td>5년</td><td>전자상거래법(대금결제 기록)</td></tr>
+        <tr><td>소비자 불만·분쟁처리 기록</td><td>3년</td><td>전자상거래법</td></tr>
+        <tr><td>접속 로그</td><td>3개월</td><td>통신비밀보호법</td></tr>
+      </table>
+    </div>
+  </article>
+
+  <article class="clause" id="p4">
+    <h3><span class="no">제4조</span> 개인정보의 제3자 제공</h3>
+    <p>회사는 이용자의 동의 없이 개인정보를 제3자에게 제공하지 않습니다. 다만 다음의 경우는 예외로 합니다.</p>
+    <ol class="items">
+      <li>법령에 특별한 규정이 있거나 수사기관이 법령에 정한 절차에 따라 요구하는 경우</li>
+      <li>냥 결제 서비스 제공 등 계약 이행을 위해 카카오페이 등 결제대행사에 필요한 최소한의 정보를 제공하는 경우</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="p5">
+    <h3><span class="no">제5조</span> 처리위탁 및 국외이전</h3>
+    <p>회사는 원활한 서비스 제공을 위해 다음과 같이 개인정보 처리업무를 위탁하고 있으며, 이 과정에서 아래 항목이 국외로 이전될 수 있습니다.</p>
+    <div class="table-wrap">
+      <table class="data">
+        <tr><th>수탁자</th><th>위탁업무 / 이전항목</th><th>이전국가</th><th>보유기간</th></tr>
+        <tr><td>Google LLC (Firebase Authentication·Firestore)</td><td>회원 인증, 이용자 데이터·분석 결과 저장</td><td>미국</td><td>회원 탈퇴 시까지</td></tr>
+        <tr><td>Google LLC (Gemini API)</td><td>얼굴 사진의 관상 요소 분류 및 해설 문구 생성 — 처리 후 원본 이미지 미보관</td><td>미국</td><td>요청 처리 완료 시까지</td></tr>
+        <tr><td>카카오(주)</td><td>소셜 로그인 인증, 문의 채널(카카오톡 채널) 운영</td><td>대한민국</td><td>연동 해제 시까지</td></tr>
+        <tr><td>카카오페이(주)</td><td>냥 결제(간편결제) 대행</td><td>대한민국</td><td>5년(전자상거래법)</td></tr>
+      </table>
+    </div>
+    <p>이용자는 위탁 및 국외이전에 동의하지 않을 권리가 있으나, 동의를 거부하는 경우 로그인·결제 등 관련 기능 이용이 제한될 수 있습니다.</p>
+  </article>
+
+  <article class="clause" id="p6">
+    <h3><span class="no">제6조</span> 얼굴 이미지 등 민감정보 처리 특칙</h3>
+    <div class="callout warn">
+      <b>중요</b> — 서비스가 분석을 위해 처리하는 얼굴 사진 및 그로부터 추출된 얼굴 특징점(랜드마크) 정보는 「개인정보 보호법」상 <b>생체인식정보(민감정보)</b>에 해당할 수 있습니다. 회사는 이를 특정 개인의 신원 확인 용도로 사용하지 않고 관상 유형 분류에만 사용하지만, 다음과 같이 별도로 관리합니다.
+    </div>
+    <ol class="items">
+      <li>얼굴 사진·랜드마크 데이터 처리 전, 일반 개인정보 처리 동의와 <b>별도의 체크박스</b>로 동의를 받습니다.</li>
+      <li>얼굴 사진 및 랜드마크 좌표는 분석 처리 즉시 삭제하며, 서버에 저장하지 않습니다. 보관함에 리포트를 저장하는 경우에도 사진·좌표는 포함되지 않고 분석 문구만 보관됩니다.</li>
+      <li>분석 결과값(6대 기질 벡터, 유형 ID 등)은 신원 확인이 불가능한 비식별 형태로 원본 사진과 분리해 저장합니다.</li>
+      <li>이용자는 언제든지 동의를 철회하고 저장된 사진·분석 결과의 삭제를 요청할 수 있습니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="p7">
+    <h3><span class="no">제7조</span> 정보주체의 권리·의무 및 행사방법</h3>
+    <ol class="items">
+      <li>이용자는 회사에 대해 언제든지 개인정보 열람·정정·삭제·처리정지를 요구할 수 있으며, 회사는 이에 대해 지체 없이 조치합니다.</li>
+      <li>권리 행사는 서비스 내 설정 메뉴 또는 개인정보 보호책임자(제11조)를 통해 하실 수 있습니다.</li>
+      <li>만 14세 미만 아동의 권리는 법정대리인이 대신 행사할 수 있습니다.</li>
+    </ol>
+    <div class="sub-h">인연도감 삭제 요청</div>
+    <ol class="items">
+      <li><b>친구(참여자) 본인</b>은 생년월일 재입력으로 본인 인증에 성공하면 자신의 엔트리를 즉시 삭제할 수 있습니다(인증 5회 실패 시 15분간 제한).</li>
+      <li><b>리포트 소유자</b>는 소유권 인증(쿠키 또는 로그인)으로 엔트리 또는 리포트 전체를 재인증 없이 삭제할 수 있습니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="p8">
+    <h3><span class="no">제8조</span> 개인정보의 파기</h3>
+    <ol class="items">
+      <li>회사는 보유기간이 경과하거나 처리목적이 달성된 개인정보를 지체 없이 파기합니다.</li>
+      <li>전자적 파일은 복구할 수 없는 기술적 방법으로 삭제하며, 종이 문서는 분쇄 또는 소각합니다.</li>
+      <li>인연도감 리포트·엔트리는 소프트 삭제 없이 <b>하드 삭제</b>를 원칙으로 합니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="p9">
+    <h3><span class="no">제9조</span> 안전성 확보조치</h3>
+    <ol class="items">
+      <li><b>관리적 조치</b> — 내부관리계획 수립, 개인정보 취급자 최소화 및 교육</li>
+      <li><b>기술적 조치</b> — 생년월일 등 주요 정보의 암호화 저장(AES-256), 삭제 인증 전용 해시(SHA-256+salt) 분리 보관, 접근권한 관리, 소유권 토큰의 httpOnly·secure 쿠키 발급</li>
+      <li><b>물리적 조치</b> — 전산실 등에 대한 접근통제</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="p10">
+    <h3><span class="no">제10조</span> 자동수집장치(쿠키)의 운영 및 거부</h3>
+    <p>회사는 맞춤형 서비스 제공을 위해 쿠키를 사용합니다. 이용자는 웹브라우저 설정에서 쿠키 저장을 거부할 수 있으나, 이 경우 로그인 등 일부 기능 이용에 어려움이 있을 수 있습니다.</p>
+  </article>
+
+  <article class="clause" id="p11">
+    <h3><span class="no">제11조</span> 개인정보 보호책임자</h3>
+    <p>회사는 개인정보 처리 업무를 총괄하고 이용자의 불만처리 및 피해구제를 위해 아래와 같이 개인정보 보호책임자를 지정하고 있습니다.</p>
+    <div class="table-wrap">
+      <table class="data">
+        <tr><th>구분</th><th>내용</th></tr>
+        <tr><td>성명</td><td>최정원</td></tr>
+        <tr><td>직책</td><td>개인정보 보호책임자</td></tr>
+        <tr><td>이메일</td><td>kwansang.nb@gmail.com</td></tr>
+      </table>
+    </div>
+  </article>
+
+  <article class="clause" id="p12">
+    <h3><span class="no">제12조</span> 권익침해 구제방법</h3>
+    <p>개인정보 침해로 인한 신고·상담이 필요한 경우 아래 기관에 문의할 수 있습니다.</p>
+    <ol class="items">
+      <li>개인정보분쟁조정위원회 — (국번없이) 1833-6972 (privacy.kr)</li>
+      <li>개인정보침해신고센터 — (국번없이) 118 (privacy.go.kr)</li>
+      <li>대검찰청 사이버범죄수사단 — (국번없이) 1301 (spo.go.kr)</li>
+      <li>경찰청 사이버수사국 — (국번없이) 182 (ecrm.cyber.go.kr)</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="p13">
+    <h3><span class="no">제13조</span> 처리방침의 변경</h3>
+    <p>이 방침은 법령·정책 또는 보안기술의 변경에 따라 수정될 수 있으며, 변경 시 시행 최소 7일 전(중요 변경은 30일 전)부터 서비스 내 공지사항을 통해 고지합니다.</p>
+  </article>
+
+  <div class="addendum">
+    <div><span class="no">부칙</span></div>
+    <div>이 개인정보처리방침은 <span class="fill">20XX.XX.XX</span>부터 시행합니다.</div>
+  </div>
+</div>

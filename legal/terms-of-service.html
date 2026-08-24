@@ -1,0 +1,214 @@
+<title>관상냥반 이용약관</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#163B38; --jade:#2F6F68; --mint:#55CCBB; --mint-soft:#EDF9F6; --mint-border:#CBEDE6;
+  --beige:#E6D1A7; --beige-bg:#F8F4EC; --beige-text:#7A5B22;
+  --paper:#FFFFFF; --paper2:#FBFAF7;
+  --text:#17201F; --text2:#5B6462; --text3:#8B938F; --border:#E3E9E7;
+  --serif:'Noto Serif KR', 'Malgun Gothic', serif;
+  --sans:'Noto Sans KR', -apple-system, 'Malgun Gothic', sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#DCEFEA; --jade:#7FD9C6; --mint:#55CCBB; --mint-soft:#122C29; --mint-border:#1E4640;
+    --beige:#E6D1A7; --beige-bg:#2A2416; --beige-text:#E3C688;
+    --paper:#141A19; --paper2:#0F1413;
+    --text:#E7EDEB; --text2:#A2ACA9; --text3:#6C7573; --border:#263230;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#DCEFEA; --jade:#7FD9C6; --mint:#55CCBB; --mint-soft:#122C29; --mint-border:#1E4640;
+  --beige:#E6D1A7; --beige-bg:#2A2416; --beige-text:#E3C688;
+  --paper:#141A19; --paper2:#0F1413;
+  --text:#E7EDEB; --text2:#A2ACA9; --text3:#6C7573; --border:#263230;
+}
+*{box-sizing:border-box;}
+body{ margin:0; background:var(--paper2); color:var(--text); font-family:var(--sans); -webkit-font-smoothing:antialiased; }
+.page{max-width:740px; margin:0 auto; padding:0 24px 120px;}
+.masthead{ padding:56px 0 32px; border-bottom:1px solid var(--border); margin-bottom:32px; display:flex; flex-direction:column; gap:10px; }
+.masthead .mark{ font-family:var(--serif); font-weight:700; font-size:14px; letter-spacing:0.08em; color:var(--jade); text-transform:uppercase; }
+.masthead h1{ font-family:var(--serif); font-weight:700; font-size:clamp(28px,4vw,38px); margin:0; color:var(--ink); text-wrap:balance; line-height:1.3; }
+.masthead p.lede{ font-size:14px; color:var(--text2); line-height:1.8; max-width:64ch; margin:8px 0 0; }
+.fill{ background:var(--beige-bg); color:var(--beige-text); border:1px solid var(--beige-bg); border-radius:5px; padding:1px 7px; font-size:0.92em; font-weight:600; white-space:nowrap; }
+nav.toc{ background:var(--paper); border:1px solid var(--border); border-radius:14px; padding:20px 24px; margin-bottom:44px; }
+nav.toc .toc-label{ font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--text3); margin-bottom:12px; }
+nav.toc ol{ margin:0; padding:0; list-style:none; columns:2; column-gap:24px; }
+nav.toc li{break-inside:avoid; margin-bottom:7px; font-size:13.5px;}
+nav.toc a{color:var(--jade); text-decoration:none;}
+nav.toc a:hover{text-decoration:underline;}
+article.clause{margin:34px 0; scroll-margin-top:20px; padding-bottom:2px; border-bottom:1px solid var(--border);}
+article.clause:last-of-type{border-bottom:none;}
+article.clause h3{ font-family:var(--sans); font-weight:700; font-size:16.5px; color:var(--ink); margin:0 0 10px; display:flex; gap:8px; align-items:baseline; }
+article.clause h3 .no{ font-family:var(--serif); color:var(--jade); font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0; }
+article.clause p{ margin:0 0 10px; line-height:1.8; font-size:14.5px; color:var(--text); max-width:64ch; }
+article.clause ol.items, article.clause ul.items{ margin:0 0 10px; padding-left:0; list-style:none; max-width:64ch; }
+article.clause ol.items > li, article.clause ul.items > li{ position:relative; padding-left:24px; margin-bottom:7px; line-height:1.75; font-size:14.5px; }
+article.clause ol.items{counter-reset:item;}
+article.clause ol.items > li{counter-increment:item;}
+article.clause ol.items > li::before{ content:counter(item); position:absolute; left:0; top:0; color:var(--jade); font-weight:700; font-size:13px; font-variant-numeric:tabular-nums; }
+article.clause ul.items > li::before{ content:'—'; position:absolute; left:0; top:0; color:var(--text3); }
+.callout{ background:var(--mint-soft); border:1px solid var(--mint-border); border-radius:10px; padding:13px 17px; margin:12px 0; font-size:13.5px; line-height:1.7; color:var(--text); }
+.callout b{color:var(--jade);}
+.table-wrap{overflow-x:auto; margin:12px 0 16px;}
+table.rate{ width:100%; border-collapse:collapse; font-size:13.5px; min-width:480px; }
+table.rate th, table.rate td{ border:1px solid var(--border); padding:9px 12px; text-align:left; vertical-align:top; }
+table.rate th{background:var(--paper); color:var(--text2); font-weight:700; font-size:12.5px;}
+table.rate td{background:var(--paper2);}
+.addendum{ margin-top:48px; padding-top:24px; border-top:1px solid var(--border); font-size:13.5px; color:var(--text2); line-height:1.9; }
+.addendum .no{font-family:var(--serif); color:var(--jade); font-weight:700; margin-right:6px;}
+@media (max-width:520px){ nav.toc ol{columns:1;} }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <div class="mark">관상냥반</div>
+    <h1>서비스 이용약관</h1>
+    <p class="lede">본 약관은 <span class="fill">【상호 — 예: 관상냥반 또는 사업자 정식 상호】</span>(이하 "회사")가 운영하는 관상·사주 기반 성격 분석 서비스 "관상냥반"(이하 "서비스")의 이용과 관련하여 회사와 이용자의 권리·의무 및 책임사항, 기타 필요한 사항을 규정함을 목적으로 합니다.</p>
+  </header>
+
+  <nav class="toc">
+    <div class="toc-label">목차</div>
+    <ol>
+      <li><a href="#a1">제1조 목적</a></li>
+      <li><a href="#a2">제2조 용어의 정의</a></li>
+      <li><a href="#a3">제3조 약관의 명시 및 개정</a></li>
+      <li><a href="#a4">제4조 이용계약의 성립</a></li>
+      <li><a href="#a5">제5조 서비스의 제공 및 변경</a></li>
+      <li><a href="#a6">제6조 서비스의 중단</a></li>
+      <li><a href="#a7">제7조 유료서비스 및 결제</a></li>
+      <li><a href="#a8">제8조 청약철회 및 환불</a></li>
+      <li><a href="#a9">제9조 콘텐츠의 성격 및 이용 유의사항</a></li>
+      <li><a href="#a10">제10조 이용자의 의무 및 이용제한</a></li>
+      <li><a href="#a11">제11조 게시물의 저작권</a></li>
+      <li><a href="#a12">제12조 개인정보의 보호</a></li>
+      <li><a href="#a13">제13조 면책조항</a></li>
+      <li><a href="#a14">제14조 분쟁해결 및 재판관할</a></li>
+    </ol>
+  </nav>
+
+  <article class="clause" id="a1">
+    <h3><span class="no">제1조</span> 목적</h3>
+    <p>이 약관은 회사가 운영하는 서비스의 이용조건 및 절차, 회사와 이용자의 권리·의무 및 책임사항, 기타 필요한 사항을 규정함을 목적으로 합니다.</p>
+  </article>
+
+  <article class="clause" id="a2">
+    <h3><span class="no">제2조</span> 용어의 정의</h3>
+    <ol class="items">
+      <li><b>이용자</b> — 이 약관에 따라 서비스를 이용하는 자.</li>
+      <li><b>콘텐츠</b> — 회사가 유·무상으로 제공하는 텍스트·이미지 등 관상·사주 분석 결과 일체.</li>
+      <li><b>냥</b> — 회사가 제공하는 관상·사주 풀이 콘텐츠를 1회 제공받을 수 있는 유료 이용권을 말하며, 이용자는 결제를 통해 냥을 충전하여 사용합니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="a3">
+    <h3><span class="no">제3조</span> 약관의 명시 및 개정</h3>
+    <ol class="items">
+      <li>이 약관은 서비스 화면에 게시함으로써 효력이 발생합니다.</li>
+      <li>회사는 관련 법령을 위배하지 않는 범위에서 약관을 개정할 수 있으며, 개정 시 적용일자와 개정사유를 명시해 적용일 <span class="fill">7</span>일 전(이용자에게 불리한 변경은 <span class="fill">30</span>일 전)부터 공지합니다.</li>
+      <li>이용자는 개정약관에 동의하지 않을 권리가 있으며, 동의하지 않는 경우 서비스 이용을 중단하고 이용계약을 해지할 수 있습니다. 공지된 적용일 이후에도 서비스를 계속 이용하면 개정약관에 동의한 것으로 봅니다.</li>
+      <li>이 약관에서 정하지 않은 사항은 전자상거래법, 정보통신망법, 개인정보 보호법 등 관계 법령 및 회사의 개별 운영정책을 따릅니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="a4">
+    <h3><span class="no">제4조</span> 이용계약의 성립</h3>
+    <ol class="items">
+      <li>이용계약은 이용자가 약관에 동의하고 카카오 계정 등 회사가 정한 방식으로 로그인함으로써 성립합니다.</li>
+      <li>만 14세 미만 아동은 회원가입 및 유료서비스 결제를 이용할 수 없으며, 만 14세 이상 미성년자가 유료서비스를 이용하려면 법정대리인의 동의를 받아야 합니다.</li>
+      <li>회사는 실명이 아니거나 타인의 명의를 이용한 신청, 허위 정보 기재 등의 경우 승낙을 유보하거나 이용계약을 해지할 수 있습니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="a5">
+    <h3><span class="no">제5조</span> 서비스의 제공 및 변경</h3>
+    <ol class="items">
+      <li>서비스는 연중무휴, 1일 24시간 제공함을 원칙으로 합니다.</li>
+      <li>회사는 운영상·기술상 필요에 따라 서비스의 내용을 변경할 수 있으며, 변경 시 변경사유와 시행일을 명시해 사전에 게시합니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="a6">
+    <h3><span class="no">제6조</span> 서비스의 중단</h3>
+    <ol class="items">
+      <li>회사는 설비 점검, 통신 장애 또는 서비스가 의존하는 외부 인프라의 장애로 서비스 제공을 일시 중단할 수 있습니다.</li>
+      <li>이로 인해 이용자에게 발생한 손해에 대해 회사의 고의 또는 중대한 과실이 없는 한 책임을 지지 않습니다.</li>
+      <li>경영상 사유로 서비스를 종료하는 경우 <span class="fill">30</span>일 전 공지하며, 무료서비스 종료로 인한 손해에 대해서는 별도로 배상하지 않습니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="a7">
+    <h3><span class="no">제7조</span> 냥의 충전 및 결제</h3>
+    <ol class="items">
+      <li>이용자는 회사가 정한 방법으로 결제하여 냥을 충전할 수 있으며, 냥의 가격 및 충전 단위는 결제 화면에 별도로 고지합니다.</li>
+      <li>결제수단은 카카오페이(간편결제)로 하며, 결제는 <span class="fill">【결제대행사(PG사)명 — 예정】</span>가 대행합니다.</li>
+      <li>충전된 냥의 유효기간은 충전일로부터 <span class="fill">【기간 — 예정】</span>으로 하며, 충전 건마다 개별 적용합니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="a8">
+    <h3><span class="no">제8조</span> 청약철회 및 환불</h3>
+    <ol class="items">
+      <li>이용자는 충전한 냥을 사용(리포트 생성)하기 전까지 「전자상거래 등에서의 소비자보호에 관한 법률」에 따라 청약철회 및 전액 환불을 요청할 수 있습니다.</li>
+      <li>냥을 사용해 리포트 생성이 개시된 이후에는 디지털 콘텐츠의 특성상 청약철회가 제한되며, 회사는 결제 전 이 사실을 명확히 고지합니다.</li>
+      <li>냥을 충전하고 일부만 사용한 경우, 미사용 냥에 한해 환불이 가능합니다. 이미 사용한 냥 및 무료로 지급된 냥은 환불 대상에서 제외됩니다.</li>
+      <li>서비스 장애 등 회사의 귀책사유로 리포트가 정상 제공되지 않은 경우 전액 환불하며, 환불은 요청 접수일로부터 <span class="fill">5영업일</span> 이내에 결제수단과 동일한 방법으로 처리합니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="a9">
+    <h3><span class="no">제9조</span> 콘텐츠의 성격 및 이용 유의사항</h3>
+    <div class="callout">
+      서비스가 제공하는 관상·사주 풀이는 전통 이론과 통계적 경향에 기반한 <b>참고·오락용 콘텐츠</b>이며, 과학적으로 검증된 사실이나 개인의 미래·운명에 대한 확정적 진단이 아닙니다.
+    </div>
+    <ol class="items">
+      <li>서비스는 의료·법률·재무 등 전문 상담을 대체하지 않으며, 진로·결혼·채용·투자 등 <b>중요한 의사결정의 유일한 근거로 사용해서는 안 됩니다.</b></li>
+      <li>회사는 콘텐츠의 정확성·완전성을 보증하지 않으며, 이용자가 이를 신뢰해 취한 행동에 대해 관계 법령이 허용하는 범위에서 책임을 지지 않습니다.</li>
+      <li>회사는 미풍양속에 반하거나 특정인을 비방·혐오하는 방향의 질문·요청에 대해서는 콘텐츠 생성을 제한할 수 있습니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="a10">
+    <h3><span class="no">제10조</span> 이용자의 의무 및 이용제한</h3>
+    <p>이용자는 다음 각 호의 행위를 하여서는 안 되며, 위반 시 회사는 사전 통지 없이 서비스 이용을 제한하거나 이용계약을 해지할 수 있습니다.</p>
+    <ol class="items">
+      <li>타인의 얼굴 사진 또는 생년월일 등 정보를 본인 동의 없이 업로드·도용하는 행위</li>
+      <li>허위 정보를 반복 입력하거나 자동화된 수단으로 대량의 요청을 발생시켜 서비스를 비정상적으로 이용하는 행위</li>
+      <li>서비스를 역설계하거나 소스코드·콘텐츠를 무단 복제·배포·상업적으로 이용하는 행위</li>
+      <li>그 밖에 관계 법령 또는 이 약관을 위반하는 행위</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="a11">
+    <h3><span class="no">제11조</span> 게시물의 저작권</h3>
+    <ol class="items">
+      <li>이용자가 업로드한 사진 등의 저작권은 원저작자(이용자)에게 있으며, 이용자는 회사가 분석 결과 제공을 위해 필요한 범위 내에서 이를 일시적으로 처리(가공·저장·전송)하는 것에 동의합니다.</li>
+      <li>서비스 화면, 캐릭터 일러스트, 분석 로직 등 회사가 제작한 콘텐츠의 저작권 및 지식재산권은 회사에 귀속됩니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="a12">
+    <h3><span class="no">제12조</span> 개인정보의 보호</h3>
+    <p>회사는 관계 법령에 따라 이용자의 개인정보를 보호하며, 개인정보의 수집·이용·보관·파기 등에 관한 구체적인 사항은 별도로 게시하는 <b>개인정보처리방침</b>에 따릅니다.</p>
+  </article>
+
+  <article class="clause" id="a13">
+    <h3><span class="no">제13조</span> 면책조항</h3>
+    <ol class="items">
+      <li>회사는 천재지변, 전쟁, 정전 등 회사의 고의·과실 없이 발생한 서비스 장애에 대해 책임을 지지 않습니다.</li>
+      <li>회사는 이용자의 귀책사유로 인한 서비스 이용 장애, 이용자 상호간 또는 이용자와 제3자 간에 발생한 분쟁에 대해 개입할 의무가 없으며 이로 인한 손해를 배상하지 않습니다.</li>
+    </ol>
+  </article>
+
+  <article class="clause" id="a14">
+    <h3><span class="no">제14조</span> 분쟁해결 및 재판관할</h3>
+    <p>이 약관은 대한민국 법령에 따라 규율·해석되며, 서비스와 관련한 분쟁은 소 제기 전 상호 협의로 해결하도록 노력합니다. 협의가 이루어지지 않는 경우 민사소송법상의 관할법원에 제소합니다.</p>
+  </article>
+
+  <div class="addendum">
+    <div><span class="no">부칙</span></div>
+    <div>이 약관은 <span class="fill">20XX.XX.XX</span>부터 시행합니다.</div>
+  </div>
+</div>
