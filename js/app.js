@@ -556,20 +556,31 @@ async function openGunghamSavedReport(id) {
   if (!ok) body.innerHTML = '<div class="arc-empty">저장된 리포트를 찾을 수 없습니다. 분석을 다시 실행해주세요.</div>';
 }
 
+// ⚠️ 버그 수정(2026-08-25 사용자 리포트: "페이지 이동했는데 새로고침 안 된 것 같다") — 여기가
+// closeCombinedSavedReport의 궁합보기 쌍둥이 함수인데, 그쪽만 2026-08-21에 "목록을 stale한 채로
+// 그냥 다시 보여주기만 한다"는 버그를 고쳤고 이 함수는 그대로 남아있었다. #ggSavedList를 다시 그리지
+// 않고 classList만 토글하니, 리포트를 보고 있는 사이 다른 기기에서 삭제했거나 새로 저장된 기록이
+// 있어도 반영이 안 됐다. renderGunghamSavedReport()로 Archive.listOf('gungham') 기준 최신 목록을
+// 다시 그린다 — 그 함수가 빈 목록이면 입력 단계로 보내는 것까지 함께 처리해준다.
 function closeGunghamSavedReport() {
   ggViewingReportId = null;
   document.getElementById('ggSavedReport').classList.add('hidden');
-  document.getElementById('ggSavedStep').classList.remove('hidden');
-  setGgHeroVisible(true);
+  renderGunghamSavedReport();
   window.scrollTo(0, 0);
 }
 
 // "다른 상대와 궁합보기" — 상대방만 다시 고르면 된다(나는 대표 프로필로 고정). 고른 뒤에 선택
 // 단계(#ggInputStep)로 돌아가 사진 등록부터 새로 진행한다.
+// ⚠️ 버그 수정(2026-08-25) — startCombinedForOther는 onPick 안에서 resetUpload('combined')를 불러
+// 이전 사진·상태를 지우는데, 이 함수는 showGunghamInputStep()만 부르고 state.gunghamB(사진·랜드마크)를
+// 지우지 않았다. applyToGunghamB가 생년월일·성별은 새로 고른 상대 걸로 채워주지만 사진은 그대로 남아,
+// "새 상대의 생년월일 + 예전 상대의 사진"이 섞인 채로 입력 단계가 열렸다. 나(A)는 대표 프로필 고정이라
+// 의도적으로 안 건드리고, 상대(B)만 resetUpload로 사진·랜드마크를 비운다.
 function startGunghamForOther() {
   if (!window.Profile || !Profile.openPartnerPicker) return;
   Profile.openPartnerPicker({
     onPick: function () {
+      resetUpload('gunghamB');
       ggWantsNewAnalysis = true;
       showGunghamInputStep();
       window.scrollTo(0, 0);
