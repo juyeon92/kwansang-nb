@@ -1854,15 +1854,32 @@ function renderOhaengBars(count, elId) {
   ).join('');
 }
 
-// Zone3 오행 비교(통합분석) — 관상(좌)% · 관상바 · 오행 라벨(중앙) · 사주바 · 사주(우)%, 오행별 색으로
-// 통일(목=초록·화=빨강·토=노랑·금=회색·수=파랑, 궁합보기 관상오행 비교 화면과 같은 팔레트).
+// 오행 100% 스택바 — 목화토금수 다섯 값의 합이 100(%)인 "구성비" 데이터를 그릴 때 공용으로 쓴다.
+// ⚠️ 설계 변경(2026-08-24 사용자 지적): calcFaceOhaeng·computeOhaeng 둘 다 5개 값의 합이 100%(또는
+// 그 비율)가 되도록 만들어지는데, 예전엔 오행마다 따로 "행 하나 = 100% 바"를 그려서 마치 각 오행이
+// 서로 독립적으로 0~100점 채점되는 것처럼 보였다. 실제로는 한 사람(또는 한 지표)의 100%를 다섯
+// 조각으로 나눈 것이므로, 긴 바 하나를 다섯 색으로 나눠 채우는 100% 스택바가 데이터 구조에 맞는다.
+const OHAENG_ORDER = ['목', '화', '토', '금', '수'];
+const OHAENG_EMOJI = { 목:'🌳', 화:'🔥', 토:'🏔', 금:'⚔', 수:'💧' };
+const OHAENG_BAR_CLASS = { 목:'oh-목-bar', 화:'oh-화-bar', 토:'oh-토-bar', 금:'oh-금-bar', 수:'oh-수-bar' };
+function ohaengStackHTML(percent, opts) {
+  opts = opts || {};
+  const segs = OHAENG_ORDER.map(k =>
+    `<div class="oh-stack-seg ${OHAENG_BAR_CLASS[k]}" style="width:${Math.max(0, Math.min(100, percent[k] || 0))}%"></div>`
+  ).join('');
+  const legend = OHAENG_ORDER.map(k =>
+    `<span class="oh-${k}">${OHAENG_EMOJI[k]}${Math.round(percent[k] || 0)}%</span>`
+  ).join('');
+  const name = opts.name ? `<div class="oh-stack-name">${opts.name}</div>` : '';
+  return `<div class="oh-stack-block">${name}<div class="oh-stack-track">${segs}</div><div class="oh-stack-legend">${legend}</div></div>`;
+}
+
+// Zone3 오행 비교(통합분석) — 관상 오행 구성비 스택바 + 사주 오행 구성비 스택바를 나란히 보여준다.
 // 한줄평은 그래프 아래 headFaceElId/headSajuElId 두 박스에 각각 채운다(제목 없이 문구만).
 function renderOhaengCompareTable(sajuCount, faceCount, headFaceElId, headSajuElId, tableElId) {
-  const order = ['목','화','토','금','수'];
-  const emojis = { 목:'🌳', 화:'🔥', 토:'🏔', 금:'⚔', 수:'💧' };
-  const fillColor = { 목:'#4ade80', 화:'#f87171', 토:'#fbbf24', 금:'#cbd5e1', 수:'#60a5fa' };
-  const textColor = { 목:'#22c55e', 화:'#ef4444', 토:'#f59e0b', 금:'#94a3b8', 수:'#3b82f6' };
   const sajuTotal = Object.values(sajuCount).reduce((a, b) => a + b, 0) || 1;
+  const sajuPercent = {};
+  OHAENG_ORDER.forEach(k => { sajuPercent[k] = (sajuCount[k] || 0) / sajuTotal * 100; });
 
   const domSaju = Object.entries(sajuCount).sort((a, b) => b[1] - a[1])[0][0];
   const domFace = Object.entries(faceCount).sort((a, b) => b[1] - a[1])[0][0];
@@ -1873,17 +1890,7 @@ function renderOhaengCompareTable(sajuCount, faceCount, headFaceElId, headSajuEl
 
   const table = document.getElementById(tableElId);
   if (!table) return;
-  // 막대 길이는 항상 "100% 기준"으로 채운다 — 예전에는 5개 오행 중 최댓값(maxPct)을 기준으로
-  // 다시 정규화해서 최댓값이 무조건 꽉 찬 막대로 보였다(예: 화 34%인데 막대는 100%처럼 꽉 참) —
-  // 바로 옆 숫자(%)는 그대로 실제값인데 막대만 상대값이라 서로 안 맞았다(사용자 리포트 2026-08-21).
-  const pcts = order.map(k => ({ k, facePct: Math.round(faceCount[k] || 0), sajuPct: Math.round((sajuCount[k] || 0) / sajuTotal * 100) }));
-  table.innerHTML = pcts.map(({ k, facePct, sajuPct }) => `<div class="oh-vs-row">
-        <span class="oh-vs-pct">${facePct}%</span>
-        <div class="oh-vs-track left"><div class="oh-vs-fill" style="width:${Math.min(100, facePct)}%;background:${fillColor[k]};"></div></div>
-        <span class="oh-vs-label" style="color:${textColor[k]};">${emojis[k]}${k}</span>
-        <div class="oh-vs-track"><div class="oh-vs-fill" style="width:${Math.min(100, sajuPct)}%;background:${fillColor[k]};"></div></div>
-        <span class="oh-vs-pct">${sajuPct}%</span>
-      </div>`).join('');
+  table.innerHTML = ohaengStackHTML(faceCount, { name: '🌿 관상 오행' }) + ohaengStackHTML(sajuPercent, { name: '🀄 사주 오행' });
 }
 
 // ═══ 사주 오행 심층 리포트 — 다른 만세력 앱들처럼 "메타포 제목 + 서사 + 사주분석(근거 수치)/
@@ -2064,12 +2071,7 @@ function renderFaceOhaengBars(count, elId) {
   const headline = top
     ? `<div style="font-size:13px;color:var(--gold);font-weight:800;margin-bottom:10px;">✨ ${FACE_OHAENG_TITLE[top[0]]} — ${top[0]} 기운 ${top[1]}%</div>`
     : '';
-  const total = Object.values(count).reduce((a, b) => a + b, 0);
-  const colors = {목:'oh-목-bar',화:'oh-화-bar',토:'oh-토-bar',금:'oh-금-bar',수:'oh-수-bar'};
-  const emojis = {목:'🌳',화:'🔥',토:'🏔',금:'⚔',수:'💧'};
-  el.innerHTML = headline + Object.entries(count).map(([k,v]) =>
-    `<div class="ohaeng-row"><div class="ohaeng-name oh-${k}">${emojis[k]}${k}</div><div class="ohaeng-bar-bg"><div class="ohaeng-bar-fill ${colors[k]}" style="width:${total?(v/total*100):0}%"></div></div><div class="ohaeng-count">${v}%</div></div>`
-  ).join('');
+  el.innerHTML = headline + ohaengStackHTML(count);
 }
 // 궁합보기 Zone1 상단 — 두 사람의 관상오행(calcFaceOhaeng)을 만세력 비교표처럼 나란히 보여준다.
 // 사진이 둘 다 있어야 나오므로 buildFaceOhaengCompare가 null을 반환하면 안내 문구만 그린다.
@@ -2080,19 +2082,7 @@ function renderFaceOhaengCompare(compare, elId) {
     el.innerHTML = `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 관상오행 비교를 볼 수 있어요.</div>`;
     return;
   }
-  const order = ['목', '화', '토', '금', '수'];
-  const colors = { 목:'oh-목-bar', 화:'oh-화-bar', 토:'oh-토-bar', 금:'oh-금-bar', 수:'oh-수-bar' };
-  const emojis = { 목:'🌳', 화:'🔥', 토:'🏔', 금:'⚔', 수:'💧' };
-  el.innerHTML = order.map(k => {
-    const a = compare.a[k] || 0, b = compare.b[k] || 0;
-    return `<div class="gg-ohaeng-row">
-      <div class="gg-ohaeng-pct">${a}%</div>
-      <div class="gg-ohaeng-barL"><div class="gg-ohaeng-fill ${colors[k]}" style="width:${a}%"></div></div>
-      <div class="gg-ohaeng-label oh-${k}">${emojis[k]}${k}</div>
-      <div class="gg-ohaeng-barR"><div class="gg-ohaeng-fill ${colors[k]}" style="width:${b}%"></div></div>
-      <div class="gg-ohaeng-pct right">${b}%</div>
-    </div>`;
-  }).join('');
+  el.innerHTML = ohaengStackHTML(compare.a, { name: '나' }) + ohaengStackHTML(compare.b, { name: '상대방' });
 }
 // 재물관상 케미(4-2) 렌더 — buildMoneyChemi가 null(사진 없음)이면 안내 문구만 그린다.
 function renderMoneyChemi(money, elId) {
@@ -2408,6 +2398,13 @@ async function runGungham() {
     if (lmA || lmB) document.getElementById('ggCanvasCard').classList.remove('hidden');
     document.getElementById('ggResult').classList.remove('hidden');
     document.getElementById('gunghamBackBtn').classList.remove('hidden');
+    // ⚠️ 버그 수정(2026-08-24 사용자 리포트: "다른 상대와 궁합보기"로 새로 분석한 직후 진입 배너가
+    // 리포트와 같이 떠 있음) — startGunghamForOther()가 세워둔 ggWantsNewAnalysis=true가 여기서
+    // 안 꺼지면, 곧바로 이어지는 Archive.save → notifyChanged → renderGunghamSavedReport()의 맨 첫
+    // 줄(`if (ggWantsNewAnalysis) showGunghamInputStep()`)이 "리포트가 떠 있으면 건드리지 않는다"
+    // 가드보다 먼저 걸려서 입력 단계로 되돌리며 배너를 다시 켰다. 새 분석이 끝나 리포트가 화면에
+    // 떴으면 "새 분석을 하려던" 상태는 이미 끝난 것이므로 여기서 꺼준다.
+    ggWantsNewAnalysis = false;
     setGgHeroVisible(false); // 리포트가 뜨는 순간엔 항상 배너를 꺼둔다(사용자 리포트 2026-08-20:
     // 관상 캔버스·리포트와 진입 배너가 같이 떠 있었음) — Archive.save가 곧바로 notifyChanged →
     // renderGunghamSavedReport()를 동기 호출하는데, 그 경로가 다시 배너를 켜는 일이 없도록 마지막에 한 번 더 확정한다.
