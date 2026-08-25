@@ -2104,28 +2104,12 @@ function renderFaceOhaengBars(count, elId) {
 }
 // 궁합보기 Zone1 상단 — 두 사람의 관상오행(calcFaceOhaeng)을 나란히 보여준다.
 // 사진이 둘 다 있어야 나오므로 buildFaceOhaengCompare가 null을 반환하면 안내 문구만 그린다.
-// ⚠️ 설계(2026-08-24 사용자와 여러 차례 논의) — ohaengStackHTML(공용 헬퍼)을 그대로 안 쓰고 이 함수만
-// 따로 그린다. 이유: ①"나"/"상대방" 라벨은 위 공용 헤더(.gg-manse-head) 대신 이 라벨 한 곳에서만
-// 나와야 하고, 그 옆에 그 사람의 가장 강한 오행을 "· 토형"으로 같이 보여줘야 한다(도넛 안에 넣으려던
-// 강점 표시를 막대 라벨로 옮긴 것). ②목/화/토/금/수 글자 라벨은 사람마다 반복하지 않고 맨 아래
-// 범례 한 번으로 끝낸다 — 이모지만으로는 뭐가 뭔지 모르겠다는 지적 때문에 이름을 반드시 같이 쓰되,
-// 실제 퍼센트(사람마다 다른 값)는 그대로 각자 아래 한 줄씩 남긴다. ③두 사람의 막대가 같은 폭(100%)
-// 기준·같은 순서로 위아래 붙어 있어야 항목별 비교가 그나마 잘 되므로(가로 막대 vs 도넛 비교 논의
-// 끝에 확정), 사람 사이엔 구분선만 넣고 별도 그래프를 두 번 그리지 않는다.
-function ohaengCompareRowHTML(percent, name) {
-  const top = Object.entries(percent).sort((a, b) => b[1] - a[1])[0];
-  const label = top ? `${name} · ${top[0]}형` : name;
-  // 사용자 요청 2026-08-24b — 막대를 두껍게 키우고 그 안에 숫자를 바로 넣는다(따로 있던 숫자 줄
-  // 제거). 색은 범례(oh-compare-key)와 항상 같은 팔레트라 굳이 이모지·이름을 조각 안에 또 안 써도
-  // 헷갈리지 않는다.
-  const segs = OHAENG_ORDER.map(k =>
-    `<div class="oh-stack-seg ${OHAENG_BAR_CLASS[k]}" style="width:${Math.max(0, Math.min(100, percent[k] || 0))}%">${Math.round(percent[k] || 0)}%</div>`
-  ).join('');
-  return `<div class="oh-compare-person">
-      <div class="oh-stack-name">${label}</div>
-      <div class="oh-stack-track">${segs}</div>
-    </div>`;
-}
+// ⚠️ 재설계(2026-08-25 사용자 요청) — "오행 5개를 한 막대에 누적(스택)으로 쌓되, 그 막대를 가로가
+// 아니라 세로로 세워라"가 정확한 요청이었다(첫 시도作 좌우 대칭 막대, 두 번째 시도作 오행별로 막대를
+// 쪼갠 그룹 막대그래프는 둘 다 "누적 막대 1개"라는 요구를 놓친 오답). 사람당 막대 1개, 그 안에
+// 목화토금수 5개 구간이 위에서 아래로(또는 아래서 위로) 누적돼 합쳐서 100%가 되는 세로 스택바를
+// 나/상대방 두 개 나란히 세운다 — 기존 가로 스택바(oh-stack-track, flex-direction row)를 그대로
+// 세로(column)로 눕힌 것과 같다.
 function renderFaceOhaengCompare(compare, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -2133,9 +2117,59 @@ function renderFaceOhaengCompare(compare, elId) {
     el.innerHTML = `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 관상오행 비교를 볼 수 있어요.</div>`;
     return;
   }
-  const key = OHAENG_ORDER.map(k => `<span class="oh-${k}">${OHAENG_EMOJI[k]}${k}</span>`).join('');
-  el.innerHTML = ohaengCompareRowHTML(compare.a, '나') + ohaengCompareRowHTML(compare.b, '상대방') +
-    `<div class="oh-compare-key">${key}</div>`;
+  const topA = Object.entries(compare.a).sort((a, b) => b[1] - a[1])[0];
+  const topB = Object.entries(compare.b).sort((a, b) => b[1] - a[1])[0];
+  // ⚠️ 2026-08-25 사용자 리포트: 오행 하나가 몇 %대로 아주 작으면 그 구간 높이가 몇 px밖에 안 돼서
+  // 안의 "N%" 글자가 잘려 안 보였다(overflow:hidden). 작다고 실제보다 크게 그리면(예: 무조건 10%
+  // 취급) 다른 오행 높이를 줄여서 비율 자체가 거짓말이 되므로, 대신 그 구간만 막대 "바깥"에 작은
+  // 라벨을 붙인다 — 나(왼쪽 막대)는 왼쪽 바깥, 상대방(오른쪽 막대)은 오른쪽 바깥. 실제 색 띠는
+  // min-height로 최소한의 두께만 보장해 완전히 사라지지는 않게 한다.
+  const THIN_PCT = 8; // 11px 굵은 글씨가 안에 들어가려면 대략 이 정도(200px 기준 16px) 이상 필요
+  function stackHTML(percent, outSide) {
+    let cum = 0;
+    let segs = '', outs = '';
+    OHAENG_ORDER.forEach(k => {
+      const pct = Math.max(0, Math.min(100, Math.round(percent[k] || 0)));
+      const thin = pct > 0 && pct < THIN_PCT;
+      segs += `<div class="gg-ohaeng-vseg ${OHAENG_BAR_CLASS[k]}" style="height:${pct}%">${thin ? '' : pct + '%'}</div>`;
+      if (thin) {
+        const centerTop = cum + pct / 2;
+        outs += `<span class="gg-ohaeng-vseg-out ${outSide}" style="top:${centerTop}%">${pct}%</span>`;
+      }
+      cum += pct;
+    });
+    return `<div class="gg-ohaeng-vstack-wrap">
+        <div class="gg-ohaeng-vstack-track">${segs}</div>
+        ${outs}
+      </div>`;
+  }
+  // 목화토금수 글자 범례(2026-08-25 재배치) — 아래 한 줄로 빼지 않고 두 막대 "사이"에 세로로 좁게
+  // 끼워 넣는다(사용자 요청: "최대한 공간 차지 덜하게"). 어느 한쪽 막대 구간 높이에 맞추면 다른 쪽과는
+  // 안 맞으므로 5개를 균등 간격으로만 배치 — 정확한 높이 정렬용이 아니라 "이 색 = 이 오행" 대조표다.
+  const midKey = OHAENG_ORDER.map(k => `<span class="oh-${k}">${OHAENG_EMOJI[k]}${k}</span>`).join('');
+  // 대표 오행(1위)을 그 오행 색 뱃지로 보여준다 — 글자로만 "· 토형"이라고 쓰면 어떤 색인지 안 와닿아서,
+  // 막대 안 세그먼트와 같은 팔레트(OHAENG_BAR_CLASS)를 뱃지 배경에 그대로 써서 눈으로 바로 연결되게 한다.
+  // 이름(나/상대방)과 뱃지(토형 등)는 가로 한 줄이 아니라 위아래로 쌓는다(사용자 요청).
+  function ohaengBadge(top) {
+    return top ? `<span class="gg-ohaeng-badge ${OHAENG_BAR_CLASS[top[0]]}">${OHAENG_EMOJI[top[0]]} ${top[0]}형</span>` : '';
+  }
+  el.innerHTML = `
+    <div class="gg-ohaeng-vstacks">
+      ${stackHTML(compare.a, 'left')}
+      <div class="gg-ohaeng-vlegend-mid">${midKey}</div>
+      ${stackHTML(compare.b, 'right')}
+    </div>
+    <div class="gg-ohaeng-vnames">
+      <div class="gg-ohaeng-vstack-name">
+        <span>나</span>
+        ${ohaengBadge(topA)}
+      </div>
+      <div class="gg-ohaeng-vlegend-spacer"></div>
+      <div class="gg-ohaeng-vstack-name">
+        <span>상대방</span>
+        ${ohaengBadge(topB)}
+      </div>
+    </div>`;
 }
 // 재물관상 케미(4-2) 렌더 — buildMoneyChemi가 null(사진 없음)이면 안내 문구만 그린다.
 function renderMoneyChemi(money, elId) {
