@@ -60,6 +60,21 @@ function switchTab(tab, btn) {
   // 보관함도 인연도감과 같은 이유로 들어올 때마다 다시 그린다 — 방금 분석한 리포트가 목록에
   // 바로 보여야 새로고침 없이도 최신 상태로 보인다.
   if (tab === 'archive' && window.Archive && Archive.enterTab) Archive.enterTab();
+  // ⚠️ 버그 수정(2026-08-25 사용자 리포트: "상세보기·다른 사람으로 분석하기 상태로 다른 탭 갔다
+  // 통합분석으로 돌아오면 그 화면 그대로 멈춰있음") — renderCombinedSavedReport는 Archive.save 등
+  // 같은 탭 안에서의 재호출에서 "보던 화면"을 지켜주려고 만든 함수라(cmbViewingReportId/
+  // cmbWantsNewAnalysis 가드), 이 탭을 나갔다 들어오는 경우에도 똑같이 그 화면을 그대로 지켜버렸다.
+  // 다른 탭에 갔다 이 탭으로 "돌아오는" 시점에는 그 가드를 먼저 풀어 목록/업로드 화면 중 맞는 걸
+  // 새로 고른다 — 단, 사진을 업로드하던 중이면(state.combined.file) 그 작업은 그대로 둔다.
+  if (tab === 'combined' && typeof renderCombinedSavedReport === 'function') {
+    if (!state.combined.file) {
+      cmbViewingReportId = null;
+      const cmbSavedReportEl = document.getElementById('cmbSavedReport');
+      if (cmbSavedReportEl) cmbSavedReportEl.classList.add('hidden');
+      cmbWantsNewAnalysis = false;
+    }
+    renderCombinedSavedReport();
+  }
   // 비로그인 사용자가 이미 만든 도감(캐릭터)이 있으면, 요약 카드+업로드 폼만 보여주고 클릭해야
   // 상세를 보여주는 대신 상세 리포트를 바로 펼쳐서 보여준다(사용자 요청 2026-08-18) — 로그인
   // 사용자는 인연도감 카드로 바로 이어지는 다른 흐름이라 대상이 아니다.
@@ -1877,7 +1892,7 @@ function computeOhaeng(pillars) {
 function renderOhaengBars(count, elId) {
   const total = Object.values(count).reduce((a,b)=>a+b,0);
   const colors = {목:'oh-목-bar',화:'oh-화-bar',토:'oh-토-bar',금:'oh-금-bar',수:'oh-수-bar'};
-  const emojis = {목:'🌳',화:'🔥',토:'🏔',금:'⚔',수:'💧'};
+  const emojis = {목:'🌳',화:'🔥',토:'🟫',금:'⚙️',수:'💧'};
   document.getElementById(elId).innerHTML = Object.entries(count).map(([k,v]) =>
     `<div class="ohaeng-row"><div class="ohaeng-name oh-${k}">${emojis[k]}${k}</div><div class="ohaeng-bar-bg"><div class="ohaeng-bar-fill ${colors[k]}" style="width:${total?(v/total*100):0}%"></div></div><div class="ohaeng-count">${v}</div></div>`
   ).join('');
@@ -1889,7 +1904,7 @@ function renderOhaengBars(count, elId) {
 // 서로 독립적으로 0~100점 채점되는 것처럼 보였다. 실제로는 한 사람(또는 한 지표)의 100%를 다섯
 // 조각으로 나눈 것이므로, 긴 바 하나를 다섯 색으로 나눠 채우는 100% 스택바가 데이터 구조에 맞는다.
 const OHAENG_ORDER = ['목', '화', '토', '금', '수'];
-const OHAENG_EMOJI = { 목:'🌳', 화:'🔥', 토:'🏔', 금:'⚔', 수:'💧' };
+const OHAENG_EMOJI = { 목:'🌳', 화:'🔥', 토:'🟫', 금:'⚙️', 수:'💧' };
 const OHAENG_BAR_CLASS = { 목:'oh-목-bar', 화:'oh-화-bar', 토:'oh-토-bar', 금:'oh-금-bar', 수:'oh-수-bar' };
 function ohaengStackHTML(percent, opts) {
   opts = opts || {};
@@ -1903,7 +1918,8 @@ function ohaengStackHTML(percent, opts) {
   return `<div class="oh-stack-block">${name}<div class="oh-stack-track">${segs}</div><div class="oh-stack-legend">${legend}</div></div>`;
 }
 
-// Zone3 오행 비교(통합분석) — 관상 오행 구성비 스택바 + 사주 오행 구성비 스택바를 나란히 보여준다.
+// Zone3 오행 비교(통합분석) — 관상 오행 구성비 도넛 + 사주 오행 구성비 도넛을 나란히 보여준다.
+// 궁합보기 관상오행 비교(renderFaceOhaengCompare)와 같은 도넛 방식으로 통일(2026-08-25 사용자 요청).
 // 한줄평은 그래프 아래 headFaceElId/headSajuElId 두 박스에 각각 채운다(제목 없이 문구만).
 function renderOhaengCompareTable(sajuCount, faceCount, headFaceElId, headSajuElId, tableElId) {
   const sajuTotal = Object.values(sajuCount).reduce((a, b) => a + b, 0) || 1;
@@ -1919,7 +1935,21 @@ function renderOhaengCompareTable(sajuCount, faceCount, headFaceElId, headSajuEl
 
   const table = document.getElementById(tableElId);
   if (!table) return;
-  table.innerHTML = ohaengStackHTML(faceCount, { name: '🌿 관상 오행' }) + ohaengStackHTML(sajuPercent, { name: '🀄 사주 오행' });
+  const legend = OHAENG_ORDER.map(k =>
+    `<span class="gg-ohaeng-donut-legend-item"><i style="background:${OHAENG_SOLID[k]}"></i>${OHAENG_EMOJI[k]}${k}</span>`
+  ).join('');
+  table.innerHTML = `
+    <div class="gg-ohaeng-donuts">
+      <div class="gg-ohaeng-donut-block">
+        <div class="gg-ohaeng-donut-name">🌿 관상 오행</div>
+        ${ohaengDonutSVG(faceCount, 140)}
+      </div>
+      <div class="gg-ohaeng-donut-block">
+        <div class="gg-ohaeng-donut-name">🀄 사주 오행</div>
+        ${ohaengDonutSVG(sajuPercent, 140)}
+      </div>
+    </div>
+    <div class="gg-ohaeng-donut-legend">${legend}</div>`;
 }
 
 // ═══ 사주 오행 심층 리포트 — 다른 만세력 앱들처럼 "메타포 제목 + 서사 + 사주분석(근거 수치)/
@@ -2125,13 +2155,17 @@ function donutSlicePath(cx, cy, rOuter, rInner, startDeg, endDeg) {
 const DONUT_THIN_PCT = 6;
 function ohaengDonutSVG(percent, size) {
   const cx = size / 2, cy = size / 2, rOuter = size / 2 - 3, rInner = rOuter * 0.55;
+  // finalPercent(landmark-engine.js)는 오행 5개를 각각 따로 반올림해서 합이 99나 101처럼 100이
+  // 아닐 수 있다 — 그 값을 그대로 각도로 쓰면 원이 안 닫히고 12시 방향에 틈이 생긴다(사용자 리포트
+  // 2026-08-25). 실제 합(total)으로 나눠 항상 360°를 채우도록 정규화한다.
+  const total = OHAENG_ORDER.reduce((s, k) => s + Math.max(0, percent[k] || 0), 0) || 100;
   let cum = 0, paths = '', labels = '';
   OHAENG_ORDER.forEach(k => {
     const pct = Math.max(0, percent[k] || 0);
     if (pct <= 0) return;
-    const startDeg = cum / 100 * 360;
+    const startDeg = cum / total * 360;
     cum += pct;
-    const endDeg = cum / 100 * 360;
+    const endDeg = cum / total * 360;
     paths += `<path d="${donutSlicePath(cx, cy, rOuter, rInner, startDeg, endDeg)}" fill="${OHAENG_SOLID[k]}"></path>`;
     if (pct >= DONUT_THIN_PCT) {
       const mid = polarPoint(cx, cy, (rOuter + rInner) / 2, (startDeg + endDeg) / 2);
@@ -2190,13 +2224,18 @@ function renderMoneyChemi(money, elId) {
 const LIFE_STAGES = [['sangjeong', '초년'], ['jungjeong', '중년'], ['hajeong', '말년']];
 const LIFE_STAGE_CLASS = { sangjeong: 'ls-stage-sang', jungjeong: 'ls-stage-jung', hajeong: 'ls-stage-ha' };
 function lifeStageStackHTML(ratio, name) {
+  // calcSamjeongRatio(landmark-engine.js)는 초년/중년/말년 세 값을 각각 따로 반올림해서 합이 99나
+  // 101처럼 100이 아닐 수 있다 — 그 값을 그대로 폭(width%)으로 쓰면 트랙 끝까지 안 채워져서 마지막
+  // 구간(말년) 쪽이 둥근 모서리 앞에서 잘려 보인다(사용자 리포트 2026-08-25). 실제 합(total)으로
+  // 나눠 항상 트랙 전체(100%)를 채우도록 정규화한다.
+  const total = LIFE_STAGES.reduce((s, [k]) => s + Math.max(0, ratio[k] || 0), 0) || 100;
   const segs = LIFE_STAGES.map(([k]) => {
-    const pct = Math.max(0, Math.min(100, ratio[k] || 0));
-    return `<div class="ls-stack-seg ${LIFE_STAGE_CLASS[k]}" style="width:${pct}%">${pct}%</div>`;
+    const pct = Math.max(0, ratio[k] || 0);
+    return `<div class="ls-stack-seg ${LIFE_STAGE_CLASS[k]}" style="width:${pct / total * 100}%">${Math.round(pct)}%</div>`;
   }).join('');
   const labels = LIFE_STAGES.map(([k, label]) => {
-    const pct = Math.max(0, Math.min(100, ratio[k] || 0));
-    return `<div style="width:${pct}%">${label}</div>`;
+    const pct = Math.max(0, ratio[k] || 0);
+    return `<div style="width:${pct / total * 100}%">${label}</div>`;
   }).join('');
   return `<div class="ls-stack-block"><div class="ls-stack-name">${name}</div><div class="ls-stack-track">${segs}</div><div class="ls-stack-labels">${labels}</div></div>`;
 }

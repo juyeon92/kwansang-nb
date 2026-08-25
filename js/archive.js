@@ -146,22 +146,27 @@
       .set({ html: html, createdAt: new Date().toISOString() })
       .catch(e => console.error('[archive] 리포트 클라우드 저장 실패', e));
   }
+  // 반환값이 { html, confirmed } 형태인 이유 — 클라우드 조회가 권한 오류/오프라인 등으로 실패해도
+  // catch에서 예전엔 그냥 null을 돌려줬다. 그 null을 "본문이 진짜로 없다"는 뜻으로 오해해 목록에서
+  // 지워버리면(purgeOrphan), 일시적 네트워크 오류 한 번에 실제로는 멀쩡한 기록이 영구 삭제된다.
+  // confirmed=true는 "로컬에도 없고, 클라우드 문서 자체가 존재하지 않음을 직접 확인했다"는 뜻일 때만
+  // true다 — 이때만 purgeOrphan을 호출해도 안전하다.
   async function loadReportHtml(id) {
     const uid = currentUid();
-    if (!uid) return null;
+    if (!uid) return { html: null, confirmed: false };
     const local = localStorage.getItem(REPORT_PREFIX + uid + ':' + id);
-    if (local) return local;
-    if (!window.fbDb) return null;
+    if (local) return { html: local, confirmed: true };
+    if (!window.fbDb) return { html: null, confirmed: true }; // 클라우드 자체가 없으니 로컬 부재가 최종 결론
     try {
       const doc = await fbDb.collection('users').doc(uid).collection('reports').doc(id).get();
-      if (!doc.exists) return null;
+      if (!doc.exists) return { html: null, confirmed: true };
       const html = doc.data().html || null;
       // 다음 열람부터는 네트워크 없이 뜨도록 로컬에도 채워둔다.
       if (html) { try { localStorage.setItem(REPORT_PREFIX + uid + ':' + id, html); } catch (e) {} }
-      return html;
+      return { html: html, confirmed: true };
     } catch (e) {
       console.error('[archive] 리포트 불러오기 실패', e);
-      return null;
+      return { html: null, confirmed: false }; // 네트워크/권한 오류 — 실제로 없는지 확인 못 했다
     }
   }
   function removeReportHtml(uid, id) {
@@ -169,6 +174,19 @@
     if (!window.fbDb) return;
     fbDb.collection('users').doc(uid).collection('reports').doc(id).delete()
       .catch(e => console.error('[archive] 리포트 삭제 실패', e));
+  }
+  // ⚠️ 버그 수정(2026-08-25 사용자 리포트: "삭제한 것 같은데 목록엔 남아있고 열면 내용이 없다") —
+  // 목록 항목(index)은 있는데 본문(report html)이 로컬에도 클라우드에도 없는 "고아 항목"이 생길 수
+  // 있다(예: 저장 당시 로컬 용량 초과 + 클라우드 쓰기 실패가 겹치면 commitSave가 index만 추가하고
+  // 본문 저장은 조용히 실패한다). remove(id)처럼 확인창을 띄우거나 새로고침하지 않고, 못 찾은 그
+  // 자리에서 바로 무덤에 남기고 목록에서 지워 다음부터는 안 보이게 한다.
+  function purgeOrphan(id) {
+    const uid = currentUid();
+    if (!uid || !id) return;
+    console.warn('[archive] 본문 없는 고아 항목 정리', { uid: uid, id: id });
+    markDeleted(id);
+    saveIndex(loadIndex().filter(r => r.id !== id));
+    notifyChanged();
   }
 
   // 보관 목록이 바뀌었을 때(저장·삭제·로그인·로그아웃) 보관함 밖에서 이 목록을 쓰는 화면에도 알린다.
@@ -684,10 +702,15 @@
                (rec.sub ? ' · ' + esc(rec.sub) : '') + '</div>' : '') +
       '<div class="arc-report" id="arcReportBody"><div class="arc-empty">리포트를 불러오는 중…</div></div>';
 
-    const html = await loadReportHtml(viewingId);
+    const { html, confirmed } = await loadReportHtml(viewingId);
     const body = document.getElementById('arcReportBody');
     if (!body) return; // 불러오는 사이에 화면을 떠난 경우
-    body.innerHTML = html || '<div class="arc-empty">저장된 리포트를 찾을 수 없습니다. 분석을 다시 실행해주세요.</div>';
+    body.innerHTML = html
+      ? html
+      : confirmed
+        ? '<div class="arc-empty">저장된 리포트를 찾을 수 없습니다. 분석을 다시 실행해주세요.</div>'
+        : '<div class="arc-empty">리포트를 불러오지 못했어요. 네트워크 상태를 확인하고 다시 시도해주세요.</div>';
+    if (!html && confirmed) purgeOrphan(viewingId); // 본문 없음이 확인된 고아 항목만 정리(오류 시엔 그대로 둔다)
     // 이미 저장돼 있던 리포트에도 조작 요소가 섞여 있을 수 있어 여는 시점에도 한 번 걷어낸다.
     stripChrome(body);
     attachLiveDogam(body, rec);
@@ -718,8 +741,8 @@
   // 저장된 리포트 본문을 임의의 컨테이너에 그린다. 보관함 상세와 같은 정리(조작 요소 제거)를 거친다.
   async function renderInto(el, id) {
     if (!el) return false;
-    const html = await loadReportHtml(id);
-    if (!html) { el.innerHTML = ''; return false; }
+    const { html, confirmed } = await loadReportHtml(id);
+    if (!html) { el.innerHTML = ''; if (confirmed) purgeOrphan(id); return false; }
     el.innerHTML = html;
     stripChrome(el);
     return true;
