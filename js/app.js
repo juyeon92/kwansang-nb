@@ -65,9 +65,26 @@ function switchTab(tab, btn) {
   // 같은 탭 안에서의 재호출에서 "보던 화면"을 지켜주려고 만든 함수라(cmbViewingReportId/
   // cmbWantsNewAnalysis 가드), 이 탭을 나갔다 들어오는 경우에도 똑같이 그 화면을 그대로 지켜버렸다.
   // 다른 탭에 갔다 이 탭으로 "돌아오는" 시점에는 그 가드를 먼저 풀어 목록/업로드 화면 중 맞는 걸
-  // 새로 고른다 — 단, 사진을 업로드하던 중이면(state.combined.file) 그 작업은 그대로 둔다.
+  // 새로 고른다.
   if (tab === 'combined' && typeof renderCombinedSavedReport === 'function') {
-    if (!state.combined.file) {
+    const cmbAnalyzingEl = document.getElementById('cmbAnalyzing');
+    const cmbResultEl = document.getElementById('cmbResult');
+    const cmbAnalyzing = cmbAnalyzingEl && !cmbAnalyzingEl.classList.contains('hidden');
+    const cmbHasLiveResult = cmbResultEl && !cmbResultEl.classList.contains('hidden');
+    // ⚠️ 버그 수정(2026-08-25 사용자 리포트: "리포트 보고 궁합보기 갔다가 통합분석 오니 아직도
+    // 리포트") — 처음 버전은 state.combined.file이 있으면 무조건 "업로드 중"으로 보고 손대지
+    // 않았는데, 분석이 끝나 방금 만든 리포트(#cmbResult)가 떠 있는 상태도 file은 그대로 남아있어
+    // 똑같이 걸러졌다. 진짜 손대면 안 되는 경우는 "분석이 진행 중"이거나 "사진은 골랐는데 아직
+    // 결과가 없는(분석 시작 전 입력 중)" 경우뿐 — 리포트가 이미 떠 있다면 Archive.save로 보관까지
+    // 끝난 뒤라 목록으로 돌려도 안전하다.
+    if (!cmbAnalyzing && (cmbHasLiveResult || !state.combined.file)) {
+      if (cmbHasLiveResult) {
+        cmbResultEl.classList.add('hidden');
+        const cmbCanvasCardEl = document.getElementById('cmbCanvasCard');
+        if (cmbCanvasCardEl) cmbCanvasCardEl.classList.add('hidden');
+        state.combined.file = null;
+        state.combined.lm = null;
+      }
       cmbViewingReportId = null;
       const cmbSavedReportEl = document.getElementById('cmbSavedReport');
       if (cmbSavedReportEl) cmbSavedReportEl.classList.add('hidden');
@@ -75,11 +92,24 @@ function switchTab(tab, btn) {
     }
     renderCombinedSavedReport();
   }
-  // 궁합보기도 통합분석과 완전히 같은 구조(ggViewingReportId/ggWantsNewAnalysis)라 같은 문제를
-  // 그대로 갖고 있었다(사용자 요청 2026-08-25: "궁합보기도 같이 적용해줘"). 두 사람(A/B) 중 한쪽이라도
-  // 업로드 중이면 그 작업은 그대로 둔다.
+  // 궁합보기도 통합분석과 완전히 같은 구조(ggViewingReportId/ggWantsNewAnalysis, #ggResult 완료 후에도
+  // state.gunghamA/B.file이 안 지워지는 것까지)라 같은 문제를 그대로 갖고 있었다(사용자 요청
+  // 2026-08-25: "궁합보기도 같이 적용해줘").
   if (tab === 'gungham' && typeof renderGunghamSavedReport === 'function') {
-    if (!state.gunghamA.file && !state.gunghamB.file) {
+    const ggAnalyzingEl = document.getElementById('ggAnalyzing');
+    const ggResultEl = document.getElementById('ggResult');
+    const ggAnalyzing = ggAnalyzingEl && !ggAnalyzingEl.classList.contains('hidden');
+    const ggHasLiveResult = ggResultEl && !ggResultEl.classList.contains('hidden');
+    if (!ggAnalyzing && (ggHasLiveResult || (!state.gunghamA.file && !state.gunghamB.file))) {
+      if (ggHasLiveResult) {
+        ggResultEl.classList.add('hidden');
+        const ggCanvasCardEl = document.getElementById('ggCanvasCard');
+        if (ggCanvasCardEl) ggCanvasCardEl.classList.add('hidden');
+        const gunghamBackBtnEl = document.getElementById('gunghamBackBtn');
+        if (gunghamBackBtnEl) gunghamBackBtnEl.classList.add('hidden');
+        resetUpload('gunghamA');
+        resetUpload('gunghamB');
+      }
       ggViewingReportId = null;
       const ggSavedReportEl = document.getElementById('ggSavedReport');
       if (ggSavedReportEl) ggSavedReportEl.classList.add('hidden');
