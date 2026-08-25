@@ -2104,12 +2104,42 @@ function renderFaceOhaengBars(count, elId) {
 }
 // 궁합보기 Zone1 상단 — 두 사람의 관상오행(calcFaceOhaeng)을 나란히 보여준다.
 // 사진이 둘 다 있어야 나오므로 buildFaceOhaengCompare가 null을 반환하면 안내 문구만 그린다.
-// ⚠️ 재설계(2026-08-25 사용자 요청) — "오행 5개를 한 막대에 누적(스택)으로 쌓되, 그 막대를 가로가
-// 아니라 세로로 세워라"가 정확한 요청이었다(첫 시도作 좌우 대칭 막대, 두 번째 시도作 오행별로 막대를
-// 쪼갠 그룹 막대그래프는 둘 다 "누적 막대 1개"라는 요구를 놓친 오답). 사람당 막대 1개, 그 안에
-// 목화토금수 5개 구간이 위에서 아래로(또는 아래서 위로) 누적돼 합쳐서 100%가 되는 세로 스택바를
-// 나/상대방 두 개 나란히 세운다 — 기존 가로 스택바(oh-stack-track, flex-direction row)를 그대로
-// 세로(column)로 눕힌 것과 같다.
+// ⚠️ 재설계(2026-08-25 사용자 요청 — "역시 도넛이 낫겠다") — 세로 스택바 대신, 사람당 도넛 차트
+// 1개에 오행 5개 구성비를 비율대로(원 전체=100%) 나눠 보여준다. 조각 안에는 %, 도넛 두 개 아래에
+// 목화토금수 범례를 공용으로 한 줄 둔다.
+const OHAENG_SOLID = { 목: '#22c55e', 화: '#ef4444', 토: '#f59e0b', 금: '#94a3b8', 수: '#3b82f6' };
+function polarPoint(cx, cy, r, deg) {
+  const rad = deg * Math.PI / 180;
+  return { x: cx + r * Math.sin(rad), y: cy - r * Math.cos(rad) };
+}
+function donutSlicePath(cx, cy, rOuter, rInner, startDeg, endDeg) {
+  const large = (endDeg - startDeg) > 180 ? 1 : 0;
+  const p0 = polarPoint(cx, cy, rOuter, startDeg);
+  const p1 = polarPoint(cx, cy, rOuter, endDeg);
+  const p2 = polarPoint(cx, cy, rInner, endDeg);
+  const p3 = polarPoint(cx, cy, rInner, startDeg);
+  return `M ${p0.x} ${p0.y} A ${rOuter} ${rOuter} 0 ${large} 1 ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${rInner} ${rInner} 0 ${large} 0 ${p3.x} ${p3.y} Z`;
+}
+// 조각이 너무 얇으면(THIN_PCT 미만) 안에 %가 안 들어가므로 라벨을 생략 — 실제 색 조각은 비율 그대로
+// 그려서 크기를 속이지 않는다.
+const DONUT_THIN_PCT = 6;
+function ohaengDonutSVG(percent, size) {
+  const cx = size / 2, cy = size / 2, rOuter = size / 2 - 3, rInner = rOuter * 0.55;
+  let cum = 0, paths = '', labels = '';
+  OHAENG_ORDER.forEach(k => {
+    const pct = Math.max(0, percent[k] || 0);
+    if (pct <= 0) return;
+    const startDeg = cum / 100 * 360;
+    cum += pct;
+    const endDeg = cum / 100 * 360;
+    paths += `<path d="${donutSlicePath(cx, cy, rOuter, rInner, startDeg, endDeg)}" fill="${OHAENG_SOLID[k]}"></path>`;
+    if (pct >= DONUT_THIN_PCT) {
+      const mid = polarPoint(cx, cy, (rOuter + rInner) / 2, (startDeg + endDeg) / 2);
+      labels += `<text x="${mid.x}" y="${mid.y}" text-anchor="middle" dominant-baseline="central" class="gg-ohaeng-donut-label">${Math.round(pct)}%</text>`;
+    }
+  });
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="gg-ohaeng-donut">${paths}${labels}</svg>`;
+}
 function renderFaceOhaengCompare(compare, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -2119,57 +2149,28 @@ function renderFaceOhaengCompare(compare, elId) {
   }
   const topA = Object.entries(compare.a).sort((a, b) => b[1] - a[1])[0];
   const topB = Object.entries(compare.b).sort((a, b) => b[1] - a[1])[0];
-  // ⚠️ 2026-08-25 사용자 리포트: 오행 하나가 몇 %대로 아주 작으면 그 구간 높이가 몇 px밖에 안 돼서
-  // 안의 "N%" 글자가 잘려 안 보였다(overflow:hidden). 작다고 실제보다 크게 그리면(예: 무조건 10%
-  // 취급) 다른 오행 높이를 줄여서 비율 자체가 거짓말이 되므로, 대신 그 구간만 막대 "바깥"에 작은
-  // 라벨을 붙인다 — 나(왼쪽 막대)는 왼쪽 바깥, 상대방(오른쪽 막대)은 오른쪽 바깥. 실제 색 띠는
-  // min-height로 최소한의 두께만 보장해 완전히 사라지지는 않게 한다.
-  const THIN_PCT = 8; // 11px 굵은 글씨가 안에 들어가려면 대략 이 정도(200px 기준 16px) 이상 필요
-  function stackHTML(percent, outSide) {
-    let cum = 0;
-    let segs = '', outs = '';
-    OHAENG_ORDER.forEach(k => {
-      const pct = Math.max(0, Math.min(100, Math.round(percent[k] || 0)));
-      const thin = pct > 0 && pct < THIN_PCT;
-      segs += `<div class="gg-ohaeng-vseg ${OHAENG_BAR_CLASS[k]}" style="height:${pct}%">${thin ? '' : pct + '%'}</div>`;
-      if (thin) {
-        const centerTop = cum + pct / 2;
-        outs += `<span class="gg-ohaeng-vseg-out ${outSide}" style="top:${centerTop}%">${pct}%</span>`;
-      }
-      cum += pct;
-    });
-    return `<div class="gg-ohaeng-vstack-wrap">
-        <div class="gg-ohaeng-vstack-track">${segs}</div>
-        ${outs}
-      </div>`;
-  }
-  // 목화토금수 글자 범례(2026-08-25 재배치) — 아래 한 줄로 빼지 않고 두 막대 "사이"에 세로로 좁게
-  // 끼워 넣는다(사용자 요청: "최대한 공간 차지 덜하게"). 어느 한쪽 막대 구간 높이에 맞추면 다른 쪽과는
-  // 안 맞으므로 5개를 균등 간격으로만 배치 — 정확한 높이 정렬용이 아니라 "이 색 = 이 오행" 대조표다.
-  const midKey = OHAENG_ORDER.map(k => `<span class="oh-${k}">${OHAENG_EMOJI[k]}${k}</span>`).join('');
-  // 대표 오행(1위)을 그 오행 색 뱃지로 보여준다 — 글자로만 "· 토형"이라고 쓰면 어떤 색인지 안 와닿아서,
-  // 막대 안 세그먼트와 같은 팔레트(OHAENG_BAR_CLASS)를 뱃지 배경에 그대로 써서 눈으로 바로 연결되게 한다.
-  // 이름(나/상대방)과 뱃지(토형 등)는 가로 한 줄이 아니라 위아래로 쌓는다(사용자 요청).
+  // 대표 오행(1위)을 그 오행 색 뱃지로 보여준다 — 도넛 색과 같은 팔레트를 배지 배경에 재사용해서
+  // 눈으로 바로 "이 도넛 = 이 색 = 이 유형"이 연결되게 한다.
   function ohaengBadge(top) {
-    return top ? `<span class="gg-ohaeng-badge ${OHAENG_BAR_CLASS[top[0]]}">${OHAENG_EMOJI[top[0]]} ${top[0]}형</span>` : '';
+    return top ? `<span class="gg-ohaeng-badge ${OHAENG_BAR_CLASS[top[0]]}">${top[0]}형</span>` : '';
   }
+  const legend = OHAENG_ORDER.map(k =>
+    `<span class="gg-ohaeng-donut-legend-item"><i style="background:${OHAENG_SOLID[k]}"></i>${OHAENG_EMOJI[k]}${k}</span>`
+  ).join('');
   el.innerHTML = `
-    <div class="gg-ohaeng-vstacks">
-      ${stackHTML(compare.a, 'left')}
-      <div class="gg-ohaeng-vlegend-mid">${midKey}</div>
-      ${stackHTML(compare.b, 'right')}
-    </div>
-    <div class="gg-ohaeng-vnames">
-      <div class="gg-ohaeng-vstack-name">
-        <span>나</span>
+    <div class="gg-ohaeng-donuts">
+      <div class="gg-ohaeng-donut-block">
+        <div class="gg-ohaeng-donut-name">나</div>
+        ${ohaengDonutSVG(compare.a, 140)}
         ${ohaengBadge(topA)}
       </div>
-      <div class="gg-ohaeng-vlegend-spacer"></div>
-      <div class="gg-ohaeng-vstack-name">
-        <span>상대방</span>
+      <div class="gg-ohaeng-donut-block">
+        <div class="gg-ohaeng-donut-name">상대방</div>
+        ${ohaengDonutSVG(compare.b, 140)}
         ${ohaengBadge(topB)}
       </div>
-    </div>`;
+    </div>
+    <div class="gg-ohaeng-donut-legend">${legend}</div>`;
 }
 // 재물관상 케미(4-2) 렌더 — buildMoneyChemi가 null(사진 없음)이면 안내 문구만 그린다.
 function renderMoneyChemi(money, elId) {
@@ -2183,8 +2184,22 @@ function renderMoneyChemi(money, elId) {
       </div>`
     : `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 재물관상 케미를 볼 수 있어요.</div>`;
 }
-// 생애주기(초년·중년·말년) 궁합(4-1) 렌더 — 4-4의 diverging bar(gg-ohaeng-row)를 그대로 재사용해
-// 목화토금수 5행 대신 3행(초년/중년/말년)으로 표시한다.
+// 생애주기(초년·중년·말년) 궁합(4-1) 렌더 — 좌우 대칭 diverging bar(gg-ohaeng-row) 대신, 오행
+// 스택바(ohaengStackHTML)와 같은 원리로 사람당 가로 막대 1개에 세 구간을 비율대로 쌓아서 보여준다
+// (사용자 요청 2026-08-25: 가로 막대그래프 + 구간별로 나눠 표기).
+const LIFE_STAGES = [['sangjeong', '초년'], ['jungjeong', '중년'], ['hajeong', '말년']];
+const LIFE_STAGE_CLASS = { sangjeong: 'ls-stage-sang', jungjeong: 'ls-stage-jung', hajeong: 'ls-stage-ha' };
+function lifeStageStackHTML(ratio, name) {
+  const segs = LIFE_STAGES.map(([k]) => {
+    const pct = Math.max(0, Math.min(100, ratio[k] || 0));
+    return `<div class="ls-stack-seg ${LIFE_STAGE_CLASS[k]}" style="width:${pct}%">${pct}%</div>`;
+  }).join('');
+  const labels = LIFE_STAGES.map(([k, label]) => {
+    const pct = Math.max(0, Math.min(100, ratio[k] || 0));
+    return `<div style="width:${pct}%">${label}</div>`;
+  }).join('');
+  return `<div class="ls-stack-block"><div class="ls-stack-name">${name}</div><div class="ls-stack-track">${segs}</div><div class="ls-stack-labels">${labels}</div></div>`;
+}
 function renderLifeStageChemi(life, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -2192,15 +2207,8 @@ function renderLifeStageChemi(life, elId) {
     el.innerHTML = `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 생애주기 궁합을 볼 수 있어요.</div>`;
     return;
   }
-  const rows = [['sangjeong', '초년'], ['jungjeong', '중년'], ['hajeong', '말년']].map(([k, label]) => `
-    <div class="gg-ohaeng-row">
-      <div class="gg-ohaeng-pct">${life.a[k]}%</div>
-      <div class="gg-ohaeng-barL"><div class="gg-ohaeng-fill" style="width:${life.a[k]}%;background:var(--mint);"></div></div>
-      <div class="gg-ohaeng-label">${label}</div>
-      <div class="gg-ohaeng-barR"><div class="gg-ohaeng-fill" style="width:${life.b[k]}%;background:var(--mint);"></div></div>
-      <div class="gg-ohaeng-pct right">${life.b[k]}%</div>
-    </div>`).join('');
-  el.innerHTML = rows + `<div class="chemi-card" style="margin-top:10px;"><div class="chemi-role">${life.text}</div></div>`;
+  const stacks = lifeStageStackHTML(life.a, '나') + lifeStageStackHTML(life.b, '상대방');
+  el.innerHTML = stacks + `<div class="chemi-card" style="margin-top:10px;"><div class="chemi-role">${life.text}</div></div>`;
 }
 
 // ═══ COMBINED ═══

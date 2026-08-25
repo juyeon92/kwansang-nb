@@ -630,34 +630,30 @@ body {
 .oh-stack-track { display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: var(--card2); }
 .oh-stack-seg { height: 100%; }
 .oh-stack-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 7px; font-size: 11.5px; font-weight: 700; }
-/* 궁합보기 관상오행 비교(renderFaceOhaengCompare) — 세로 누적 막대(2026-08-25 재설계: "하나의
-   막대로 누적으로, 그 막대를 가로가 아니라 세로로"). 위 .oh-stack-track/.oh-stack-seg(가로 스택바,
-   flex-direction row)와 원리는 완전히 같고 방향만 column으로 눕혔다 — 사람당 막대 1개, 그 안에
-   목화토금수 5구간이 위→아래로 쌓여 합이 100%가 된다. 나/상대방 막대 두 개를 나란히 세운다.
-   목화토금수 글자 범례는 두 막대 "사이"에 얇게 끼워 넣고(공간 절약), 이름 줄은 막대와 같은 폭으로
-   막대 밑에 따로 한 번 더 두어 좌우 정렬을 맞춘다(.gg-ohaeng-vlegend-spacer가 가운데 범례 폭만큼
-   자리를 비워줌). */
-.gg-ohaeng-vstacks { display: flex; justify-content: center; align-items: flex-end; gap: 10px; }
-/* 라벨을 밖에 붙일 위치의 기준점 — position:relative가 있어야 .gg-ohaeng-vseg-out이 이 막대
-   기준으로 자기 위치(위에서부터 %)를 잡을 수 있다. */
-.gg-ohaeng-vstack-wrap { position: relative; }
-.gg-ohaeng-vstack-track { display: flex; flex-direction: column; width: 64px; height: 200px; border-radius: 14px; overflow: hidden; background: var(--card2); }
-.gg-ohaeng-vseg {
-  width: 100%; min-height: 3px; display: flex; align-items: center; justify-content: center; overflow: hidden;
-  font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-}
-/* 구간이 너무 얇아 안에 %를 못 넣을 때(js의 THIN_PCT) 막대 바깥에 붙이는 작은 라벨 — 나(왼쪽 막대)는
-   왼쪽 바깥, 상대방(오른쪽 막대)은 오른쪽 바깥에 둬서 가운데 범례 쪽을 침범하지 않는다. */
-.gg-ohaeng-vseg-out { position: absolute; transform: translateY(-50%); font-size: 9px; font-weight: 800; color: var(--text2); white-space: nowrap; }
-.gg-ohaeng-vseg-out.left { right: calc(100% + 4px); }
-.gg-ohaeng-vseg-out.right { left: calc(100% + 4px); }
-.gg-ohaeng-vlegend-mid { display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 200px; padding: 2px 0; font-size: 9.5px; font-weight: 700; line-height: 1; }
-.gg-ohaeng-vnames { display: flex; justify-content: center; align-items: flex-start; gap: 10px; margin-top: 10px; }
-.gg-ohaeng-vlegend-spacer { width: 44px; flex-shrink: 0; }
-.gg-ohaeng-vstack-name { width: 64px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; color: var(--text-strong); white-space: nowrap; }
-/* 대표 오행 뱃지 — 막대 세그먼트와 같은 팔레트(oh-목-bar 등)를 배경으로 재사용해 "이 사람 = 이 색"이
+/* 궁합보기 관상오행 비교(renderFaceOhaengCompare) — 도넛 차트(2026-08-25 재설계: "역시 도넛이
+   낫겠다"). 세로 스택바 대신 사람당 도넛 1개에 오행 5개 구성비를 원 전체=100%로 나눠 그린다.
+   나/상대방 도넛 두 개를 나란히 두고, 목화토금수 범례는 그 아래 한 줄로 공용으로 둔다. */
+.gg-ohaeng-donuts { display: flex; justify-content: center; align-items: flex-start; gap: 24px; }
+.gg-ohaeng-donut-block { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.gg-ohaeng-donut-name { font-size: 12px; font-weight: 800; color: var(--text-strong); }
+.gg-ohaeng-donut-label { font-size: 10.5px; font-weight: 800; fill: #fff; }
+.gg-ohaeng-donut-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 12px; margin-top: 14px; font-size: 11.5px; font-weight: 700; color: var(--text-strong); }
+.gg-ohaeng-donut-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.gg-ohaeng-donut-legend-item i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+/* 대표 오행 뱃지 — 도넛 조각과 같은 팔레트(oh-목-bar 등)를 배경으로 재사용해 "이 사람 = 이 색"이
    바로 연결되게 한다. */
 .gg-ohaeng-badge { display: inline-flex; align-items: center; gap: 2px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+
+/* 생애주기 궁합 — 오행 스택바(oh-stack-track)와 같은 원리로, 사람당 가로 막대 1개에 초년/중년/말년
+   3구간을 비율대로 쌓는다. 구간 아래 라벨도 같은 폭(width:%)으로 맞춰 그 구간 밑에 정확히 오게 한다. */
+.ls-stack-block + .ls-stack-block { margin-top: 14px; }
+.ls-stack-name { font-size: 12px; font-weight: 800; color: var(--text-strong); margin-bottom: 6px; }
+.ls-stack-track { display: flex; height: 34px; border-radius: 10px; overflow: hidden; background: var(--card2); }
+.ls-stack-seg { display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.25); overflow: hidden; white-space: nowrap; }
+.ls-stack-labels { display: flex; margin-top: 6px; font-size: 11px; font-weight: 700; color: var(--text2); text-align: center; white-space: nowrap; }
+.ls-stage-sang { background: linear-gradient(90deg, #93c5fd, #60a5fa); }
+.ls-stage-jung { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.ls-stage-ha   { background: linear-gradient(90deg, #4338ca, #3730a3); }
 
 /* ── Compatibility ── */
 .compat-section { margin-bottom: 20px; }
