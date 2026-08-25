@@ -75,6 +75,18 @@ function switchTab(tab, btn) {
     }
     renderCombinedSavedReport();
   }
+  // 궁합보기도 통합분석과 완전히 같은 구조(ggViewingReportId/ggWantsNewAnalysis)라 같은 문제를
+  // 그대로 갖고 있었다(사용자 요청 2026-08-25: "궁합보기도 같이 적용해줘"). 두 사람(A/B) 중 한쪽이라도
+  // 업로드 중이면 그 작업은 그대로 둔다.
+  if (tab === 'gungham' && typeof renderGunghamSavedReport === 'function') {
+    if (!state.gunghamA.file && !state.gunghamB.file) {
+      ggViewingReportId = null;
+      const ggSavedReportEl = document.getElementById('ggSavedReport');
+      if (ggSavedReportEl) ggSavedReportEl.classList.add('hidden');
+      ggWantsNewAnalysis = false;
+    }
+    renderGunghamSavedReport();
+  }
   // 비로그인 사용자가 이미 만든 도감(캐릭터)이 있으면, 요약 카드+업로드 폼만 보여주고 클릭해야
   // 상세를 보여주는 대신 상세 리포트를 바로 펼쳐서 보여준다(사용자 요청 2026-08-18) — 로그인
   // 사용자는 인연도감 카드로 바로 이어지는 다른 흐름이라 대상이 아니다.
