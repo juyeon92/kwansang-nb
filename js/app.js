@@ -6,7 +6,7 @@ const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 // Stored state per context
 const state = {
   gwansang: { relation: '본인', file: null, lm: null, w: 0, h: 0 },
-  combined: { relation: '본인', file: null, lm: null, q1: '', q2: '', q3: '' },
+  combined: { relation: '본인', name: '', file: null, lm: null, q1: '', q2: '', q3: '' },
   gunghamA: { file: null, lm: null },
   gunghamB: { file: null, lm: null },
   gungham: { relation: '연인/배우자' },
