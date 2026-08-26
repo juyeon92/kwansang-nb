@@ -614,9 +614,12 @@ body {
 .oh-토 { color: #b8860b; } .oh-토-bar { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
 .oh-금 { color: #6b7280; } .oh-금-bar { background: linear-gradient(90deg, #cbd5e1, #94a3b8); }
 .oh-수 { color: #2563eb; } .oh-수-bar { background: linear-gradient(90deg, #60a5fa, #3b82f6); }
-.gg-ohaeng-row { display: grid; grid-template-columns: 30px 1fr 40px 1fr 30px; align-items: center; gap: 6px; margin-bottom: 9px; }
-.gg-ohaeng-pct { font-size: 11px; color: var(--text2); }
+.gg-ohaeng-cols-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: var(--text-sub); margin-bottom: 8px; }
+.gg-ohaeng-row { display: grid; grid-template-columns: 34px 1fr 40px 1fr 34px; align-items: center; gap: 6px; margin-bottom: 9px; }
+.gg-ohaeng-pct { font-size: 12px; font-weight: 700; color: var(--text2); }
 .gg-ohaeng-pct.right { text-align: right; }
+.gg-ohaeng-pct.zero { color: var(--text3); font-weight: 500; }
+.gg-ohaeng-unit { font-size: 9.5px; font-weight: 500; color: var(--text3); margin: 0 1px; }
 .gg-ohaeng-label { text-align: center; font-size: 12px; font-weight: 800; }
 .gg-ohaeng-barL, .gg-ohaeng-barR { height: 9px; background: var(--card2); border-radius: 999px; overflow: hidden; }
 .gg-ohaeng-barL { display: flex; justify-content: flex-end; }
@@ -630,19 +633,12 @@ body {
 .oh-stack-track { display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: var(--card2); }
 .oh-stack-seg { height: 100%; }
 .oh-stack-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 7px; font-size: 11.5px; font-weight: 700; }
-/* 궁합보기 관상오행 비교(renderFaceOhaengCompare) — 도넛 차트(2026-08-25 재설계: "역시 도넛이
-   낫겠다"). 세로 스택바 대신 사람당 도넛 1개에 오행 5개 구성비를 원 전체=100%로 나눠 그린다.
-   나/상대방 도넛 두 개를 나란히 두고, 목화토금수 범례는 그 아래 한 줄로 공용으로 둔다. */
-.gg-ohaeng-donuts { display: flex; justify-content: center; align-items: flex-start; gap: 24px; }
-.gg-ohaeng-donut-block { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.gg-ohaeng-donut-name { font-size: 12px; font-weight: 800; color: var(--text-strong); }
-.gg-ohaeng-donut-label { font-size: 10.5px; font-weight: 800; fill: #fff; }
-.gg-ohaeng-donut-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 12px; margin-top: 14px; font-size: 11.5px; font-weight: 700; color: var(--text-strong); }
-.gg-ohaeng-donut-legend-item { display: inline-flex; align-items: center; gap: 5px; }
-.gg-ohaeng-donut-legend-item i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
 /* 대표 오행 뱃지 — 도넛 조각과 같은 팔레트(oh-목-bar 등)를 배경으로 재사용해 "이 사람 = 이 색"이
    바로 연결되게 한다. */
 .gg-ohaeng-badge { display: inline-flex; align-items: center; gap: 2px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+/* wide 변형 — "토형" 세 글자가 아니라 FACE_OHAENG_TITLE 한줄평 문구를 담을 때(궁합보기 관상오행
+   비교, 2026-08-27). 알약 모양 대신 oh-headline-box처럼 줄바꿈되는 카드형으로 바꾼다. */
+.gg-ohaeng-badge.wide { flex: 1; display: block; white-space: normal; line-height: 1.5; padding: 9px 10px; border-radius: 12px; font-size: 11.5px; text-align: center; }
 
 /* 생애주기 궁합 — 오행 스택바(oh-stack-track)와 같은 원리로, 사람당 가로 막대 1개에 초년/중년/말년
    3구간을 비율대로 쌓는다. 구간 아래 라벨도 같은 폭(width:%)으로 맞춰 그 구간 밑에 정확히 오게 한다. */
@@ -2385,9 +2381,9 @@ body.overlay-open { overflow: hidden; }
         <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🤝 두 사람의 역할분담 케미</div>
         <div id="ggRoleCards"></div>
 
-        <!-- ③ 관상오행 비교 — "나"/"상대방" 헤더를 따로 안 둔다(사용자 요청 2026-08-24: 이름이
-             2번씩 나오는 게 헷갈림). renderFaceOhaengCompare가 그리는 각 막대 위 라벨("나 · 토형")이
-             그 역할을 대신한다. -->
+        <!-- ③ 관상오행 비교 — 막대 그래프로 재변경(2026-08-27, 통합분석 Zone2와 같은 이유).
+             "나 ❤ 상대방" 헤더 하나만 위에 두고, 오행별 대표 뱃지는 renderFaceOhaengCompare가
+             막대 아래에 한 번 더 그린다(이름을 2번 반복하지 않는다는 2026-08-24 원칙은 유지). -->
         <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🌿 관상오행 비교</div>
         <div id="ggFaceOhaengCompare" style="padding-bottom:20px;"></div>
         <div class="gg-item" id="ggZone1AiShape"></div>

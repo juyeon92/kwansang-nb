@@ -1960,38 +1960,45 @@ function ohaengStackHTML(percent, opts) {
   return `<div class="oh-stack-block">${name}<div class="oh-stack-track">${segs}</div><div class="oh-stack-legend">${legend}</div></div>`;
 }
 
-// Zone3 오행 비교(통합분석) — 관상 오행 구성비 도넛 + 사주 오행 구성비 도넛을 나란히 보여준다.
-// 궁합보기 관상오행 비교(renderFaceOhaengCompare)와 같은 도넛 방식으로 통일(2026-08-25 사용자 요청).
-// 한줄평은 그래프 아래 headFaceElId/headSajuElId 두 박스에 각각 채운다(제목 없이 문구만).
+// Zone3 오행 비교(통합분석) — 관상(%) vs 사주(개) 좌우 대칭 막대로 나란히 보여준다.
+// 도넛(2026-08-25)에서 다시 막대로 되돌림(2026-08-27 사용자 요청) — 두 도넛의 조각 각도를 서로
+// 대조하는 것보다, 오행별로 한 줄씩 정렬된 막대 길이를 비교하는 쪽이 더 직관적이었고, 사주를
+// 8칸 정수로 반올림하면 "0개(편중)"가 도넛에서는 아예 사라져 안 보이는 문제도 있었다.
+// 단위는 일부러 안 맞춘다: 관상은 원래 연속 퍼센트라 그대로 두고(억지로 정수 카운트로 반올림하면
+// 12%·19%가 똑같이 "1개"로 뭉개짐), 사주는 원래 정수 개수라 그대로 둔다. 각 숫자에 %/개 단위를
+// 직접 붙여서 두 지표가 다른 걸 잰다는 걸 바로 알 수 있게 한다. 사주 총합은 시주 미상이면 6으로
+// 줄어드는데(feature/saju-siju-estimate), 바 길이 기준(분모)도 그 실제 총합을 따라간다.
 function renderOhaengCompareTable(sajuCount, faceCount, headFaceElId, headSajuElId, tableElId) {
   const sajuTotal = Object.values(sajuCount).reduce((a, b) => a + b, 0) || 1;
-  const sajuPercent = {};
-  OHAENG_ORDER.forEach(k => { sajuPercent[k] = (sajuCount[k] || 0) / sajuTotal * 100; });
 
   const domSaju = Object.entries(sajuCount).sort((a, b) => b[1] - a[1])[0][0];
   const domFace = Object.entries(faceCount).sort((a, b) => b[1] - a[1])[0][0];
   const headFace = document.getElementById(headFaceElId);
   const headSaju = document.getElementById(headSajuElId);
-  if (headFace) headFace.textContent = FACE_OHAENG_TITLE[domFace];
-  if (headSaju) headSaju.textContent = OHAENG_TITLE_SHORT[domSaju];
+  if (headFace) headFace.innerHTML = ohaengLineBreak(FACE_OHAENG_TITLE[domFace]);
+  if (headSaju) headSaju.innerHTML = ohaengLineBreak(OHAENG_TITLE_SHORT[domSaju]);
 
   const table = document.getElementById(tableElId);
   if (!table) return;
-  const legend = OHAENG_ORDER.map(k =>
-    `<span class="gg-ohaeng-donut-legend-item"><i style="background:${OHAENG_SOLID[k]}"></i>${OHAENG_EMOJI[k]}${k}</span>`
-  ).join('');
+  const rows = OHAENG_ORDER.map(k => {
+    const fp = Math.max(0, Math.min(100, faceCount[k] || 0));
+    const sc = sajuCount[k] || 0;
+    const sw = Math.max(0, Math.min(100, sc / sajuTotal * 100));
+    return `
+      <div class="gg-ohaeng-row">
+        <div class="gg-ohaeng-pct">${Math.round(fp)}<span class="gg-ohaeng-unit">%</span></div>
+        <div class="gg-ohaeng-barL"><div class="gg-ohaeng-fill ${OHAENG_BAR_CLASS[k]}" style="width:${fp}%"></div></div>
+        <div class="gg-ohaeng-label oh-${k}">${OHAENG_EMOJI[k]}${k}</div>
+        <div class="gg-ohaeng-barR"><div class="gg-ohaeng-fill ${OHAENG_BAR_CLASS[k]}" style="width:${sw}%"></div></div>
+        <div class="gg-ohaeng-pct right${sc === 0 ? ' zero' : ''}">${sc}<span class="gg-ohaeng-unit">개</span></div>
+      </div>`;
+  }).join('');
   table.innerHTML = `
-    <div class="gg-ohaeng-donuts">
-      <div class="gg-ohaeng-donut-block">
-        <div class="gg-ohaeng-donut-name">🌿 관상 오행</div>
-        ${ohaengDonutSVG(faceCount, 140)}
-      </div>
-      <div class="gg-ohaeng-donut-block">
-        <div class="gg-ohaeng-donut-name">🀄 사주 오행</div>
-        ${ohaengDonutSVG(sajuPercent, 140)}
-      </div>
+    <div class="gg-ohaeng-cols-head">
+      <span>🌿 관상 · %</span>
+      <span>🀄 사주 · 실제 ${sajuTotal}자</span>
     </div>
-    <div class="gg-ohaeng-donut-legend">${legend}</div>`;
+    ${rows}`;
 }
 
 // ═══ 사주 오행 심층 리포트 — 다른 만세력 앱들처럼 "메타포 제목 + 서사 + 사주분석(근거 수치)/
@@ -2099,6 +2106,10 @@ const FACE_OHAENG_TITLE = {
 // 헤드라인용, 20자 이상)은 FACE_OHAENG_TITLE(관상, 14~16자)보다 훨씬 길어서 두 박스를 나란히 두면
 // 높이가 안 맞았다. OHAENG_TITLE 자체는 다른 탭에서 이미 쓰고 있어 못 건드리고, FACE_OHAENG_TITLE과
 // 같은 문형("~한, X형 OO")으로 길이를 맞춘 전용 세트를 새로 둔다.
+// FACE_OHAENG_TITLE·OHAENG_TITLE_SHORT는 전부 "~한, X형/기운 OO" 문형이라 쉼표 뒤에서 자연스럽게
+// 끊긴다. 브라우저 자동 줄바꿈에 맡기면 폭에 따라 엉뚱한 자리에서 끊길 수 있어(2026-08-27 사용자
+// 요청), 쉼표 뒤에 <br>을 강제로 넣어 항상 그 지점에서만 줄이 바뀌게 한다.
+const ohaengLineBreak = s => s.replace(', ', ',<br>');
 const OHAENG_TITLE_SHORT = {
   목: '쭉쭉 뻗어나가는, 목 기운의 사주',
   화: '열정이 넘쳐나는, 화 기운의 사주',
@@ -2176,46 +2187,9 @@ function renderFaceOhaengBars(count, elId) {
 }
 // 궁합보기 Zone1 상단 — 두 사람의 관상오행(calcFaceOhaeng)을 나란히 보여준다.
 // 사진이 둘 다 있어야 나오므로 buildFaceOhaengCompare가 null을 반환하면 안내 문구만 그린다.
-// ⚠️ 재설계(2026-08-25 사용자 요청 — "역시 도넛이 낫겠다") — 세로 스택바 대신, 사람당 도넛 차트
-// 1개에 오행 5개 구성비를 비율대로(원 전체=100%) 나눠 보여준다. 조각 안에는 %, 도넛 두 개 아래에
-// 목화토금수 범례를 공용으로 한 줄 둔다.
-const OHAENG_SOLID = { 목: '#22c55e', 화: '#ef4444', 토: '#f59e0b', 금: '#94a3b8', 수: '#3b82f6' };
-function polarPoint(cx, cy, r, deg) {
-  const rad = deg * Math.PI / 180;
-  return { x: cx + r * Math.sin(rad), y: cy - r * Math.cos(rad) };
-}
-function donutSlicePath(cx, cy, rOuter, rInner, startDeg, endDeg) {
-  const large = (endDeg - startDeg) > 180 ? 1 : 0;
-  const p0 = polarPoint(cx, cy, rOuter, startDeg);
-  const p1 = polarPoint(cx, cy, rOuter, endDeg);
-  const p2 = polarPoint(cx, cy, rInner, endDeg);
-  const p3 = polarPoint(cx, cy, rInner, startDeg);
-  return `M ${p0.x} ${p0.y} A ${rOuter} ${rOuter} 0 ${large} 1 ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${rInner} ${rInner} 0 ${large} 0 ${p3.x} ${p3.y} Z`;
-}
-// 조각이 너무 얇으면(THIN_PCT 미만) 안에 %가 안 들어가므로 라벨을 생략 — 실제 색 조각은 비율 그대로
-// 그려서 크기를 속이지 않는다.
-const DONUT_THIN_PCT = 6;
-function ohaengDonutSVG(percent, size) {
-  const cx = size / 2, cy = size / 2, rOuter = size / 2 - 3, rInner = rOuter * 0.55;
-  // finalPercent(landmark-engine.js)는 오행 5개를 각각 따로 반올림해서 합이 99나 101처럼 100이
-  // 아닐 수 있다 — 그 값을 그대로 각도로 쓰면 원이 안 닫히고 12시 방향에 틈이 생긴다(사용자 리포트
-  // 2026-08-25). 실제 합(total)으로 나눠 항상 360°를 채우도록 정규화한다.
-  const total = OHAENG_ORDER.reduce((s, k) => s + Math.max(0, percent[k] || 0), 0) || 100;
-  let cum = 0, paths = '', labels = '';
-  OHAENG_ORDER.forEach(k => {
-    const pct = Math.max(0, percent[k] || 0);
-    if (pct <= 0) return;
-    const startDeg = cum / total * 360;
-    cum += pct;
-    const endDeg = cum / total * 360;
-    paths += `<path d="${donutSlicePath(cx, cy, rOuter, rInner, startDeg, endDeg)}" fill="${OHAENG_SOLID[k]}"></path>`;
-    if (pct >= DONUT_THIN_PCT) {
-      const mid = polarPoint(cx, cy, (rOuter + rInner) / 2, (startDeg + endDeg) / 2);
-      labels += `<text x="${mid.x}" y="${mid.y}" text-anchor="middle" dominant-baseline="central" class="gg-ohaeng-donut-label">${Math.round(pct)}%</text>`;
-    }
-  });
-  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="gg-ohaeng-donut">${paths}${labels}</svg>`;
-}
+// 궁합보기 관상오행 비교 — 도넛(2026-08-25)에서 좌우 대칭 막대로 되돌림(2026-08-27 사용자 요청,
+// 통합분석 Zone2와 같은 이유: 두 조각의 각도 대조보다 오행별 한 줄 막대 길이 대조가 더 직관적).
+// 여기는 나·상대방 둘 다 관상(퍼센트)이라 단위가 같으므로, Zone2 사주 비교와 달리 %/% 그대로 맞대면 된다.
 function renderFaceOhaengCompare(compare, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -2225,28 +2199,35 @@ function renderFaceOhaengCompare(compare, elId) {
   }
   const topA = Object.entries(compare.a).sort((a, b) => b[1] - a[1])[0];
   const topB = Object.entries(compare.b).sort((a, b) => b[1] - a[1])[0];
-  // 대표 오행(1위)을 그 오행 색 뱃지로 보여준다 — 도넛 색과 같은 팔레트를 배지 배경에 재사용해서
-  // 눈으로 바로 "이 도넛 = 이 색 = 이 유형"이 연결되게 한다.
+  // 대표 오행(1위) 한줄평 — "토형" 세 글자 뱃지 대신, 통합분석 Zone2 헤드라인과 같은 문구
+  // (FACE_OHAENG_TITLE)를 그대로 재사용한다(2026-08-27 사용자 요청). 그쪽 헤드라인 박스가 이미
+  // 비슷한 폭에서 2줄로 자연스럽게 줄바꿈되는 걸 확인해서, 여기도 같은 wide 박스로 만든다.
   function ohaengBadge(top) {
-    return top ? `<span class="gg-ohaeng-badge ${OHAENG_BAR_CLASS[top[0]]}">${top[0]}형</span>` : '';
+    return top ? `<span class="gg-ohaeng-badge wide ${OHAENG_BAR_CLASS[top[0]]}">${ohaengLineBreak(FACE_OHAENG_TITLE[top[0]])}</span>` : '';
   }
-  const legend = OHAENG_ORDER.map(k =>
-    `<span class="gg-ohaeng-donut-legend-item"><i style="background:${OHAENG_SOLID[k]}"></i>${OHAENG_EMOJI[k]}${k}</span>`
-  ).join('');
+  const rows = OHAENG_ORDER.map(k => {
+    const a = Math.max(0, Math.min(100, compare.a[k] || 0));
+    const b = Math.max(0, Math.min(100, compare.b[k] || 0));
+    return `
+      <div class="gg-ohaeng-row">
+        <div class="gg-ohaeng-pct">${Math.round(a)}<span class="gg-ohaeng-unit">%</span></div>
+        <div class="gg-ohaeng-barL"><div class="gg-ohaeng-fill ${OHAENG_BAR_CLASS[k]}" style="width:${a}%"></div></div>
+        <div class="gg-ohaeng-label oh-${k}">${OHAENG_EMOJI[k]}${k}</div>
+        <div class="gg-ohaeng-barR"><div class="gg-ohaeng-fill ${OHAENG_BAR_CLASS[k]}" style="width:${b}%"></div></div>
+        <div class="gg-ohaeng-pct right">${Math.round(b)}<span class="gg-ohaeng-unit">%</span></div>
+      </div>`;
+  }).join('');
   el.innerHTML = `
-    <div class="gg-ohaeng-donuts">
-      <div class="gg-ohaeng-donut-block">
-        <div class="gg-ohaeng-donut-name">나</div>
-        ${ohaengDonutSVG(compare.a, 140)}
-        ${ohaengBadge(topA)}
-      </div>
-      <div class="gg-ohaeng-donut-block">
-        <div class="gg-ohaeng-donut-name">상대방</div>
-        ${ohaengDonutSVG(compare.b, 140)}
-        ${ohaengBadge(topB)}
-      </div>
+    <div class="gg-manse-head" style="margin-bottom:12px;">
+      <div class="gg-manse-name">나</div>
+      <div class="gg-manse-heart">❤</div>
+      <div class="gg-manse-name">상대방</div>
     </div>
-    <div class="gg-ohaeng-donut-legend">${legend}</div>`;
+    ${rows}
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      ${ohaengBadge(topA)}
+      ${ohaengBadge(topB)}
+    </div>`;
 }
 // 재물관상 케미(4-2) 렌더 — buildMoneyChemi가 null(사진 없음)이면 안내 문구만 그린다.
 function renderMoneyChemi(money, elId) {
