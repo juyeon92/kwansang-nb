@@ -1,0 +1,199 @@
+<title>시주 추정 표시 목업</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --mint:#55CCBB; --mint-10:rgba(85,204,187,.10); --mint-border:#CBEDE6;
+  --beige:#E6D1A7; --beige-bg:#F8F4EC; --beige-chip-text:#675536;
+  --ink:#163B38; --jade:#2F6F68; --card2:#F0F4F3; --border:#E3E9E7;
+  --text:#17201F; --text2:#68716F; --text3:#9AA3A1;
+  --est:#E68A2E; --est-bg:#FDF1E3; --est-border:#F3D6AC;
+  --page-bg:#EDEBE6; --paper:#FFFFFF; --paper2:#FAF9F6;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--page-bg);}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Pretendard','Malgun Gothic','맑은 고딕',sans-serif;
+  color:var(--text); padding:40px 20px 72px; min-height:100vh;
+}
+.wrap{max-width:900px;margin:0 auto;}
+
+/* ── page chrome ── */
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--jade);text-transform:uppercase;}
+h1{font-family:'Noto Serif KR',serif;font-size:26px;font-weight:700;color:var(--ink);margin-top:8px;text-wrap:balance;line-height:1.4;}
+.lede{font-size:14.5px;color:var(--text2);line-height:1.75;margin-top:12px;max-width:64ch;}
+.lede b{color:var(--jade);}
+
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:36px;}
+@media (max-width:720px){.compare{grid-template-columns:1fr;}}
+
+.col-head{display:flex;align-items:baseline;gap:8px;margin-bottom:14px;}
+.col-tag{font-size:11px;font-weight:800;letter-spacing:.04em;padding:3px 9px;border-radius:999px;}
+.col-tag.before{background:var(--card2);color:var(--text2);}
+.col-tag.after{background:var(--mint-10);color:var(--jade);}
+.col-title{font-size:14.5px;font-weight:800;color:var(--ink);}
+.col-note{font-size:12px;color:var(--text3);margin-top:2px;}
+
+/* ── phone frame ── */
+.phone{background:var(--paper);border-radius:28px;padding:14px 14px 22px;box-shadow:0 18px 40px -18px rgba(22,59,56,.28), 0 2px 8px rgba(22,59,56,.08);border:1px solid var(--border);}
+.phone-bar{display:flex;align-items:center;justify-content:center;padding:6px 0 14px;position:relative;}
+.phone-bar .dot{width:8px;height:8px;border-radius:50%;background:var(--card2);}
+.screen{background:var(--paper);border-radius:16px;padding:18px 16px 20px;}
+
+.zone-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:var(--jade);margin-bottom:14px;}
+.zone-badge::before{content:'●';font-size:8px;color:var(--mint);}
+
+.pillars-table{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+.pillar-col{text-align:center;}
+.pillar-label{font-size:10px;color:var(--text2);font-weight:700;letter-spacing:.5px;margin-bottom:7px;}
+.pillar-stem,.pillar-branch{padding:11px 4px 9px;border-radius:10px;margin-bottom:5px;font-size:19px;font-weight:900;}
+.pillar-hanja{font-size:9.5px;font-weight:600;margin-top:3px;}
+.pillar-unseong{font-size:10.5px;color:var(--jade);font-weight:700;margin-top:5px;}
+.pillar-sinsal{font-size:9.5px;color:var(--text2);margin-top:2px;}
+.pillar-gwiin{font-size:9px;color:var(--beige-chip-text);margin-top:2px;}
+
+/* 오행 팔레트 — 기존 앱 오행 분포 막대와 동일 색 매칭 */
+.oh-목{background:linear-gradient(135deg,#4ade8055,#22c55e22);border:1px solid #22c55e99;color:#22c55e;}
+.oh-화{background:linear-gradient(135deg,#f8717155,#ef444422);border:1px solid #ef444499;color:#ef4444;}
+.oh-토{background:linear-gradient(135deg,#fbbf2455,#f59e0b22);border:1px solid #f59e0b99;color:#b45309;}
+.oh-금{background:linear-gradient(135deg,#e2e8f055,#cbd5e122);border:1px solid #cbd5e199;color:#838f9f;}
+.oh-수{background:linear-gradient(135deg,#60a5fa55,#3b82f622);border:1px solid #3b82f699;color:#3b82f6;}
+
+/* 시주 = 모름 (Before) */
+.pillar-empty{background:var(--card2);border:1px dashed var(--text3);color:var(--text3);}
+.pillar-empty-mark{font-size:19px;font-weight:900;}
+.hour-caption{font-size:10.5px;color:var(--text3);font-weight:700;margin-top:5px;}
+
+/* 시주 = 추정 (After) */
+.pillar-col.is-est .pillar-stem,.pillar-col.is-est .pillar-branch{position:relative;border-style:dashed;}
+.est-tag{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:800;color:var(--est);background:var(--est-bg);border:1px solid var(--est-border);border-radius:999px;padding:3px 7px;margin-top:6px;}
+.est-tag::before{content:'◐';font-size:9px;}
+.est-foot{font-size:9.5px;color:var(--text3);margin-top:5px;line-height:1.4;}
+
+.callout{margin-top:36px;background:var(--paper2);border:1px solid var(--border);border-radius:16px;padding:20px 22px;}
+.callout-title{font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+.callout p{font-size:13px;color:var(--text2);line-height:1.75;}
+.callout p+p{margin-top:8px;}
+.callout b{color:var(--jade);}
+.callout .warn{color:var(--est);}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">통합분석 · ZONE3 사주 원국 — 시주 표시 개선안</div>
+  <h1>태어난 시간을 몰라도<br>시주 칸을 비워두지 않는 방법</h1>
+  <p class="lede">
+    시간 미상일 때 <b>자시(00:00)를 가정 값으로 대입</b>해 시주를 채우되, 실제 입력 정보가 아님을
+    한눈에 구분할 수 있도록 표시합니다. 아래는 같은 사주(을사일주, 1988-08-18)를 현재 방식과
+    제안 방식으로 나란히 비교한 것입니다.
+  </p>
+
+  <div class="compare">
+
+    <div>
+      <div class="col-head">
+        <span class="col-tag before">BEFORE</span>
+        <div><div class="col-title">현재 — 모르면 비움</div><div class="col-note">시주 칸이 물음표로 남음</div></div>
+      </div>
+      <div class="phone">
+        <div class="phone-bar"><div class="dot"></div></div>
+        <div class="screen">
+          <div class="zone-badge">사주 원국</div>
+          <div class="pillars-table">
+            <div class="pillar-col">
+              <div class="pillar-label">시주</div>
+              <div class="pillar-stem pillar-empty"><span class="pillar-empty-mark">?</span></div>
+              <div class="pillar-branch pillar-empty"><span class="pillar-empty-mark">?</span></div>
+              <div class="hour-caption">시간 미상</div>
+            </div>
+            <div class="pillar-col">
+              <div class="pillar-label">일주</div>
+              <div class="pillar-stem oh-목">乙<div class="pillar-hanja">을</div></div>
+              <div class="pillar-branch oh-화">巳<div class="pillar-hanja">사</div></div>
+              <div class="pillar-unseong">목욕</div>
+              <div class="pillar-sinsal">겁살</div>
+              <div class="pillar-sinsal">지살</div>
+              <div class="pillar-gwiin">★ 고란살</div>
+              <div class="pillar-gwiin">★ 관귀학관</div>
+            </div>
+            <div class="pillar-col">
+              <div class="pillar-label">월주</div>
+              <div class="pillar-stem oh-금">庚<div class="pillar-hanja">경</div></div>
+              <div class="pillar-branch oh-금">申<div class="pillar-hanja">신</div></div>
+              <div class="pillar-unseong">태</div>
+              <div class="pillar-sinsal">지살</div>
+              <div class="pillar-sinsal">망신살</div>
+              <div class="pillar-gwiin">★ 천을귀인</div>
+            </div>
+            <div class="pillar-col">
+              <div class="pillar-label">년주</div>
+              <div class="pillar-stem oh-토">戊<div class="pillar-hanja">무</div></div>
+              <div class="pillar-branch oh-토">辰<div class="pillar-hanja">진</div></div>
+              <div class="pillar-unseong">관대</div>
+              <div class="pillar-sinsal">화개살</div>
+              <div class="pillar-gwiin">★ 백호대살</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="col-head">
+        <span class="col-tag after">AFTER</span>
+        <div><div class="col-title">제안 — 자시 가정 + 추정 표시</div><div class="col-note">점선 테두리 + 추정 배지로 구분</div></div>
+      </div>
+      <div class="phone">
+        <div class="phone-bar"><div class="dot"></div></div>
+        <div class="screen">
+          <div class="zone-badge">사주 원국</div>
+          <div class="pillars-table">
+            <div class="pillar-col is-est">
+              <div class="pillar-label">시주</div>
+              <div class="pillar-stem oh-화">丙<div class="pillar-hanja">병</div></div>
+              <div class="pillar-branch oh-수">子<div class="pillar-hanja">자</div></div>
+              <div class="est-tag">추정</div>
+              <div class="est-foot">자시(00:00) 가정 계산</div>
+            </div>
+            <div class="pillar-col">
+              <div class="pillar-label">일주</div>
+              <div class="pillar-stem oh-목">乙<div class="pillar-hanja">을</div></div>
+              <div class="pillar-branch oh-화">巳<div class="pillar-hanja">사</div></div>
+              <div class="pillar-unseong">목욕</div>
+              <div class="pillar-sinsal">겁살</div>
+              <div class="pillar-sinsal">지살</div>
+              <div class="pillar-gwiin">★ 고란살</div>
+              <div class="pillar-gwiin">★ 관귀학관</div>
+            </div>
+            <div class="pillar-col">
+              <div class="pillar-label">월주</div>
+              <div class="pillar-stem oh-금">庚<div class="pillar-hanja">경</div></div>
+              <div class="pillar-branch oh-금">申<div class="pillar-hanja">신</div></div>
+              <div class="pillar-unseong">태</div>
+              <div class="pillar-sinsal">지살</div>
+              <div class="pillar-sinsal">망신살</div>
+              <div class="pillar-gwiin">★ 천을귀인</div>
+            </div>
+            <div class="pillar-col">
+              <div class="pillar-label">년주</div>
+              <div class="pillar-stem oh-토">戊<div class="pillar-hanja">무</div></div>
+              <div class="pillar-branch oh-토">辰<div class="pillar-hanja">진</div></div>
+              <div class="pillar-unseong">관대</div>
+              <div class="pillar-sinsal">화개살</div>
+              <div class="pillar-gwiin">★ 백호대살</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout">
+    <div class="callout-title">설계 의도</div>
+    <p><b>실제 입력값과 구분되는 스타일</b> — 시주 칸만 점선 테두리를 쓰고, 색은 오행 배색을 그대로 유지해 "가짜 데이터"가 아니라 "같은 계산식으로 나온 참고값"임을 보여줍니다.</p>
+    <p><b>파생 정보는 의도적으로 생략</b> — 12운성·신살·귀인 뱃지는 시주 칸 아래 붙이지 않습니다. 원간지 하나는 자시 가정만으로 재현 가능하지만, 그 위에 쌓이는 해석까지 "추정 위의 추정"으로 보여주면 신뢰도가 더 떨어지기 때문입니다.</p>
+    <p><span class="warn">유의점</span> — 실제 태어난 시간이 자시(23~01시)가 아니라면 이 시주는 틀린 값입니다. "추정" 배지와 "자시(00:00) 가정 계산" 문구가 이 사실을 계속 눈에 띄게 알려주는 역할을 합니다.</p>
+  </div>
+</div>
