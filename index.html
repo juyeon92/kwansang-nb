@@ -56,6 +56,9 @@
 
   --ink: #163B38;
   --jade: #2F6F68;
+  --est: #E68A2E;      /* 시주 추정("자시 가정") 강조색 — 오행 팔레트와 겹치지 않는 경고성 톤 */
+  --est-bg: #FDF1E3;
+  --est-border: #F3D6AC;
   --bg: #FFFFFF;
   --surface: #FFFFFF;
   --card2: #F0F4F3;
@@ -590,6 +593,16 @@ body {
 .pillar-unseong { font-size: 11px; color: var(--jade); font-weight: 700; margin-top: 2px; }
 .pillar-gwiin { font-size: 10px; color: var(--beige-chip-text); margin-top: 2px; }
 .pillar-sinsal { font-size: 10px; color: var(--text2); margin-top: 2px; }
+/* 시주 추정 표시(scratch/siju-estimate-notes.md) — 시간 미상일 때 자시(00:00) 가정값을 점선 테두리 +
+   "추정" 배지로 보여준다. 실제 오행 색은 그대로 유지해 "같은 계산식 결과"임을 나타내고, 12운성·신살·
+   귀인 뱃지는 붙이지 않는다(추정 위에 해석을 더 쌓지 않는다는 원칙). 통합분석·궁합보기 비교표 둘 다
+   이 배지를 공유하므로(buildPillarColBase) 캡션 문구 없이 배지 하나로만 표시한다. */
+/* ⚠️ 버그 수정(2026-08-26 사용자 리포트: 궁합보기 8칸 표에서 "추정"이 한 글자씩 세로로 줄바꿈됨) —
+   한글은 공백 없이도 글자 사이에서 줄바꿈될 수 있어서(CJK 줄바꿈 규칙), 배지 폭이 좁으면 white-space
+   지정 없이는 "추"/"정"이 각각 다른 줄로 쪼개진다. nowrap으로 항상 한 줄을 유지한다. */
+.est-tag { display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; color: var(--est); background: var(--est-bg); border: 1px solid var(--est-border); border-radius: 999px; padding: 3px 8px; margin-top: 6px; white-space: nowrap; }
+/* 궁합보기 8칸 비교표는 칸 폭이 통합분석의 절반 수준이라 배지를 더 작게 줄인다 */
+.pillars-table-compare .est-tag { font-size: 8px; padding: 2px 5px; margin-top: 4px; }
 
 /* ── 궁합보기 · 나/상대방 만세력 한 화면 비교 ── */
 .gg-manse-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 4px 10px; margin-bottom: 14px; text-align: center; }

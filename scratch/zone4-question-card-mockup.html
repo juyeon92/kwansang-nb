@@ -1,0 +1,256 @@
+<title>Zone4 고민 카드 목업</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --mint:#55CCBB; --mint-10:rgba(85,204,187,.10); --mint-border:#CBEDE6;
+  --beige:#E6D1A7; --beige-bg:#F8F4EC; --beige-chip-text:#675536;
+  --ink:#163B38; --jade:#2F6F68; --card2:#F0F4F3; --border:#E3E9E7;
+  --surface:#FFFFFF; --text:#17201F; --text2:#68716F; --text3:#9AA3A1;
+  --text-sub:#666666;
+  --page-bg:#EDEBE6; --paper:#FFFFFF; --paper2:#FAF9F6;
+  --new:#E68A2E; --new-bg:#FDF1E3; --new-border:#F3D6AC;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--page-bg);}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Pretendard','Malgun Gothic','맑은 고딕',sans-serif;
+  color:var(--text); padding:40px 20px 72px; min-height:100vh;
+}
+.wrap{max-width:900px;margin:0 auto;}
+
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--jade);text-transform:uppercase;}
+h1{font-family:'Noto Serif KR',serif;font-size:26px;font-weight:700;color:var(--ink);margin-top:8px;text-wrap:balance;line-height:1.4;}
+.lede{font-size:14.5px;color:var(--text2);line-height:1.75;margin-top:12px;max-width:66ch;}
+.lede b{color:var(--jade);}
+
+.mech{margin-top:28px;background:var(--paper2);border:1px solid var(--border);border-radius:16px;padding:18px 20px;}
+.mech-title{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:10px;}
+.mech-row{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text2);line-height:1.7;padding:6px 0;}
+.mech-row:not(:last-child){border-bottom:1px dashed var(--border);}
+.mech-q{color:var(--text);font-weight:700;flex:0 0 auto;}
+.mech-arrow{color:var(--text3);}
+.mech-kw{display:inline-flex;align-items:center;font-size:11px;font-weight:800;color:var(--new);background:var(--new-bg);border:1px solid var(--new-border);border-radius:999px;padding:2px 9px;white-space:nowrap;}
+.mech-topic{color:var(--jade);font-weight:700;}
+
+.examples{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:22px;margin-top:32px;}
+@media (max-width:820px){.examples{grid-template-columns:1fr;max-width:390px;margin-left:auto;margin-right:auto;}}
+
+.ex-fallback .gg-item{border-color:var(--text3);box-shadow:none;}
+.ex-fallback .gg-item-head{color:var(--text2);}
+.fallback-badge{font-size:9.5px;font-weight:800;color:var(--text2);background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:1.5px 7px;white-space:nowrap;}
+
+.more-q{margin-top:14px;}
+.more-q-group{margin-bottom:14px;}
+.more-q-group:last-child{margin-bottom:0;}
+.more-q-label{font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.02em;margin-bottom:6px;}
+.more-q-label.caution{color:var(--new);}
+.more-row{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text2);line-height:1.7;padding:5px 0;flex-wrap:wrap;}
+.more-row:not(:last-child){border-bottom:1px dashed var(--border);}
+.more-q-text{color:var(--text);font-weight:700;}
+.caution-pill{display:inline-flex;align-items:center;font-size:10px;font-weight:800;color:#B4562B;background:#FCE9DC;border:1px solid #F0C29E;border-radius:999px;padding:1px 8px;white-space:nowrap;}
+
+.ex-label{font-size:11px;font-weight:800;letter-spacing:.02em;color:var(--text3);margin-bottom:8px;text-transform:uppercase;}
+
+.phone{background:var(--paper);border-radius:26px;padding:12px 12px 18px;box-shadow:0 18px 40px -18px rgba(22,59,56,.28), 0 2px 8px rgba(22,59,56,.08);border:1px solid var(--border);}
+.phone-bar{display:flex;align-items:center;justify-content:center;padding:4px 0 12px;}
+.phone-bar .dot{width:7px;height:7px;border-radius:50%;background:var(--card2);}
+.screen{background:var(--paper);border-radius:14px;padding:4px 2px;}
+
+.zone-tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:var(--jade);margin-bottom:10px;padding:0 4px;}
+.zone-tag::before{content:'●';font-size:7px;color:var(--mint);}
+
+.q-pill{margin:0 4px 12px;background:var(--card2);border-radius:12px;padding:10px 12px;}
+.q-pill-label{font-size:9.5px;font-weight:800;color:var(--text3);letter-spacing:.03em;margin-bottom:3px;}
+.q-pill-text{font-size:12.5px;color:var(--text2);line-height:1.5;font-style:italic;}
+
+/* ── 실제 앱 Zone4 카드 컴포넌트(.gg-item 계열) 그대로 재사용 — 새 카드도 기존 카드와 완전히 같은
+   룩으로 섞여 들어가야 "새로 만든 티" 없이 자연스럽다는 게 이 목업의 핵심 검증 포인트 ── */
+.gg-item{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:14px 16px;margin:0 4px;}
+.gg-item.is-new{border-color:var(--new-border);box-shadow:0 0 0 1px var(--new-border);}
+.gg-item-head{font-size:13.5px;font-weight:800;color:var(--jade);margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.gg-item-head .new-badge{font-size:9.5px;font-weight:800;color:var(--new);background:var(--new-bg);border:1px solid var(--new-border);border-radius:999px;padding:1.5px 7px;white-space:nowrap;}
+.gg-item-reading{font-size:13px;line-height:1.85;color:var(--text);}
+.gg-basis-acc{margin-top:10px;}
+.gg-basis-acc>summary{font-size:12.5px;font-weight:700;color:var(--jade);cursor:pointer;list-style:none;}
+.gg-basis-acc>summary::-webkit-details-marker{display:none;}
+.gg-basis-acc>summary::before{content:'▸ ';}
+.gg-basis-acc[open]>summary::before{content:'▾ ';}
+.gg-basis-acc>.gg-basis-content{font-size:12.5px;line-height:1.75;color:var(--text-sub);margin-top:8px;padding-left:10px;border-left:2px solid var(--mint-border);}
+
+.kw-strip{margin:10px 4px 0;font-size:10.5px;color:var(--text3);}
+.kw-strip b{color:var(--new);font-weight:800;}
+
+.callout{margin-top:36px;background:var(--paper2);border:1px solid var(--border);border-radius:16px;padding:20px 22px;}
+.callout-title{font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+.callout p{font-size:13px;color:var(--text2);line-height:1.75;}
+.callout p+p{margin-top:8px;}
+.callout b{color:var(--jade);}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">통합분석 · Zone4 관상x사주 스토리 풀이 — 신규 카드 목업</div>
+  <h1>"특별히 더 궁금한 내용" 답변을<br>전용 카드 하나로 직접 풀어드립니다</h1>
+  <p class="lede">
+    지금은 진입 질문 3번(자유 입력)이 프롬프트에 참고 텍스트로만 끼어들어가서 반영 여부가 들쭉날쭉해요.
+    대신 답변에서 <b>주제 키워드를 캐치</b>해서, family·love·work 같은 기존 가변 카드와 나란히
+    <b>"OO님의 질문, 냥반이 답해드려요"</b> 카드를 하나 더 추가하는 안입니다(2026-08-27: 제목 문구를 "고민,
+    해결해드릴게요"에서 최종 확정). 처음 주신 3가지 질문(예시 1~3)에
+    이어, 키워드 매칭이 실패했을 때 폴백이 어떻게 동작하는지(예시 4)와 사전에 더 넣어볼 만한 질문
+    케이스들을 아래에 추가했습니다.
+  </p>
+
+  <div class="mech">
+    <div class="mech-title">키워드 매칭 예시 (요청하신 3가지 그대로)</div>
+    <div class="mech-row"><span class="mech-q">"다음달에 이사가도 될까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">이사</span><span class="mech-arrow">→</span><span class="mech-topic">이동수·변동수</span></div>
+    <div class="mech-row"><span class="mech-q">"짝사랑하는 남자와 잘될까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">짝사랑</span><span class="mech-arrow">→</span><span class="mech-topic">연애운</span></div>
+    <div class="mech-row"><span class="mech-q">"올해 이직운이 있을까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">이직운</span><span class="mech-arrow">→</span><span class="mech-topic">직업운·이동수</span></div>
+  </div>
+
+  <div class="mech more-q">
+    <div class="mech-title">키워드 사전을 넓히면 커버할 수 있는 케이스들 (제가 뽑아본 예시)</div>
+
+    <div class="more-q-group">
+      <div class="more-q-label">일반 주제 — 사전 매칭으로 충분</div>
+      <div class="more-row"><span class="more-q-text">"지금 만나는 사람이랑 결혼까지 갈 수 있을까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">결혼</span><span class="mech-arrow">→</span><span class="mech-topic">결혼운·궁합 기질</span></div>
+      <div class="more-row"><span class="more-q-text">"이번에 자격증 시험 합격할 수 있을까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">시험/합격</span><span class="mech-arrow">→</span><span class="mech-topic">학업운·집중력</span></div>
+      <div class="more-row"><span class="more-q-text">"요즘 돈이 잘 안 모여요, 재물운이 궁금해요"</span><span class="mech-arrow">→</span><span class="mech-kw">돈/재물운</span><span class="mech-arrow">→</span><span class="mech-topic">재물운(정재·편재)</span></div>
+      <div class="more-row"><span class="more-q-text">"친구랑 크게 싸웠는데 화해할 수 있을까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">화해/친구</span><span class="mech-arrow">→</span><span class="mech-topic">대인관계</span></div>
+      <div class="more-row"><span class="more-q-text">"창업을 준비 중인데 잘될까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">창업/사업</span><span class="mech-arrow">→</span><span class="mech-topic">사업운(편재·편관)</span></div>
+      <div class="more-row"><span class="more-q-text">"지금 회사에서 승진할 수 있을까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">승진</span><span class="mech-arrow">→</span><span class="mech-topic">직업운(정관)</span></div>
+      <div class="more-row"><span class="more-q-text">"유학 가려는데 지금이 적기일까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">유학</span><span class="mech-arrow">→</span><span class="mech-topic">이동수·학업운</span></div>
+      <div class="more-row"><span class="more-q-text">"부모님이랑 사이가 안 좋은데 나아질까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">부모님</span><span class="mech-arrow">→</span><span class="mech-topic">가족운</span></div>
+    </div>
+
+    <div class="more-q-group">
+      <div class="more-q-label caution">⚠️ 키워드는 잡히는데, 톤을 신중하게 눌러야 하는 주제</div>
+      <div class="more-row"><span class="more-q-text">"요즘 몸이 자주 아픈데 건강 조심해야 하나요?"</span><span class="mech-arrow">→</span><span class="mech-kw">건강</span><span class="caution-pill">단정적 진단 금지</span></div>
+      <div class="more-row"><span class="more-q-text">"아이는 언제쯤 생길까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">임신/자녀</span><span class="caution-pill">민감 주제</span></div>
+      <div class="more-row"><span class="more-q-text">"지금 진행 중인 소송, 이길 수 있을까요?"</span><span class="mech-arrow">→</span><span class="mech-kw">소송</span><span class="caution-pill">법적 판단 금지</span></div>
+    </div>
+
+    <div class="more-q-group">
+      <div class="more-q-label">키워드 사전에 없는 애매한 질문 — 폴백으로 처리(예시 4)</div>
+      <div class="more-row"><span class="more-q-text">"요즘 왜 이렇게 사는 게 힘들까요?"</span><span class="mech-arrow">→</span><span class="mech-kw" style="color:var(--text2);background:var(--card2);border-color:var(--border);">매칭 없음</span><span class="mech-arrow">→</span><span class="mech-topic" style="color:var(--text2);">질문 원문 그대로 강제 주입 + 총운 관점 답변</span></div>
+    </div>
+  </div>
+
+  <div class="examples">
+
+    <div>
+      <div class="ex-label">예시 1 · 이동수</div>
+      <div class="phone">
+        <div class="phone-bar"><div class="dot"></div></div>
+        <div class="screen">
+          <div class="zone-tag">Zone4 · 관상x사주 스토리 풀이</div>
+          <div class="q-pill">
+            <div class="q-pill-label">입력하신 질문</div>
+            <div class="q-pill-text">"다음달에 이사가도 될까요?"</div>
+          </div>
+          <div class="gg-item is-new">
+            <div class="gg-item-head">🔮 유진님의 질문, 냥반이 답해드려요<span class="new-badge">신규</span></div>
+            <div class="gg-item-reading">
+              지금 시기의 큰 흐름 자체가 이동·변화와 잘 맞물려 있어서, 이사를 고민하는 지금 타이밍은
+              나쁘지 않아요. 다만 이 흐름은 미리 계획한 이동에는 강하고 갑작스러운 변수엔 약한 편이라,
+              일정과 예산을 여유 있게 잡아두면 훨씬 매끄럽게 풀릴 거예요. 관상에서도 콧대가 곧고 이마가
+              넓게 트여 있어서 새 환경에 적응하는 속도 자체는 빠른 편이니, 이사 후 자리 잡는 것도 크게
+              걱정 안 하셔도 될 것 같아요.
+            </div>
+            <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">이동수는 사주의 지살·역마살, 그리고 해당 시기 대운·세운의 지지가 원국과 맺는 관계로 판단해요. 관상에서는 이마(시작·적응)와 콧대(추진력)의 형태를 함께 봐요.</div></details>
+          </div>
+          <div class="kw-strip">🔍 감지 키워드: <b>이사</b> → 이동수·변동수</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="ex-label">예시 2 · 연애운</div>
+      <div class="phone">
+        <div class="phone-bar"><div class="dot"></div></div>
+        <div class="screen">
+          <div class="zone-tag">Zone4 · 관상x사주 스토리 풀이</div>
+          <div class="q-pill">
+            <div class="q-pill-label">입력하신 질문</div>
+            <div class="q-pill-text">"제가 짝사랑하는 남자와 잘될까요?"</div>
+          </div>
+          <div class="gg-item is-new">
+            <div class="gg-item-head">🔮 소민님의 질문, 냥반이 답해드려요<span class="new-badge">신규</span></div>
+            <div class="gg-item-reading">
+              원래 상대에게 호감을 사는 매력 자체는 타고난 편이에요. 다만 지금처럼 내가 먼저 다가가야
+              하는 상황에서는, 마음을 잘 안 드러내는 성향이 오히려 발목을 잡을 수 있어요. 관상에서도
+              눈매가 부드럽게 처져 있어서 호감 신호는 충분히 가고 있을 가능성이 높으니, 감정을 조금만
+              더 적극적으로 표현해보는 쪽이 관계를 진전시키는 데 유리할 것 같아요.
+            </div>
+            <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">매력·호감 관련 신살(홍염살·도화 계열)과 십성 중 편인(내향성)을 함께 봤고, 관상에서는 눈매 유형(도화안)을 매력 신호로 판단해요.</div></details>
+          </div>
+          <div class="kw-strip">🔍 감지 키워드: <b>짝사랑</b> → 연애운</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="ex-label">예시 3 · 이직운</div>
+      <div class="phone">
+        <div class="phone-bar"><div class="dot"></div></div>
+        <div class="screen">
+          <div class="zone-tag">Zone4 · 관상x사주 스토리 풀이</div>
+          <div class="q-pill">
+            <div class="q-pill-label">입력하신 질문</div>
+            <div class="q-pill-text">"올해 이직운이 있을까요?"</div>
+          </div>
+          <div class="gg-item is-new">
+            <div class="gg-item-head">🔮 태현님의 질문, 냥반이 답해드려요<span class="new-badge">신규</span></div>
+            <div class="gg-item-reading">
+              올해는 직장·직급과 관련된 변화 자체가 분명히 있는 흐름이에요. 다만 원래 원칙과 안정을
+              중시하며 자리를 잡아가는 쪽에 강한 편이라, 급하게 벌이는 변화보다는 준비된 이직(이미 이야기가
+              오간 자리, 이력 정리가 끝난 상태)일 때 더 잘 맞는 타입이에요. 관상에서도 눈썹이 또렷하고
+              이마가 안정적으로 넓어서, 무모하게 던지기보다 계산하고 움직일 때 결과가 더 좋은 상이니 올
+              하반기 안에 신중하게 움직여보시는 걸 추천드려요.
+            </div>
+            <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">이직운은 십성(정관·편관)과 그 해 대운·세운이 원국 일간·월지와 맺는 관계로 판단해요. 관상에서는 이마(직업운 기반)와 눈썹(추진력·결단력)을 함께 봐요.</div></details>
+          </div>
+          <div class="kw-strip">🔍 감지 키워드: <b>이직운</b> → 직업운·이동수</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ex-fallback">
+      <div class="ex-label">예시 4 · 키워드 매칭 실패 → 폴백</div>
+      <div class="phone">
+        <div class="phone-bar"><div class="dot"></div></div>
+        <div class="screen">
+          <div class="zone-tag">Zone4 · 관상x사주 스토리 풀이</div>
+          <div class="q-pill">
+            <div class="q-pill-label">입력하신 질문</div>
+            <div class="q-pill-text">"요즘 왜 이렇게 사는 게 힘들까요?"</div>
+          </div>
+          <div class="gg-item">
+            <div class="gg-item-head">🔮 하늘님의 질문, 냥반이 답해드려요<span class="fallback-badge">사전 미매칭 · 원문 강제 주입</span></div>
+            <div class="gg-item-reading">
+              지금은 하나의 흐름이 끝나가고 새 흐름은 아직 자리를 못 잡은, 경계에 걸친 시기예요. 원래도
+              웬만한 부담은 혼자 짊어지고 버티는 편인데, 그 버티는 힘 자체가 지금은 오히려 "왜 이렇게
+              힘들지"라는 질문으로 돌아오고 있는 거예요. 관상에서도 눈매가 깊고 차분한 편이라 힘든 티를
+              잘 안 내는 상이라, 주변에서는 잘 모를 수 있어요. 지금 필요한 건 버티는 힘이 아니라 잠깐
+              내려놓는 타이밍이에요.
+            </div>
+            <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">사전에 정의된 키워드(이사·짝사랑·이직 등)에 걸리지 않아, 질문 원문을 그대로 스키마에 강제 주입하고 "반드시 이 질문에 직접 답하라"는 지시만 걸었어요. 근거는 대운 전환기·일간 강약(신강)·관상 눈매를 조합했어요.</div></details>
+          </div>
+          <div class="kw-strip">🔍 감지 키워드 없음 → 질문 원문 그대로 사용</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout">
+    <div class="callout-title">설계 메모</div>
+    <p><b>기존 카드와 완전히 같은 컴포넌트</b>(<code>.gg-item</code>) 재사용 — "왜 이렇게 풀이했나요?" 아코디언까지 그대로라, 새로 만든 카드라는 티 없이 family·love·work 카드들과 자연스럽게 섞여요. 위 목업에서 "신규" 배지와 질문 인용 박스는 설명용으로만 붙였고, 실제 화면에는 두 요소를 안 넣거나(그냥 카드 하나 자연스럽게 더 늘어나는 것처럼) 취향껏 뺄 수 있어요.</p>
+    <p><b>키워드 매칭</b> — q1/q2처럼 완전한 룰베이스 사전 매칭(이사→이동수, 짝사랑→연애운 등 키워드 테이블)으로 처리할지, 아니면 AI에게 "이 질문의 핵심 주제를 스스로 파악해서 카드를 채워라"고 맡길지 정해야 해요. 사전 매칭은 키워드가 없는 애매한 질문("요즘 왜 이렇게 힘들죠?")에 약하고, AI 자율 판단은 q1/q2처럼 강제가 안 돼서 지금 겪는 문제(반영 안 됨)가 재발할 수 있어요. <b>절충안</b>으로, 키워드 사전 매칭을 1차로 시도하고 실패하면 "질문 원문 그대로 스키마 필드에 강제 주입 + 반드시 답하라"는 지시를 걸어 폴백하는 방식을 추천해요.</p>
+    <p><b>질문이 없으면 카드 자체를 생략</b> — q3 미답변 시에는 이 카드를 아예 만들지 않아야 해요(가짜 고민을 지어내면 안 되니까).</p>
+    <p><b>건강·임신·소송</b>처럼 키워드는 잡히지만 실제 진단·법적 판단·의료 조언으로 오인될 수 있는 주제는, AI 프롬프트에 "단정적 결과 대신 흐름/시기 관점으로만 답하고, 필요하면 전문가 상담을 권하라"는 별도 가드를 걸어야 해요. 재미로 보는 사주 콘텐츠가 실제 의료·법률 판단처럼 읽히면 안 되니까요.</p>
+    <p><b>카드 위치</b> — family/love/work/money/relationships/rest 6개 주제 목록에 없는 topic_key를 주면, 기존 정렬 로직이 알아서 가변 카드 맨 뒤로 보내줘요. 즉 별도 순서 코드 없이도 클로징 고정 카드("🧭 이제는 이렇게 해보세요") 바로 위에 자동으로 위치합니다.</p>
+    <p><b>전문용어 노출 금지(2026-08-27 수정)</b> — 사실 이건 이 프로젝트에 이미 있던 규칙이에요(통합분석 리포트 구성.md §3: "현침살, 자충수, 천정이 밝다, 재백궁 등 전문 용어를 그대로 노출하지 않고 풀어서 표현"). 처음 목업의 예시 문장에 "신강한 일간", "정관과 부딪히는 해" 같은 표현이 그대로 들어가 있었는데, 이러면 바로 아래 "왜 이렇게 풀이했나요?"에서 다시 설명하는 것과 내용이 겹쳐요. 위 4개 예시 모두 reading에서는 용어를 풀어 쓰고, 용어 자체는 basis(근거)에만 남기는 걸로 고쳤습니다.</p>
+  </div>
+</div>

@@ -287,6 +287,10 @@
     if (!profile) return;
     const relLabel = profile.relationDetail || profile.relation;
     if (ctx === 'gwansang' || ctx === 'combined') state[ctx].relation = relLabel;
+    // Zone4 "고민 해결" 카드 제목("OO님의 고민, 해결해드릴게요")에 쓸 실제 이름 — 통합분석 AI
+    // 리포트는 지금까지 relLabel(관계)만 썼지 이름을 넘긴 적이 없어서 새로 채운다(통합분석 리포트
+    // 구성.md §10).
+    if (ctx === 'combined') state.combined.name = profile.name || '';
 
     const dateFieldMap = { combined: 'cmbBirthDate' };
     const hourFieldMap = { combined: 'cmbBirthHour' };

@@ -496,7 +496,52 @@ function buildWorkCardGuidance(q2) {
   return map[q2] || `- work(일): ${sipseongNote} 구체적인 직업 성향을 풀이할 것. Zone1 캐릭터 카드의 work 문구를 그대로 반복하지 말고, 십성 근거로 더 구체적인 스타일을 추가할 것.`;
 }
 
-function buildPersonalDeepReportSchema(hasSaju, hasFace, q1, q2) {
+// Zone4 "고민 해결" 카드(topic_key: user_question, 통합분석 리포트 구성.md §10) — q3(진입 질문 3번,
+// "특별히 더 궁금한 내용")에 답이 있으면 그 질문에 직접 답하는 카드를 하나 더 만든다. q1/q2와 달리
+// "카드가 아예 생기냐 마냐" 자체가 q3 존재 여부로 갈리는 구조적 조건이라, 키워드 사전으로 주제를
+// 1차 판별하고 실패하면 질문 원문을 그대로 강제 주입하는 폴백으로 처리한다.
+// 건강/임신·자녀/소송처럼 진단·법적 판단으로 오인될 수 있는 주제는 caution:true로 표시해 별도 가드를 건다.
+const CMB_Q3_TOPIC_DICT = [
+  { keywords: ['이사', '이전', '이주'], topic: '이동수·변동수' },
+  { keywords: ['짝사랑', '고백'], topic: '연애운' },
+  { keywords: ['이직'], topic: '직업운·이동수' },
+  { keywords: ['결혼'], topic: '결혼운·궁합 기질' },
+  { keywords: ['시험', '합격', '자격증'], topic: '학업운·집중력' },
+  { keywords: ['재물', '돈', '재테크', '투자'], topic: '재물운' },
+  { keywords: ['화해', '친구'], topic: '대인관계' },
+  { keywords: ['창업', '사업'], topic: '사업운' },
+  { keywords: ['승진'], topic: '직업운' },
+  { keywords: ['유학'], topic: '이동수·학업운' },
+  { keywords: ['부모님', '아버지', '어머니'], topic: '가족운' },
+  { keywords: ['건강', '아프', '병원'], topic: '건강', caution: true },
+  { keywords: ['임신', '아이', '자녀', '출산'], topic: '임신·자녀운', caution: true },
+  { keywords: ['소송', '재판', '법적', '고소'], topic: '소송·분쟁', caution: true },
+];
+function matchQ3Topic(q3) {
+  if (!q3) return null;
+  return CMB_Q3_TOPIC_DICT.find(entry => entry.keywords.some(k => q3.includes(k))) || null;
+}
+function buildQ3CardGuidance(q3) {
+  if (!q3) {
+    return '- ⚠️ 사용자가 "특별히 더 궁금한 내용"에 답하지 않았습니다 — topic_key가 "user_question"인 카드는 절대 만들지 마세요.';
+  }
+  const matched = matchQ3Topic(q3);
+  const topicLine = matched
+    ? `이 질문은 "${matched.topic}"와 관련된 주제로 보입니다 — 이 관점을 중심으로 사주x관상 근거를 엮어 답하세요.`
+    : '사전에 정의된 주제와 뚜렷이 겹치지 않는 질문입니다 — 다른 얘기로 넘어가지 말고 질문 원문 자체에 반드시 직접 답하세요.';
+  const cautionLine = matched && matched.caution
+    ? ' ⚠️ 이 주제는 건강·임신/자녀·법적 분쟁처럼 민감한 영역입니다 — 단정적인 진단·결과·법적 판단을 내리지 말고 흐름·시기 관점으로만 답하며, 필요하면 전문가 상담을 권하세요.'
+    : '';
+  return `- topic_key가 "user_question"인 카드를 반드시 하나 추가하세요(family/love 카드 개수 규칙과는 무관한 별도 카드 1개). title은 이 지시에서는 신경 쓰지 말고 빈 문자열("")로 두세요 — 화면에는 이름을 넣은 고정 문구로 따로 표시됩니다. reading은 사용자가 입력한 질문 "${q3}"에 직접 답하는 내용으로 3~4문장 작성하세요. ${topicLine}${cautionLine} 다른 가변 카드와 마찬가지로 전문용어를 reading에 노출하지 말고 풀어서 쓰세요.`;
+}
+// "OO님의 질문, 냥반이 답해드려요" — 제목 형식 자체는 항상 등장하는 구조라 AI가 짓지 않고 코드가
+// 강제한다(§2 판단기준 1번과 동일 원칙, 고정 카드 제목들과 같은 이유). AI가 title에 뭘 써서 보내든
+// 이 값으로 덮어쓴다.
+function buildQ3CardTitle(name) {
+  return `${name ? cmbEsc(name) + '님' : '회원님'}의 질문, 냥반이 답해드려요`;
+}
+
+function buildPersonalDeepReportSchema(hasSaju, hasFace, q1, q2, q3) {
   const properties = {
     catchphrase: {
       type: 'STRING',
@@ -799,13 +844,14 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace, q1, q2) {
         '- money(돈): [십성 목록]의 재성(편재=통 큰 씀씀이·사업감각, 정재=성실한 축적) 유무·종류를 우선 근거로 쓰고, [관상 실측 데이터]의 코끝(nosetip)·입(mouth) 관련 수치가 있으면 함께 엮을 것.\n' +
         buildWorkCardGuidance(q2) + '\n' +
         '- relationships(대인관계): [사주 신살·귀인 목록] 중 화개살(혼자만의 시간 선호)·귀문관살(몰입력)·겁살·재살(관계 마찰) 같은 항목과, [관상 실측 데이터]의 눈썹·미간(대인관계·형제운 부위) 특징을 엮어서 풀이.\n' +
-        '- rest(쉼/힐링): [용신(필요 오행)]의 yongsinOh(그 사람에게 부족해서 필요한 오행)를 반드시 근거로 써서, 그 기운을 채워주는 활동·공간·색·환경을 제안할 것.',
+        '- rest(쉼/힐링): [용신(필요 오행)]의 yongsinOh(그 사람에게 부족해서 필요한 오행)를 반드시 근거로 써서, 그 기운을 채워주는 활동·공간·색·환경을 제안할 것.\n\n' +
+        '[사용자가 직접 남긴 질문 카드 — topic_key: user_question]\n' + buildQ3CardGuidance(q3),
       items: {
         type: 'OBJECT',
         properties: {
           topic_key: {
             type: 'STRING',
-            description: 'family(가족), work(일), money(돈), love(사랑), relationships(대인관계), rest(쉼/힐링) 중 하나. 세부 분리 시에도 가장 가까운 키를 쓸 것. family·love는 반드시 2개 이상의 카드가 이 키를 가져야 함.'
+            description: 'family(가족), work(일), money(돈), love(사랑), relationships(대인관계), rest(쉼/힐링), user_question(사용자가 직접 남긴 질문에 답하는 카드 — [사용자가 직접 남긴 질문 카드] 지시 참고, 지시가 없으면 이 키를 쓰지 말 것) 중 하나. 세부 분리 시에도 가장 가까운 키를 쓸 것. family·love는 반드시 2개 이상의 카드가 이 키를 가져야 함.'
           },
           title: {
             type: 'STRING',
@@ -1848,7 +1894,7 @@ function renderZone4FixedCard(elId, emoji, title, reading, basis) {
 }
 
 // Zone4 카드2~N(가변) — topic_key별 고정 이모지(궁합보기 GUNGHAP_ZONE2_META와 같은 패턴).
-const CMB_ZONE4_TOPIC_EMOJI = { family: '🌳', work: '💼', money: '💰', love: '💘', relationships: '🤝', rest: '🌿' };
+const CMB_ZONE4_TOPIC_EMOJI = { family: '🌳', work: '💼', money: '💰', love: '💘', relationships: '🤝', rest: '🌿', user_question: '🔮' };
 // 카드 노출 순서는 AI 응답 배열 순서에 맡기지 않고 여기서 고정한다(통합분석 리포트 구성.md §4) —
 // "어디서 왔는지(가족) → 사람을 어떻게 대하는지(대인관계·사랑) → 무얼 하며 사는지(일·돈) → 어떻게
 // 쉬는지(쉼/힐링)"로 읽히는 순서. Array.sort는 안정 정렬이라 같은 topic_key 카드들의 상대 순서는
@@ -2042,7 +2088,8 @@ async function requestDeepReport(ctx) {
           !!cfg.pillars,
           true,
           situation.q1,
-          situation.q2
+          situation.q2,
+          situation.q3
         ),
 
         // ⚠️ 사용자 리포트(2026-08-20): 같은 사주+사진으로 두 번 돌렸는데 analysis_basis/principle
@@ -2073,7 +2120,19 @@ async function requestDeepReport(ctx) {
       if (cfg.zone4TemperamentId) { renderZone4FixedCard(cfg.zone4TemperamentId, '⚖️', '나의 기질과 에너지 밸런스', data.zone4_temperament_reading, data.zone4_temperament_basis); clearAiSkeleton(cfg.zone4TemperamentId); }
       if (cfg.zone4HiddenSelfId) { renderZone4FixedCard(cfg.zone4HiddenSelfId, '🎭', '남이 모르는 내 모습', data.zone4_hidden_self_reading, data.zone4_hidden_self_basis); clearAiSkeleton(cfg.zone4HiddenSelfId); }
       if (cfg.zone4AdviceId) { renderZone4FixedCard(cfg.zone4AdviceId, '🧭', '이제는 이렇게 해보세요', data.growth_guidance, data.zone4_advice_basis); clearAiSkeleton(cfg.zone4AdviceId); }
-      if (cfg.zone4CardsId) { renderZone4Cards(cfg.zone4CardsId, data.zone4_cards); clearAiSkeleton(cfg.zone4CardsId); }
+      if (cfg.zone4CardsId) {
+        // "고민 해결" 카드 마무리(통합분석 리포트 구성.md §10) — q3 미답변인데 AI가 실수로 카드를
+        // 만들었으면 안전하게 걸러내고(가짜 고민 지어내기 방지), q3가 있으면 AI가 뭘 보냈든 제목은
+        // 고정 형식으로 덮어쓴다(§2 판단기준 1번 — 구조를 이루는 값은 룰베이스).
+        let zone4Cards = data.zone4_cards;
+        if (zone4Cards) {
+          zone4Cards = zone4Cards.filter(c => c.topic_key !== 'user_question' || situation.q3);
+          const uq = zone4Cards.find(c => c.topic_key === 'user_question');
+          if (uq) uq.title = buildQ3CardTitle(state[ctx].name);
+        }
+        renderZone4Cards(cfg.zone4CardsId, zone4Cards);
+        clearAiSkeleton(cfg.zone4CardsId);
+      }
     } else {
       renderDeepReport(
         cfg.deepReportId,

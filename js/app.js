@@ -6,7 +6,7 @@ const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 // Stored state per context
 const state = {
   gwansang: { relation: '본인', file: null, lm: null, w: 0, h: 0 },
-  combined: { relation: '본인', file: null, lm: null, q1: '', q2: '', q3: '' },
+  combined: { relation: '본인', name: '', file: null, lm: null, q1: '', q2: '', q3: '' },
   gunghamA: { file: null, lm: null },
   gunghamB: { file: null, lm: null },
   gungham: { relation: '연인/배우자' },
@@ -1567,11 +1567,23 @@ function computePillars(dateVal, hourVal) {
   const m = gi(ec.getMonthGan(), ec.getMonthZhi());
   const d = gi(ec.getDayGan(), ec.getDayZhi());
   const h = hv >= 0 ? gi(ec.getTimeGan(), ec.getTimeZhi()) : { stem: -1, branch: -1 };
+  const hourPillar = { label:'시주', stem:h.stem, branch:h.branch };
+  // ⚠️ 설계 원칙(scratch/siju-estimate-notes.md) — 시간 미상이면 원국 표시에서만 쓸 "자시(00:00) 가정"
+  // 시주를 estStem/estBranch에 별도로 얹는다. stem/branch 본체는 그대로 -1(미상)로 유지해야
+  // hasHour·십성·신강신약·용신·AI 총평·관상×사주 융합 가중치가 계속 시간 미상 경로를 타게 된다 —
+  // 하위 로직이 이 추정값을 "진짜 시간을 아는 것"으로 착각해 자동 반영하면 안 된다.
+  if (hv < 0) {
+    const estSolar = Solar.fromYmdHms(year, month, day, 0, 0, 0);
+    const estEc = estSolar.getLunar().getEightChar();
+    const est = gi(estEc.getTimeGan(), estEc.getTimeZhi());
+    hourPillar.estStem = est.stem;
+    hourPillar.estBranch = est.branch;
+  }
   return [
     { label:'년주', stem:y.stem, branch:y.branch },
     { label:'월주', stem:m.stem, branch:m.branch },
     { label:'일주', stem:d.stem, branch:d.branch },
-    { label:'시주', stem:h.stem, branch:h.branch },
+    hourPillar,
   ];
 }
 
@@ -1681,19 +1693,30 @@ const OHAENG_COLOR = {
   금: { base:'#e2e8f0', dark:'#cbd5e1', text:'#838f9f' },
   수: { base:'#60a5fa', dark:'#3b82f6' },
 };
-function ohaengCellStyle(oh) {
+function ohaengCellStyle(oh, dashed) {
   const c = OHAENG_COLOR[oh];
-  if (!c) return '';
-  return `background:linear-gradient(135deg, ${c.base}55, ${c.dark}22);border:1px solid ${c.dark}99;color:${c.text || c.base};`;
+  if (!c) return dashed ? 'border-style:dashed;' : '';
+  return `background:linear-gradient(135deg, ${c.base}55, ${c.dark}22);border:1px ${dashed ? 'dashed' : 'solid'} ${c.dark}99;color:${c.text || c.base};`;
 }
 // 시주/일주/월주/연주 한 기둥의 기본 셀(라벨+천간+지지, 오행 색상) — 근거성 뱃지(12운성·신살·귀인) 없이
 // 순수 원국만 보여줄 때(renderGunghamManseryeok) renderPillarsTable과 공유한다.
-function buildPillarColBase(p) {
-  const ss = p.stem>=0?CHEONGAN[p.stem]:'?', bs = p.branch>=0?JIJI[p.branch]:'?';
-  const sk = p.stem>=0?CG_KO[p.stem]:'?', bk = p.branch>=0?JJ_KO[p.branch]:'?';
-  const stemOh = p.stem>=0 ? CG_OH[p.stem] : null;
-  const branchOh = p.branch>=0 ? JJ_OH[p.branch] : null;
-  return `<div class="pillar-label">${p.label}</div><div class="pillar-stem" style="${ohaengCellStyle(stemOh)}">${ss}<div class="pillar-hanja">${sk}</div></div><div class="pillar-branch" style="${ohaengCellStyle(branchOh)}">${bs}<div class="pillar-hanja">${bk}</div></div>`;
+// opts.allowEstimate가 true이고 p.stem이 미상(-1)인데 p.estStem(자시 가정값, computePillars 참고)이
+// 있으면 점선 테두리 + "추정" 배지로 표시한다 — 호출부가 명시적으로 opt-in해야 하므로, 이 옵션을 안
+// 넘기는 호출은 그대로 "?"만 보여주는 기존 동작을 유지한다.
+function buildPillarColBase(p, opts) {
+  const isEst = !!(opts && opts.allowEstimate) && p.stem < 0 && p.estStem >= 0 && p.estBranch >= 0;
+  const stemVal = isEst ? p.estStem : p.stem;
+  const branchVal = isEst ? p.estBranch : p.branch;
+  const ss = stemVal>=0?CHEONGAN[stemVal]:'?', bs = branchVal>=0?JIJI[branchVal]:'?';
+  const sk = stemVal>=0?CG_KO[stemVal]:'?', bk = branchVal>=0?JJ_KO[branchVal]:'?';
+  const stemOh = stemVal>=0 ? CG_OH[stemVal] : null;
+  const branchOh = branchVal>=0 ? JJ_OH[branchVal] : null;
+  // 12운성·신살·귀인 뱃지는 붙이지 않는다(scratch/siju-estimate-notes.md의 "추정 위의 추정 금지" 원칙) —
+  // p.branch 본체가 여전히 -1이라 renderPillarsTable의 unseong/sinsal/gwiin 계산은 자동으로 건너뛴다.
+  // "자시(00:00) 가정 계산" 캡션은 뺐다(2026-08-26 사용자 요청) — "추정" 배지 하나로 충분하고, 궁합보기
+  // 8칸 비교표처럼 칸 폭이 좁은 곳에서도 그대로 재사용할 수 있어야 해서.
+  const estBadge = isEst ? `<div class="est-tag">추정</div>` : '';
+  return `<div class="pillar-label">${p.label}</div><div class="pillar-stem" style="${ohaengCellStyle(stemOh, isEst)}">${ss}<div class="pillar-hanja">${sk}</div></div><div class="pillar-branch" style="${ohaengCellStyle(branchOh, isEst)}">${bs}<div class="pillar-hanja">${bk}</div></div>${estBadge}`;
 }
 
 function renderPillarsTable(pillars, elId) {
@@ -1702,7 +1725,8 @@ function renderPillarsTable(pillars, elId) {
   const yBranch = yP ? yP.branch : -1, mBranch = mP ? mP.branch : -1, dBranch = dP ? dP.branch : -1;
   const extra = computeExtraGwiin(pillars);
   document.getElementById(elId).innerHTML = [...pillars].reverse().map(p => {
-    const base = buildPillarColBase(p);
+    const isEst = p.stem < 0 && p.estStem >= 0 && p.estBranch >= 0;
+    const base = buildPillarColBase(p, { allowEstimate: true });
     const unseong = p.branch>=0 ? get12Unseong(dayStemIdx, p.branch) : null;
     const unseongLine = unseong ? `<div class="pillar-unseong">${unseong}</div>` : '';
 
@@ -1741,19 +1765,25 @@ function renderPillarsTable(pillars, elId) {
     const sinsalList = get12SinsalForBranch(p.branch, yBranch, mBranch, dBranch);
     const sinsalBadges = sinsalList.map(s => `<div class="pillar-sinsal">${s}</div>`).join('');
 
-    return `<div class="pillar-col">${base}${unseongLine}${sinsalBadges}${gwiinBadges}</div>`;
+    return `<div class="pillar-col${isEst ? ' is-est' : ''}">${base}${unseongLine}${sinsalBadges}${gwiinBadges}</div>`;
   }).join('');
 }
 
 // 나/상대방 만세력을 한 화면에 — 이름·생년월일시 헤더 + 8칸(시주~연주 ×2) 원국표(사용자 요청
 // 2026-08-19). 근거성 뱃지(12운성·신살·귀인)는 여기서 노출하지 않는다 — buildPillarColBase만 사용.
+// 시주가 미상이면 통합분석과 동일하게 자시 가정 추정값을 점선 테두리 + "추정" 배지로 보여준다
+// (2026-08-26 사용자 요청) — 8칸 비교표라 폭이 좁으므로 캡션 문구는 붙이지 않는다.
 function renderGunghamManseryeok(nameA, dateA, hourA, pillarsA, nameB, dateB, hourB, pillarsB) {
   const el = document.getElementById('ggManseryeokCompare');
   if (!el) return;
   const dstr = d => String(d || '').replace(/-/g, '.');
   const hourLabel = h => (window.Profile && Profile.hourShort) ? Profile.hourShort(h) : '';
-  const colsA = [...pillarsA].reverse().map(p => `<div class="pillar-col">${buildPillarColBase(p)}</div>`).join('');
-  const colsB = [...pillarsB].reverse().map(p => `<div class="pillar-col">${buildPillarColBase(p)}</div>`).join('');
+  const colHTML = p => {
+    const isEst = p.stem < 0 && p.estStem >= 0 && p.estBranch >= 0;
+    return `<div class="pillar-col${isEst ? ' is-est' : ''}">${buildPillarColBase(p, { allowEstimate: true })}</div>`;
+  };
+  const colsA = [...pillarsA].reverse().map(colHTML).join('');
+  const colsB = [...pillarsB].reverse().map(colHTML).join('');
   el.innerHTML = `
     <div class="gg-manse-head">
       <div class="gg-manse-name">${cmbEsc(nameA)}</div>
