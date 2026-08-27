@@ -74,6 +74,16 @@
       // switchTab()의 클릭 시점 검사를 거치지 않고 그려질 수 있어서 인증 상태가 확정되는 지금
       // 한 번 더 확인한다. isRealLoggedIn()이면 아무 것도 하지 않는다.
       if (typeof enforceTabLoginGate === 'function') enforceTabLoginGate();
+      // ⚠️ 버그 수정(2026-08-22 사용자 리포트: "궁합보기 보다가 나갔다 왔더니 목록이 사라지고
+      // 등록 화면만 나온다") — 위 enforceTabLoginGate()는 "로그인 안 했으면 쫓아내기"만 한다.
+      // 하지만 새로고침 직후엔 restoreLastTab()이 switchTab()의 클릭 시점 검사 없이 곧바로
+      // renderGunghamSavedReport()/renderCombinedSavedReport()를 부르는데, 그 시점엔
+      // fbAuth.currentUser가 아직 이 콜백을 못 받아 null이라 Archive.listOf()가 빈 배열을
+      // 돌려주고("비로그인·기록 없음이면 빈 배열" — archive.js) 저장된 목록 대신 등록 화면이
+      // 그려진다. Archive.loadFromCloud()도 내부에서 notifyChanged()로 다시 그리긴 하지만, 인증
+      // 확정 시점에 여기서도 직접 한 번 더 불러 화면이 새로고침 없이도 확실히 맞춰지게 한다.
+      if (typeof renderGunghamSavedReport === 'function') renderGunghamSavedReport();
+      if (typeof renderCombinedSavedReport === 'function') renderCombinedSavedReport();
       if (user && user.isAnonymous) {
         isAdminUser = false;
         renderLoggedOut();
