@@ -3196,7 +3196,15 @@ function ohBalanceScore(ohA, ohB) {
 // MediaPipe 마이그레이션으로 landmark-engine.js의 비율 계산식(분모가 interocularDist 등으로 통일)이
 // 바뀌면서 값의 스케일도 바뀌었다. 아래 range는 scratchpad 검증 사진 실측값을 anchor로 재조정한
 // 것이며, 여전히 "초안"이다(문서 §0 원칙과 동일하게 실측 데이터가 쌓이면 추후 보정 필요).
-const GWANSANG_FEATURE_RANGE = { waJ:[0.05,0.20], mgW:[0.4,1.7], beomR:[0.25,0.75], junduR:[0.5,1.3], jigakR:[0.4,1.0], gwanR:[0.10,0.55], injR:[0.25,0.65], sanR:[0.05,0.20], browGapR:[1.0,4.0], mouthR:[0.5,1.3], cheekR:[1.8,3.0] };
+// ⚠️ 2026-08-27 junduR 재보정 — 궁합보기 "코 조합" 카드가 실제로는 매번 "작은 코"로만 나온다는
+// 사용자 리포트로 32장을 실측해보니 junduR 레벨(gwansangLevel)이 6~28(평균 17.7)에 몰려 있는데
+// "크다" 기준이 60이라 사실상 도달 불가능했다 — landmark-engine.js의 NOSE_SIGNATURES 재보정과
+// 같은 문제지만, 이 파일의 gwansangLevel/gwansangFeatureCompat는 그 테이블을 전혀 안 쓰고 이
+// GWANSANG_FEATURE_RANGE를 따로 참조해서 그때 안 고쳐졌다(코 조합 텍스트뿐 아니라 "재물 궁합"
+// 점수 계산에도 junduR가 쓰여 같이 낮게 쏠려 있었다). 실측 p10/중앙/p90(0.60/0.66/0.72, 이미
+// FACE_SIGNATURES 재보정 주석과 동일한 값)을 25/50/75%에 맞춰 [0.54, 0.78]로 다시 잡았다. waJ·
+// mouthR·jigakR은 같은 32장으로 확인했을 때 60/40 양쪽 다 실제로 나와서 건드리지 않았다.
+const GWANSANG_FEATURE_RANGE = { waJ:[0.05,0.20], mgW:[0.4,1.7], beomR:[0.25,0.75], junduR:[0.54,0.78], jigakR:[0.4,1.0], gwanR:[0.10,0.55], injR:[0.25,0.65], sanR:[0.05,0.20], browGapR:[1.0,4.0], mouthR:[0.5,1.3], cheekR:[1.8,3.0] };
 
 // 부위별 실측값을 해당 부위의 FACE_FEATURE.csv 범위 안에서 0~100으로 정규화한 "상대적 위치"
 function gwansangLevel(key, v) {
