@@ -454,6 +454,12 @@
     const forPartner = !!opts.forPartner;
     const rows = list.map(p => {
       const selected = forPartner ? (p.id === gunghamPartnerId) : (p.id === (rep && rep.id));
+      // 이미 이 프로필로 만든 리포트가 있으면 openForm()이 그 사주를 잠가 수정을 막는데(사용자 요청
+      // 2026-08-27, linkedReportCounts 주석 참고), 목록의 연필 아이콘은 그 조건을 안 보고 항상
+      // 떠 있어서 눌러도 "수정할 수 없어요" 안내만 나오는 죽은 버튼이었다(사용자 리포트 2026-08-27:
+      // "수정 안되게 하기로 했잖아 근데 여기 수정 버튼은 빼야지"). 잠긴 프로필은 연필 자체를 빼서
+      // 수정 가능한 프로필에서만 보이게 한다.
+      const locked = linkedReportCounts(p.id).total > 0;
       return `
         <div class="profile-row ${selected ? 'is-selected' : ''}" onclick="Profile._pickRow('${p.id}', ${forPartner})">
           <span class="profile-row-check">${selected ? '<span class="material-symbols-outlined" style="font-size:16px;color:var(--mint);">check_circle</span>' : ''}</span>
@@ -464,7 +470,7 @@
             </div>
             <div class="profile-row-sub">${esc(fmtYmd(...String(p.solarDate||'').split('-')))} · ${esc(hourShort(p.birthHour))}</div>
           </div>
-          <button class="profile-row-edit" onclick="event.stopPropagation();Profile._editRow('${p.id}', ${forPartner})"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>
+          ${locked ? '' : `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._editRow('${p.id}', ${forPartner})"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>`}
           ${list.length > 1 ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._deleteRow('${p.id}')"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
         </div>`;
     }).join('');
