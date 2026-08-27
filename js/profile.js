@@ -538,7 +538,15 @@
       msg += `\n\n이 사주로 만든 ${parts.join(', ')}도 함께 삭제되고, 되돌릴 수 없어요.`;
     }
     if (!confirm(msg)) return;
-    if (counts.total > 0 && window.Archive && Archive.removeReportsByProfile) Archive.removeReportsByProfile(id);
+    if (counts.total > 0 && window.Archive && Archive.removeReportsByProfile) {
+      Archive.removeReportsByProfile(id);
+      // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "프로필 삭제했는데 보관함에서 안 사라짐(새로고침해야
+      // 없어짐)") — removeReportsByProfile은 localStorage/클라우드 데이터는 바로 지우지만, 이미 열려
+      // 있던 보관함 탭 화면은 그 삭제를 몰라서 새로고침 전까지 지운 리포트를 계속 보여주고 있었다.
+      // switchTab이 보관함 탭에 들어올 때 부르는 것과 같은 Archive.enterTab()을 여기서도 불러 목록을
+      // 최신 상태로 다시 그린다 — 보관함 탭이 지금 안 보여도 host()가 null 가드를 하니 안전하다.
+      if (window.Archive.enterTab) Archive.enterTab();
+    }
     deleteProfile(id);
     if (gunghamPartnerId === id) gunghamPartnerId = null;
     openSwitcher(switcherOpts);
