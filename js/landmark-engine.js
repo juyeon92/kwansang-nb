@@ -843,13 +843,22 @@ function classifyEyebrowTypeRuleBased(lm) {
 
 // ── 눈 크기·모양 8종 — waJ(눈 두께=크기 근사)·eyeTiltR(치켜/처짐)·innerEyeGapR(원거리/근거리안).
 // ES_WIDE_SET/ES_CLOSE_SET은 archetype-db.js 자체에 "⚠️ 벤치마크 추정" 경고가 이미 있는 항목.
+// ⚠️ 2026-08-27 재보정 — 궁합보기 사용자 리포트("외꺼풀 아닌데 외꺼풀로 나온다", "다들 작은눈으로만
+// 나온다")로 기획서/ 폴더 실사진 30장을 실측해보니 waJ가 전부 0.049~0.189(중앙 ~0.14)에 몰려 있는데
+// ES_BIG(0.30)·ES_DOUBLE(0.28)·ES_UPTURNED(0.24)·ES_DROOPY(0.22)는 전부 이 범위 밖이라 사실상 뽑힐
+// 수 없었다 — 30장 전부 ES_SMALL 아니면 ES_MONOLID로만 판정됨. EYE_SIGNATURES(13종 물형) 테이블은
+// 위 주석(2026-08-17/18)에서 이미 같은 문제로 실측 p10/중앙/p90(0.094/0.138/0.173)에 맞춰 재보정
+// 됐는데, 나중에 추가된 이 8종 테이블은 그 보정이 반영되지 않은 채 남아 있었다. 6종 상대 순서
+// (BIG>DOUBLE>UPTURNED>DROOPY>SMALL>MONOLID)는 그대로 두고 실측 범위 안에 균등 재배치했다.
+// eyeTiltR도 실측이 전부 음수(-0.008~-0.076, "치켜"가 기본값)인데 4종이 0을 목표로 잡고 있어 함께
+// 조정 — 이 축은 표본이 30장뿐이라 waJ보다 신뢰도가 낮은 초안이다.
 const EYE_SHAPE_SIGNATURES = {
-  ES_BIG:       { waJ: 0.30 },
-  ES_SMALL:     { waJ: 0.16 },
-  ES_DROOPY:    { eyeTiltR: 0.04, waJ: 0.22 },
-  ES_MONOLID:   { waJ: 0.15, eyeTiltR: 0.00 },
-  ES_UPTURNED:  { eyeTiltR: -0.05, waJ: 0.24 },
-  ES_DOUBLE:    { waJ: 0.28, eyeTiltR: 0.00 },
+  ES_BIG:       { waJ: 0.195, eyeTiltR: -0.035 },
+  ES_DOUBLE:    { waJ: 0.175, eyeTiltR: -0.035 },
+  ES_UPTURNED:  { waJ: 0.155, eyeTiltR: -0.060 },
+  ES_DROOPY:    { waJ: 0.135, eyeTiltR:  0.020 },
+  ES_SMALL:     { waJ: 0.115, eyeTiltR: -0.035 },
+  ES_MONOLID:   { waJ: 0.095, eyeTiltR: -0.035 },
   ES_WIDE_SET:  { innerEyeGapR: 1.15 },
   ES_CLOSE_SET: { innerEyeGapR: 0.75 },
 };
@@ -859,16 +868,23 @@ function classifyEyeShapeRuleBased(lm) {
 
 // ── 코 9종 — junduR(콧볼 폭)·noseLenR(코 길이)·sanR(산근~콧대 세로 낙차, 콧대 융기 근사).
 // 매부리코/꺾인코처럼 콧대 "곡률"이 필요한 유형은 sanR 하나로는 정밀하게 구분되지 않는다.
+// ⚠️ 2026-08-27 재보정 — 위 EYE_SHAPE_SIGNATURES와 같은 사용자 리포트로 실사진 30장을 재보니
+// NS_WIDE(junduR 1.05)·NS_BIG(1.00/1.05)·NS_ALAR_THICK(0.95)·NS_BENT(junduR 0.85)·
+// NS_AQUILINE(noseLenR 1.05)이 전부 실측 범위(junduR 0.55~0.73, noseLenR 0.62~0.84 — 625줄
+// FACE_SIGNATURES 재보정 주석의 p10/중앙/p90과 동일: junduR 0.60/0.66/0.72, noseLenR
+// 0.65/0.73/0.81) 밖이라 사실상 뽑히지 않았다 — 30장 전부 NS_ALAR_THIN 아니면 NS_SMALL_SHORT로만
+// 판정됨. sanR 기준 유형(AQUILINE·BENT·UPTURNED·BOKGO의 sanR 축, 실측 0.11~0.18과 이미 맞음)은
+// 그대로 두고, junduR·noseLenR만 원래 순서·간격 비율을 유지한 채 실측 범위 안으로 선형 압축했다.
 const NOSE_SIGNATURES = {
-  NS_SMALL_SHORT: { junduR: 0.75, noseLenR: 0.75 },
-  NS_WIDE:        { junduR: 1.05 },
-  NS_AQUILINE:    { sanR: 0.16, noseLenR: 1.05 },
-  NS_BENT:        { sanR: 0.18, junduR: 0.85 },
-  NS_BIG:         { junduR: 1.00, noseLenR: 1.05 },
-  NS_UPTURNED:    { sanR: 0.08, noseLenR: 0.80 },
-  NS_ALAR_THICK:  { junduR: 0.95 },
-  NS_ALAR_THIN:   { junduR: 0.70 },
-  NS_BOKGO:       { junduR: 0.88, sanR: 0.10 },
+  NS_SMALL_SHORT: { junduR: 0.60, noseLenR: 0.63 },
+  NS_WIDE:        { junduR: 0.73 },
+  NS_AQUILINE:    { sanR: 0.16, noseLenR: 0.83 },
+  NS_BENT:        { sanR: 0.18, junduR: 0.64 },
+  NS_BIG:         { junduR: 0.71, noseLenR: 0.83 },
+  NS_UPTURNED:    { sanR: 0.08, noseLenR: 0.66 },
+  NS_ALAR_THICK:  { junduR: 0.69 },
+  NS_ALAR_THIN:   { junduR: 0.58 },
+  NS_BOKGO:       { junduR: 0.66, sanR: 0.10 },
 };
 function classifyNoseShapeRuleBased(lm) {
   return nearestSignatureMatchWithConfidence(getGwansangRatios(lm), NOSE_SIGNATURES);
