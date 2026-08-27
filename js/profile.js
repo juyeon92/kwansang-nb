@@ -245,6 +245,19 @@
     renderHeader();
     return data.id;
   }
+  // ── 사주 잠금 — 이 프로필로 실제 리포트를 만든 적이 있으면 사주 정보가 리포트와 어긋나지 않도록
+  // 수정을 막는다(사용자 요청 2026-08-27: "그 사주를 바탕으로 리포트를 사서 분석하는데, 사주 정보가
+  // 바뀌어버리면 애매해진다"). 냥이 실제로 빠지는 통합분석·궁합보기만 대상 — 인연도감은 무료라 제외.
+  // ⚠️ 한계: 통합분석은 항상 대표 프로필을 분석 대상으로 써서 profileId가 정확히 남지만, 궁합보기는
+  // 대표 프로필(나) id로만 저장되고 상대방 프로필 id는 기록되지 않는다(archive.js buildLabel 참고).
+  // 그래서 "상대방으로만 쓰인 프로필"은 실제로 궁합 리포트에 쓰였어도 이 카운트에 안 잡힌다 —
+  // 대표로 한 번이라도 쓰인 적 있는 프로필만 정확히 잡힌다(사용자 확인: 통합분석 매칭만 되면 충분).
+  function linkedReportCounts(id) {
+    if (!id || !window.Archive || !Archive.listOf) return { combined: 0, gungham: 0, total: 0 };
+    const combined = Archive.listOf('combined').filter(r => r.profileId === id).length;
+    const gungham = Archive.listOf('gungham').filter(r => r.profileId === id).length;
+    return { combined, gungham, total: combined + gungham };
+  }
   function deleteProfile(id) {
     let list = loadProfiles();
     const wasDefault = !!(list.find(p => p.id === id) || {}).isDefault;
@@ -504,10 +517,22 @@
   function openAdd(forPartner) { openForm(null, { forPartner: forPartner, onDone: switcherOpts.onDone, onPick: switcherOpts.onPick }); }
   // 목록에서 바로 지운다 — 중복으로 쌓인 사주를 사용자가 스스로 정리할 방법이 없었다(삭제 버튼이
   // 아예 없었음). 지운 뒤에는 시트를 다시 그려 갱신된 목록을 보여준다.
+  // ⚠️ 기능 추가(2026-08-27 사용자 요청) — 이 사주로 만든 리포트(통합분석·궁합보기)가 있으면 몇 건인지
+  // 확인창에 보여주고, 삭제하면 그 리포트도 다 같이 지워진다고 미리 경고한다. 다른 캐스케이드 삭제
+  // (Dogam.deleteMyDogam 등)도 이 앱은 전부 커스텀 모달 대신 confirm() 문구로 경고하는 걸 그대로 따른다.
   function deleteRow(id) {
     const p = getProfile(id);
     if (!p) return;
-    if (!confirm(`'${p.name}' 사주를 삭제할까요?`)) return;
+    const counts = linkedReportCounts(id);
+    let msg = `'${p.name}' 사주를 삭제할까요?`;
+    if (counts.total > 0) {
+      const parts = [];
+      if (counts.combined) parts.push(`통합분석 ${counts.combined}건`);
+      if (counts.gungham) parts.push(`궁합보기 ${counts.gungham}건`);
+      msg += `\n\n이 사주로 만든 ${parts.join(', ')}도 함께 삭제되고, 되돌릴 수 없어요.`;
+    }
+    if (!confirm(msg)) return;
+    if (counts.total > 0 && window.Archive && Archive.removeReportsByProfile) Archive.removeReportsByProfile(id);
     deleteProfile(id);
     if (gunghamPartnerId === id) gunghamPartnerId = null;
     openSwitcher(switcherOpts);
@@ -526,6 +551,8 @@
     draft._onSavedRun = opts.onSavedRun || null;
     draft._onDone = opts.onDone || null;
     draft._onPick = opts.onPick || null;
+    // 기존 프로필이고(신규 등록이 아니고) 그 프로필로 만든 리포트가 하나라도 있으면 잠근다.
+    draft._locked = !!(profile && profile.id && linkedReportCounts(profile.id).total > 0);
     renderForm();
   }
 
@@ -545,6 +572,8 @@
     const dateText = (d.birthYear && d.birthMonth && d.birthDay) ? fmtYmd(d.birthYear, d.birthMonth, d.birthDay) : '';
     const hourText = hourLabel(d.birthHour);
     const gateNotice = PROFILE_GATE_NOTICE[d._onSavedRun];
+    const locked = !!d._locked;
+    const dis = locked ? 'disabled' : ''; // 잠긴 프로필은 모든 입력을 disabled로 — onclick도 같이 막힌다.
     root().innerHTML = `
       <div class="overlay-backdrop" onclick="Profile._dismissForm()"></div>
       <div class="form-popup">
@@ -560,19 +589,27 @@
               <span class="label">${esc(gateNotice)}</span>
             </div>
           </div>` : ''}
+          ${locked ? `
+          <div class="reassure-box">
+            <div class="reassure-head">
+              <span class="icon material-symbols-outlined">lock</span>
+              <span class="label">이미 이 사주로 만든 리포트가 있어 수정할 수 없어요</span>
+            </div>
+            <p class="reassure-sub">정보를 바꾸면 이미 산 리포트와 내용이 어긋나게 돼요. 잘못 입력했다면 삭제 후 다시 등록해주세요.</p>
+          </div>` : ''}
           <div class="field-group">
             <label class="field-label">이름 <i class="req-dot"></i></label>
-            <input type="text" class="field-input" id="pfName" placeholder="이름을 입력해주세요" value="${esc(d.name)}" oninput="Profile._draftSet('name', this.value)">
+            <input type="text" class="field-input" id="pfName" placeholder="이름을 입력해주세요" value="${esc(d.name)}" oninput="Profile._draftSet('name', this.value)" ${dis}>
           </div>
 
           <div class="field-group">
             <label class="field-label">관계 <i class="req-dot"></i></label>
             <div class="chip-row">
-              ${RELATIONS.map(r => `<button class="rel-chip ${d.relation===r?'on':''}" onclick="Profile._setRelation('${r}')">${r}</button>`).join('')}
+              ${RELATIONS.map(r => `<button class="rel-chip ${d.relation===r?'on':''}" onclick="Profile._setRelation('${r}')" ${dis}>${r}</button>`).join('')}
             </div>
             ${d.relation === '지인' ? `
               <input type="text" class="field-input" style="margin-top:8px;" placeholder="관계를 입력해주세요 (예: 직장 동료)"
-                value="${esc(d.relationDetail)}" oninput="Profile._draftSet('relationDetail', this.value)">` : ''}
+                value="${esc(d.relationDetail)}" oninput="Profile._draftSet('relationDetail', this.value)" ${dis}>` : ''}
           </div>
 
           <div class="field-group">
@@ -581,38 +618,39 @@
 
           <div class="field-group">
             <label class="field-label">생년월일 <i class="req-dot"></i></label>
-            <button class="field-input field-input-btn" onclick="Profile._openCalendar()">${dateText || 'YYYY.MM.DD 선택'}</button>
+            <button class="field-input field-input-btn" onclick="Profile._openCalendar()" ${dis}>${dateText || 'YYYY.MM.DD 선택'}</button>
             <div class="radio-row">
-              <label class="radio-option"><input type="radio" name="calendarType" value="양력" ${d.calendarType==='양력'?'checked':''} onchange="Profile._setCalendarType('양력')"> 양력</label>
-              <label class="radio-option"><input type="radio" name="calendarType" value="음력" ${d.calendarType==='음력'?'checked':''} onchange="Profile._setCalendarType('음력')"> 음력</label>
+              <label class="radio-option"><input type="radio" name="calendarType" value="양력" ${d.calendarType==='양력'?'checked':''} onchange="Profile._setCalendarType('양력')" ${dis}> 양력</label>
+              <label class="radio-option"><input type="radio" name="calendarType" value="음력" ${d.calendarType==='음력'?'checked':''} onchange="Profile._setCalendarType('음력')" ${dis}> 음력</label>
             </div>
           </div>
 
           <div class="field-group">
             <label class="field-label">출생시간</label>
-            <button class="field-input field-input-btn" onclick="Profile._openHourList()">${hourText}</button>
+            <button class="field-input field-input-btn" onclick="Profile._openHourList()" ${dis}>${hourText}</button>
           </div>
 
           <div class="field-group">
             <label class="field-label">성별</label>
             <div class="chip-row two-col">
-              <button class="rel-chip wide ${d.gender==='여'?'on':''}" onclick="Profile._setGender('여')">여성</button>
-              <button class="rel-chip wide ${d.gender==='남'?'on':''}" onclick="Profile._setGender('남')">남성</button>
+              <button class="rel-chip wide ${d.gender==='여'?'on':''}" onclick="Profile._setGender('여')" ${dis}>여성</button>
+              <button class="rel-chip wide ${d.gender==='남'?'on':''}" onclick="Profile._setGender('남')" ${dis}>남성</button>
             </div>
           </div>
         </div>
         <div class="popup-footer">
-          <button class="btn-outline-primary" onclick="Profile._dismissForm()">취소</button>
-          <button class="btn-solid-primary" onclick="Profile._save()">저장하기</button>
+          <button class="btn-outline-primary" onclick="Profile._dismissForm()">${locked ? '닫기' : '취소'}</button>
+          ${locked ? '' : '<button class="btn-solid-primary" onclick="Profile._save()">저장하기</button>'}
         </div>
       </div>`;
     document.body.classList.add('overlay-open');
   }
 
-  function draftSet(key, val) { draft[key] = val; }
-  function setRelation(r) { draft.relation = r; if (r !== '지인') draft.relationDetail = ''; renderForm(); }
-  function setCalendarType(t) { draft.calendarType = t; renderForm(); }
-  function setGender(g) { draft.gender = g; renderForm(); }
+  // 잠긴 프로필은 UI에서 disabled로 막혀 있지만, 혹시 모를 다른 진입 경로까지 막는 이중 방어.
+  function draftSet(key, val) { if (draft._locked) return; draft[key] = val; }
+  function setRelation(r) { if (draft._locked) return; draft.relation = r; if (r !== '지인') draft.relationDetail = ''; renderForm(); }
+  function setCalendarType(t) { if (draft._locked) return; draft.calendarType = t; renderForm(); }
+  function setGender(g) { if (draft._locked) return; draft.gender = g; renderForm(); }
 
   // 폼을 저장하지 않고 닫을 때 — 호출자가 돌아갈 화면(onDone)을 지정했으면 그 화면으로 되돌린다.
   function dismissForm() {
@@ -622,6 +660,7 @@
   }
 
   function saveDraft() {
+    if (draft._locked) return; // 잠긴 프로필은 저장 버튼 자체가 안 그려지지만 이중 방어로 남겨둔다.
     if (!draft.name || !draft.name.trim()) { alert('이름을 입력해주세요.'); return; }
     if (!draft.birthYear) { alert('생년월일을 선택해주세요.'); return; }
     const solar = resolveSolarDate(draft);
@@ -651,6 +690,7 @@
   // ── 커스텀 날짜 피커 ─────────────────────────────────────────────────
   let calView = { y: 1990, m: 1 };
   function openCalendar() {
+    if (draft._locked) return;
     calView.y = draft.birthYear || 1990;
     calView.m = draft.birthMonth || 1;
     renderCalendar();
@@ -713,6 +753,7 @@
 
   // ── 출생시간 선택 리스트 ─────────────────────────────────────────────
   function openHourList() {
+    if (draft._locked) return;
     const rows = BIRTH_HOUR_OPTIONS.map(o => `
       <div class="profile-row hour-row ${draft.birthHour===o.value?'is-selected':''}" onclick="Profile._pickHour('${o.value}')">
         <span class="profile-row-check">${draft.birthHour===o.value?'<span class="material-symbols-outlined" style="font-size:16px;color:var(--mint);">check_circle</span>':''}</span>

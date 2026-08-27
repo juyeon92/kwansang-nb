@@ -833,6 +833,10 @@ body.overlay-open { overflow: hidden; }
 }
 .field-input:focus { border-color: var(--mint); }
 .field-input-btn { cursor: pointer; color: var(--text-strong); }
+/* 사주 프로필 잠금(2026-08-27 사용자 요청) — 리포트 구매 이력이 있는 프로필은 정보가 바뀌면 이미
+   산 리포트와 어긋나므로 수정 화면 자체를 잠근다. disabled 속성을 주면 onclick도 안 먹혀서(안전한
+   잠금) 클릭 방지 로직을 따로 안 짜도 된다 — 흐려 보이는 스타일만 이 규칙에서 얹는다. */
+.popup-body [disabled] { opacity: .55; cursor: not-allowed; }
 .chip-row { display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .chip-row::-webkit-scrollbar { display: none; }
 .chip-row.two-col { flex-wrap: nowrap; }

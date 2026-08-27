@@ -554,6 +554,24 @@
     console.log('[archive] 캐스케이드 삭제(type)', { type: type, count: toRemove.length });
   }
 
+  // 사주 프로필을 삭제할 때 그 프로필로 만든 통합분석·궁합보기 보관 기록도 함께 지운다(사용자 요청
+  // 2026-08-27: "이 사주를 삭제하면 관련된 리포트도 싹 다 사라지는거야"). removeReportsByType과 같은
+  // 이유로 확인창 없이 조용히 지운다 — 호출부(profile.js)가 이미 "리포트 N건도 같이 지워진다"는
+  // 확인을 자체 confirm()으로 받은 뒤에 부른다. 인연도감(gwansang)은 프로필 삭제와 무관한 별도
+  // 개념(계정당 1건, 삭제도 Dogam.deleteMyDogam 전용 흐름)이라 대상에서 뺀다.
+  function removeReportsByProfile(profileId) {
+    const uid = currentUid();
+    if (!uid || !profileId) return;
+    const list = loadIndex();
+    const toRemove = list.filter(r => (r.type === 'combined' || r.type === 'gungham') && r.profileId === profileId);
+    if (!toRemove.length) return;
+    toRemove.forEach(r => { removeReportHtml(uid, r.id); markDeleted(r.id); });
+    const left = list.filter(r => toRemove.indexOf(r) < 0);
+    saveIndex(left);
+    if (viewingId && toRemove.some(r => r.id === viewingId)) viewingId = null;
+    console.log('[archive] 캐스케이드 삭제(profile)', { profileId: profileId, count: toRemove.length });
+  }
+
   // 로그아웃 시 화면만 정리한다. 저장소는 계정(uid)별로 나뉘어 있어 로그아웃 상태에서는 어차피
   // 조회되지 않고, 사본을 남겨둬야 클라우드 조회가 어긋나도 재로그인 시 그대로 복원된다.
   function clearLocal() {
@@ -755,7 +773,7 @@
   window.Archive = {
     openPage: openPage, closePage: closePage, enterTab: enterTab,
     latestOf: latestOf, listOf: listOf, renderInto: renderInto,
-    save: save, commitPending: commitPending, discardPending: discardPending, remove: remove, removeReportsByType: removeReportsByType, debug: debug,
+    save: save, commitPending: commitPending, discardPending: discardPending, remove: remove, removeReportsByType: removeReportsByType, removeReportsByProfile: removeReportsByProfile, debug: debug,
     toggle: toggle, toggleSort: toggleSort,
     openReport: openReport, backToList: backToList,
     loadFromCloud: loadFromCloud, clearLocal: clearLocal,
