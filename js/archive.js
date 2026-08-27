@@ -319,11 +319,16 @@
     // app.js의 state는 const 전역이라 window에 붙지 않는다 — 전역 렉시컬 스코프로 직접 참조한다.
     const st = (typeof state !== 'undefined') ? state : null;
     if (type === 'gungham') {
+      // 2026-08-22 — 궁합보기 Person A(나)는 더 이상 대표 프로필과 항상 같지 않다(엄마×아빠처럼
+      // 대표가 아닌 두 사람의 궁합도 가능해짐). 그래서 이 리포트의 실제 A는 대표가 아니라
+      // Profile.getGunghamA()에서 가져온다 — 대표만 썼다면, 저장 이후 다른 화면에서 대표가
+      // 바뀌었을 때 이미 저장된 리포트 제목까지 엉뚱하게 바뀌어 보일 수 있었다.
+      const self = window.Profile && Profile.getGunghamA ? Profile.getGunghamA() : rep;
       const partner = window.Profile && Profile.getGunghamPartner ? Profile.getGunghamPartner() : null;
       return {
-        title: repName + ' ✕ ' + (partner ? partner.name : '상대방'),
+        title: (self ? self.name : repName) + ' ✕ ' + (partner ? partner.name : '상대방'),
         sub: (st && st.gungham && st.gungham.relation) || '',
-        profileId: rep ? rep.id : null,
+        profileId: self ? self.id : (rep ? rep.id : null),
       };
     }
     if (type === 'gwansang') {

@@ -328,15 +328,60 @@
     const hourEl = document.getElementById('ggBirthHourB');
     if (hourEl) hourEl.value = profile.birthHour || '-1';
     ggGenderB = profile.gender || '여';
-    state.gungham.relation = profile.relationDetail || profile.relation;
+    // state.gungham.relation은 더 이상 여기서 바로 정하지 않는다 — syncGunghamRelation()이 A/B가
+    // 둘 다 정해진 뒤에 "둘 중 대표(나)가 있는 쪽" 기준으로 계산한다(아래 참고).
+  }
+  // A(나)/B(상대) 중 어느 쪽이 실제로 관계를 판단할 근거가 되는지 정한다(2026-08-22, 궁합보기
+  // "대표 프로필 vs 분석 대상" 정리 — 사용자 확정: A/B 모두 대표가 아닐 수 있게 됨).
+  function isRepresentativeId(id) {
+    const rep = getRepresentative();
+    return !!(rep && id && rep.id === id);
+  }
+  // 두 사람의 관계(state.gungham.relation)를 정한다.
+  // - A나 B 중 하나가 대표(나)면, 그 반대쪽 프로필에 저장된 "이 사람과 나의 관계"를 그대로 쓴다
+  //   (기존 동작과 동일 — 프로필의 relation 필드 자체가 "이 사람과 나의 관계"라는 뜻이라서).
+  // - A·B 둘 다 대표가 아니면(예: 엄마 vs 아빠) 그 필드로는 두 사람 사이의 관계를 알 수 없다 —
+  //   #ggRelAsk 칩을 띄워 사용자에게 직접 물어본다(setGunghamRelation이 답을 채운다).
+  function syncGunghamRelation() {
+    const askEl = document.getElementById('ggRelAsk');
+    if (!gunghamAId || !gunghamPartnerId) { if (askEl) askEl.classList.add('hidden'); return; }
+    const aProf = getProfile(gunghamAId), bProf = getProfile(gunghamPartnerId);
+    if (isRepresentativeId(gunghamAId) && bProf) {
+      state.gungham.relation = bProf.relationDetail || bProf.relation;
+      if (askEl) askEl.classList.add('hidden');
+      return;
+    }
+    if (isRepresentativeId(gunghamPartnerId) && aProf) {
+      state.gungham.relation = aProf.relationDetail || aProf.relation;
+      if (askEl) askEl.classList.add('hidden');
+      return;
+    }
+    state.gungham.relation = null; // 확정 전까지는 비워둔다 — runGunghamWrapped가 이 값으로 진행 가능 여부를 판단
+    if (askEl) {
+      askEl.classList.remove('hidden');
+      askEl.querySelectorAll('.rel-chip').forEach(b => b.classList.remove('on'));
+    }
+  }
+  // #ggRelAsk 칩 클릭 핸들러 — setRelation(ctx,...)과 같은 토글 패턴이지만 궁합보기 전용 상태
+  // (state.gungham.relation)를 다루므로 별도 함수로 둔다.
+  function setGunghamRelation(rel, btn) {
+    state.gungham.relation = rel;
+    if (btn) {
+      const container = btn.parentElement;
+      if (container) container.querySelectorAll('.rel-chip').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+    }
   }
   function applyRepresentativeEverywhere() {
     const rep = getRepresentative();
     if (!rep) return;
     applyToContext('gwansang', rep);
     applyToContext('combined', rep);
-    applyToGunghamA(rep);
-    renderGunghamA(rep);
+    // 궁합보기 A(나)는 이제 대표 프로필과 독립적이다(2026-08-22) — 사용자가 아직 A를 직접 고르지
+    // 않았을 때만(gunghamAId가 비어있을 때만) 대표를 기본값으로 채운다. 한 번 A를 명시적으로 고르면
+    // 그 뒤로 대표가(예: 통합분석에서 다른 사람 분석하느라) 바뀌어도 A는 따라가지 않고 그대로 남는다.
+    if (!gunghamAId) { gunghamAId = rep.id; applyToGunghamA(rep); renderGunghamA(rep); }
+    syncGunghamRelation();
   }
 
   // ── 헤더 Info box 렌더 ────────────────────────────────────────────────
@@ -368,21 +413,31 @@
     box.onclick = function () { openSwitcher(); };
   }
 
-  function renderGunghamA(rep) {
+  // 궁합보기 A(나) 자리에 지금 골라둔 프로필 id — null이면 아직 명시적으로 고른 적 없고
+  // applyRepresentativeEverywhere()가 대표 프로필로 기본값을 채워주는 중이라는 뜻이다(2026-08-22).
+  let gunghamAId = null;
+  function renderGunghamA(profile) {
     const label = document.getElementById('ggLabelA');
-    if (label) label.textContent = rep ? rep.name : '나';
-    if (state.gunghamA) state.gunghamA.name = rep ? rep.name : null; // AI 리포트·섹션 제목에서 "나" 대신 실제 이름을 쓰기 위해 보관
+    if (label) label.textContent = profile ? profile.name : '나';
+    if (state.gunghamA) state.gunghamA.name = profile ? profile.name : null; // AI 리포트·섹션 제목에서 "나" 대신 실제 이름을 쓰기 위해 보관
     const chip = document.getElementById('ggProfileChipA');
     if (!chip) { syncGgAccordion(); return; }
-    if (!rep) { chip.innerHTML = `<span class="mini-profile-empty">헤더에서 프로필을 먼저 등록해주세요</span>`; syncGgAccordion(); return; }
+    if (!profile) {
+      chip.innerHTML = `<span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 내 프로필 선택</span>`;
+      chip.classList.add('select-mode');
+      syncGgAccordion();
+      return;
+    }
+    chip.classList.remove('select-mode');
     chip.innerHTML = `
       <span class="mini-profile-body">
         <span class="mini-profile-top">
-          <span class="mini-profile-name">${esc(rep.name)}</span>
-          <span class="mini-profile-badge">${esc(rep.relationDetail || rep.relation)}</span>
+          <span class="mini-profile-name">${esc(profile.name)}</span>
+          <span class="mini-profile-badge">${esc(profile.relationDetail || profile.relation)}</span>
         </span>
-        <span class="mini-profile-sub">${esc(fmtYmd(...String(rep.solarDate||'').split('-')))} · ${esc(hourShort(rep.birthHour))}</span>
-      </span>`;
+        <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourShort(profile.birthHour))}</span>
+      </span>
+      <span class="mini-profile-chevron material-symbols-outlined">chevron_right</span>`;
     syncGgAccordion();
   }
 
@@ -428,7 +483,7 @@
   }
   function toggleGgAcc(who) { setGgAccOpen(who, !ggOpen[who]); }
   function syncGgAccordion() {
-    const completeA = !!(getRepresentative() && state.gunghamA && state.gunghamA.file);
+    const completeA = !!(gunghamAId && state.gunghamA && state.gunghamA.file);
     if (completeA && !ggWasComplete.A) { setGgAccOpen('A', false); setGgAccOpen('B', true); }
     ggWasComplete.A = completeA;
     ggWasComplete.B = !!(gunghamPartnerId && state.gunghamB && state.gunghamB.file);
@@ -451,9 +506,15 @@
     const list = loadProfiles();
     if (list.length === 0) { openForm(null, opts); return; }
     const rep = getRepresentative();
-    const forPartner = !!opts.forPartner;
+    // ggSlot(2026-08-22 재편) — 'A'/'B'면 궁합보기의 나/상대 자리를 독립적으로 고르는 것이고(대표
+    // 프로필을 건드리지 않음), 없으면(null) 기존처럼 "내 대표 프로필 자체를 바꾸는" 시트다(헤더의
+    // 사주 관리, 통합분석의 "다른 사람으로 분석하기"·"분석할 사주 선택" 등). 예전엔 이 구분이 boolean
+    // forPartner 하나였는데, 궁합보기 A(나) 자리도 대표와 분리해 자유롭게 고를 수 있게 하면서
+    // 'A'/'B'/null 3갈래로 넓혔다 — 궁합 리포트 구성.md §(대표 프로필 vs 분석 대상) 참고.
+    const ggSlot = opts.ggSlot || null;
+    const selectedId = ggSlot === 'A' ? gunghamAId : ggSlot === 'B' ? gunghamPartnerId : (rep && rep.id);
     const rows = list.map(p => {
-      const selected = forPartner ? (p.id === gunghamPartnerId) : (p.id === (rep && rep.id));
+      const selected = p.id === selectedId;
       // 이미 이 프로필로 만든 리포트가 있으면 openForm()이 그 사주를 잠가 수정을 막는데(사용자 요청
       // 2026-08-27, linkedReportCounts 주석 참고), 목록의 연필 아이콘은 그 조건을 안 보고 항상
       // 떠 있어서 눌러도 "수정할 수 없어요" 안내만 나오는 죽은 버튼이었다(사용자 리포트 2026-08-27:
@@ -461,7 +522,7 @@
       // 수정 가능한 프로필에서만 보이게 한다.
       const locked = linkedReportCounts(p.id).total > 0;
       return `
-        <div class="profile-row ${selected ? 'is-selected' : ''}" onclick="Profile._pickRow('${p.id}', ${forPartner})">
+        <div class="profile-row ${selected ? 'is-selected' : ''}" onclick="Profile._pickRow('${p.id}', '${ggSlot || ''}')">
           <span class="profile-row-check">${selected ? '<span class="material-symbols-outlined" style="font-size:16px;color:var(--mint);">check_circle</span>' : ''}</span>
           <div class="profile-row-body">
             <div class="profile-row-top">
@@ -470,7 +531,7 @@
             </div>
             <div class="profile-row-sub">${esc(fmtYmd(...String(p.solarDate||'').split('-')))} · ${esc(hourShort(p.birthHour))}</div>
           </div>
-          ${locked ? '' : `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._editRow('${p.id}', ${forPartner})"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>`}
+          ${locked ? '' : `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._editRow('${p.id}', '${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>`}
           ${list.length > 1 ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._deleteRow('${p.id}')"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
         </div>`;
     }).join('');
@@ -479,31 +540,33 @@
       <div class="overlay-backdrop" onclick="Profile._dismissSwitcher()"></div>
       <div class="bottomsheet">
         <div class="bottomsheet-header">
-          <span>${forPartner ? '상대방 프로필 선택' : esc(opts.title || '사주 관리')}</span>
+          <span>${ggSlot === 'A' ? '내 프로필 선택' : ggSlot === 'B' ? '상대방 프로필 선택' : esc(opts.title || '사주 관리')}</span>
           <button class="overlay-close" onclick="Profile._dismissSwitcher()"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="profile-row-list">${rows}</div>
-        <button class="btn-solid-primary btn-add" onclick="Profile._openAdd(${forPartner})"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px;">add</span> 사주 추가하기</button>
+        <button class="btn-solid-primary btn-add" onclick="Profile._openAdd('${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px;">add</span> 사주 추가하기</button>
       </div>`;
     document.body.classList.add('overlay-open');
   }
 
-  function pickRow(id, forPartner) {
+  function pickRow(id, ggSlot) {
+    ggSlot = ggSlot || null;
     const opts = switcherOpts; // finishSwitcher가 switcherOpts를 비우므로, 재오픈에 쓸 옵션도 먼저 잡아둔다
     const onPick = opts.onPick;
-    if (forPartner) {
-      // 상대방으로 나(대표 프로필)와 같은 프로필을 고르면 궁합 자체가 성립하지 않으니 막고,
-      // 같은 옵션으로 시트를 다시 띄워 재선택하게 한다.
-      const rep = getRepresentative();
-      if (rep && rep.id === id) {
-        alert('상대방은 나와 다른 프로필을 선택해주세요.');
+    if (ggSlot === 'A' || ggSlot === 'B') {
+      // 나(A)와 상대(B)로 같은 프로필을 고르면 궁합 자체가 성립하지 않으니 막고, 같은 옵션으로
+      // 시트를 다시 띄워 재선택하게 한다 — 예전엔 "상대 ≠ 대표"만 막았는데, 이제 A도 대표 고정이
+      // 아니라서 "A와 B가 서로 다른가"로 기준이 바뀌었다.
+      const otherId = ggSlot === 'A' ? gunghamPartnerId : gunghamAId;
+      if (otherId && otherId === id) {
+        alert('두 사람은 서로 다른 프로필을 선택해주세요.');
         openSwitcher(opts);
         return;
       }
-      gunghamPartnerId = id;
       const p = getProfile(id);
-      applyToGunghamB(p);
-      renderGunghamB(p);
+      if (ggSlot === 'A') { gunghamAId = id; applyToGunghamA(p); renderGunghamA(p); }
+      else { gunghamPartnerId = id; applyToGunghamB(p); renderGunghamB(p); }
+      syncGunghamRelation();
     } else {
       setRepresentative(id);
     }
@@ -519,8 +582,8 @@
   }
   // 수정/추가로 넘어갈 때도 onPick을 들고 간다 — 바텀시트에서 "사주 추가하기"로 새 사주를 만든 것도
   // 사용자 입장에선 "그 사주를 고른 것"이라, 저장 후 호출부의 다음 단계로 이어져야 한다.
-  function editRow(id, forPartner) { openForm(getProfile(id), { forPartner: forPartner, onDone: switcherOpts.onDone, onPick: switcherOpts.onPick }); }
-  function openAdd(forPartner) { openForm(null, { forPartner: forPartner, onDone: switcherOpts.onDone, onPick: switcherOpts.onPick }); }
+  function editRow(id, ggSlot) { openForm(getProfile(id), { ggSlot: ggSlot || null, onDone: switcherOpts.onDone, onPick: switcherOpts.onPick }); }
+  function openAdd(ggSlot) { openForm(null, { ggSlot: ggSlot || null, onDone: switcherOpts.onDone, onPick: switcherOpts.onPick }); }
   // 목록에서 바로 지운다 — 중복으로 쌓인 사주를 사용자가 스스로 정리할 방법이 없었다(삭제 버튼이
   // 아예 없었음). 지운 뒤에는 시트를 다시 그려 갱신된 목록을 보여준다.
   // ⚠️ 기능 추가(2026-08-27 사용자 요청) — 이 사주로 만든 리포트(통합분석·궁합보기)가 있으면 몇 건인지
@@ -561,7 +624,7 @@
       calendarType: '양력', birthYear: null, birthMonth: null, birthDay: null, isLeapMonth: false,
       birthHour: '-1', gender: '남', solarDate: null,
     };
-    draft._forPartner = !!opts.forPartner;
+    draft._ggSlot = opts.ggSlot || null;
     draft._onSavedRun = opts.onSavedRun || null;
     draft._onDone = opts.onDone || null;
     draft._onPick = opts.onPick || null;
@@ -680,18 +743,19 @@
     const solar = resolveSolarDate(draft);
     if (!solar) { alert('생년월일 변환에 실패했습니다. 날짜를 다시 선택해주세요.'); return; }
     draft.solarDate = solar;
-    const forPartner = draft._forPartner;
+    const ggSlot = draft._ggSlot || null;
     const onSavedRun = draft._onSavedRun;
     const onDone = draft._onDone;
     const onPick = draft._onPick;
-    delete draft._forPartner;
+    delete draft._ggSlot;
     delete draft._onSavedRun;
     delete draft._onDone;
     delete draft._onPick;
     const savedId = upsertProfile(draft);
-    if (forPartner) { gunghamPartnerId = savedId; renderGunghamB(getProfile(savedId)); }
+    if (ggSlot === 'B') { gunghamPartnerId = savedId; renderGunghamB(getProfile(savedId)); syncGunghamRelation(); }
+    else if (ggSlot === 'A') { gunghamAId = savedId; renderGunghamA(getProfile(savedId)); syncGunghamRelation(); }
     if (onDone) onDone(); else closeOverlay();
-    if (onPick && !forPartner) {
+    if (onPick && !ggSlot) {
       setRepresentative(savedId); // 방금 만든/고친 사주로 분석을 이어가는 흐름이라 대표로 세운다
       onPick(savedId);
     }
@@ -982,18 +1046,24 @@
   }
   async function runGunghamWrapped() {
     if (analysisInFlight) return;
-    const rep = getRepresentative();
-    if (!rep) { openForm(null, { onSavedRun: 'gungham' }); return; }
+    // A(나)는 더 이상 대표 프로필과 동일하지 않다(2026-08-22) — gunghamAId가 실제 선택값이고,
+    // 대표 프로필은 그저 그 값이 비어 있을 때(applyRepresentativeEverywhere) 채워주는 기본값이다.
+    if (!gunghamAId) { openForm(null, { onSavedRun: 'gungham' }); return; }
+    const self = getProfile(gunghamAId);
+    if (!self) { alert('내 프로필을 다시 선택해주세요.'); return; }
     if (!gunghamPartnerId) { alert('상대방 프로필을 선택해주세요.'); return; }
     const partner = getProfile(gunghamPartnerId);
     if (!partner) { alert('상대방 프로필을 다시 선택해주세요.'); return; }
+    // A·B 둘 다 대표(나)가 아니면(예: 엄마 vs 아빠) syncGunghamRelation()이 관계를 자동으로 못 정하고
+    // #ggRelAsk로 직접 물어보게 비워둔다 — 그 상태로 진행하지 않게 막는다.
+    if (!state.gungham.relation) { alert('두 사람의 관계를 선택해주세요.'); return; }
 
     analysisInFlight = true;
     try {
       if (!(await askSpend('궁합 분석을 시작할까요?', 1))) return;
       setCtaBusy('ggCtaDock', true);
       if (!(await chargeNyangOrAlert('gungham'))) return;
-      applyToGunghamA(rep);
+      applyToGunghamA(self);
       applyToGunghamB(partner);
       await runGungham();
     } finally {
@@ -1026,10 +1096,13 @@
     openSwitcher, close: closeOverlay,
     getRepresentative, describe: describeProfile, hourShort,
     getGunghamPartner: function () { return gunghamPartnerId ? getProfile(gunghamPartnerId) : null; },
+    getGunghamA: function () { return gunghamAId ? getProfile(gunghamAId) : null; },
     _dismissSwitcher: finishSwitcher, _dismissForm: dismissForm,
     _closeSpend: closeSpendDialog, _changeSpendProfile: changeSpendProfile,
     runCombined: runCombinedWrapped, runGungham: runGunghamWrapped,
-    openPartnerPicker: (opts) => openSwitcher(Object.assign({}, opts, { forPartner: true })),
+    openPartnerPicker: (opts) => openSwitcher(Object.assign({}, opts, { ggSlot: 'B' })),
+    openGunghamAPicker: (opts) => openSwitcher(Object.assign({}, opts, { ggSlot: 'A' })),
+    setGunghamRelation: setGunghamRelation,
     toggleGgAcc, syncGgAccordion,
     _pickRow: pickRow, _editRow: editRow, _openAdd: openAdd, _deleteRow: deleteRow,
     _draftSet: draftSet, _setRelation: setRelation, _setCalendarType: setCalendarType, _setGender: setGender,

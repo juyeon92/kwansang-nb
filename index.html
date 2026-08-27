@@ -2218,16 +2218,19 @@ body.overlay-open { overflow: hidden; }
          보관된 기록이 있으면 app.js의 renderGunghamSavedReport()가 이 블록을 감추고
          아래 #ggSavedStep(저장된 내역 + 다른 상대와 궁합보기)을 대신 노출한다. -->
     <div id="ggInputStep">
-    <!-- Person A: 대표 프로필 고정 -->
+    <!-- Person A: 2026-08-22부터 대표 프로필 고정이 아니라 B처럼 자유롭게 프로필을 고를 수 있다
+         (사용자 확정 — "엄마 vs 아빠"처럼 나 아닌 두 사람의 궁합도 봐야 해서). 열려면 처음엔
+         대표 프로필로 기본 채워지고(Profile.applyRepresentativeEverywhere), 클릭하면 다른 프로필로
+         바꿀 수 있다. -->
     <div class="person-block is-open" id="ggBlockA">
       <button type="button" class="gg-acc-head" onclick="Profile.toggleGgAcc('A')">
         <span class="person-label" id="ggLabelA">나</span>
         <span class="gg-acc-icon material-symbols-outlined" id="ggAccIconA">remove</span>
       </button>
       <div class="gg-acc-body">
-      <div class="mini-profile-chip" id="ggProfileChipA">
-        <span class="mini-profile-empty">헤더에서 프로필을 먼저 등록해주세요</span>
-      </div>
+      <button class="mini-profile-chip select-mode" id="ggProfileChipA" onclick="Profile.openGunghamAPicker()">
+        <span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 내 프로필 선택</span>
+      </button>
 
       <div class="upload-section" id="ggUploadSectionA">
         <div class="upload-label">관상 정보</div>
@@ -2294,6 +2297,19 @@ body.overlay-open { overflow: hidden; }
         <input type="hidden" id="ggBirthHourB" value="-1">
       </div>
       </div><!-- /.gg-acc-body -->
+    </div>
+
+    <!-- A·B 둘 다 대표(나)가 아닐 때만 뜬다(2026-08-22, 예: 엄마 vs 아빠 궁합) — 그럴 땐 프로필의
+         "이 사람과 나의 관계" 필드로 A·B 사이 관계를 알 수 없어서 직접 물어봐야 한다.
+         Profile.syncGunghamRelation()이 필요할 때만 hidden을 풀고, 확정되면 다시 접는다. -->
+    <div class="gg-rel-ask hidden" id="ggRelAsk" style="margin:16px 4px 0;">
+      <label class="field-label">두 사람의 관계는?</label>
+      <div class="chip-row">
+        <button class="rel-chip" onclick="Profile.setGunghamRelation('연인/배우자', this)">연인/배우자</button>
+        <button class="rel-chip" onclick="Profile.setGunghamRelation('가족', this)">가족</button>
+        <button class="rel-chip" onclick="Profile.setGunghamRelation('친구', this)">친구</button>
+        <button class="rel-chip" onclick="Profile.setGunghamRelation('지인', this)">지인</button>
+      </div>
     </div>
 
     <!-- 좌우 여백은 위 카드(.person-block)와 같은 선에 맞춘다 — .wrap의 16px + 4px = 화면 기준 20px -->
