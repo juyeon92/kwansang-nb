@@ -84,6 +84,15 @@ function switchTab(tab, btn) {
         if (cmbCanvasCardEl) cmbCanvasCardEl.classList.add('hidden');
         state.combined.file = null;
         state.combined.lm = null;
+        // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "통합분석에서 리포트 보고 궁합보기 갔다오면
+        // 텅 빔") — markAnalyzed('combined')가 분석 시작 시 #cmbUploadSection(사진 등록/내역
+        // 목록/저장된 리포트를 담는 바깥 컨테이너) 자체를 숨기는데, 여기서는 안쪽 #cmbResult만
+        // 다시 숨기고 그 바깥 컨테이너는 열어주지 않았다. renderCombinedSavedReport()가 안쪽
+        // 자식(#cmbSavedStep 등)은 제대로 노출시켜도 부모가 여전히 hidden이라 화면엔 아무것도
+        // 안 보였다. resetUpload('combined')는 "새 분석 시작" 모드로 강제 진입해버려 여기선 쓸
+        // 수 없으니, 섹션만 직접 열어준다.
+        const cmbUploadSectionEl = document.getElementById('cmbUploadSection');
+        if (cmbUploadSectionEl) cmbUploadSectionEl.classList.remove('hidden');
       }
       cmbViewingReportId = null;
       const cmbSavedReportEl = document.getElementById('cmbSavedReport');
