@@ -471,6 +471,7 @@ async function openCombinedSavedReport(id) {
   // 본문은 로컬에 없으면 클라우드에서 받아온다 — 못 찾으면 보관함 상세와 같은 문구를 보여준다.
   const ok = await Archive.renderInto(body, id);
   if (!ok) body.innerHTML = '<div class="arc-empty">저장된 리포트를 찾을 수 없습니다. 분석을 다시 실행해주세요.</div>';
+  else if (typeof initZoneAccordions === 'function') initZoneAccordions(); // 새로 찍힌 아코디언에 리스너 연결
 }
 
 // ⚠️ 버그 수정(2026-08-21 사용자 리포트: "리포트 보다가 통합분석으로 나오면 내역이 안 보인다") —
@@ -620,6 +621,7 @@ async function openGunghamSavedReport(id) {
   window.scrollTo(0, 0);
   const ok = await Archive.renderInto(body, id);
   if (!ok) body.innerHTML = '<div class="arc-empty">저장된 리포트를 찾을 수 없습니다. 분석을 다시 실행해주세요.</div>';
+  else if (typeof initZoneAccordions === 'function') initZoneAccordions(); // 새로 찍힌 아코디언에 리스너 연결
 }
 
 // ⚠️ 버그 수정(2026-08-25 사용자 리포트: "페이지 이동했는데 새로고침 안 된 것 같다") — 여기가
@@ -2161,12 +2163,23 @@ const OHAENG_TITLE_SHORT = {
 // 리포트가 길어서 Zone을 여러 개 펼쳐두면 지금 어디를 읽고 있는지 놓친다. 하나를 열면 나머지를 닫는다.
 // .zone-accordion만 대상으로 잡는다 — Zone4 안에 중첩된 "사주 분석 근거 보기" 같은 하위 아코디언까지
 // 닫아버리면 방금 편 걸 스스로 접는 꼴이 된다.
+// ⚠️ 버그 수정(2026-08-27 사용자 리포트: "리스트/보관함에서 리포트 보면 아코디언이 다 열려있음") —
+// 처음엔 DOMContentLoaded 시점에 한 번만 호출해서 그 순간 문서에 있던 아코디언(통합분석/궁합보기
+// 최초 생성 화면의 정적 #cmbZone1~4·#ggHero/ggZone1~3)에만 토글 리스너를 붙였다. 그런데 보관함·내역
+// 목록에서 리포트를 열면 archive.js가 그 리포트 HTML을 innerHTML로 통째로 새로 찍어내는데, 그렇게
+// 새로 생긴 <details class="zone-accordion">는 페이지 로드 이후에 태어난 요소라 리스너가 하나도
+// 안 붙어 "하나 열면 나머지 닫힘" 규칙이 통째로 빠졌다. openCombinedSavedReport·openGunghamSavedReport·
+// Archive.renderReport가 리포트 HTML을 새로 그릴 때마다 이 함수를 다시 불러 새 아코디언에도 리스너를
+// 붙이게 했다 — data-zac 마커로 이미 붙인 요소는 건너뛰어 중복 바인딩을 막고, 어떤 걸 닫을지는
+// 토글이 발생하는 시점에 document 전체를 다시 훑어서(zones를 초기화 시점에 고정하지 않고) 그 사이에
+// 새로 생긴 아코디언도 항상 정확히 반영하게 했다.
 function initZoneAccordions() {
-  const zones = Array.prototype.slice.call(document.querySelectorAll('details.zone-accordion'));
+  const zones = document.querySelectorAll('details.zone-accordion:not([data-zac])');
   zones.forEach((z) => {
+    z.setAttribute('data-zac', '1');
     z.addEventListener('toggle', () => {
       if (!z.open) return;
-      zones.forEach((other) => { if (other !== z) other.open = false; });
+      document.querySelectorAll('details.zone-accordion').forEach((other) => { if (other !== z) other.open = false; });
       // 열었을 때 그 Zone의 최상단이 화면 위로 오게 스크롤한다(사용자 요청 2026-08-19) —
       // 안 그러면 밑에서부터 펼쳐진 내용이 화면 밖에서 늘어나 지금 연 Zone을 놓치기 쉽다.
       z.scrollIntoView({ behavior: 'smooth', block: 'start' });

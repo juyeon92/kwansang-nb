@@ -714,6 +714,10 @@
     // 이미 저장돼 있던 리포트에도 조작 요소가 섞여 있을 수 있어 여는 시점에도 한 번 걷어낸다.
     stripChrome(body);
     attachLiveDogam(body, rec);
+    // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "보관함에서 리포트 보면 아코디언이 다 열려있음") — 여기서
+    // innerHTML로 새로 찍은 zone-accordion들은 app.js의 initZoneAccordions()가 페이지 로드 시 한 번
+    // 붙인 리스너 대상이 아니라 "하나 열면 나머지 닫힘" 규칙이 빠진다. 다시 불러 새 아코디언에도 연결.
+    if (window.initZoneAccordions) initZoneAccordions();
   }
 
   // 인연도감 리포트에는 도감 영역(인연 목록·보관 안내·공유·통합분석 CTA)을 살아있는 상태로 덧붙인다.
