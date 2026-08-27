@@ -2587,7 +2587,7 @@ async function runGungham() {
     const faceCombo = buildFaceComboChemi(lmA, lmB, ggGenderA, ggGenderB, rel, nameA, nameB);
     const faceOhaengCompare = buildFaceOhaengCompare(lmA, lmB);
     const moneyChemi = buildMoneyChemi(lmA, lmB, ggGenderA, ggGenderB, rel);
-    const lifeStage = buildLifeStageChemi(lmA, lmB);
+    const lifeStage = buildLifeStageChemi(lmA, lmB, nameA, nameB);
     const energy = buildEnergyChemi(ohA, ohB);
     const yongsinChemi = buildYongsinChemi(pillarsA, pillarsB, ohA, ohB);
     const moments = buildMoments(ohA, ohB, narrativeA.statusMap, narrativeB.statusMap);
@@ -2783,17 +2783,34 @@ function buildMoneyChemi(lmA, lmB, genderA, genderB, rel) {
 }
 // 생애주기(초년·중년·말년) 궁합(궁합 리포트 구성.md 4-1) — 개인 삼정 해석과 달리 두 사람의
 // 삼정 값을 겹쳐서 "관계가 어느 시기에 강한가"만 본다.
-function buildLifeStageChemi(lmA, lmB) {
+// ⚠️ 설계 변경(2026-08-27 사용자 요청) — 예전엔 "차이가 제일 큰 시기가 몇 %p 차이 난다"는 진단
+// 한 줄뿐이라 정보값이 낮았다("그래서 뭐 어쩌라고" 수준). 관상 궁합 카드로서 더 유의미해지려면
+// 사주(대운)를 끌어와 신호를 섞기보다(다른 신호가 다른 결론을 내면 "삼각형 vs 역삼각형"처럼 모순으로
+// 읽힐 위험, 오행 비교 카드와 톤도 겹침), 이미 있는 관상 삼정만으로 더 깊게 파는 쪽을 택했다 — 각자의
+// 1위 시기(어느 구간에서 가장 힘을 받는 상인지)를 조합해서, "차이 %p" 대신 "이 조합이 관계에서
+// 어떤 의미인지"를 3×3(대칭이라 실질 6가지) 매트릭스로 해석한다.
+const LIFESTAGE_LABEL = { sangjeong: '초년', jungjeong: '중년', hajeong: '말년' };
+// 다른 시기 조합(3가지)의 해석은 이름이 필요한 절만 실제 이름(nameA/nameB)을 쓰고, "누가 어떻게"에
+// 해당하는 절은 "한 사람"/"다른 한 사람"으로 일반화한다 — 은/는(eunNeun)은 이미 있지만 이/가 조사
+// 헬퍼가 없어서, 안 쓰는 쪽이 "님이"/"님가" 같은 조사 오류 위험이 없다.
+const LIFESTAGE_COMBO_TEXT = {
+  sangjeong_sangjeong: () => '두 사람 다 초년기에 유독 힘을 받는 상이에요 — 둘 다 일찍부터 스스로 기반을 단단하게 다져온 편이라, 서로의 그 단단함을 알아보고 믿음직하게 기댈 수 있는 조합이에요.',
+  jungjeong_jungjeong: () => '두 사람 다 중년기에 가장 힘을 받는 상이에요 — 지금처럼 한창 사회생활하고 관계를 다져가는 시기에 제일 잘 맞아서, 함께 커리어나 살림을 꾸려가기 좋은 조합이에요.',
+  hajeong_hajeong: () => '두 사람 다 말년기에 가장 힘을 받는 상이에요 — 당장보다는 시간이 쌓일수록 더 단단해지는 궁합이라, 오래 갈수록 진가가 드러나는 조합이에요.',
+  sangjeong_jungjeong: (nA, nB) => `${nA}${eunNeun(nA)} 초년에, ${nB}${eunNeun(nB)} 중년에 힘을 받는 상이에요 — 한 사람이 일찍 다져둔 기반 위에서 다른 한 사람이 한창 힘을 내는 시기가 이어지는, 흐름이 자연스럽게 맞물리는 조합이에요.`,
+  jungjeong_hajeong: (nA, nB) => `${nA}${eunNeun(nA)} 중년에, ${nB}${eunNeun(nB)} 말년에 힘을 받는 상이에요 — 한 사람이 한창 앞서갈 때 다른 한 사람이 그 뒤를 든든하게 받쳐주다가, 시간이 갈수록 함께 안정을 찾아가는 조합이에요.`,
+  sangjeong_hajeong: (nA, nB) => `${nA}${eunNeun(nA)} 일찍 기반을 다지는 힘이 강하고, ${nB}${eunNeun(nB)} 시간이 쌓일수록 진가를 발휘하는 상이에요 — 전성기가 한 번에 겹치진 않지만, 한쪽이 쉬어갈 때 다른 한쪽이 앞장서 주는, 인생 전체로 보면 균형 잡힌 조합이에요.`,
+};
+function buildLifeStageChemi(lmA, lmB, nameA, nameB) {
   if (!lmA || !lmB) return null;
   const a = calcSamjeongRatio(lmA), b = calcSamjeongRatio(lmB);
-  const stages = [['sangjeong', '초년'], ['jungjeong', '중년'], ['hajeong', '말년']];
-  let maxGapStage = stages[0][0], maxGap = -1;
-  stages.forEach(([k]) => { const gap = Math.abs(a[k] - b[k]); if (gap > maxGap) { maxGap = gap; maxGapStage = k; } });
-  const stageLabel = { sangjeong: '초년', jungjeong: '중년', hajeong: '말년' };
-  const text = maxGap >= 15
-    ? `${stageLabel[maxGapStage]} 구간에서 두 사람 차이가 커요(${maxGap}%p 차이) — ${a[maxGapStage] > b[maxGapStage] ? '내가' : '상대방이'} 이 시기에 더 발달해 있어서, ${stageLabel[maxGapStage]}엔 ${a[maxGapStage] > b[maxGapStage] ? '내가' : '상대방이'} 중심을 잡아주는 조합이에요.`
-    : '세 시기 모두 큰 차이 없이 고르게 맞아요 — 특정 시기에 한쪽으로 기울지 않고 꾸준히 발맞춰 가는 조합이에요.';
-  return { a, b, text };
+  const domA = Object.entries(a).sort((x, y) => y[1] - x[1])[0][0];
+  const domB = Object.entries(b).sort((x, y) => y[1] - x[1])[0][0];
+  const nA = nameA || '나', nB = nameB || '상대방';
+  const entry = LIFESTAGE_COMBO_TEXT[`${domA}_${domB}`]
+    ? LIFESTAGE_COMBO_TEXT[`${domA}_${domB}`](nA, nB)
+    : LIFESTAGE_COMBO_TEXT[`${domB}_${domA}`](nB, nA); // 반대 순서로만 등록돼 있으면 이름도 맞바꿔 넘긴다
+  return { a, b, text: entry, domA: LIFESTAGE_LABEL[domA], domB: LIFESTAGE_LABEL[domB] };
 }
 // 한국어 조사(은/는, 이/가, 이라/라, 과/와)는 앞말의 받침 유무에 따라 형태가 갈린다. 아래 함수들은
 // combineAxisCombo/describeTypeCombo가 DB에서 가져온 명사(nameKo, comboTrait 등)를 문장에 동적으로
