@@ -448,6 +448,12 @@
   async function render() {
     const el = host();
     if (!el) return;
+    // 2026-08-30 DB 이원화 2단계 — CHARACTER_DB가 이제 서버 카탈로그 캐시라, 아래 모든 분기(오너
+    // 화면·게스트 화면 등)가 캐릭터 이름/설명을 읽기 전에 한 번은 채워져 있어야 한다. 캐시가 있으면
+    // 즉시 반환되니 재호출 비용은 거의 없다. 로그인 세션이 아직 안 잡혔을 때(예: 페이지 로드 직후)
+    // 실패해도 render() 전체를 막지는 않는다 — 캐릭터 이름 표시만 비어 보이고, 다음 render()
+    // 호출(예: 인증 준비된 뒤 재시도)에서 정상적으로 채워진다.
+    try { await CharacterAPI.ensureCharacterCatalog(); } catch (e) { console.warn('[dogam] 캐릭터 카탈로그를 아직 못 받아왔어요', e); }
     const mySeq = ++renderSeq;
     const stale = function () { return mySeq !== renderSeq; };
     const sharedSlug = sharedSlugFromUrl();
@@ -551,7 +557,7 @@
     // 캐릭터가 있으면 항상 전체 카드+설명을 곧바로 펼친다 — Dogam.render()를 다시 부르면(reopenSavedCharacter가
     // 그렇게 한다) 무한 재귀라, 그 안쪽 함수(populateGwansangReportFromSaved)만 직접 쓴다.
     if (charId && typeof populateGwansangReportFromSaved === 'function') {
-      populateGwansangReportFromSaved(charId);
+      await populateGwansangReportFromSaved(charId);
       // 보관함(Archive)은 "그 시점의 스냅샷"이 아니라 항상 지금의 인연도감과 정확히 같아야 한다
       // (사용자 원칙 2026-08-20: "인연도감과 보관함은 정확히 같은 걸 봐야 한다"). 내 도감을 그릴
       // 때마다 다시 저장해서 제목·생성시각·본문이 실제 도감과 어긋나지 않게 맞춘다.

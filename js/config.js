@@ -41,3 +41,9 @@ const NYANG_ADMIN_HISTORY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudf
 // 화면의 핵심 기능이라 실패를 숨기면 안 됨).
 const ANALYZE_CHARACTER_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/analyzeCharacter';
 const GET_COMPATIBILITY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/getCompatibility';
+
+// ═══ 관상/캐릭터 콘텐츠 카탈로그 함수 URL (2026-08-30 DB 이원화 2단계) ═══
+// archetype-db.js·character-db.js의 실제 콘텐츠(이름/설명/강점/약점 등)를 서버로 옮기면서 추가.
+// 클라이언트는 세션당 한 번만 받아 캐시한다(js/character-api.js의 ensureArchetypeCatalog/ensureCharacterCatalog).
+const GET_ARCHETYPE_CATALOG_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/getArchetypeCatalog';
+const GET_CHARACTER_CATALOG_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/getCharacterCatalog';

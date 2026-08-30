@@ -60,5 +60,48 @@ const CharacterAPI = (function () {
     }
   }
 
-  return { analyzeCharacter, getRelation, getScore };
+  // ═══ 콘텐츠 카탈로그 캐시 (2026-08-30 DB 이원화 2단계) ═══
+  // js/archetype-db.js·js/character/character-db.js는 이제 빈 캐시 객체만 선언해두고, 아래 두 함수가
+  // 서버에서 전체 카탈로그를 받아 그 객체들을 채운다. 세션당 한 번만 받으면 되므로 진행 중/완료된
+  // Promise를 그대로 캐시해서, 여러 곳에서 거의 동시에 호출해도 네트워크 요청은 한 번만 나간다.
+  let archetypeCatalogPromise = null;
+  function ensureArchetypeCatalog() {
+    if (!archetypeCatalogPromise) {
+      archetypeCatalogPromise = postJson(GET_ARCHETYPE_CATALOG_FUNCTION_URL, {}).then(data => {
+        const c = data.catalog || {};
+        Object.assign(EYE_ARCHETYPE_DB, c.EYE_ARCHETYPE_DB);
+        Object.assign(FACE_ARCHETYPE_DB, c.FACE_ARCHETYPE_DB);
+        Object.assign(FOREHEAD_TYPE_DB, c.FOREHEAD_TYPE_DB);
+        Object.assign(EYEBROW_TYPE_DB, c.EYEBROW_TYPE_DB);
+        Object.assign(EYE_SHAPE_DB, c.EYE_SHAPE_DB);
+        Object.assign(NOSE_SHAPE_DB, c.NOSE_SHAPE_DB);
+        Object.assign(MOUTH_SHAPE_DB, c.MOUTH_SHAPE_DB);
+        Object.assign(CHIN_SHAPE_DB, c.CHIN_SHAPE_DB);
+        Object.assign(FACE_SHAPE_TYPE_DB, c.FACE_SHAPE_TYPE_DB);
+        Object.assign(FACE_ARCHETYPE_EMOJI, c.FACE_ARCHETYPE_EMOJI);
+        Object.assign(EYE_ICON_SVG, c.EYE_ICON_SVG);
+      }).catch(e => {
+        console.error('[character-api] ensureArchetypeCatalog 실패', e);
+        archetypeCatalogPromise = null; // 다음 호출이 재시도할 수 있게
+        throw e;
+      });
+    }
+    return archetypeCatalogPromise;
+  }
+
+  let characterCatalogPromise = null;
+  function ensureCharacterCatalog() {
+    if (!characterCatalogPromise) {
+      characterCatalogPromise = postJson(GET_CHARACTER_CATALOG_FUNCTION_URL, {}).then(data => {
+        Object.assign(CHARACTER_DB, data.catalog || {});
+      }).catch(e => {
+        console.error('[character-api] ensureCharacterCatalog 실패', e);
+        characterCatalogPromise = null;
+        throw e;
+      });
+    }
+    return characterCatalogPromise;
+  }
+
+  return { analyzeCharacter, getRelation, getScore, ensureArchetypeCatalog, ensureCharacterCatalog };
 })();

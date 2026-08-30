@@ -259,7 +259,10 @@ function buildGunghapReportSchema(isRomantic) {
   return { type: 'OBJECT', properties, required };
 }
 
-function buildAiEnhancementSystemInstruction() {
+// 2026-08-30 DB 이원화 2단계 — archetype-db.js 9종 카탈로그 전체를 참고자료로 프롬프트에 싣는다.
+// EYE_ARCHETYPE_DB 등이 이제 서버에서 받아와야 채워지는 캐시라 async가 됐다(호출부는 이미 async).
+async function buildAiEnhancementSystemInstruction() {
+  await CharacterAPI.ensureArchetypeCatalog();
   return `당신은 2030세대를 대상으로 하는 K-뷰티 & 관상·사주 컨설턴트입니다.
 
 [임무 1] 아래 [기존 카드 내용]은 로컬 규칙으로 이미 화면에 표시된 문장입니다. 이걸 대체하거나 새 리포트를 만들지 말고, 첨부된 사진을 직접 보고 그 사람만의 구체적인 특징(표정, 분위기, 이목구비의 실제 생김새 등)을 반영한 한 문장씩만 부위별로 "더 보태"주세요(part_additions). 사진을 보지 않고는 쓸 수 없는 구체적인 관찰이어야 하고, 기존 문장을 반복·요약하면 안 됩니다.
@@ -1159,7 +1162,9 @@ zone4_advice_basis/zone4_cards가 스키마에 있다면 아래 기준으로 채
 ${JSON.stringify(buildDbContext())}`;
 }
 
-function buildDeepReportUserPrompt(
+// 2026-08-30 DB 이원화 2단계 — buildArchetypeContext가 참조하는 archetype-db.js 9종 카탈로그가
+// 서버 캐시가 돼서 async가 됐다(호출부 requestDeepReport는 이미 async).
+async function buildDeepReportUserPrompt(
   ratios,
   statusMap,
   pillars,
@@ -1172,6 +1177,9 @@ function buildDeepReportUserPrompt(
   zone3Extra = null, // {chemiScore, faceTraitScores, faceOhaeng, samjeong, daeunList} — 통합분석 Zone2/3/4 전용
   situation = null // {q1, q2, q3} — 통합분석 진입 질문(지금의 상황/일상/자유입력). 통합분석 리포트 구성.md §4
 ) {
+  // classifyAndBuildCharacter가 이미 채워뒀을 가능성이 높지만(같은 분석 세션), 순서를 보장할 수 없는
+  // 호출 경로도 있어 방어적으로 한 번 더 await한다 — 캐시가 있으면 즉시 반환되니 비용은 거의 없다.
+  if (characterResult) await CharacterAPI.ensureCharacterCatalog();
   // 스펙 §8-2 — Zone1(16캐릭터) 결과를 프롬프트에 넣고 "이것과 어긋나게 쓰지 말 것"을 못박는다.
   // 안 넣으면 AI가 "우직한 신뢰가형" 같은 새 유형명을 만들어 Zone1 캐릭터명과 화면에서 충돌한다
   // ("이 사람이 누구인가는 Zone1만 말한다"는 스펙 원칙 1).
@@ -1271,6 +1279,7 @@ ${JSON.stringify({
 올해 세운 오행: ${sewoonInfo.yearOh} / 일간과의 관계: ${sewoonInfo.text}`
     : '';
 
+  if (archetypeAnalysis) await CharacterAPI.ensureArchetypeCatalog();
   const archetypeContext =
     archetypeAnalysis
       ? buildArchetypeContext(archetypeAnalysis)
@@ -2074,7 +2083,7 @@ async function requestDeepReport(ctx) {
     const situation = { q1: state[ctx].q1, q2: state[ctx].q2, q3: state[ctx].q3 };
 
     const userText =
-      buildDeepReportUserPrompt(
+      await buildDeepReportUserPrompt(
         ratios,
         statusMap,
         cfg.pillars,
@@ -2479,7 +2488,7 @@ async function getOrRequestPersonalAiData(
 
   const promise = (async () => {
     const sys =
-      buildAiEnhancementSystemInstruction();
+      await buildAiEnhancementSystemInstruction();
 
     const userText =
       buildAiEnhancementUserPrompt(
@@ -2866,14 +2875,19 @@ function saveLastCharacterToStorage(characterResult) {
     }));
   } catch (e) { /* 프라이빗 브라우징 등으로 localStorage를 못 쓰면 조용히 스킵 */ }
 }
-function renderGwansangRevisitCard() {
+// 2026-08-30 DB 이원화 2단계 — 페이지 로드 직후(스크립트 최상단)에 곧바로 불릴 수 있어(아래
+// 모듈 로드 시점 호출 참고), 이 함수가 이번 세션에서 캐릭터 카탈로그를 처음 쓰는 경로일 수 있다.
+async function renderGwansangRevisitCard() {
   const card = document.getElementById('gwansangRevisitCard');
   const body = document.getElementById('gwansangRevisitBody');
   const label = document.getElementById('gwansangRevisitLabel');
   if (!card || !body) return;
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(inyeonCharacterKey()) || 'null'); } catch (e) { saved = null; }
-  const character = saved && CHARACTER_DB[saved.characterId];
+  if (!saved || !saved.characterId) { card.style.display = 'none'; if (label) label.style.display = 'none'; return; }
+  try { await CharacterAPI.ensureCharacterCatalog(); }
+  catch (e) { card.style.display = 'none'; if (label) label.style.display = 'none'; return; } // 로그인 세션이 아직 없는 등 — 조용히 숨김(다음 호출에서 재시도됨)
+  const character = CHARACTER_DB[saved.characterId];
   if (!character) {
     card.style.display = 'none';
     if (label) label.style.display = 'none';
@@ -2903,7 +2917,12 @@ function renderGwansangRevisitCard() {
 // DOM을 채우는 부분만 별도 함수로 뺐다 — Dogam.render()가 이미 진행 중인 곳(인연도감의
 // paintOwnerView, 공유 링크 재방문 등)에서도 안전하게 쓸 수 있어야 하는데, reopenSavedCharacter를
 // 그대로 부르면 그 안의 Dogam.render() 호출과 서로가 서로를 부르는 무한 재귀가 된다.
-function populateGwansangReportFromSaved(characterId) {
+// 2026-08-30 DB 이원화 2단계 — 사진 재분석 없이 저장된 characterId만으로 CHARACTER_DB를 읽으므로,
+// 이 함수가 이번 세션에서 캐릭터 카탈로그를 처음 쓰는 경로일 수 있다(예: 새로고침 직후 복원). 그래서
+// 방어적으로 await한다 — 캐시가 있으면 즉시 반환된다.
+async function populateGwansangReportFromSaved(characterId) {
+  try { await CharacterAPI.ensureCharacterCatalog(); }
+  catch (e) { console.warn('[populateGwansangReportFromSaved] 카탈로그를 아직 못 받아왔어요', e); return; }
   // 저장해둔 기질 점수까지 함께 복원한다 — 없으면 6대 기질 바가 빠져 최초 결과 화면과 구조가 달라진다.
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(inyeonCharacterKey()) || 'null'); } catch (e) { saved = null; }
@@ -2922,8 +2941,8 @@ function populateGwansangReportFromSaved(characterId) {
   document.getElementById('gwansangResult').classList.remove('hidden');
   markAnalyzed('gwansang');
 }
-function reopenSavedCharacter(characterId) {
-  populateGwansangReportFromSaved(characterId);
+async function reopenSavedCharacter(characterId) {
+  await populateGwansangReportFromSaved(characterId);
   try { localStorage.setItem(GWANSANG_REPORT_OPEN_KEY, '1'); } catch (e) {} // 새로고침해도 이 화면 유지
   if (window.Dogam) Dogam.render();
   document.getElementById('canvasCard').scrollIntoView({ behavior: 'smooth' });
@@ -2941,6 +2960,9 @@ async function classifyAndBuildCharacter(ctx, cfg, lm) {
   state[ctx].archetypeAnalysis = extractArchetypeAnalysis(ids);
   state[ctx].ruleBasedConfidences = confidences;
 
+  // 2026-08-30 DB 이원화 2단계 — EYE_ARCHETYPE_DB 등은 이제 빈 캐시라, renderArchetypes가 실제
+  // 콘텐츠를 읽으려면 그 전에 서버 카탈로그를 받아 채워둬야 한다(archetype-db.js 주석 참고).
+  await CharacterAPI.ensureArchetypeCatalog();
   renderArchetypes(cfg.archetypeId, ids.eye_archetype_id, ids.face_archetype_id, 'rule', cfg.hideShapeDetails ? null : ids, null, cfg.genderVal, cfg.shapeDetailId, cfg.personLabel);
 
   const ratios = getGwansangRatios(lm);
@@ -2957,6 +2979,9 @@ async function classifyAndBuildCharacter(ctx, cfg, lm) {
     gwiinList: cfg.pillars ? collectSajuInsightSummary(cfg.pillars).gwiinList : null,
     hasHour: cfg.pillars ? cfg.pillars[3].stem >= 0 : false,
   });
+  // CHARACTER_DB도 마찬가지로 빈 캐시라, 호출부가 renderCharacterCard/renderCharacterDetail 등을
+  // 곧바로 부를 수 있도록 반환하기 전에 채워둔다.
+  await CharacterAPI.ensureCharacterCatalog();
   state[ctx].characterResult = characterResult;
   // 이 시점부터 형상 분류는 확정이다 — 뒤이어 도는 Gemini 호출이 자기 분류로 덮어쓰지 못하게 막는다.
   // (getOrRequestPersonalAiData가 이 플래그를 보고 archetypeAnalysis 갱신을 건너뛴다)

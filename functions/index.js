@@ -7,6 +7,8 @@ const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const { computeCharacterResult } = require('./engine/character-engine');
 const { classifyCompatibility, compatScore } = require('./engine/compatibility-engine');
+const archetypeDb = require('./engine/archetype-db');
+const characterDb = require('./engine/character-db');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -230,6 +232,30 @@ exports.getCompatibility = onRequest({ cors: true }, async (req, res) => {
     console.error('getCompatibility 실패', e);
     res.status(500).json({ ok: false, error: e.message });
   }
+});
+
+// ═══ 관상 유형 / 캐릭터 콘텐츠 카탈로그 (2026-08-30 DB 이원화 2단계) ═══
+// js/archetype-db.js·js/character/character-db.js(카피 콘텐츠 — 눈모양/동물형상 설명, 16캐릭터
+// 이름·강점·약점·상황별 서술 등)가 정적 스크립트로 그대로 노출되던 문제를 막기 위해 서버로 옮겼다.
+// 카탈로그 크기가 작아(관상 9종 합쳐 69개 항목, 캐릭터 16개) 매번 전체를 내려주고 클라이언트가
+// 한 번만 받아 캐시한다 — 판정 결과에 따라 골라 내려주는 것보다 구조가 단순하고, 어차피 로그인
+// 사용자에게는 결과 화면에서 실질적으로 노출되는 내용이라 부분 공개로 얻는 이득이 크지 않다.
+exports.getArchetypeCatalog = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  try { await admin.auth().verifyIdToken(idToken); }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+  res.json({ ok: true, catalog: archetypeDb.buildCatalog() });
+});
+
+exports.getCharacterCatalog = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  try { await admin.auth().verifyIdToken(idToken); }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+  res.json({ ok: true, catalog: characterDb.buildCatalog() });
 });
 
 // ═══ 관리자 — 유저 검색 (기획서 §3.3) ═══
