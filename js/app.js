@@ -3114,11 +3114,17 @@ function buildCoupleHeadline(sameRole) {
 
 // 헤드라인 아래 "근거" 서브카피로 두 사람의 16캐릭터 조합을 표기(궁합 리포트 구성.md 4-6). 사진이
 // 없어 캐릭터 판정이 없으면 조용히 비워둔다.
+// 2026-08-30 DB 이원화 1단계 이후 — characterResult.characterName은 서버(analyzeCharacter)가 더 이상
+// 내려주지 않는다(CHARACTER_DB가 클라이언트에 없어 서버 쪽 계산 함수가 이름을 몰라서 characterId만
+// 반환). 이름은 이제 캐릭터 콘텐츠 카탈로그(js/character/character-db.js, 2단계)에서 characterId로
+// 직접 찾는다 — classifyAndBuildCharacter가 이미 CharacterAPI.ensureCharacterCatalog()로 채워뒀다.
 function renderHeadlineSub() {
   const el = document.getElementById('ggHeadlineSub');
   if (!el) return;
-  const nameA = state.gunghamA.characterResult && state.gunghamA.characterResult.characterName;
-  const nameB = state.gunghamB.characterResult && state.gunghamB.characterResult.characterName;
+  const idA = state.gunghamA.characterResult && state.gunghamA.characterResult.characterId;
+  const idB = state.gunghamB.characterResult && state.gunghamB.characterResult.characterId;
+  const nameA = idA && CHARACTER_DB[idA] && CHARACTER_DB[idA].name;
+  const nameB = idB && CHARACTER_DB[idB] && CHARACTER_DB[idB].name;
   el.textContent = (nameA && nameB) ? `근거: ${nameA} × ${nameB}` : '';
 }
 // "왜 이렇게 풀이했나요?" 아코디언(gg-basis-acc, 2026-08-22 도입) — 이제는 유형 축만 따로 보여주는
