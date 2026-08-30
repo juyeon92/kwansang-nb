@@ -85,25 +85,10 @@
   }
 
   // ── 궁합 점수 ────────────────────────────────────────────────────────
-  // 캐릭터 6기질 벡터(compatibility-engine.js)의 코사인 유사도를 0~100으로 편 뒤,
-  // 같은 파일의 good/spark/clash 분류로 보정한다. U자형 규칙이라 "너무 닮음"도 clash다.
-  function compatScore(idA, idB) {
-    if (typeof CHARACTER_VECTOR === 'undefined' || !CHARACTER_VECTOR[idA] || !CHARACTER_VECTOR[idB]) return null;
-    const traits = Object.keys(CHARACTER_VECTOR[idA]);
-    let dot = 0, na = 0, nb = 0;
-    traits.forEach(function (t) {
-      const a = CHARACTER_VECTOR[idA][t], b = CHARACTER_VECTOR[idB][t];
-      dot += a * b; na += a * a; nb += b * b;
-    });
-    const sim = dot / Math.sqrt(na * nb);          // 대체로 0.5~1.0 범위
-    let score = Math.round((sim - 0.5) * 200);     // 0~100으로 편다
-    const rel = (typeof COMPATIBILITY_DB !== 'undefined' && COMPATIBILITY_DB[idA]) || null;
-    if (rel) {
-      if ((rel.good || []).indexOf(idB) >= 0) score += 18;
-      else if ((rel.spark || []).indexOf(idB) >= 0) score += 8;
-      else if ((rel.clash || []).indexOf(idB) >= 0) score -= 15;
-    }
-    return Math.max(5, Math.min(99, score));
+  // 2026-08-30 DB 이원화 1단계 — 캐릭터 6기질 벡터·good/spark/clash 분류(compatibility-engine.js)가
+  // 서버로 옮겨가서 CharacterAPI.getScore를 거친다. async가 됐으니 호출부도 await 필요.
+  async function compatScore(idA, idB) {
+    return await CharacterAPI.getScore(idA, idB);
   }
   // ⚠️ 사용자 리포트(2026-08-18): 예전엔 캐릭터별로 미리 정해둔 "특별 5명"(good 2·spark 1·
   // clash 2)에 들었는지만 보고 나머지 10명은 점수(5~99)와 무관하게 전부 "내 사람"으로 뭉뚱그렸다
@@ -976,7 +961,7 @@
       return;
     }
 
-    const score = compatScore(guestDogam.ownerCharacterId, charId);
+    const score = await compatScore(guestDogam.ownerCharacterId, charId);
     const inviter = guestDogam; // 아래에서 guestDogam을 비우므로 미리 붙잡아 둔다
     try {
       // ① 친구 도감에 나를 등록 — 문서 id를 내 uid로 둬서 중복 등록을 막고 본인 삭제 권한을 명확히 한다.
@@ -994,7 +979,7 @@
       if (!mine) throw new Error('내 인연도감을 만들지 못했어요.');
 
       // ③ 인연은 양쪽에 함께 등록된다 — 방금 초대해준 사람도 내 도감에 올린다.
-      const myScore = compatScore(charId, inviter.ownerCharacterId);
+      const myScore = await compatScore(charId, inviter.ownerCharacterId);
       const myRelation = relationLabel(myScore);
       await fbDb.collection('dogam').doc(mine.slug).collection('entries').doc(inviter.ownerUid).set({
         uid: inviter.ownerUid, name: inviter.ownerName, characterId: inviter.ownerCharacterId,

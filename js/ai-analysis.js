@@ -396,9 +396,11 @@ function buildGunghapCharacterBlock(label, characterResult) {
 강점: ${(c.strengths || []).join(', ')}`;
 }
 
-function buildGunghapRelationBlock(charIdA, charIdB) {
-  if (!charIdA || !charIdB || typeof COMPATIBILITY_DB === 'undefined') return '';
-  const rel = COMPATIBILITY_DB[charIdA] || null;
+// 2026-08-30 DB 이원화 1단계 — COMPATIBILITY_DB(compatibility-engine.js)가 서버로 옮겨가서
+// CharacterAPI.getRelation을 거쳐야 한다. async가 됐으니 호출부(buildGunghapUserPrompt)도 await 필요.
+async function buildGunghapRelationBlock(charIdA, charIdB) {
+  if (!charIdA || !charIdB) return '';
+  const rel = await CharacterAPI.getRelation(charIdA);
   if (!rel) return '';
   let label = '내 사람';
   if ((rel.good || []).indexOf(charIdB) >= 0) label = '귀인';
@@ -418,10 +420,11 @@ function buildGunghapSajuBlock(label, pillars, ohaeng, sajuInsight) {
 귀인: ${JSON.stringify(sajuInsight.gwiinList)}`;
 }
 
-function buildGunghapUserPrompt(cache) {
+async function buildGunghapUserPrompt(cache) {
   const nameA = cache.nameA || '나', nameB = cache.nameB || '상대방';
   const charA = cache.characterA, charB = cache.characterB;
   const charIdA = charA && charA.characterId, charIdB = charB && charB.characterId;
+  const relationBlock = await buildGunghapRelationBlock(charIdA, charIdB);
   return `[궁합 점수 — 이미 확정된 값. 그대로 인용하되 새로 계산하지 말 것]
 총합 점수: ${cache.heroScores.total}점
 관상 궁합만 봤을 때: ${cache.heroScores.gwansang != null ? cache.heroScores.gwansang + '점' : '사진 정보 부족으로 산출 불가'}
@@ -429,7 +432,7 @@ function buildGunghapUserPrompt(cache) {
 
 ${buildGunghapCharacterBlock(nameA, charA)}
 
-${buildGunghapCharacterBlock(nameB, charB)}${buildGunghapRelationBlock(charIdA, charIdB)}
+${buildGunghapCharacterBlock(nameB, charB)}${relationBlock}
 
 ${buildGunghapSajuBlock(nameA, cache.pillarsA, cache.ohA, cache.sajuInsightA)}
 
@@ -2037,12 +2040,14 @@ async function requestDeepReport(ctx) {
     const zone3Extra = (cfg.pillars && zone1Character && zone1Character.faceRaw)
       ? {
           chemiScore: zone1Character.chemiScore,
-          faceTraitScores: computeTraitScoresFromRaw(zone1Character.faceRaw, FACE_TRAIT_BASELINE),
+          // 2026-08-30: computeTraitScoresFromRaw+FACE_TRAIT_BASELINE을 여기서 직접 호출했었는데,
+          // 그 baseline이 서버 전용 상수가 돼서 이제 analyzeCharacter 응답에 이미 계산돼 들어있다.
+          faceTraitScores: zone1Character.faceTraitScores,
           // Zone2 "같은 점/다른 점"(2026-08-22 추가) — 관상 6기질만 넘기고 있어 AI가 사주 쪽 기질
           // 순위를 추측해야 했다. 같은 baseline 변환을 사주 raw에도 적용해 같은 스케일(0~100)로 맞춰
           // 넘기면, 두 도메인 모두에서 높은 기질(같은 점)·서로 엇갈리는 기질(다른 점)을 AI가 숫자로
           // 직접 비교해서 짚을 수 있다 — 새로 추정하지 않고 그대로 인용만 하면 되게.
-          sajuTraitScores: zone1Character.sajuRaw ? computeTraitScoresFromRaw(zone1Character.sajuRaw, SAJU_TRAIT_BASELINE) : null,
+          sajuTraitScores: zone1Character.sajuTraitScores,
           faceOhaeng: calcFaceOhaeng(lm),
           samjeong: calcSamjeongRatio(lm),
           daeunList: state[ctx].daeun || null,
@@ -2928,7 +2933,10 @@ renderGwansangRevisitCard();
 // 룰베이스 분류 → 16캐릭터 판정까지. 관상보기(사주 없음)와 통합분석(사주 포함)이 같은 엔진을 쓰도록
 // 공용으로 뺐다. cfg.pillars가 있으면 그대로 융합되므로 통합분석은 "관상70 + 사주30" 캐릭터가 나온다
 // (통합분석 화면_콘텐츠_스펙_260817.md Zone1).
-function classifyAndBuildCharacter(ctx, cfg, lm) {
+// 2026-08-30 DB 이원화 1단계 — 판단 자체(computeCharacterResult)는 서버(functions/engine/character-engine.js)
+// 로 옮겼다. 이 함수는 이제 feature 분류까지는 그대로 로컬에서 하고, 판정만 CharacterAPI.analyzeCharacter로
+// 서버에 물어본 뒤 기다린다 — 그래서 async가 됐고, 호출부는 전부 await로 바꿔야 한다.
+async function classifyAndBuildCharacter(ctx, cfg, lm) {
   const { ids, confidences } = classifyAllFeaturesRuleBased(lm);
   state[ctx].archetypeAnalysis = extractArchetypeAnalysis(ids);
   state[ctx].ruleBasedConfidences = confidences;
@@ -2937,7 +2945,9 @@ function classifyAndBuildCharacter(ctx, cfg, lm) {
 
   const ratios = getGwansangRatios(lm);
   const partStatusMap = judgePartStatus(ratios);
-  const characterResult = computeCharacterResult({
+  // §2-A 비교 카드("관상만 봤을 때 → 관상+사주 유형")용 얼굴 단독 판정(faceOnlyCharacterId)은
+  // 서버(analyzeCharacter)가 같은 원칙(사주가 섞였을 때만 얼굴만 다시 판정)으로 계산해 함께 내려준다.
+  const characterResult = await CharacterAPI.analyzeCharacter({
     featureIds: ids,
     confidences,
     partStatusMap,
@@ -2947,14 +2957,6 @@ function classifyAndBuildCharacter(ctx, cfg, lm) {
     gwiinList: cfg.pillars ? collectSajuInsightSummary(cfg.pillars).gwiinList : null,
     hasHour: cfg.pillars ? cfg.pillars[3].stem >= 0 : false,
   });
-  // §2-A 비교 카드("관상만 봤을 때 → 관상+사주 유형")용 — 반드시 지금 이 사진의 얼굴 단독 판정이어야
-  // 한다(위 버그 수정 주석 참고). 사주가 실제로 섞인 경우에만 같은 ids/confidences/partStatusMap으로
-  // 얼굴만 다시 판정한다 — 사주가 없으면 characterResult 자체가 이미 얼굴 단독 결과다.
-  if (characterResult) {
-    characterResult.faceOnlyCharacterId = cfg.pillars
-      ? (computeCharacterResult({ featureIds: ids, confidences, partStatusMap }) || {}).characterId || null
-      : characterResult.characterId;
-  }
   state[ctx].characterResult = characterResult;
   // 이 시점부터 형상 분류는 확정이다 — 뒤이어 도는 Gemini 호출이 자기 분류로 덮어쓰지 못하게 막는다.
   // (getOrRequestPersonalAiData가 이 플래그를 보고 archetypeAnalysis 갱신을 건너뛴다)
@@ -2963,8 +2965,8 @@ function classifyAndBuildCharacter(ctx, cfg, lm) {
   return { ids, confidences, characterResult };
 }
 
-function requestPersonalAiRuleBased(ctx, cfg, lm) {
-  const { characterResult } = classifyAndBuildCharacter(ctx, cfg, lm);
+async function requestPersonalAiRuleBased(ctx, cfg, lm) {
+  const { characterResult } = await classifyAndBuildCharacter(ctx, cfg, lm);
 
   // #canvasCard 자리를 캐릭터 일러스트 카드로 쓰기로 함(사용자 요청 2026-08-14) — 관상보기 탭 한정.
   // 그 아래 리포트 안에는 같은 캐릭터의 상세 설명을 펼친다(사용자 요청 2026-08-15).
@@ -2988,7 +2990,7 @@ async function requestPersonalAi(ctx) {
     (CTX_CONFIG[ctx] || CTX_CONFIG.combined)();
 
   if (ctx === 'gwansang') {
-    requestPersonalAiRuleBased(ctx, cfg, lm);
+    await requestPersonalAiRuleBased(ctx, cfg, lm);
     return;
   }
 
@@ -2999,7 +3001,7 @@ async function requestPersonalAi(ctx) {
   // Gemini는 아래에서 계속 호출하되 "부위별 한 문장 보완"만 담당하고 분류는 덮어쓰지 않는다.
   let ruleBased = null;
   if (ctx === 'combined') {
-    ruleBased = classifyAndBuildCharacter(ctx, cfg, lm);
+    ruleBased = await classifyAndBuildCharacter(ctx, cfg, lm);
     renderCharacterCard('cmbCharacterCard', ruleBased.characterResult);
     renderCharacterBasis('cmbCharacterBasis', ruleBased.characterResult);
     // 기질 바는 바로 위 renderCharacterBasis가 이미 그린다 — 중복 노출 방지
@@ -3123,7 +3125,7 @@ async function requestCoupleAi() {
   try {
     const isRomantic = !!cache.isRomantic;
     const sys = buildGunghapSystemInstruction(cache.nameA || '나', cache.nameB || '상대방', isRomantic);
-    const userText = buildGunghapUserPrompt(cache);
+    const userText = await buildGunghapUserPrompt(cache);
     const data = await callGeminiAPI(sys, userText, images, buildGunghapReportSchema(isRomantic));
     renderGunghapResult(data);
   } catch (e) {

@@ -1,50 +1,70 @@
-// ═══ 16캐릭터 Character Engine — 결정론적 Rule Engine (기획서 §33~41) ═══
-// 이 파일은 순수 함수만 담는다(전역 state를 읽거나 DOM을 만지지 않음) — 같은 입력이면 언제나 같은
-// 결과를 반환해야 한다는 기획서 §38 QA 기준(동일 사진 5회 분석 시 Character ID 동일률 ≥95%)을
-// "룰 엔진 자체가 100% 결정론적"으로 만족시키기 위함이다. LLM은 이 결과를 설명만 하고 바꾸지 않는다(§2·§35).
-//
-// 카테고리 이름 매핑 — landmark-engine.js의 classifyAllFeaturesRuleBased()가 반환하는 ids/confidences의
-// 키(예: eye_archetype_id)와 face-trait-map.js/trait-config.js가 쓰는 카테고리 키(예: eye_archetype)를
-// 서로 연결해준다.
+// ═══ 16캐릭터 Character Engine — 결정론적 Rule Engine (서버 전용) ═══
+// js/character/character-engine.js를 Cloud Functions로 이전한 것(2026-08-30 DB 이원화) — 판단
+// 가중치·공식이 브라우저에 노출되지 않도록 서버에서만 계산하고 결과만 반환한다.
+// 원본과의 차이 2가지:
+//  ① FACE_CATEGORY_FIELD의 db() 조회는 원래 archetype-db.js에서 nameKo(사람이 읽는 이름)를 꺼내
+//     evidence에 붙였는데, archetype-db.js는 이번 단계에서 서버로 옮기지 않으므로 그 조회를 걷어내고
+//     id를 그대로 쓴다 — nameKo는 클라이언트 콘솔 로그에만 쓰이던 값이라(화면에는 노출 안 됨,
+//     "판정 근거는 콘솔로만" 2026-08-15 결정) 계산 결과에는 영향 없다.
+//  ② computeCharacterResult가 faceTraitScores/sajuTraitScores를 함께 반환한다 — 원래 클라이언트
+//     (ai-analysis.js)가 computeTraitScoresFromRaw+FACE_TRAIT_BASELINE을 직접 호출해서 만들던 값인데,
+//     그 baseline도 서버 전용 상수가 됐으므로 여기서 미리 계산해 함께 내려준다.
+const {
+  TRAITS, FACE_CATEGORY_WEIGHT, CONFIDENCE_FULL, CONFIDENCE_PARTIAL, CONFIDENCE_PARTIAL_RATIO,
+  SAJU_WEIGHT, FUSION_WEIGHT, GUNJA_STDEV_MAX, GUNJA_RANGE_MAX,
+  SAJU_MODIFIER_CAP_PER_ITEM, SAJU_MODIFIER_CAP_TOTAL, TIEBREAK_PRIORITY, TIEBREAK_EPSILON,
+  FACE_TRAIT_BASELINE, SAJU_TRAIT_BASELINE, T_SCORE_CENTER, T_SCORE_SPREAD,
+} = require('./trait-config');
+const { FACE_TRAIT_MAP, PART_STATUS_TRAIT_MAP } = require('./face-trait-map');
+const { OHAENG_TRAIT_VECTOR, SAJU_MODIFIER_DB } = require('./saju-trait-map');
+const { CG_OH } = require('./saju-tables');
+const { CHARACTER_TRAITS } = require('./compatibility-engine');
+
+// 기질 2개 조합("lead|strategy" 형태, TRAITS 순서로 정렬한 키) → 캐릭터 ID.
+// js/character/character-db.js의 traitPairKey/TRAIT_PAIR_TO_CHARACTER와 동일한 방식이지만,
+// character-db.js(콘텐츠 DB)는 이번 단계에서 서버로 옮기지 않으므로 compatibility-engine.js가
+// 이미 갖고 있는 CHARACTER_TRAITS(캐릭터별 주/보조 기질)에서 역으로 만든다 — 원본은 그대로 유지.
+function traitPairKey(t1, t2) {
+  return TRAITS.indexOf(t1) <= TRAITS.indexOf(t2) ? `${t1}|${t2}` : `${t2}|${t1}`;
+}
+const TRAIT_PAIR_TO_CHARACTER = {};
+Object.entries(CHARACTER_TRAITS).forEach(([id, pair]) => {
+  if (pair.length === 2) TRAIT_PAIR_TO_CHARACTER[traitPairKey(pair[0], pair[1])] = id;
+});
+
 const FACE_CATEGORY_FIELD = {
-  eye_archetype: { idField: 'eye_archetype_id', db: () => EYE_ARCHETYPE_DB },
-  face_archetype: { idField: 'face_archetype_id', db: () => FACE_ARCHETYPE_DB },
-  forehead: { idField: 'forehead_type_id', db: () => FOREHEAD_TYPE_DB },
-  eyebrow: { idField: 'eyebrow_type_id', db: () => EYEBROW_TYPE_DB },
-  eye_shape: { idField: 'eye_shape_id', db: () => EYE_SHAPE_DB },
-  nose: { idField: 'nose_shape_id', db: () => NOSE_SHAPE_DB },
-  mouth: { idField: 'mouth_shape_id', db: () => MOUTH_SHAPE_DB },
-  chin: { idField: 'chin_shape_id', db: () => CHIN_SHAPE_DB },
-  face_shape: { idField: 'face_shape_type_id', db: () => FACE_SHAPE_TYPE_DB },
+  eye_archetype: { idField: 'eye_archetype_id' },
+  face_archetype: { idField: 'face_archetype_id' },
+  forehead: { idField: 'forehead_type_id' },
+  eyebrow: { idField: 'eyebrow_type_id' },
+  eye_shape: { idField: 'eye_shape_id' },
+  nose: { idField: 'nose_shape_id' },
+  mouth: { idField: 'mouth_shape_id' },
+  chin: { idField: 'chin_shape_id' },
+  face_shape: { idField: 'face_shape_type_id' },
 };
 
-// ── 관상 6D 원점수 (0~1 스케일 가중평균) ──────────────────────────────────────────
-// featureIds/confidences: classifyAllFeaturesRuleBased(lm)의 반환값(ids, confidences)을 그대로 넣는다.
-// partStatusMap: judgePartStatus(ratios)의 반환값(app.js) — {forehead:'strength'|'complement', ...}.
 function computeFaceTraitRaw(featureIds, confidences, partStatusMap) {
   const sums = {}; TRAITS.forEach(t => sums[t] = 0);
   let totalWeight = 0;
-  const evidence = []; // [{category, id, nameKo, weight}] — 실제로 점수에 반영된 것만
+  const evidence = [];
 
   Object.entries(FACE_CATEGORY_FIELD).forEach(([category, cfg]) => {
     const id = featureIds && featureIds[cfg.idField];
-    if (!id) return; // 판별 안 됨 — 가중치 계산에서 아예 제외(기획서 §41 규칙5)
+    if (!id) return;
     const vector = FACE_TRAIT_MAP[category] && FACE_TRAIT_MAP[category][id];
     if (!vector) return;
 
     const conf = (confidences && confidences[cfg.idField] != null) ? confidences[cfg.idField] : 1;
-    if (conf < CONFIDENCE_PARTIAL) return; // 0.55 미만 — 캐릭터 판정에서 제외(§7)
+    if (conf < CONFIDENCE_PARTIAL) return;
     const effWeight = FACE_CATEGORY_WEIGHT[category] * (conf < CONFIDENCE_FULL ? CONFIDENCE_PARTIAL_RATIO : 1);
 
     TRAITS.forEach(t => { sums[t] += vector[t] * effWeight; });
     totalWeight += effWeight;
 
-    const db = cfg.db();
-    evidence.push({ category, id, nameKo: (db[id] && db[id].nameKo) || id, weight: effWeight, confidence: conf });
+    evidence.push({ category, id, nameKo: id, weight: effWeight, confidence: conf });
   });
 
-  // judgePartStatus 기반 보조 근거(§6 "랜드마크 기반 부위 강점" 10점) — strength로 판정된 부위만 사용,
-  // complement(약점 쪽)는 반영하지 않는다(약점은 shadow 전용, §8).
   if (partStatusMap) {
     const strongParts = Object.entries(partStatusMap).filter(([, v]) => v === 'strength').map(([k]) => k);
     if (strongParts.length) {
@@ -60,19 +80,15 @@ function computeFaceTraitRaw(featureIds, confidences, partStatusMap) {
     }
   }
 
-  if (totalWeight === 0) return null; // 판별된 Feature가 하나도 없음 — 관상 점수 산출 불가
+  if (totalWeight === 0) return null;
   const raw = {}; TRAITS.forEach(t => { raw[t] = sums[t] / totalWeight; });
   return { raw, totalWeight, evidence };
 }
 
-// ── 사주 6D 원점수 (기획서 §9~11) ──────────────────────────────────────────────
-// pillars: computePillars() 결과([년,월,일,시]). ohaengCounts: computeOhaeng(pillars) 결과.
-// sinsalList/gwiinList: collectSajuInsightSummary(pillars)의 {name, meaning}[] — name만 사용.
 function computeSajuTraitRaw(pillars, ohaengCounts, sinsalList, gwiinList) {
   if (!pillars) return null;
   const dayStemIdx = pillars[2] ? pillars[2].stem : -1;
 
-  // 1) 오행 분포 70%
   const total = Object.values(ohaengCounts || {}).reduce((a, b) => a + b, 0) || 1;
   const ohaengVec = {}; TRAITS.forEach(t => ohaengVec[t] = 0);
   Object.entries(ohaengCounts || {}).forEach(([oh, count]) => {
@@ -81,12 +97,9 @@ function computeSajuTraitRaw(pillars, ohaengCounts, sinsalList, gwiinList) {
     TRAITS.forEach(t => { ohaengVec[t] += v[t] * w; });
   });
 
-  // 2) 일간 보정 20% — 일간 자체의 오행 벡터를 그대로 얹는다(사주에서 "나 자신"을 대표하는 글자라는
-  // 통상적 해석을 그대로 반영 — 오행 분포에도 이미 포함돼 있는 값이지만 §9에 따라 별도 가중치로 강조).
   const dayOh = dayStemIdx >= 0 ? CG_OH[dayStemIdx] : null;
   const dayMasterVec = (dayOh && OHAENG_TRAIT_VECTOR[dayOh]) || {};
 
-  // 3) 신살·귀인 보정 10% — 항목당 ±4, 합계 ±12로 캡(§11)
   const modRaw = {}; TRAITS.forEach(t => modRaw[t] = 0);
   const matchedMods = [];
   [...(sinsalList || []), ...(gwiinList || [])].forEach(({ name }) => {
@@ -100,7 +113,7 @@ function computeSajuTraitRaw(pillars, ohaengCounts, sinsalList, gwiinList) {
   });
   const modTotalAbs = TRAITS.reduce((s, t) => s + Math.abs(modRaw[t]), 0);
   const modScale = modTotalAbs > SAJU_MODIFIER_CAP_TOTAL ? SAJU_MODIFIER_CAP_TOTAL / modTotalAbs : 1;
-  const modifierVec = {}; TRAITS.forEach(t => modifierVec[t] = (modRaw[t] * modScale) / SAJU_MODIFIER_CAP_TOTAL); // 0~1 스케일로 정규화
+  const modifierVec = {}; TRAITS.forEach(t => modifierVec[t] = (modRaw[t] * modScale) / SAJU_MODIFIER_CAP_TOTAL);
 
   const raw = {};
   TRAITS.forEach(t => {
@@ -112,32 +125,18 @@ function computeSajuTraitRaw(pillars, ohaengCounts, sinsalList, gwiinList) {
   const evidence = [];
   const topOh = Object.entries(ohaengCounts || {}).sort((a, b) => b[1] - a[1])[0];
   if (topOh && topOh[1] > 0) evidence.push(`${topOh[0]} 기운 강함`);
-  if (dayOh) evidence.push(`일간: ${CG_KO[dayStemIdx]}(${dayOh})`);
+  if (dayOh) evidence.push(`일간: ${dayOh}`);
   matchedMods.forEach(name => evidence.push(name));
 
   return { raw, evidence };
 }
 
-// ── 리스크1(분포 쏠림) 대응 — 도메인별 z-score 정규화 ──────────────────────────
-// raw(0~1 가중평균)를 그대로 융합하면 두 가지가 깨진다: ①관상 feature 벡터 자체가
-// drive/social/stability 쪽으로 구조적으로 후하게 설계돼 있어 그 방향 기질이 항상 높게 나옴,
-// ②관상 raw의 스케일(mean 0.22~0.32)이 사주 raw 스케일(mean 0.12~0.19)보다 커서, 단순
-// 가중합을 하면 "관상 70%: 사주 30%"라는 의도보다 사주 실제 기여도가 더 쪼그라든다(약 81:19로
-// 왜곡). z-score(기질별·도메인별 baseline 대비 정규화)로 바꾸면 두 문제가 동시에 해결된다 —
-// 정규화 후에는 두 도메인 모두 "평균 0, 표준편차 1" 기준이라 그 다음 가중합이 실제로 의도한
-// 비율대로 반영된다. baseline 값은 trait-config.js의 FACE_TRAIT_BASELINE/SAJU_TRAIT_BASELINE
-// 참고(현재는 실사용자 데이터가 없어 시뮬레이션 기반 근사치 — §37 데이터 축적 후 교체 예정).
 function zScoreNormalize(raw, baseline) {
   const z = {};
   TRAITS.forEach(t => { z[t] = (raw[t] - baseline[t].mean) / baseline[t].stdev; });
   return z;
 }
 
-// ── 관상×사주 케미(시너지) 점수 — 통합분석 Zone2 히어로용 (통합분석 리포트 구성.md §1) ──
-// "관상과 사주가 같은 방향을 가리키는 정도"를 z-벡터 코사인 유사도로 계산한다. 위 zScoreNormalize와
-// 같은 baseline을 재사용해 combineFinalTraitScore와 항상 같은 기준으로 비교되게 한다. 두 도메인
-// 중 하나라도 없으면(사진만 있거나 생년월일시만 있는 경우) null — 궁합보기 heroScores.gwansang:null과
-// 동일한 처리 원칙.
 function computeGwansangSajuChemi(faceRaw, sajuRaw) {
   if (!faceRaw || !sajuRaw) return null;
   const zFace = zScoreNormalize(faceRaw, FACE_TRAIT_BASELINE);
@@ -154,10 +153,6 @@ function computeGwansangSajuChemi(faceRaw, sajuRaw) {
   return Math.round(((clamped + 1) / 2) * 100);
 }
 
-// ── 관상 vs 사주 "기운 세기" 비교 — 통합분석 Zone2 기운 줄다리기 바용 ──────────────
-// chemiScore(코사인 유사도 = 방향이 같은지)와는 완전히 독립된 축이다. 여기서는 z-벡터의 크기
-// (magnitude)만 비교해 "이 사람 안에서 어느 도메인 신호가 더 뚜렷한지"를 본다 — 방향 일치 여부와
-// 무관하므로 chemiScore가 낮아도 한쪽 magnitude가 클 수 있다(실제로 그런 경우가 흔하다).
 function computeChemiDominance(faceRaw, sajuRaw) {
   if (!faceRaw || !sajuRaw) return null;
   const zFace = zScoreNormalize(faceRaw, FACE_TRAIT_BASELINE);
@@ -172,9 +167,6 @@ function computeChemiDominance(faceRaw, sajuRaw) {
   return { facePct, sajuPct: 100 - facePct };
 }
 
-// raw(0~1 가중평균) → 화면 표시용 0~100 점수. combineFinalTraitScore와 같은 T-score 변환을
-// 도메인 하나에만 적용한 버전 — 통합분석 Zone3의 "관상 6기질표"처럼 융합 전 원본 도메인 하나만
-// 단독으로 보여줄 때 쓴다.
 function computeTraitScoresFromRaw(raw, baseline) {
   if (!raw) return null;
   const z = zScoreNormalize(raw, baseline);
@@ -183,13 +175,6 @@ function computeTraitScoresFromRaw(raw, baseline) {
   return scores;
 }
 
-// ── 관상×사주 최종 통합 (기획서 §12) ──────────────────────────────────────────
-// hasFace/hasSaju/hasHour: 어떤 데이터가 있는지에 따라 FUSION_WEIGHT 중 하나를 고른다.
-// z-score로 정규화한 뒤 가중합하고, 화면/판정용으로 T-score 변환(평균 50, ±1표준편차 15점)해
-// 0~100 범위로 옮긴다. 이 변환은 순수 선형(score = 50 + z×15)이라 상대적 분산 구조를 그대로
-// 보존한다 — calcFaceOhaeng류의 "대비 강조"(순위 기반으로 인위적으로 벌리는 방식)와는 다르다.
-// 그런 방식을 쓰면 실제로 고르게 나온 사람도 강제로 벌어져 버려 GUNJA_STDEV_MAX/GUNJA_RANGE_MAX
-// 임계값 자체가 무의미해진다(이전 검토에서 확인한 안티패턴 — 절대 재도입 금지).
 function combineFinalTraitScore(faceResult, sajuResult, hasHour) {
   let weight;
   let basisLabel;
@@ -217,7 +202,6 @@ function combineFinalTraitScore(faceResult, sajuResult, hasHour) {
   return { traitScores, basisLabel };
 }
 
-// ── Top2 → 16캐릭터 판정 + 균형형(§17) + 동점처리(§18) ──────────────────────────
 function determineCharacter(traitScores, faceEvidenceByCategory) {
   const sorted = TRAITS.map(t => ({ t, score: traitScores[t] })).sort((a, b) => b.score - a.score);
   const mean = sorted.reduce((s, x) => s + x.score, 0) / sorted.length;
@@ -231,9 +215,6 @@ function determineCharacter(traitScores, faceEvidenceByCategory) {
   let primary = sorted[0], secondaryCandidateA = sorted[1], secondaryCandidateB = sorted[2];
   let secondary = secondaryCandidateA;
 
-  // Top2-Top3 격차가 거의 없으면(§18) TIEBREAK_PRIORITY 순서로 "어느 후보 기질을 더 강하게 뒷받침하는
-  // Feature가 있는가"를 본다. Random 없이 항상 같은 입력 → 같은 결과가 나오도록, 우선순위가 높은
-  // 카테고리부터 순서대로 검사하다가 한쪽을 명확히 지지하는 첫 카테고리에서 멈춘다.
   if (secondaryCandidateB && (secondaryCandidateA.score - secondaryCandidateB.score) < TIEBREAK_EPSILON) {
     for (const category of TIEBREAK_PRIORITY) {
       const ev = faceEvidenceByCategory && faceEvidenceByCategory[category];
@@ -242,7 +223,6 @@ function determineCharacter(traitScores, faceEvidenceByCategory) {
       const scoreB = ev.vector[secondaryCandidateB.t] || 0;
       if (scoreA > scoreB) { secondary = secondaryCandidateA; break; }
       if (scoreB > scoreA) { secondary = secondaryCandidateB; break; }
-      // 같으면 다음 우선순위 카테고리로 계속
     }
   }
 
@@ -251,18 +231,14 @@ function determineCharacter(traitScores, faceEvidenceByCategory) {
   return { characterId, primaryTrait: primary.t, secondaryTrait: secondary.t, balanced: false, sorted };
 }
 
-// ── 결과 Confidence (§19) — v1 휴리스틱. margin(Top2와 Top3 격차) + Feature 커버리지로 계산한다. ──
 function computeResultConfidence(sorted, evidenceCount, avgFeatureConfidence) {
-  const margin = sorted[1].score - sorted[2].score; // 클수록 "뚜렷하게 이 조합"이라는 확신
+  const margin = sorted[1].score - sorted[2].score;
   const marginNorm = Math.max(0, Math.min(1, margin / 20));
-  const coverage = Math.max(0, Math.min(1, evidenceCount / 9)); // 관상 9개 카테고리 중 실제 반영된 비율
+  const coverage = Math.max(0, Math.min(1, evidenceCount / 9));
   const confNorm = avgFeatureConfidence != null ? avgFeatureConfidence : 0.6;
   return Math.round((0.4 * marginNorm + 0.35 * coverage + 0.25 * confNorm) * 100) / 100;
 }
 
-// ── 최상위 진입점 ────────────────────────────────────────────────────────────
-// opts: { featureIds, confidences, partStatusMap, pillars, hasHour, ohaengCounts, sinsalList, gwiinList }
-// featureIds/confidences가 없으면 관상 없이 사주만으로, pillars가 없으면 사주 없이 관상만으로 계산한다.
 function computeCharacterResult(opts) {
   const faceResult = opts.featureIds ? computeFaceTraitRaw(opts.featureIds, opts.confidences, opts.partStatusMap) : null;
   const sajuResult = opts.pillars ? computeSajuTraitRaw(opts.pillars, opts.ohaengCounts, opts.sinsalList, opts.gwiinList) : null;
@@ -271,7 +247,6 @@ function computeCharacterResult(opts) {
   const combined = combineFinalTraitScore(faceResult, sajuResult, !!opts.hasHour);
   if (!combined) return null;
 
-  // 동점처리(§18)용 — 카테고리별 벡터를 미리 꺼내둔다(evidence에 이미 있는 것 재사용).
   const faceEvidenceByCategory = {};
   if (faceResult) {
     faceResult.evidence.forEach(e => {
@@ -282,7 +257,6 @@ function computeCharacterResult(opts) {
   if (sajuResult) faceEvidenceByCategory.saju = { vector: sajuResult.raw };
 
   const decision = determineCharacter(combined.traitScores, faceEvidenceByCategory);
-  const character = CHARACTER_DB[decision.characterId] || null;
 
   const avgConf = faceResult && faceResult.evidence.length
     ? faceResult.evidence.reduce((s, e) => s + e.confidence, 0) / faceResult.evidence.length
@@ -291,21 +265,22 @@ function computeCharacterResult(opts) {
 
   return {
     characterId: decision.characterId,
-    characterName: character ? character.name : null,
     primaryTrait: decision.primaryTrait,
     secondaryTrait: decision.secondaryTrait,
     balanced: decision.balanced,
     traitScores: combined.traitScores,
-    // 정규화 전 원시 벡터 — baseline(FACE_TRAIT_BASELINE) 재보정 때 이 값의 분포가 기준이 된다.
-    // traitScores는 0~100으로 잘리기 때문에(clamp) 역산하면 극단값에서 분산이 왜곡된다.
     faceRaw: faceResult ? faceResult.raw : null,
     sajuRaw: sajuResult ? sajuResult.raw : null,
+    faceTraitScores: faceResult ? computeTraitScoresFromRaw(faceResult.raw, FACE_TRAIT_BASELINE) : null,
+    sajuTraitScores: sajuResult ? computeTraitScoresFromRaw(sajuResult.raw, SAJU_TRAIT_BASELINE) : null,
     chemiScore: computeGwansangSajuChemi(faceResult && faceResult.raw, sajuResult && sajuResult.raw),
     dominance: computeChemiDominance(faceResult && faceResult.raw, sajuResult && sajuResult.raw),
-    basisLabel: combined.basisLabel, // '관상 + 사주 종합 유형' | '관상 기반 유형' | '사주 기반 유형'
+    basisLabel: combined.basisLabel,
     faceEvidence: faceResult ? faceResult.evidence.map(e => e.id).filter(id => id !== undefined) : [],
     faceEvidenceDetail: faceResult ? faceResult.evidence : [],
     sajuEvidence: sajuResult ? sajuResult.evidence : [],
     confidence,
   };
 }
+
+module.exports = { computeCharacterResult };

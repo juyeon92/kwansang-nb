@@ -5,6 +5,8 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
+const { computeCharacterResult } = require('./engine/character-engine');
+const { classifyCompatibility, compatScore } = require('./engine/compatibility-engine');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -161,6 +163,71 @@ exports.nyangSpend = onRequest({ cors: true }, async (req, res) => {
       return;
     }
     console.error('nyangSpend 실패', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ═══ 16캐릭터 판정 (2026-08-30 DB 이원화 1단계) ═══
+// 관상×사주 판단 가중치·공식(engine/character-engine.js)이 브라우저 소스에 그대로 노출되던 문제를
+// 막기 위해, 판정 자체를 서버로 옮겼다 — 클라이언트(js/ai-analysis.js classifyAndBuildCharacter)는
+// 분류된 feature id·confidence·사주 정보만 보내고, 계산된 결과만 돌려받는다.
+// nyangSpend와 같은 인증 방식을 쓴다 — 이 판정은 냥 차감 직후에만 호출되므로 로그인(익명 포함)
+// 세션이 이미 있는 상태다.
+exports.analyzeCharacter = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  try { await admin.auth().verifyIdToken(idToken); }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+
+  const { featureIds, confidences, partStatusMap, pillars, ohaengCounts, sinsalList, gwiinList, hasHour } = req.body || {};
+  try {
+    const characterResult = computeCharacterResult({
+      featureIds: featureIds || null,
+      confidences: confidences || null,
+      partStatusMap: partStatusMap || null,
+      pillars: pillars || null,
+      ohaengCounts: ohaengCounts || null,
+      sinsalList: sinsalList || null,
+      gwiinList: gwiinList || null,
+      hasHour: !!hasHour,
+    });
+    // §2-A 비교 카드("관상만 봤을 때 → 관상+사주 유형")용 얼굴 단독 재판정 —
+    // js/ai-analysis.js classifyAndBuildCharacter의 원래 로직을 그대로 서버에 옮긴 것.
+    let faceOnlyCharacterId = null;
+    if (characterResult) {
+      faceOnlyCharacterId = pillars
+        ? (computeCharacterResult({ featureIds, confidences, partStatusMap }) || {}).characterId || null
+        : characterResult.characterId;
+    }
+    res.json({ ok: true, characterResult: characterResult ? { ...characterResult, faceOnlyCharacterId } : null });
+  } catch (e) {
+    console.error('analyzeCharacter 실패', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ═══ 캐릭터 궁합 조회 (compatibility-engine.js 서버 이전) ═══
+// characterId 하나의 good/spark/clash 관계(js/ai-analysis.js buildGunghapRelationBlock이 쓰던
+// COMPATIBILITY_DB[charId] 조회)와, 두 캐릭터 사이의 궁합 점수(js/inyeon-dogam.js compatScore)를
+// 같은 엔드포인트에서 처리한다 — 요청에 있는 필드에 따라 필요한 것만 계산해 돌려준다.
+exports.getCompatibility = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  try { await admin.auth().verifyIdToken(idToken); }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+
+  const { characterId, idA, idB } = req.body || {};
+  try {
+    const result = {};
+    if (characterId) result.relation = classifyCompatibility(characterId);
+    if (idA && idB) result.score = compatScore(idA, idB);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    console.error('getCompatibility 실패', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });

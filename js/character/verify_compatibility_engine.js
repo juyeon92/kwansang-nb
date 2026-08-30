@@ -1,29 +1,18 @@
 // ═══ compatibility-engine.js 검증 스크립트 ═══
-// 사용법: node verify_compatibility_engine.js  (같은 폴더에 face-trait-map.js, compatibility-engine.js 필요)
+// 사용법: node verify_compatibility_engine.js
 // 목적: "계산 과정이 감사 가능하고 재현되는가"를 확인한다. "이 궁합이 그럴듯한가"는 이 스크립트로
 // 증명할 수 없다 — 그건 사람이 읽고 판단할 몫이다(코드 상단 주석 참고).
+// 2026-08-30: face-trait-map.js/compatibility-engine.js가 DB 이원화로 functions/engine/으로
+// 옮겨가서, 이제 진짜 module.exports를 쓰는 CommonJS 모듈이라 require()로 그대로 불러온다.
 
-const fs = require('fs');
-function loadModule(file) {
-  const code = fs.readFileSync(file, 'utf8');
-  const sandbox = {};
-  new Function('exports', code + '\n' + Object.keys(sandbox).map(k=>`exports.${k}=${k};`).join('\n'))(sandbox);
-  return sandbox;
-}
-function loadAll(file, names) {
-  const code = fs.readFileSync(file, 'utf8');
-  return new Function(code + `\nreturn {${names.join(',')}};`)();
-}
-
-const TRAITS = ['lead','strategy','drive','social','stability','sense'];
-const { FACE_TRAIT_MAP } = loadAll('face-trait-map.js', ['FACE_TRAIT_MAP']);
+const path = require('path');
+const { FACE_TRAIT_MAP } = require(path.join(__dirname, '..', '..', 'functions', 'engine', 'face-trait-map'));
 const {
   TRAIT_CORRELATION, CHARACTER_TRAITS, CHARACTER_VECTOR, COMPATIBILITY_DB,
   buildRepresentativeVector, cosineSimilarity, sharedTraitCount, classifyCompatibility,
-} = loadAll('compatibility-engine.js', [
-  'TRAIT_CORRELATION', 'CHARACTER_TRAITS', 'CHARACTER_VECTOR', 'COMPATIBILITY_DB',
-  'buildRepresentativeVector', 'cosineSimilarity', 'sharedTraitCount', 'classifyCompatibility',
-]);
+} = require(path.join(__dirname, '..', '..', 'functions', 'engine', 'compatibility-engine'));
+
+const TRAITS = ['lead','strategy','drive','social','stability','sense'];
 
 let failCount = 0;
 function check(label, pass) {

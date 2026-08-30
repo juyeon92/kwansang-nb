@@ -2552,8 +2552,8 @@ async function runGungham() {
     // 여기서는 그리지 않는다(2026-08-20 재편). 궁합보기 Zone1(관상 궁합)이 16캐릭터 이름(무관상·책사상
     // 등)을 인용할 수 있도록 캐릭터 판정만 확정해둔다 — 통합분석 탭과 같은 룰베이스 엔진
     // (classifyAndBuildCharacter)을 그대로 재사용.
-    if (lmA) classifyAndBuildCharacter('gunghamA', CTX_CONFIG.gunghamA(), lmA);
-    if (lmB) classifyAndBuildCharacter('gunghamB', CTX_CONFIG.gunghamB(), lmB);
+    if (lmA) await classifyAndBuildCharacter('gunghamA', CTX_CONFIG.gunghamA(), lmA);
+    if (lmB) await classifyAndBuildCharacter('gunghamB', CTX_CONFIG.gunghamB(), lmB);
 
     // ③ 나 / 상대방 각각의 관상 X 사주 상태맵 — 화면에 개인 서술로 그리진 않지만, statusMap은
     // buildRoleChemi(역할분담 케미)와 아래 캐시(AI 프롬프트 근거)가 그대로 참조한다.
