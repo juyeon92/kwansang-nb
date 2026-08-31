@@ -62,6 +62,14 @@ exports.kakaoLogin = onRequest({ cors: true }, async (req, res) => {
       }
     }
 
+    // 사용자 정책(2026-08-31): "비로그인 동안 도감을 몇 개를 만들었든, 로그인하는 순간 그 계정엔
+    // 도감이 최종 1개만 남는다" — migrateAnonymousData가 계정에 이미 도감이 있는지 확인 없이
+    // dogamSlug를 매번 덮어써서, 비로그인↔로그인을 반복 테스트하면 계정 밑에 도감이 여러 개
+    // 쌓이는 사고가 있었다(dedupeDogamsForUid 주석 참고). 익명 이관 여부와 무관하게 매 로그인마다
+    // 검사한다 — 이미 중복이 쌓인 기존 계정도 다음 로그인에서 저절로 정리된다.
+    try { await dedupeDogamsForUid(uid); }
+    catch (e) { console.error('[kakaoLogin] 도감 중복 정리 실패', e); }
+
     const customToken = await admin.auth().createCustomToken(uid);
     res.json({ customToken, migrated });
   } catch (e) {
@@ -562,6 +570,44 @@ async function purgeDogam(doc, reason) {
     deletedAt: new Date().toISOString(),
   });
   return entriesSnap.size;
+}
+
+// ═══ "로그인 계정당 도감 1개" 불변식 강제 (2026-08-31 사용자 리포트: 삭제해도 도감이 계속 생김) ═══
+// migrateAnonymousData(아래)는 계정에 이미 도감이 있는지 확인하지 않고 dogamSlug를 매번 덮어써서,
+// 비로그인↔로그인을 반복 테스트하면 같은 계정 밑에 도감이 여러 개 쌓였다(과거 "11개까지 쌓인 사고"
+// 주석 참고). dogamSlug는 그중 하나만 가리키므로 나머지는 숨어 있다가, 클라이언트의 복구 로직
+// (js/inyeon-dogam.js recoverDogamByOwner — 참여 인원이 가장 많은 도감을 되살리는 안전망)이 그걸
+// 찾아내면서 "분명히 삭제했는데 다시 생긴다"처럼 보였다.
+// 정책(사용자 확정 2026-08-31): 로그인하는 순간 그 계정엔 도감이 최종 1개만 남는다 — 참여 인원이
+// 가장 많은(같으면 더 오래된) 것 하나만 남기고 나머지는 즉시 완전히 삭제한다(유예기간 없음).
+// 비로그인 상태로만 남아있는 도감(아직 이 함수가 손대지 않은 것)은 기존 30일 유예기간
+// (cleanupExpiredDogam)을 그대로 따른다 — 이 함수는 "로그인 계정"에만 적용된다.
+// 순수 함수로 분리 — Firestore 없이도 "어떤 걸 남길지" 결정 로직만 단독으로 검증할 수 있게 한다.
+// candidates: [{id, entryCount, createdAt}] → 반환은 같은 배열을 정렬한 것(맨 앞이 keeper).
+function rankDogamCandidates(candidates) {
+  return candidates.slice().sort((a, b) => {
+    if (b.entryCount !== a.entryCount) return b.entryCount - a.entryCount; // 참여 인원 많은 쪽 우선
+    return a.createdAt < b.createdAt ? -1 : 1; // 인원 같으면 더 오래된 것을 우선 유지
+  });
+}
+
+async function dedupeDogamsForUid(uid) {
+  const snap = await db.collection('dogam').where('ownerUid', '==', uid).get();
+  if (snap.size <= 1) return { kept: snap.empty ? null : snap.docs[0].id, purged: 0 };
+
+  const candidates = await Promise.all(snap.docs.map(async (doc) => {
+    const entriesSnap = await doc.ref.collection('entries').get();
+    return { doc, id: doc.id, entryCount: entriesSnap.size, createdAt: (doc.data() || {}).createdAt || '' };
+  }));
+  const [keeper, ...losers] = rankDogamCandidates(candidates);
+
+  // 진짜 삭제(purgeDogam)가 먼저 끝나야 한다 — losers를 지우는 동안 dogamSlug가 계속 지워지는데,
+  // 마지막에 keeper로 다시 지정해야 최종 상태가 맞는다(순서를 바꾸면 keeper 참조가 날아갈 수 있다).
+  for (const loser of losers) await purgeDogam(loser.doc, 'login_dedup');
+  await db.collection('users').doc(uid).set({ dogamSlug: keeper.id }, { merge: true });
+
+  console.warn(`[dogam] uid=${uid} 밑에 도감 ${snap.size}개 발견 — ${keeper.id} 유지, ${losers.length}개 삭제`);
+  return { kept: keeper.id, purged: losers.length };
 }
 
 exports.cleanupExpiredDogam = onSchedule(
