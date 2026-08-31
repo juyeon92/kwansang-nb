@@ -37,11 +37,10 @@
     { type: 'gwansang', label: '인연도감' },
   ];
   // 각 분석 결과가 그려지는 컨테이너 — 이 DOM을 그대로 떠서 보관한다.
+  // 2026-08-31 — gwansang(인연도감)은 여기 없다. 예전엔 canvasCard/gwansangResult를 스냅샷했지만,
+  // 이제 원본(Firestore dogam 문서)이 유일한 데이터라 스냅샷 자체를 안 찍는다(save()의 가드 참고).
   const CONTAINERS = {
     combined: ['cmbResult'],
-    // canvasCard = 16캐릭터 일러스트 카드(#gwansangCharacterCard). 원래 이 목록에 없어서 보관함에는
-    // 캐릭터 카드 없이 상세 리포트만 저장되고 있었다(사용자 리포트 2026-08-16) — 추가해서 같이 스냅샷.
-    gwansang: ['canvasCard', 'gwansangResult'],
     gungham: ['ggResult'],
   };
 
@@ -331,13 +330,8 @@
         profileId: self ? self.id : (rep ? rep.id : null),
       };
     }
-    if (type === 'gwansang') {
-      // 인연도감 자체의 실제 생성 시각(도감 문서의 createdAt — 한 번 정해지면 안 바뀜)을 그대로
-      // 쓴다. 보관함 자체의 저장 시각을 새로 찍으면(사용자 리포트 2026-08-19) 자가복구·재동기화가
-      // 일어날 때마다 "생성 시간"이 그 순간으로 밀려서, 기기·시점마다 다른 시간이 보이는 문제가 있었다.
-      const dogamCreatedAt = (window.Dogam && Dogam.getMyDogamCreatedAt) ? Dogam.getMyDogamCreatedAt() : null;
-      return { title: repName, sub: (rep && (rep.relationDetail || rep.relation)) || '', profileId: rep ? rep.id : null, createdAt: dogamCreatedAt };
-    }
+    // gwansang(인연도감)은 여기 없다 — 더 이상 buildLabel을 거쳐 저장되지 않는다(save()의 가드 참고).
+    // 제목/부제는 archive.js renderPage()가 Dogam.ensureMyDogam()이 돌려준 실물에서 직접 만든다.
     const rel = (st && st[type] && st[type].relation) || (rep && (rep.relationDetail || rep.relation)) || '';
     // profileId — "이 프로필로 이미 분석한 적 있는지" 나중에 확인하려면 이름만으로는 부족하다
     // (동명이인 프로필이 있을 수 있음). 저장 시점의 대표 프로필 id를 같이 남긴다(사용자 요청
@@ -356,32 +350,7 @@
 
   // 실제 저장 — uid가 확정된 뒤에만 부른다(로그인 직후 save()에서, 또는 나중에 commitPending()에서).
   function commitSave(uid, type, html, label) {
-    // ⚠️ 사용자 리포트(2026-08-18): 인연도감(gwansang)은 "내 캐릭터" 리포트가 계정당 하나뿐인데,
-    // 친구 도감에 등록할 때마다(재분석이 껴 있으면) Archive.save가 매번 새 항목을 만들어서
-    // 보관함에 똑같은 내용이 여러 개 쌓였다. 이미 있으면 새로 쌓지 않고 기존 항목 본문만 갱신한다.
-    if (type === 'gwansang') {
-      const existing = loadIndex().find(function (r) { return r.type === 'gwansang'; });
-      if (existing) {
-        saveReportHtml(uid, existing.id, html);
-        const list = loadIndex();
-        const idx = list.findIndex(function (r) { return r.id === existing.id; });
-        if (idx >= 0) {
-          list[idx].title = label.title;
-          list[idx].sub = label.sub;
-          list[idx].profileId = label.profileId || null;
-          // 인연도감은 목록에 항상 1건뿐이라 "최신순 정렬"을 위해 갱신할 이유가 없다 — 도감의 실제
-          // 생성 시각(label.createdAt)을 알면 그걸 그대로 쓰고, 모르면(도감 조회 실패 등) 기존 값을
-          // 그대로 둔다. 매번 지금 시각으로 찍으면 갱신될 때마다 "생성 시간"이 달라져 보인다
-          // (사용자 리포트 2026-08-19: 기기·시점마다 인연도감 생성 시간이 다르게 보임).
-          if (label.createdAt) list[idx].createdAt = label.createdAt;
-          saveIndex(list);
-        }
-        console.log('[archive] 인연도감 리포트 갱신(중복 생성 방지)', { id: existing.id, uid: uid });
-        if (isOpen()) renderPage();
-        notifyChanged();
-        return;
-      }
-    }
+    // gwansang(인연도감)은 save()에서 이미 걸러져 여기까지 오지 않는다 — 별도 분기 불필요.
     const id = 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     saveReportHtml(uid, id, html);
     const list = loadIndex();
@@ -419,6 +388,9 @@
   // 분석이 완전히 끝난 지점에서 app.js가 호출한다.
   // 보관에 실패해도 분석 화면 자체는 영향을 받으면 안 되므로 모든 실패를 여기서 흡수하고 로그만 남긴다.
   function save(type) {
+    // 2026-08-31 정책(사용자 확정: "원본은 하나여야 해") — 인연도감은 실제 Firestore dogam 문서가
+    // 유일한 원본이라 여기서 별도 스냅샷을 찍지 않는다. 남아있는 옛 호출부가 있어도 조용히 무시한다.
+    if (type === 'gwansang') return;
     try {
       if (!CONTAINERS[type]) { console.warn('[archive] 저장 대상이 아닌 분석', type); return; }
 
@@ -517,30 +489,22 @@
     markDeleted(id); // 다음 loadFromCloud 병합이 이 id를 되살리지 않도록 무덤에 남긴다
     const left = loadIndex().filter(r => r.id !== id);
     saveIndex(left);
-
-    // 인연도감(type:'gwansang') 마지막 기록을 지운 경우 — 도감 본체까지 정리한다(사용자 원칙
-    // 2026-08-20: "보관함은 그냥 보관일 뿐이고, 인연도감과 보관함은 정확히 같은 걸 봐야 한다.
-    // 그래서 인연도감에서 지우면 보관함도, 보관함에서 지우면 인연도감도 같이 지워져야 한다").
-    // ⚠️ 도감 삭제는 친구들이 남긴 참여 기록까지 함께 사라지는 되돌릴 수 없는 작업이라, 여기서 조용히
-    // 지우지 않고 Dogam.deleteMyDogam()을 부른다 — 그 안에서 "인연 N명도 함께 사라진다"는 확인을
-    // 다시 받는다. 사용자가 거기서 취소하면 보관함 기록만 지워지고 도감은 남는다.
-    // (이 연결이 안전하려면 보관함이 실제 도감과 항상 정확히 같아야 한다 — paintOwnerView가 렌더할
-    // 때마다 Archive.save('gwansang')로 다시 맞춰두는 것과 세트로 봐야 한다.)
-    if (rec && rec.type === 'gwansang' && !left.some(r => r.type === 'gwansang')) {
-      localStorage.removeItem(inyeonCharacterKey());
-      if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
-      console.log('[archive] 관상 기록이 모두 삭제돼 재방문 카드도 정리');
-      if (window.Dogam && Dogam.deleteMyDogam) {
-        try { await Dogam.deleteMyDogam(); }
-        catch (e) { console.error('[archive] 인연도감 삭제 실패 — 보관함 기록만 지워졌다', e); }
-      }
-    }
+    // gwansang(인연도감)은 더 이상 loadIndex()에 들어있지 않으므로 여기 rec가 그 타입일 일이 없다
+    // — 삭제는 전용 함수 removeDogam()이 처리한다(2026-08-31, "원본은 하나여야 해").
 
     if (viewingId === id) viewingId = null;
-    // 삭제 후 화면 곳곳(보관함 목록·인연도감 섹션·재방문 카드 등)을 부분적으로 다시 그리는 대신
-    // 새로고침 한 번으로 확실하게 맞춘다(사용자 요청 2026-08-18) — 이 세션에서 render 순서·캐시
-    // 어긋남으로 여러 번 "삭제했는데 화면엔 남아있다"가 났던 걸 반복하지 않기 위함.
+    // 삭제 후 화면 곳곳(보관함 목록 등)을 부분적으로 다시 그리는 대신 새로고침 한 번으로 확실하게
+    // 맞춘다(사용자 요청 2026-08-18) — render 순서·캐시 어긋남으로 "삭제했는데 화면엔 남아있다"가
+    // 반복되는 걸 막기 위함.
     location.reload();
+  }
+
+  // 인연도감 삭제 — 보관함은 이걸 따로 저장하지 않으므로(2026-08-31 정책) 확인창도, 실제 삭제도
+  // Dogam.deleteMyDogam() 하나가 전부 처리한다. 예전처럼 Archive가 먼저 지우고 나중에 도감 삭제를
+  // "따라가려는" 이중 확인창·이중 데이터 구조 자체를 없앴다 — 그게 "지워도 다시 생긴다" 버그의
+  // 근본 원인이었다.
+  function removeDogam() {
+    if (window.Dogam && Dogam.deleteMyDogam) Dogam.deleteMyDogam();
   }
 
   // 인연도감 쪽(Dogam.deleteMyDogam)에서 도감을 지웠을 때 보관함의 해당 리포트도 함께 정리하기 위한
@@ -637,8 +601,11 @@
     if (openState) return;
     const all = loadIndex();
     openState = {};
-    // 기록이 있는 섹션만 펼친 채로 시작한다 — 빈 섹션까지 열려 있으면 화면만 길어진다.
-    SECTIONS.forEach(s => { openState[s.type] = all.some(r => r.type === s.type); });
+    SECTIONS.forEach(s => {
+      // gwansang(인연도감)은 더 이상 loadIndex()에 없어 "기록 있으면 펼침" 판단을 못 한다 — 가장
+      // 자주 확인하는 섹션이라 항상 펼쳐서 시작한다. 나머지는 기존대로 기록이 있는 섹션만 펼친다.
+      openState[s.type] = s.type === 'gwansang' ? true : all.some(r => r.type === s.type);
+    });
   }
 
   function rowsFor(type, all) {
@@ -647,10 +614,30 @@
       .sort((a, b) => sortDesc ? (a.createdAt < b.createdAt ? 1 : -1) : (a.createdAt > b.createdAt ? 1 : -1));
   }
 
-  function renderPage() {
+  const GWANSANG_VIEW_ID = '__gwansang_live__'; // loadIndex()의 실제 id 형식(a_...)과 절대 겹치지 않는 고정값
+
+  function gwansangRowHtml(dogam) {
+    if (!dogam) return '<div class="arc-empty">아직 분석 내용이 없어요</div>';
+    return '<div class="arc-row" onclick="Archive.openReport(\'' + GWANSANG_VIEW_ID + '\')">' +
+        '<span class="arc-row-mark material-symbols-outlined">description</span>' +
+        '<span class="arc-row-body">' +
+          '<span class="arc-row-name">' + esc(dogam.ownerName || '나') + '</span>' +
+          '<span class="arc-row-sub">인연 ' + (dogam.entries || []).length + '명 등록</span>' +
+        '</span>' +
+        '<button class="arc-row-del" aria-label="삭제" title="삭제" ' +
+          'onclick="event.stopPropagation();Archive.removeDogam()">' +
+          '<span class="material-symbols-outlined">delete</span></button>' +
+      '</div>';
+  }
+
+  // renderPage()가 겹쳐 돌 수 있어(토글 연타, 탭 전환 중 재호출 등) Dogam.render()와 같은 방식으로
+  // "내가 아직 최신 호출인지"를 확인한다 — 아니면 조용히 물러나 더 늦게 시작된 렌더에 맡긴다.
+  let pageRenderSeq = 0;
+
+  async function renderPage() {
     const h = host();
     if (!h) return;
-    if (viewingId) { renderReport(h); return; }
+    if (viewingId) { await renderReport(h); return; }
 
     if (!currentUid()) {
       h.innerHTML = pageHeader() +
@@ -658,36 +645,53 @@
       return;
     }
 
+    const mySeq = ++pageRenderSeq;
     ensureOpenState();
     const all = loadIndex();
 
+    // 인연도감(gwansang)은 스냅샷을 안 두고 실물을 직접 물어본다(2026-08-31 정책: "원본은 하나여야
+    // 해") — Dogam.ensureMyDogam()이 로그인·비로그인 양쪽을 이미 처리하고 SLUG_KEY 캐시까지 갖고
+    // 있어 그대로 재사용한다.
+    const dogam = (window.Dogam && Dogam.ensureMyDogam)
+      ? await Dogam.ensureMyDogam().catch(function (e) { console.warn('[archive] 인연도감 조회 실패', e); return null; })
+      : null;
+    if (mySeq !== pageRenderSeq || viewingId) return; // 기다리는 사이 다른 렌더가 시작됐거나 상세보기로 이동함
+
     const sections = SECTIONS.map(function (s) {
-      const rows = rowsFor(s.type, all);
       const isOpenSec = !!openState[s.type];
-      const body = rows.length
-        ? rows.map(rec =>
-            '<div class="arc-row" onclick="Archive.openReport(\'' + rec.id + '\')">' +
-              '<span class="arc-row-mark material-symbols-outlined">description</span>' +
-              '<span class="arc-row-body">' +
-                '<span class="arc-row-name">' + esc(rec.title) + '</span>' +
-                (rec.sub ? '<span class="arc-row-sub">' + esc(rec.sub) + '</span>' : '') +
-              '</span>' +
-              '<button class="arc-row-del" aria-label="삭제" title="삭제" ' +
-                'onclick="event.stopPropagation();Archive.remove(\'' + rec.id + '\')">' +
-                '<span class="material-symbols-outlined">delete</span></button>' +
-            '</div>').join('')
-        : '<div class="arc-empty">아직 분석 내용이 없어요</div>';
+      let rowCount, body;
+      if (s.type === 'gwansang') {
+        rowCount = dogam ? 1 : 0;
+        body = gwansangRowHtml(dogam);
+      } else {
+        const rows = rowsFor(s.type, all);
+        rowCount = rows.length;
+        body = rows.length
+          ? rows.map(rec =>
+              '<div class="arc-row" onclick="Archive.openReport(\'' + rec.id + '\')">' +
+                '<span class="arc-row-mark material-symbols-outlined">description</span>' +
+                '<span class="arc-row-body">' +
+                  '<span class="arc-row-name">' + esc(rec.title) + '</span>' +
+                  (rec.sub ? '<span class="arc-row-sub">' + esc(rec.sub) + '</span>' : '') +
+                '</span>' +
+                '<button class="arc-row-del" aria-label="삭제" title="삭제" ' +
+                  'onclick="event.stopPropagation();Archive.remove(\'' + rec.id + '\')">' +
+                  '<span class="material-symbols-outlined">delete</span></button>' +
+              '</div>').join('')
+          : '<div class="arc-empty">아직 분석 내용이 없어요</div>';
+      }
 
       return '<section class="arc-acc' + (isOpenSec ? ' is-open' : '') + '">' +
                '<button class="arc-acc-head" onclick="Archive.toggle(\'' + s.type + '\')">' +
                  '<span class="arc-acc-title">' + s.label + '</span>' +
-                 (rows.length ? '<span class="arc-acc-count">' + rows.length + '</span>' : '') +
+                 (rowCount ? '<span class="arc-acc-count">' + rowCount + '</span>' : '') +
                  '<span class="arc-acc-icon material-symbols-outlined">' + (isOpenSec ? 'remove' : 'add') + '</span>' +
                '</button>' +
                (isOpenSec ? '<div class="arc-acc-body">' + body + '</div>' : '') +
              '</section>';
     }).join('');
 
+    if (mySeq !== pageRenderSeq || viewingId) return;
     h.innerHTML = pageHeader() +
       '<div class="arc-sort">' +
         '<button class="arc-sort-btn" onclick="Archive.toggleSort()">' +
@@ -713,6 +717,21 @@
   function backToList() { viewingId = null; renderPage(); window.scrollTo(0, 0); }
 
   async function renderReport(h) {
+    // 인연도감은 스냅샷이 없다(2026-08-31 정책) — Dogam.renderInto()가 실물을 통째로 그린다.
+    // loadReportHtml/loadIndex 조회 자체를 건너뛴다.
+    if (viewingId === GWANSANG_VIEW_ID) {
+      h.innerHTML =
+        '<div class="arc-page-head">' +
+          '<button class="arc-back" aria-label="목록으로" onclick="Archive.backToList()">' +
+            '<span class="material-symbols-outlined">arrow_back</span></button>' +
+          '<h2>인연도감</h2>' +
+        '</div>' +
+        '<div class="arc-report" id="arcReportBody"></div>';
+      const liveBody = document.getElementById('arcReportBody');
+      if (liveBody && window.Dogam && Dogam.renderInto) await Dogam.renderInto(liveBody);
+      return;
+    }
+
     const rec = loadIndex().find(r => r.id === viewingId);
     const section = SECTIONS.find(s => rec && s.type === rec.type);
     h.innerHTML =
@@ -736,24 +755,10 @@
     if (!html && confirmed) purgeOrphan(viewingId); // 본문 없음이 확인된 고아 항목만 정리(오류 시엔 그대로 둔다)
     // 이미 저장돼 있던 리포트에도 조작 요소가 섞여 있을 수 있어 여는 시점에도 한 번 걷어낸다.
     stripChrome(body);
-    attachLiveDogam(body, rec);
     // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "보관함에서 리포트 보면 아코디언이 다 열려있음") — 여기서
     // innerHTML로 새로 찍은 zone-accordion들은 app.js의 initZoneAccordions()가 페이지 로드 시 한 번
     // 붙인 리스너 대상이 아니라 "하나 열면 나머지 닫힘" 규칙이 빠진다. 다시 불러 새 아코디언에도 연결.
     if (window.initZoneAccordions) initZoneAccordions();
-  }
-
-  // 인연도감 리포트에는 도감 영역(인연 목록·보관 안내·공유·통합분석 CTA)을 살아있는 상태로 덧붙인다.
-  // 스냅샷에 넣지 않는 이유는 그대로다 — 친구가 계속 등록되는 실시간 데이터라 저장 시점에 얼어붙으면
-  // 실제 도감과 어긋난다. 대신 열 때마다 지금 상태로 다시 그린다(사용자 요청 2026-08-18).
-  // stripChrome 뒤에 붙여야 방금 걷어낸 선택자(.dogam-*)에 다시 걸리지 않는다.
-  function attachLiveDogam(body, rec) {
-    if (!rec || rec.type !== 'gwansang') return;
-    if (!window.Dogam || !Dogam.renderInto) return;
-    const live = document.createElement('div');
-    live.className = 'arc-live-dogam';
-    body.appendChild(live);
-    Dogam.renderInto(live);
   }
 
   // ── 보관함 밖에서 저장된 리포트를 쓰기 위한 창구 ─────────────────────
@@ -778,7 +783,7 @@
   window.Archive = {
     openPage: openPage, closePage: closePage, enterTab: enterTab,
     latestOf: latestOf, listOf: listOf, renderInto: renderInto,
-    save: save, commitPending: commitPending, discardPending: discardPending, remove: remove, removeReportsByType: removeReportsByType, removeReportsByProfile: removeReportsByProfile, debug: debug,
+    save: save, commitPending: commitPending, discardPending: discardPending, remove: remove, removeDogam: removeDogam, removeReportsByType: removeReportsByType, removeReportsByProfile: removeReportsByProfile, debug: debug,
     toggle: toggle, toggleSort: toggleSort,
     openReport: openReport, backToList: backToList,
     loadFromCloud: loadFromCloud, clearLocal: clearLocal,

@@ -574,10 +574,12 @@
     // 그렇게 한다) 무한 재귀라, 그 안쪽 함수(populateGwansangReportFromSaved)만 직접 쓴다.
     if (charId && typeof populateGwansangReportFromSaved === 'function') {
       await populateGwansangReportFromSaved(charId);
-      // 보관함(Archive)은 "그 시점의 스냅샷"이 아니라 항상 지금의 인연도감과 정확히 같아야 한다
-      // (사용자 원칙 2026-08-20: "인연도감과 보관함은 정확히 같은 걸 봐야 한다"). 내 도감을 그릴
-      // 때마다 다시 저장해서 제목·생성시각·본문이 실제 도감과 어긋나지 않게 맞춘다.
-      if (window.Archive && Archive.save) Archive.save('gwansang');
+      // 2026-08-31 정책 변경(사용자 확정: "원본은 하나여야 해") — 예전엔 여기서 매 렌더마다
+      // Archive.save('gwansang')를 불러 보관함에 스냅샷을 다시 찍어 "동기화"를 흉내냈다. 그런데
+      // 그 스냅샷 자체가 실제 도감과는 별개의 사본이라, 도감을 지워도 스냅샷이 살아남거나 반대로
+      // 스냅샷만 지워지고 도감은 살아남아 "삭제해도 다시 생긴다"는 사고가 반복됐다(사용자 리포트
+      // 2026-08-31). 이제 보관함은 인연도감을 따로 저장하지 않고 Dogam.ensureMyDogam()으로 실물을
+      // 그때그때 직접 물어본다(archive.js renderPage 참고) — 여기서 더 이상 찍어둘 스냅샷이 없다.
     }
     if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
     if (stale && stale()) return;
@@ -1174,6 +1176,10 @@
     // 보관함(archive.js)이 "생성 시간"으로 안정적인 값을 쓰게 하려는 용도 — 도감 문서의 실제
     // createdAt(한 번 정해지면 안 바뀜)이라, 어느 기기에서 언제 스냅샷을 다시 찍든 항상 같다.
     getMyDogamCreatedAt: function () { return myDogam ? myDogam.createdAt || null : null; },
+    // 2026-08-31 — 보관함이 인연도감을 더 이상 따로 저장하지 않고, 열 때마다 실물을 직접 물어보는
+    // 창구(사용자 정책: "원본은 하나여야 해"). ensureMyDogam은 로그인/비로그인 양쪽 다 처리하고
+    // SLUG_KEY 캐시까지 갖고 있어 archive.js가 새로 구현할 필요 없이 그대로 재사용할 수 있다.
+    ensureMyDogam: ensureMyDogam,
     _score: compatScore, _policy: DOGAM_POLICY,
   };
 })();

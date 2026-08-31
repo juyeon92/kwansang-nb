@@ -706,13 +706,10 @@ async function startAnalysis(ctx) {
     document.getElementById('gwansangResult').classList.remove('hidden');
     markAnalyzed('gwansang');
     try { localStorage.setItem(GWANSANG_REPORT_OPEN_KEY, '1'); } catch (e) {} // 새로고침해도 이 화면에 머무르도록
-    // Dogam.render()가 도감을 실제로 만드는 것까지 끝난 뒤에 보관함 스냅샷을 찍는다 — 그래야
-    // Archive.save('gwansang')가 그 도감의 진짜 생성 시각(Dogam.getMyDogamCreatedAt())을 쓸 수
-    // 있다(순서를 반대로 하거나 완료를 기다리지 않으면 아직 도감이 없어 임시로 "지금"을 쓰게 된다).
-    const dogamRendered = window.Dogam ? Dogam.render() : Promise.resolve();
-    dogamRendered
-      .catch(function (e) { console.error('[dogam] render 실패 — 보관함 스냅샷은 그대로 진행', e); })
-      .then(function () { if (window.Archive) Archive.save('gwansang'); }); // 보관함 — 리포트가 완성된 이 지점에서 스냅샷
+    // 2026-08-31 정책(사용자 확정: "원본은 하나여야 해") — 인연도감은 더 이상 보관함에 스냅샷을 찍지
+    // 않는다(보관함이 Dogam.ensureMyDogam()으로 실물을 직접 보여준다, archive.js 참고). 여기서는
+    // 방금 만든 도감이 화면(#dogamSection)에 반영되도록 Dogam.render()만 부르면 된다.
+    if (window.Dogam) Dogam.render().catch(function (e) { console.error('[dogam] render 실패', e); });
   } else if (ctx === 'combined') {
     document.getElementById('cmbCanvasCard').classList.remove('hidden');
   }
