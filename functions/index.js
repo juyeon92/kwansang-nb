@@ -42,6 +42,14 @@ exports.kakaoLogin = onRequest({ cors: true }, async (req, res) => {
 
     // Firebase uid는 콜론(:)을 못 쓰므로 언더스코어로 구분한다.
     const uid = `kakao_${kakaoUser.id}`;
+
+    // settleDogamForUid(아래)가 "이 계정이 로그인 시도 전부터 이미 갖고 있던 도감"과 "이번 로그인이
+    // 만들어낸 도감"을 구분해야 해서, ensureUserAndWallet/migrateAnonymousData가 건드리기 전의
+    // dogamSlug를 미리 찍어둔다. 계정이 아예 처음이면(문서 없음) preExistingDogamSlug는 null이고,
+    // 그 경우 "최초 로그인 시점" 규칙이 적용된다.
+    const preSnap = await db.collection('users').doc(uid).get();
+    const preExistingDogamSlug = (preSnap.exists && preSnap.data().dogamSlug) || null;
+
     // 냥 시스템 기획서 §3.1 — "User 생성"과 "Wallet 생성"은 반드시 하나의 트랜잭션으로 묶여야 한다.
     // 여기가 사실상의 회원가입 지점(카카오 로그인 최초 성공 = 가입)이라 이 자리에서 함께 만든다.
     await ensureUserAndWallet(uid, kakaoUser);
@@ -62,12 +70,13 @@ exports.kakaoLogin = onRequest({ cors: true }, async (req, res) => {
       }
     }
 
-    // 사용자 정책(2026-08-31): "비로그인 동안 도감을 몇 개를 만들었든, 로그인하는 순간 그 계정엔
-    // 도감이 최종 1개만 남는다" — migrateAnonymousData가 계정에 이미 도감이 있는지 확인 없이
-    // dogamSlug를 매번 덮어써서, 비로그인↔로그인을 반복 테스트하면 계정 밑에 도감이 여러 개
-    // 쌓이는 사고가 있었다(dedupeDogamsForUid 주석 참고). 익명 이관 여부와 무관하게 매 로그인마다
-    // 검사한다 — 이미 중복이 쌓인 기존 계정도 다음 로그인에서 저절로 정리된다.
-    try { await dedupeDogamsForUid(uid); }
+    // 사용자 정책(2026-08-31 확정): "참여 인원이 많은 쪽"이 아니라, 이 계정이 **최초로 로그인을
+    // 시도하던 시점에 갖고 있던 도감**이 그 계정의 도감으로 영구 고정된다. migrateAnonymousData가
+    // 계정에 이미 도감이 있는지 확인 없이 dogamSlug를 매번 덮어써서, 비로그인↔로그인을 반복
+    // 테스트하면 계정 밑에 도감이 여러 개 쌓이는 사고가 있었다(settleDogamForUid 주석 참고).
+    // 익명 이관 여부와 무관하게 매 로그인마다 검사한다 — 이미 중복이 쌓인 기존 계정도 다음
+    // 로그인에서 저절로 정리된다.
+    try { await settleDogamForUid(uid, preExistingDogamSlug); }
     catch (e) { console.error('[kakaoLogin] 도감 중복 정리 실패', e); }
 
     const customToken = await admin.auth().createCustomToken(uid);
@@ -578,36 +587,42 @@ async function purgeDogam(doc, reason) {
 // 주석 참고). dogamSlug는 그중 하나만 가리키므로 나머지는 숨어 있다가, 클라이언트의 복구 로직
 // (js/inyeon-dogam.js recoverDogamByOwner — 참여 인원이 가장 많은 도감을 되살리는 안전망)이 그걸
 // 찾아내면서 "분명히 삭제했는데 다시 생긴다"처럼 보였다.
-// 정책(사용자 확정 2026-08-31): 로그인하는 순간 그 계정엔 도감이 최종 1개만 남는다 — 참여 인원이
-// 가장 많은(같으면 더 오래된) 것 하나만 남기고 나머지는 즉시 완전히 삭제한다(유예기간 없음).
-// 비로그인 상태로만 남아있는 도감(아직 이 함수가 손대지 않은 것)은 기존 30일 유예기간
-// (cleanupExpiredDogam)을 그대로 따른다 — 이 함수는 "로그인 계정"에만 적용된다.
-// 순수 함수로 분리 — Firestore 없이도 "어떤 걸 남길지" 결정 로직만 단독으로 검증할 수 있게 한다.
-// candidates: [{id, entryCount, createdAt}] → 반환은 같은 배열을 정렬한 것(맨 앞이 keeper).
-function rankDogamCandidates(candidates) {
-  return candidates.slice().sort((a, b) => {
-    if (b.entryCount !== a.entryCount) return b.entryCount - a.entryCount; // 참여 인원 많은 쪽 우선
-    return a.createdAt < b.createdAt ? -1 : 1; // 인원 같으면 더 오래된 것을 우선 유지
-  });
+// 정책(사용자 확정 2026-08-31): 참여 인원 수가 아니라 — 이 계정이 **최초로 로그인을 시도하던
+// 시점에 갖고 있던 도감**이 그 계정의 도감으로 영구 고정된다. 이미 그 시점이 지나 dogamSlug가
+// 한 번이라도 정해진 계정은, 이후 로그인에서 다른 익명 도감이 새로 이관되어 와도 원래 것을 그대로
+// 지키고 새로 온 건 버린다. 아직 한 번도 도감이 없었던(진짜 첫 로그인) 계정만 이번 이관 결과를
+// 그대로 받아들인다. 비로그인 상태로만 남아있는 도감(이 함수가 손대지 않는 것)은 기존 30일
+// 유예기간(cleanupExpiredDogam)을 그대로 따른다 — 이 함수는 "로그인 계정"에만 적용된다.
+//
+// preferredSlug: kakaoLogin이 이번 요청에서 ensureUserAndWallet/migrateAnonymousData를 부르기
+// 전에 미리 읽어둔 users/{uid}.dogamSlug — "로그인 시도 시점"의 스냅샷이라 여기서 다시 조회하면
+// 이미 migrateAnonymousData가 덮어쓴 뒤라 늦다.
+// 순수 함수로 분리 — Firestore 없이도 "어떤 걸 남길지" 결정만 단독으로 검증할 수 있게 한다.
+// docs: [{id, createdAt}]. preferredSlug가 그 안에 실제로 있으면 그게 keeper id, 없으면(진짜 첫
+// 로그인이라 이전 dogamSlug가 없었거나 그 도감이 이미 삭제된 경우) 가장 오래된 것의 id.
+function pickKeeperId(docs, preferredSlug) {
+  if (preferredSlug && docs.some((d) => d.id === preferredSlug)) return preferredSlug;
+  return docs.slice().sort((a, b) => (a.createdAt || '') < (b.createdAt || '') ? -1 : 1)[0].id;
 }
 
-async function dedupeDogamsForUid(uid) {
+async function settleDogamForUid(uid, preferredSlug) {
   const snap = await db.collection('dogam').where('ownerUid', '==', uid).get();
   if (snap.size <= 1) return { kept: snap.empty ? null : snap.docs[0].id, purged: 0 };
 
-  const candidates = await Promise.all(snap.docs.map(async (doc) => {
-    const entriesSnap = await doc.ref.collection('entries').get();
-    return { doc, id: doc.id, entryCount: entriesSnap.size, createdAt: (doc.data() || {}).createdAt || '' };
-  }));
-  const [keeper, ...losers] = rankDogamCandidates(candidates);
+  const keeperId = pickKeeperId(
+    snap.docs.map((d) => ({ id: d.id, createdAt: (d.data() || {}).createdAt || '' })),
+    preferredSlug
+  );
+  const keeperDoc = snap.docs.find((d) => d.id === keeperId);
+  const losers = snap.docs.filter((d) => d.id !== keeperDoc.id);
 
   // 진짜 삭제(purgeDogam)가 먼저 끝나야 한다 — losers를 지우는 동안 dogamSlug가 계속 지워지는데,
   // 마지막에 keeper로 다시 지정해야 최종 상태가 맞는다(순서를 바꾸면 keeper 참조가 날아갈 수 있다).
-  for (const loser of losers) await purgeDogam(loser.doc, 'login_dedup');
-  await db.collection('users').doc(uid).set({ dogamSlug: keeper.id }, { merge: true });
+  for (const loser of losers) await purgeDogam(loser, 'login_dedup');
+  await db.collection('users').doc(uid).set({ dogamSlug: keeperDoc.id }, { merge: true });
 
-  console.warn(`[dogam] uid=${uid} 밑에 도감 ${snap.size}개 발견 — ${keeper.id} 유지, ${losers.length}개 삭제`);
-  return { kept: keeper.id, purged: losers.length };
+  console.warn(`[dogam] uid=${uid} 밑에 도감 ${snap.size}개 발견 — ${keeperDoc.id} 유지, ${losers.length}개 삭제`);
+  return { kept: keeperDoc.id, purged: losers.length };
 }
 
 exports.cleanupExpiredDogam = onSchedule(
