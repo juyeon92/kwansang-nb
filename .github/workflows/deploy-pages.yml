@@ -27,12 +27,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepare web-only dist folder
-        run: |
-          mkdir dist
-          cp index.html dist/
-          cp -r js dist/
-          cp -r images dist/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install build deps
+        run: npm ci
+
+      # build.js가 index.html/images는 그대로, js/**/*.js는 주석 제거+압축(esbuild)해서 dist에 낸다
+      # (2026-08-30) — 내부 코멘트(버그 리포트 근거, 판단 로직 설명 등)가 실서비스 응답에 그대로
+      # 노출되던 문제 대응. 원본 소스는 그대로 두고 여기서 만든 dist만 배포된다.
+      - name: Build dist (minify JS, strip comments)
+        run: npm run build
 
       - uses: actions/configure-pages@v5
 

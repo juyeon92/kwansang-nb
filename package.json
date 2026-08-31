@@ -1,0 +1,11 @@
+{
+  "name": "kwansang-nb-web",
+  "private": true,
+  "description": "관상냥반 — GitHub Pages 배포용 dist 빌드(주석 제거 + 압축). 실제 앱 코드는 js/ 아래 있고, 이건 빌드 도구일 뿐이다.",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
