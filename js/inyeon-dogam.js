@@ -293,10 +293,26 @@
         return (a.createdAt || '') < (b.createdAt || '') ? -1 : 1; // 인원 같으면 더 오래된 것
       });
       const recovered = candidates[0];
+      const losers = candidates.slice(1);
       console.warn('[dogam] 끊어진 참조를 도감 직접 검색으로 복구', { uid: uid, slug: recovered.slug, entries: recovered.entries.length });
       await fbDb.collection('users').doc(uid).set({ dogamSlug: recovered.slug }, { merge: true });
       localStorage.setItem(SLUG_KEY, recovered.slug);
       touchDogam(recovered.slug, uid);
+      // ⚠️ 버그 리포트(2026-08-31: "삭제해도 계속 생겨") — 예전엔 나머지를 그냥 방치했다. 방치하면
+      // 다음에 recovered를 지워도 여기서 또 다른 loser가 "복구"되며 계속 반복된다. 한 사람이 도감을
+      // 2개 이상 가질 정당한 이유가 없으므로, 복구하는 김에 나머지는 그 자리에서 완전히 지운다.
+      if (losers.length) {
+        console.warn('[dogam] 중복 도감 ' + losers.length + '개 정리', losers.map(function (c) { return c.slug; }));
+        for (const loser of losers) {
+          try {
+            const entriesSnap = await fbDb.collection('dogam').doc(loser.slug).collection('entries').get();
+            for (const d of entriesSnap.docs) await d.ref.delete();
+            await fbDb.collection('dogam').doc(loser.slug).delete();
+          } catch (e) {
+            console.warn('[dogam] 중복 도감 정리 실패 slug=' + loser.slug, e);
+          }
+        }
+      }
       return recovered;
     } catch (e) {
       console.error('[dogam] 소유자 기준 도감 복구 실패', e);
@@ -722,14 +738,24 @@
     }
     if (!confirm('내 인연도감을 삭제할까요?\n등록된 인연 ' + (mine.entries || []).length + '명도 함께 사라지고, 되돌릴 수 없어요.')) return;
     try {
-      // 내 도감에 등록된 친구 기록(entries)을 먼저 다 지우고 도감 문서를 지운다 — 이래야 도감을
-      // 새로 만들었을 때 빈 상태로 시작한다.
+      // ⚠️ 버그 리포트(2026-08-31: "삭제해도 계속 생겨") — 예전엔 mine.slug 하나만 지웠는데,
+      // migrateAnonymousData가 계정에 이미 도감이 있는지 확인 없이 익명 도감을 계속 이관해온 탓에
+      // 같은 ownerUid 밑에 도감이 여러 개 쌓인 계정이 있었다(functions/index.js settleDogamForUid
+      // 참고 — 로그인 시점에 정리하는 서버 로직을 새로 넣었지만, 로그아웃 없이 계속 로그인된 채로
+      // 테스트하면 그 로직이 아예 실행되지 않는다). "내 도감 삭제"는 지금 보이는 slug 하나가 아니라
+      // 이 ownerUid가 가진 도감 전부를 지워야 "지웠는데 다른 게 다시 나타나는" 일이 없다.
+      const ownerUid = mine.ownerUid;
+      const ownedSnap = await fbDb.collection('dogam').where('ownerUid', '==', ownerUid).get();
+      let totalEntries = 0;
+      for (const dogamDoc of ownedSnap.docs) {
+        const col = dogamDoc.ref.collection('entries');
+        const entriesSnap = await col.get();
+        for (const d of entriesSnap.docs) await d.ref.delete();
+        await dogamDoc.ref.delete();
+        totalEntries += entriesSnap.size;
+      }
       // ⚠️ 상대 도감에 남아 있는 "내 기록"은 일부러 건드리지 않는다(사용자 확인 2026-08-17).
       // 그건 상대의 도감이고, 지우고 싶으면 본인이 자기 기기에서 지울 수 있다(정책 문구 §삭제).
-      const col = fbDb.collection('dogam').doc(mine.slug).collection('entries');
-      const snap = await col.get();
-      for (const d of snap.docs) await d.ref.delete();
-      await fbDb.collection('dogam').doc(mine.slug).delete();
       const uid = currentUid();
       if (uid) {
         await fbDb.collection('users').doc(uid)
@@ -738,7 +764,7 @@
       }
       forgetLocalDogam();
       myDogam = null;
-      console.log('[dogam] 도감 삭제 완료', { slug: mine.slug, entries: snap.size });
+      console.log('[dogam] 도감 삭제 완료', { ownerUid: ownerUid, dogamCount: ownedSnap.size, entries: totalEntries });
       // 인연도감 삭제 → 보관함의 "인연도감" 리포트도 함께 삭제(사용자 요청 2026-08-18).
       if (window.Archive && Archive.removeReportsByType) Archive.removeReportsByType('gwansang');
       location.reload(); // 부분 재렌더 대신 새로고침으로 확실하게 반영(사용자 요청 2026-08-18)
