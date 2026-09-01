@@ -28,15 +28,6 @@
 (function () {
   const RETENTION_DAYS = 30; // 보관 기간 — 정책 문구(DOGAM_POLICY)와 expiresAt 계산이 모두 이 값을 따른다
   const SLUG_KEY = 'dogamMySlug';        // 내 도감 slug (로그인 전에도 기억해두기 위한 로컬 사본)
-  // ⚠️ 사용자 리포트(2026-09-01: "삭제해도 새로고침하자마자 바로 다시 떠 있어") — deleteMyDogam()이
-  // Firestore에서는 확실히 지우고 reload()까지 하는데도 즉시 되살아났다. render()의 자동 생성 분기
-  // (currentUid() && myCharacterId()가 있으면 도감이 없을 때 조용히 새로 만든다)가, reload 직후
-  // 아직 auth가 완전히 정착하기 전 순간에 어디선가(예: 계정 전환 과도기의 캐릭터 캐시 복원 경로)
-  // myCharacterId()가 값을 돌려주면 곧바로 다시 도감을 찍어내는 게 근본 원인으로 보인다. 정확한
-  // 진입 경로를 다 틀어막는 대신, "방금 사용자가 명시적으로 삭제했다"는 사실 자체를 reload를 넘어
-  // 한 번 더 기억해뒀다가 — 그 다음 render() 단 한 번만 자동 생성을 건너뛴다. 그 뒤로는 정상 동작
-  // (새 사진을 실제로 분석하면 정상적으로 다시 만들어진다) 그대로 둔다.
-  const JUST_DELETED_KEY = 'dogamJustDeletedGuard';
   const PARAM = 'dogam';                 // 공유 링크 쿼리 파라미터 (?dogam=<slug>)
   let enteredViaShare = false;           // 공유 링크로 들어온 세션인지 — 뒤로 갈 화면이 없으므로 뒤로가기를 숨긴다
   // 방금 맺은 인연(초대해준 사람) — 등록 직후 매칭 결과를 보여주기 위해 기억해둔다. 일부러 메모리
@@ -546,16 +537,12 @@
     // 공유 버튼을 누른 뒤에 도감을 만들면 그 통신 때문에 클립보드 복사가 막힌다 —
     // 화면을 그리는 이 시점에 미리 만들어 두고, 버튼은 복사만 하도록 한다.
     // (여기 도달했다는 건 ensureMyDogam이 "확인했는데 정말 없음"을 리턴한 경우뿐이다.)
-    let justDeleted = false;
-    try { justDeleted = !!localStorage.getItem(JUST_DELETED_KEY); localStorage.removeItem(JUST_DELETED_KEY); } catch (e) { /* 스킵 */ }
-    if (!mine && currentUid() && myCharacterId() && !justDeleted) {
+    if (!mine && currentUid() && myCharacterId()) {
       const created = await createMyDogam().catch(function (e) { console.error('[dogam] 도감 생성 실패', e); return null; });
       // 도감 생성은 되돌릴 수 없는 쓰기라, 뒤늦게 끝났더라도 결과 자체는 캐시에 반영해둔다.
       // 다만 화면은 최신 렌더에 맡긴다(아래 stale 체크).
       if (created) mine = created;
       if (stale()) return;
-    } else if (justDeleted && !mine) {
-      console.warn('[dogam] 방금 삭제 직후라 자동 생성을 한 번 건너뜁니다(레이스 방지)');
     }
     await paintOwnerView(el, mine, stale);
   }
@@ -795,11 +782,15 @@
     localStorage.removeItem(SLUG_KEY);
     lastMatch = null;
     localStorage.removeItem(inyeonCharacterKey());
+    // ⚠️ 진짜 원인(2026-09-01, 콘솔로 확인): 위 removeItem은 "이 계정 전용" 캐릭터 캐시만 지운다.
+    // migrateLocalOnLogin()이 로그인/새로고침(세션 복원)마다 매번 실행되면서 "계정 전용 캐시가
+    // 비어 있으면 로그인 전(게스트) 캐시 inyeonLastCharacter(계정 접미사 없는 bare key)에서 복사해온다"
+    // 는 로직을 갖고 있는데, 그 bare key는 방금 위에서 안 지웠다 — 그래서 삭제 직후 재로그인/새로고침될
+    // 때마다 게스트 캐시가 계정 캐시로 다시 복사되고, render()가 그 값을 보고 "캐릭터는 있는데 도감이
+    // 없네"라며 새 도감을 즉시 자동 생성해버렸다(사용자 리포트: "삭제해도 새로고침하자마자 바로 다시
+    // 떠 있어"). bare key까지 함께 지워야 migrateLocalOnLogin이 복사해올 것 자체가 없어진다.
+    localStorage.removeItem(INYEON_LAST_CHARACTER_KEY);
     localStorage.removeItem('gwansangReportOpen'); // 도감을 지웠으니 새로고침 시 리포트도 되살리지 않는다
-    // 위 두 removeItem이 "이 계정/이 기기 기준" 캐릭터 캐시만 지운다 — reload 직후 auth가 아직
-    // 완전히 정착하기 전이라 다른 경로(비로그인/과도기 판정)로 캐릭터 캐시를 읽으면 여전히 값이
-    // 남아 있을 수 있다. render()가 그걸로 즉시 새 도감을 자동 생성해버리는 걸 막기 위한 1회성 안전장치.
-    try { localStorage.setItem(JUST_DELETED_KEY, '1'); } catch (e) { /* 스킵 */ }
     if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
   }
 
