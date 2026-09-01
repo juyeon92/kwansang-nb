@@ -492,7 +492,9 @@
           if (gh) { stashUploadNodes(); gh.remove(); }
           setDisplay('gwansangHero', '');
           setDisplay('gwansangCtaDock', '');
-          setDisplay('gwansangUploadSection', ''); // showGuestView가 숨겨뒀을 수 있다
+          // A-1은 항상 "이미 있는 내 도감"이라 업로드 입구를 다시 보일 필요가 없다(아래 B 분기와
+          // 같은 2026-09-01 원칙 — 도감이 있으면 사진을 더 넣을 필요가 없다).
+          setDisplay('gwansangUploadSection', 'none');
           setDisplay('gwansangBackBtn', 'none');
           await paintOwnerView(el, guestDogam, stale);
           return;
@@ -516,9 +518,6 @@
     if (gh) { stashUploadNodes(); gh.remove(); }
     setDisplay('gwansangHero', '');
     setDisplay('gwansangCtaDock', '');
-    // "이미 등록한 재방문" 게스트 화면(showGuestView)이 이 섹션을 숨겨뒀을 수 있다 — 내 도감으로
-    // 돌아왔을 땐 다시 보여야 한다(사진이 없는 사람에게는 여전히 업로드 입구가 필요하다).
-    setDisplay('gwansangUploadSection', '');
     // "인연도감 메인으로"는 돌아갈 이전 화면이 있을 때만 의미가 있다. 공유 링크로 바로 들어온
     // 세션에는 그 화면 자체가 없었으므로 숨긴다.
     setDisplay('gwansangBackBtn', enteredViaShare ? 'none' : '');
@@ -544,6 +543,14 @@
       if (created) mine = created;
       if (stale()) return;
     }
+    // ⚠️ 기능 변경(2026-09-01 사용자 요청) — 계정당 인연도감 1개 원칙(916cf48 등)이 있는데도 이
+    // 업로드 섹션은 도감이 이미 있어도 계속 떠 있었다. "이미 등록한 재방문" 게스트 화면이 숨겨둔 걸
+    // 되돌리려던 게 원래 의도였는데(예전 주석), 도감이 있는 사람한테까지 "사진을 또 올릴 수 있는
+    // 입구"를 열어두는 부작용이 있었다 — 그 입구로 다른 사람 사진을 넣으면 state.gwansang.characterResult가
+    // 새 결과로 바뀌면서 myCharacterId()가 그 값을 읽어가 버려, 정작 화면(도감 소유자 캐릭터, 이미
+    // 고정됨)과 다른 캐릭터가 다른 곳(리스트 등)에서 새어 보이는 혼란까지 이어졌다(사용자 리포트).
+    // 도감이 없는 사람에게만 업로드 입구를 보여준다 — 있으면 더 이상 사진을 넣을 필요가 없다.
+    setDisplay('gwansangUploadSection', mine ? 'none' : '');
     await paintOwnerView(el, mine, stale);
   }
 

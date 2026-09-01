@@ -365,6 +365,13 @@ function resetUpload(ctx) {
     document.getElementById('gwansangResult').classList.add('hidden');
     // 리포트를 닫고 메인으로 돌아온 상태 — 새로고침해도 리포트를 다시 열지 않는다.
     try { localStorage.removeItem(GWANSANG_REPORT_OPEN_KEY); } catch (e) {}
+    // ⚠️ 버그 수정(2026-09-01 사용자 리포트: "인연도감 메인으로 돌아가서 다른 사람 사진 넣으면
+    // 캐릭터가 꼬임") — 바로 위(360행)에서 모든 ctx 공통으로 업로드 섹션의 hidden 클래스를 무조건
+    // 없애 다시 보여주는데, 인연도감은 계정당 1개 원칙이라 이미 도감이 있으면 이 입구 자체가 없어야
+    // 한다(Dogam.render()가 그 조건을 판단해 인라인 style로 다시 숨긴다). 여기서 클래스만 지우고
+    // 끝내면 이미 도감이 있는 사람한테도 "뒤로가기" 한 번으로 업로드 입구가 되살아났다. render()를
+    // 다시 불러 도감 존재 여부에 맞게 섹션 노출을 재확정한다.
+    if (window.Dogam && Dogam.render) Dogam.render();
   } else if (ctx === 'combined') {
     document.getElementById('cmbCanvasCard').classList.add('hidden');
     document.getElementById('cmbResult').classList.add('hidden');
