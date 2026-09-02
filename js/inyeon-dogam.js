@@ -615,15 +615,26 @@
   // (사용자 요청 2026-08-18). 도감은 친구가 계속 등록되는 실시간 데이터라 리포트 스냅샷에 담지 않고,
   // 열 때마다 지금 상태를 그린다 — 그래서 저장 시점이 아니라 "지금" 등록된 인연이 보인다.
   // #dogamSection(메인 화면)을 건드리지 않으므로 render()와 서로 덮어쓰지 않는다.
+  // ⚠️ 사용자 리포트(2026-09-02): 보관함에서 인연도감을 열면 캐릭터 카드/설명이 안 보였다 — 관상 탭의
+  // #gwansangCharacterCard·#gwansangCharacterDetail은 관상 탭 고유 DOM이라 이 화면(#arcReportBody)엔
+  // 애초에 존재하지 않아서, paintOwnerView가 하는 "캐릭터 복원"이 여기선 채울 대상 자체가 없었다.
+  // 친구 초대 화면에서 도감 주인의 캐릭터를 보여줄 때 쓰는 renderCharacterCard+renderOwnerBrief
+  // 조합(showGuestView 참고)을 그대로 재사용해, 이 화면 안에 컨테이너를 새로 만들어 채운다.
   async function renderIntoEl(el) {
     if (!el) return;
+    try { await CharacterAPI.ensureCharacterCatalog(); } catch (e) { console.warn('[dogam] 캐릭터 카탈로그를 아직 못 받아왔어요', e); }
     const mine = await ensureMyDogam().catch(function (e) {
       console.error('[dogam] 보관함 도감 영역 조회 실패', e);
       return null;
     });
     if (!el.isConnected) return; // 불러오는 사이에 화면을 떠난 경우
     myDogam = mine;
-    el.innerHTML = renderOwnerView(mine);
+    const charId = mine ? mine.ownerCharacterId : null;
+    el.innerHTML = (charId ? '<div id="dogamArcCharCard"></div><div id="dogamArcCharDetail"></div>' : '') + renderOwnerView(mine);
+    if (charId) {
+      if (typeof renderCharacterCard === 'function') renderCharacterCard('dogamArcCharCard', { characterId: charId });
+      renderOwnerBrief('dogamArcCharDetail', charId);
+    }
   }
 
   // 1) 공유자(오너) 입장
