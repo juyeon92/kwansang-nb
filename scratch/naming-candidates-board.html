@@ -1,0 +1,513 @@
+<title>16캐릭터 별명 후보안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700;900&display=swap" rel="stylesheet">
+
+<style>
+/* 프로젝트 index.html의 :root 토큰(mint/jade/ink/paper/gold/clay)을 그대로 계승 */
+:root{
+  --ink:#12302E;
+  --jade:#2F6F68;
+  --mint:#55CCBB;
+  --mint-soft:#EDF9F6;
+  --mint-line:#CBEDE6;
+  --gold:#C9A84C;
+  --gold-soft:#FBF4E1;
+  --clay:#B4562B;
+  --clay-soft:#FCEFE7;
+  --clay-line:#F0C29E;
+  --plum:#6B4A7A;
+  --plum-soft:#F4EFF7;
+  --steel:#3F6B8C;
+  --steel-soft:#EDF3F8;
+
+  --paper:#FBF9F4;
+  --card:#FFFFFF;
+  --card2:#F4F1E9;
+  --line:#E2DED2;
+  --line-soft:#EDEAE1;
+
+  --tx:#1B2B29;
+  --tx2:#5E6B68;
+  --tx3:#909B98;
+
+  --sans:'Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;
+  --serif:'Noto Serif KR','Nanum Myeongjo',serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#DCEDE9;
+    --jade:#7FC4BB;
+    --mint:#55CCBB;
+    --mint-soft:#16302D;
+    --mint-line:#2C544E;
+    --gold:#D9BC68;
+    --gold-soft:#2E2716;
+    --clay:#E8916A;
+    --clay-soft:#331D14;
+    --clay-line:#5C3320;
+    --plum:#C0A0CE;
+    --plum-soft:#271B2C;
+    --steel:#8FB6D2;
+    --steel-soft:#182530;
+
+    --paper:#101817;
+    --card:#17211F;
+    --card2:#1D2725;
+    --line:#2C3836;
+    --line-soft:#232E2C;
+
+    --tx:#E6EDEB;
+    --tx2:#9BAAA7;
+    --tx3:#6C7A77;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#DCEDE9;
+  --jade:#7FC4BB;
+  --mint:#55CCBB;
+  --mint-soft:#16302D;
+  --mint-line:#2C544E;
+  --gold:#D9BC68;
+  --gold-soft:#2E2716;
+  --clay:#E8916A;
+  --clay-soft:#331D14;
+  --clay-line:#5C3320;
+  --plum:#C0A0CE;
+  --plum-soft:#271B2C;
+  --steel:#8FB6D2;
+  --steel-soft:#182530;
+
+  --paper:#101817;
+  --card:#17211F;
+  --card2:#1D2725;
+  --line:#2C3836;
+  --line-soft:#232E2C;
+
+  --tx:#E6EDEB;
+  --tx2:#9BAAA7;
+  --tx3:#6C7A77;
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--tx);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+.page{max-width:1080px;margin:0 auto;padding:52px 24px 90px;display:flex;flex-direction:column;gap:52px;}
+@media (max-width:640px){.page{padding:32px 16px 60px;gap:40px;}}
+
+h1,h2,h3{font-family:var(--serif);text-wrap:balance;line-height:1.35;margin:0;}
+p{margin:0;max-width:66ch;}
+:focus-visible{outline:2px solid var(--mint);outline-offset:3px;border-radius:3px;}
+
+/* ── 머리 ── */
+.masthead{display:flex;flex-direction:column;gap:13px;}
+.slate{
+  display:inline-flex;align-items:center;gap:8px;align-self:flex-start;
+  font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--jade);
+}
+.slate::before{content:"";width:26px;height:2px;background:var(--gold);}
+h1{font-size:clamp(27px,4.6vw,38px);font-weight:900;color:var(--ink);letter-spacing:-.01em;}
+.lede{font-size:16px;color:var(--tx2);line-height:1.8;}
+.lede b{color:var(--jade);font-weight:700;}
+
+/* ── 섹션 ── */
+section{display:flex;flex-direction:column;gap:20px;}
+.sec-head{display:flex;flex-direction:column;gap:7px;border-top:2px solid var(--ink);padding-top:15px;}
+.sec-kicker{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--tx3);}
+h2{font-size:clamp(20px,3.2vw,26px);font-weight:900;color:var(--ink);}
+.sec-note{font-size:14.5px;color:var(--tx2);line-height:1.8;}
+
+/* ── 레인 정의 ── */
+.lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;}
+.lane{
+  border:1px solid var(--line);border-radius:5px;padding:14px 15px;
+  display:flex;flex-direction:column;gap:6px;background:var(--card);
+  border-top:3px solid var(--lc,var(--line));
+}
+.lane-id{font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--lc,var(--tx3));}
+.lane-name{font-family:var(--serif);font-size:16px;font-weight:700;color:var(--ink);}
+.lane-desc{font-size:13px;color:var(--tx2);line-height:1.7;}
+.lane-A{--lc:var(--jade);}
+.lane-B{--lc:var(--plum);}
+.lane-C{--lc:var(--steel);}
+.lane-D{--lc:var(--clay);}
+
+/* ── 캐릭터 카드 ── */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+.ch{
+  background:var(--card);border:1px solid var(--line);border-radius:6px;
+  padding:16px 17px 15px;display:flex;flex-direction:column;gap:11px;
+}
+.ch-top{display:flex;flex-direction:column;gap:4px;}
+.ch-meta{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+.ch-formal{font-family:var(--serif);font-size:14.5px;font-weight:700;color:var(--tx2);}
+.ch-axis{
+  font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--jade);
+  background:var(--mint-soft);border:1px solid var(--mint-line);border-radius:3px;padding:1.5px 6px;
+  white-space:nowrap;
+}
+.ch-feedback{font-size:12.5px;color:var(--tx3);line-height:1.6;}
+.ch-feedback s{color:var(--tx3);}
+
+.pick{
+  display:flex;flex-direction:column;gap:5px;
+  background:var(--mint-soft);border:1px solid var(--mint-line);border-radius:5px;
+  padding:11px 13px;
+}
+.pick-label{font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--jade);}
+.pick-name{font-family:var(--serif);font-size:22px;font-weight:900;color:var(--ink);line-height:1.25;letter-spacing:-.01em;}
+.pick-why{font-size:12.5px;color:var(--tx2);line-height:1.7;}
+
+.alts{display:flex;flex-direction:column;gap:6px;}
+.alt{display:flex;align-items:baseline;gap:8px;font-size:13px;line-height:1.6;}
+.alt-tag{
+  flex:0 0 auto;width:19px;height:19px;border-radius:3px;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;color:var(--ac);
+  background:var(--ab);border:1px solid var(--ac);
+  transform:translateY(2px);
+}
+.alt-A{--ac:var(--jade);--ab:var(--mint-soft);}
+.alt-B{--ac:var(--plum);--ab:var(--plum-soft);}
+.alt-C{--ac:var(--steel);--ab:var(--steel-soft);}
+.alt-D{--ac:var(--clay);--ab:var(--clay-soft);}
+.alt-name{font-weight:700;color:var(--tx);white-space:nowrap;}
+.alt-note{color:var(--tx3);font-size:12.5px;}
+
+.keep{border-color:var(--gold);}
+.keep .pick{background:var(--gold-soft);border-color:var(--gold);}
+.keep .pick-label,.keep .pick-name{color:var(--gold);}
+.keep .pick-name{color:var(--ink);}
+
+/* ── 판단 3건 ── */
+.calls{display:flex;flex-direction:column;gap:13px;}
+.call{
+  border:1px solid var(--line);border-radius:5px;background:var(--card);
+  border-left:3px solid var(--verd,var(--line));
+  padding:15px 17px;display:flex;flex-direction:column;gap:8px;
+}
+.call-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.verdict{
+  font-size:10.5px;font-weight:800;letter-spacing:.06em;color:var(--verd);
+  border:1px solid var(--verd);border-radius:3px;padding:2px 7px;white-space:nowrap;
+}
+.call-q{font-family:var(--serif);font-size:16px;font-weight:700;color:var(--ink);}
+.call-body{font-size:14px;color:var(--tx2);line-height:1.8;}
+.call-body b{color:var(--tx);font-weight:700;}
+.yes{--verd:var(--jade);}
+.maybe{--verd:var(--gold);}
+.no{--verd:var(--clay);}
+
+/* ── 최종 세트 표 ── */
+.tbl-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--card);}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:600px;}
+thead th{
+  text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.1em;
+  color:var(--tx3);padding:11px 14px;background:var(--card2);border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+tbody td{padding:10px 14px;border-bottom:1px solid var(--line-soft);vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:nth-child(even){background:color-mix(in srgb,var(--card2) 42%,transparent);}
+.t-formal{color:var(--tx3);font-size:13px;white-space:nowrap;}
+.t-pick{font-family:var(--serif);font-size:15.5px;font-weight:700;color:var(--ink);white-space:nowrap;}
+.t-axis{font-size:11.5px;color:var(--jade);font-weight:700;white-space:nowrap;}
+.t-lane{font-size:11px;font-weight:800;color:var(--tx3);letter-spacing:.06em;white-space:nowrap;}
+
+.note{
+  background:var(--card2);border-radius:5px;padding:15px 17px;
+  font-size:13.5px;color:var(--tx2);line-height:1.8;
+}
+.note b{color:var(--ink);font-weight:700;}
+
+footer{border-top:1px solid var(--line);padding-top:16px;font-size:12px;color:var(--tx3);line-height:1.8;}
+footer code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;}
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <span class="slate">인연도감 · 별명 2차안</span>
+    <h1>16캐릭터 별명 후보안</h1>
+    <p class="lede">1차안이 "정석이고 안 와닿는다"는 피드백을 반영해, 캐릭터마다 <b>4개 레인에서 각각 후보를 뽑고 1순위를 지정</b>했습니다. 레인은 말투의 종류이고, 어느 레인을 기본으로 삼을지는 하나만 골라야 16개 톤이 흐트러지지 않습니다.</p>
+  </header>
+
+  <!-- ══ 레인 ══ -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-kicker">먼저 — 후보를 나눈 4개 레인</span>
+      <h2>말투를 먼저 정하고 이름을 고르기</h2>
+      <p class="sec-note">1차안이 안 와닿은 원인은 단어 선택보다 <strong>레인이 섞여 있었기</strong> 때문입니다. '큰그림러'(밈)와 '팩트 체커'(직업)와 '육각형 인간'(관용어)이 한 화면에 있으면, 개별로는 괜찮아도 세트로 읽을 때 기준이 없어 보입니다. 아래 4개 중 하나를 기본 레인으로 정하고 나머지는 예외 처리로만 쓰기를 권합니다.</p>
+    </div>
+    <div class="lanes" id="laneDefs"></div>
+  </section>
+
+  <!-- ══ 16 후보 ══ -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-kicker">본편 — 캐릭터별 후보</span>
+      <h2>16개 각각의 1순위와 대안</h2>
+      <p class="sec-note">굵은 이름이 제 1순위입니다. 아래 목록은 같은 캐릭터의 다른 레인 후보이고, 앞의 알파벳이 레인 표시입니다. 금색 카드는 1차안을 그대로 두자는 뜻입니다.</p>
+    </div>
+    <div class="grid" id="chGrid"></div>
+  </section>
+
+  <!-- ══ 질문 3건 ══ -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-kicker">주신 질문 3건</span>
+      <h2>존버왕 · 인플루언서 · 인물 비유</h2>
+    </div>
+    <div class="calls" id="callList"></div>
+  </section>
+
+  <!-- ══ 최종 세트 ══ -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-kicker">한눈에</span>
+      <h2>1순위만 모은 16개 세트</h2>
+      <p class="sec-note">세트로 소리 내어 읽어 보면 톤이 맞는지 바로 드러납니다. 레인 열이 예인상 하나만 C이고 나머지 15개가 A입니다. 톤을 완전히 통일하시려면 그 한 칸만 오른쪽 대체안으로 바꾸면 됩니다.</p>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>정식 명칭</th>
+            <th>기질 축</th>
+            <th>1순위 별명</th>
+            <th>레인</th>
+            <th>A레인 통일 시 대체안</th>
+          </tr>
+        </thead>
+        <tbody id="setRows"></tbody>
+      </table>
+    </div>
+    <div class="note">
+      <b>표시 위계 제안은 1차안과 동일합니다.</b> 별명을 타이틀로 크게, 정식 명칭은 그 아래 작은 배지로. 다만 별명이 짧아진 만큼 <b>한 줄 부제</b>가 더 중요해졌습니다 — 예를 들어 '존버왕'은 버티기만 하는 이미지로 읽힐 수 있으니 "버티다가 결국 끝내는 사람"처럼 완수 쪽을 부제가 받쳐줘야 합니다.
+    </div>
+  </section>
+
+  <footer>
+    기질 축은 <code>functions/engine/character-db.js</code>의 <code>traits</code>와 <code>functions/engine/trait-config.js</code>의 <code>TRAIT_LABELS</code>(주도력·지략·실행력·관계력·신뢰력·감각력) 기준입니다. 1차안에서 '사교'로 적혀 있던 축의 정식 이름은 <code>관계력</code>입니다.
+  </footer>
+</div>
+
+<script>
+const LANES = [
+  ['A','밈·일상어','2030이 실제로 쓰는 말. 설명이 필요 없고 캡처·공유에 가장 강합니다. 대신 유행이 지나면 늙습니다.'],
+  ['B','인물 비유','"여포 같은"처럼 인물에 빗대기. 통하는 사람에게는 즉시 그림이 그려지지만, 삼국지·한국사 인지도가 연령·성별로 크게 갈립니다.'],
+  ['C','현대 직업','인플루언서·PM처럼 실제 역할명. 자기소개에 그대로 쓸 수 있는 대신 "나는 저 직업 아닌데" 하는 거부감이 생깁니다.'],
+  ['D','압축 한 단어','2~4자로 끊기. 배지·라벨·공유 카드에 가장 예쁘게 들어가지만, 뜻을 부제가 받쳐줘야 합니다.'],
+];
+document.getElementById('laneDefs').innerHTML = LANES.map(([id,name,desc]) => `
+  <div class="lane lane-${id}">
+    <span class="lane-id">LANE ${id}</span>
+    <span class="lane-name">${name}</span>
+    <p class="lane-desc">${desc}</p>
+  </div>`).join('');
+
+// [정식명칭, 기질축, 피드백요약, 1순위레인, 1순위이름, 1순위이유, [대안...], 1차안유지여부]
+const CHARS = [
+  ['재상상','주도력 + 지략','1차안 <s>큰그림러</s> — 좋은데 애매',
+   'A','설계자',
+   '"큰 그림"을 명사 하나로 눌러 담았습니다. 판을 미리 짜 두는 사람이라는 뜻이 한 단어로 서고, 어감도 무겁지 않습니다.',
+   [['A','빌드업 장인','과정을 쌓아 올린다는 뉘앙스까지 살아납니다'],
+    ['B','제갈량 포지션','인지도 최상이지만 책사상과 헷갈립니다'],
+    ['C','총괄 기획자','뜻은 정확한데 사내 직함처럼 딱딱합니다'],
+    ['D','판주','짧고 강한데 뜻을 부제 없이는 못 세웁니다']], false],
+
+  ['장군상','주도력 + 실행력','1차안 <s>돌격대장</s> — 안 와닿음',
+   'A','직진 본능',
+   '돌격대장은 군대 어휘라 거리가 있습니다. 재는 것 없이 바로 간다는 성질을 "본능"으로 받으면 성별·조직과 무관하게 읽힙니다.',
+   [['A','브레이크 없음','더 웃기지만 무모함 쪽으로 기울어집니다'],
+    ['B','여포과','이미지는 정확한데 배신자 서사가 따라붙습니다'],
+    ['C','현장 지휘관','상황실이 아니라 현장에 있다는 대비가 좋습니다'],
+    ['D','불도저','즉시 이해되지만 이미 너무 흔한 비유입니다']], false],
+
+  ['군왕상','주도력 + 관계력','1차안 <s>인간 자석</s> — 제일 별로',
+   'A','자연산 리더',
+   '자석은 붙는 쪽이 수동적으로 읽혀 매력이 죽습니다. 배워서 된 게 아니라 원래 그렇다는 뜻의 "자연산"이 카리스마를 살립니다.',
+   [['A','사람이 붙음','문장형이라 캡처에서 웃기게 읽힙니다'],
+    ['B','유비 포지션','삼국지에서 정확히 이 자리라 비유가 딱 맞습니다'],
+    ['C','커뮤니티 오너','요즘 감각에 가깝지만 온라인 한정으로 좁아집니다'],
+    ['D','좌장','격이 서지만 어휘가 낯섭니다']], false],
+
+  ['수령상','주도력 + 신뢰력','1차안 <s>책임 반장</s> — 별로',
+   'A','총대 담당',
+   '"총대 멘다"는 이미 다 쓰는 말이고, 책임이라는 추상어보다 훨씬 그림이 선명합니다. 반장보다 급도 낮아 보이지 않습니다.',
+   [['A','결국 내가 함','자기 인식으로 읽혀 공감대가 셉니다'],
+    ['B','이순신 포지션','정확하지만 위인 신성시 리스크가 있습니다'],
+    ['C','캡틴','짧고 무해한데 특징이 흐려집니다'],
+    ['D','방패','보호한다는 뜻이 서지만 방어적으로만 읽힙니다']], false],
+
+  ['개혁가상','주도력 + 감각력','1차안 <s>게임 체인저</s> — 안 와닿음',
+   'A','반골 기질',
+   '게임 체인저는 결과를 칭찬하는 외래어라 성향이 안 보입니다. 반골은 "왜 이래야 하냐"고 먼저 묻는 태도 자체를 가리켜 캐릭터가 살아납니다.',
+   [['A','판 엎기 담당','행동이 보여 더 직관적입니다'],
+    ['B','정도전 포지션','판을 새로 설계한 인물이라 정확합니다'],
+    ['C','신사업 담당','현실감은 있는데 회사 냄새가 납니다'],
+    ['D','역주행','짧고 재밌지만 요즘은 차트 역주행 뜻이 먼저 옵니다']], false],
+
+  ['책사상','지략 + 실행력','1차안 <s>두뇌 플레이어</s> — 안 와닿음',
+   'A','다 계획이 있음',
+   '「기생충」 대사로 이미 전 국민이 아는 문장이고, 머리로 이기고 때가 오면 움직인다는 뜻이 그대로 담깁니다. 밈 강도가 16개 중 가장 셉니다.',
+   [['A','한 수 앞','짧고 담백한 쪽을 원하실 때'],
+    ['B','사마의 포지션','기다렸다 움직인다는 점까지 정확합니다'],
+    ['C','전략 실행가','정확하지만 1차안과 같은 정석 문제가 남습니다'],
+    ['D','복선러','서사 취향에는 강하게 꽂히는데 뜻이 좁습니다']], false],
+
+  ['사신상','지략 + 관계력','1차안 <s>협상의 신</s> — 애매',
+   'A','눈치 9단',
+   '"협상"은 상황이 한정되지만 눈치는 친구·가족·직장 어디에나 붙습니다. 9단이라는 단위가 실력이라는 뜻까지 같이 실어 줍니다.',
+   [['A','말로 푸는 사람','능동적이고 무해합니다'],
+    ['B','서희 포지션','담판으로 유명한 인물이라 뜻이 정확합니다'],
+    ['C','중재 담당','갈등을 정리하는 역할이 선명합니다'],
+    ['D','조율러','예쁘지만 무색무취합니다']], false],
+
+  ['선비상','지략 + 신뢰력','1차안 <s>팩트 체커</s> — 무슨 말인지 안 와닿음',
+   'A','소신러',
+   '팩트 체커는 언론 용어라 남을 검증하는 사람처럼 읽힙니다. 이 캐릭터의 핵심은 남이 아니라 자기 기준을 오래 지키는 쪽이니 소신이 맞습니다.',
+   [['A','내 기준 있음','문장형이라 자기 소개로 쓰기 좋습니다'],
+    ['B','최영 포지션','강직함의 상징이지만 사극 거리감이 있습니다'],
+    ['C','원칙 전문가','정확하나 딱딱합니다'],
+    ['D','강직','두 자로 격이 서는 대신 밈력은 없습니다']], false],
+
+  ['학자상','지략 + 감각력','1차안 <s>탐구 덕후</s> — 너무 착한 느낌',
+   'A','꽂히면 끝까지',
+   '착함을 빼려면 대상이 아니라 강도를 말해야 합니다. 탐구라는 모범생 단어를 버리고 "꽂힌다"는 집착 쪽으로 옮기면 톤이 세집니다.',
+   [['A','밤새 파봄','더 구체적이고 웃깁니다'],
+    ['B','정약용 포지션','집요하게 파고든 실학자라 정확합니다'],
+    ['C','리서처','깔끔하지만 다시 착해집니다'],
+    ['D','집착러','가장 세지만 부정적으로 읽힐 여지가 있습니다']], false],
+
+  ['상단주상','실행력 + 관계력','1차안 <s>장사의 신</s> — 좋다고 하신 안',
+   'A','장사의 신',
+   '그대로 갑니다. 16개 중 설명이 가장 필요 없고, "신"이라는 과장이 재미까지 만듭니다. 여기가 톤의 기준점이 될 수 있습니다.',
+   [['A','돈 냄새 맡음','더 밈스럽지만 속물처럼 읽힐 수 있습니다'],
+    ['B','임상옥 포지션','조선 최고 상인이지만 인지도가 낮습니다'],
+    ['C','세일즈 리드','현실적이나 재미가 없습니다'],
+    ['D','상왕','짧고 강한데 정치적 어휘와 겹칩니다']], true],
+
+  ['무관상','실행력 + 신뢰력','1차안 <s>근성왕</s> — 그냥 존버왕 안 되나?',
+   'A','존버왕',
+   '됩니다. 아래 질문 답변에 근거를 적었습니다. 근성왕보다 훨씬 셉니다. 다만 버티기만 하는 이미지가 붙지 않게 부제로 완수를 받쳐 주세요.',
+   [['A','결국 해냄','완수 쪽을 앞세운 안전한 대안입니다'],
+    ['B','강감찬 포지션','오래 준비해 끝내 이긴 인물이지만 이미지가 흐립니다'],
+    ['C','완주러','달리기 비유로 끝맺음을 강조합니다'],
+    ['D','뚝심','두 자로 정확하지만 어른 어휘입니다']], false],
+
+  ['개척자상','실행력 + 감각력','1차안 <s>얼리어답터</s> — 뜻은 알겠으나 정석',
+   'A','깃발 먼저',
+   '얼리어답터는 남이 만든 걸 먼저 쓰는 사람이라 뜻이 반대에 가깝습니다. 이 캐릭터는 없는 길을 내는 쪽이니 깃발을 꽂는 그림이 맞습니다.',
+   [['A','1빠 본능','가볍고 즉시 통하지만 유행어 수명이 짧습니다'],
+    ['B','장보고 포지션','바닷길을 새로 낸 인물이라 정확합니다'],
+    ['C','창업가','현실적이지만 직업이 되어 버립니다'],
+    ['D','선발대','짧고 뜻이 서는데 군대 어휘입니다']], false],
+
+  ['의원상','관계력 + 신뢰력','1차안 <s>고민 상담소</s> — 안 와닿음',
+   'A','인간 이불',
+   '상담소는 기관 이름이라 사람이 안 보입니다. 이불은 따뜻함·안전함이 촉감으로 오고, 성별 함의가 전혀 없어 어느 조합에 붙어도 안전합니다.',
+   [['A','속 얘기 담당','실제로 벌어지는 일을 그대로 말합니다'],
+    ['B','허준 포지션','의원이라는 원래 뜻을 지키면서 인지도도 높습니다'],
+    ['C','상담사','정확하나 1차안과 같은 문제가 남습니다'],
+    ['D','포근','예쁘지만 캐릭터라기보다 형용사입니다']], false],
+
+  ['예인상','관계력 + 감각력','1차안 <s>씬스틸러</s> — 인플루언서가 낫나 싶어 애매',
+   'C','인플루언서',
+   '요청하신 방향입니다. 즉시 이해되고 매력·표현이라는 축과도 맞습니다. 유일한 레인 이탈이고 직업명이라는 위험이 있어, 아래 질문 답변에 판단을 적었습니다.',
+   [['A','존재감 강탈','가만있어도 눈길이 간다는 뜻이 살아납니다'],
+    ['A','분위기 담당','가장 무해하고 친구·가족 조합에도 자연스럽습니다'],
+    ['C','크리에이터','인플루언서보다 중립적이고 수명이 깁니다'],
+    ['D','씬스틸러','1차안. 드라마 세계관과는 여전히 잘 맞습니다']], false],
+
+  ['장인상','신뢰력 + 감각력','1차안 <s>디테일 장인</s> — 안 와닿음',
+   'A','손끝이 다름',
+   '"장인"을 다시 쓰면 정식 명칭을 번역만 한 셈이 됩니다. 같은 걸 해도 결과가 다르다는 실력 차이를 손끝이라는 신체 감각으로 옮겼습니다.',
+   [['A','디테일에 미침','1차안과 같은 소재인데 강도가 훨씬 셉니다'],
+    ['B','장영실 포지션','정밀함의 상징이지만 발명가라 개척자상과 겹칩니다'],
+    ['C','완성도 담당','팀에서 맡는 역할로 읽혀 공감이 됩니다'],
+    ['D','1mm','짧고 감각적이지만 숫자라 검색·발음이 어렵습니다']], false],
+
+  ['군자상','6축 균형','1차안 <s>육각형 인간</s> — 너무 정석',
+   'A','만능캐',
+   '육각형 인간은 이제 기사 제목 어휘가 됐습니다. 만능캐는 게임에서 온 말이라 훨씬 가볍고, 캐릭터 도감이라는 이 서비스 형식과도 결이 맞습니다.',
+   [['A','평타 이상 보장','약점이 없다는 뜻을 웃기게 표현합니다'],
+    ['B','세종 포지션','만능의 상징이지만 위인 신성시 리스크가 큽니다'],
+    ['C','올라운더','정확하고 무해하지만 정석 문제가 그대로입니다'],
+    ['D','사기캐','가장 셉니다. 궁합에서 실제로 모두와 잘 맞게 나오는 지금 상태와 겹쳐 오히려 유머가 됩니다']], false],
+];
+
+document.getElementById('chGrid').innerHTML = CHARS.map(([formal,axis,fb,lane,pick,why,alts,keep]) => `
+  <div class="ch${keep?' keep':''}">
+    <div class="ch-top">
+      <div class="ch-meta">
+        <span class="ch-formal">${formal}</span>
+        <span class="ch-axis">${axis}</span>
+      </div>
+      <span class="ch-feedback">${fb}</span>
+    </div>
+    <div class="pick">
+      <span class="pick-label">${keep?'유지 권고':'1순위'} · LANE ${lane}</span>
+      <span class="pick-name">${pick}</span>
+      <p class="pick-why">${why}</p>
+    </div>
+    <div class="alts">
+      ${alts.map(([l,n,note])=>`
+      <div class="alt">
+        <span class="alt-tag alt-${l}">${l}</span>
+        <span><span class="alt-name">${n}</span> <span class="alt-note">${note}</span></span>
+      </div>`).join('')}
+    </div>
+  </div>`).join('');
+
+const CALLS = [
+  ['yes','채택 권고','존버왕, 그냥 쓰면 안 되나요?',
+   '써도 됩니다. 어원은 비속어이지만 지금은 <b>증권·부동산 기사 제목에까지 쓰이는 일반어</b>가 됐고, 2030에게 "근성왕"보다 훨씬 자기 말처럼 읽힙니다. 1차안에서 제가 어원을 이유로 뺀 것은 과한 보수였습니다. 남는 리스크는 어원이 아니라 뜻입니다 — 존버는 <b>버티는 것까지만</b> 가리켜서, 이 캐릭터의 핵심인 "결국 완수한다"가 빠집니다. 그래서 별명은 존버왕으로 두고 부제에서 완수를 받쳐 주는 조합을 권합니다.'],
+  ['maybe','조건부 채택','예인상은 인플루언서가 더 낫지 않나요?',
+   '더 낫습니다. 씬스틸러보다 즉시 이해되고 "매력으로 끌어당긴다"는 정의에도 정확합니다. 다만 위험이 둘입니다. 첫째, <b>다른 15개는 성향인데 이것만 직업</b>이라 세트로 읽으면 튑니다. 둘째, 인플루언서는 호감·비호감이 갈리는 단어라 이 캐릭터를 받은 사람이 <b>"나 그런 사람 아닌데"</b>로 읽을 확률이 다른 15개보다 높습니다. 그래도 쓰시겠다면 그대로 가도 무리 없고, 같은 강도로 안전한 대안은 <b>존재감 강탈</b>입니다.'],
+  ['no','부분 채택만','여포처럼 인물에 빗대면 어떨까요?',
+   '개별로는 좋고 <b>16개 전체를 이 레인으로 가는 것은 권하지 않습니다.</b> 이유가 셋입니다. 삼국지·한국사 인지도가 연령과 성별로 크게 갈려서 절반은 별명을 봐도 아무 그림이 안 뜹니다. 여포처럼 <b>인물에 딸린 서사가 별명에 같이 묻어</b> 오기도 합니다 — 여포는 용맹만이 아니라 배신의 상징이라 이 캐릭터를 받은 사람이 기분 나쁠 수 있습니다. 이순신·세종은 반대로 <b>가볍게 갖다 쓰면 불편해하는</b> 이름입니다. 그래서 위 카드마다 B레인 후보를 하나씩 넣어 뒀습니다 — 인물 비유는 별명이 아니라 <b>상세 화면의 "이런 인물" 한 줄</b>로 쓰는 것이 가장 안전하고 재밌습니다.'],
+];
+document.getElementById('callList').innerHTML = CALLS.map(([cls,verdict,q,body]) => `
+  <div class="call ${cls}">
+    <div class="call-top">
+      <span class="verdict">${verdict}</span>
+      <span class="call-q">${q}</span>
+    </div>
+    <p class="call-body">${body}</p>
+  </div>`).join('');
+
+const SET = [
+  ['재상상','주도력+지략','설계자','A','—'],
+  ['장군상','주도력+실행력','직진 본능','A','—'],
+  ['군왕상','주도력+관계력','자연산 리더','A','—'],
+  ['수령상','주도력+신뢰력','총대 담당','A','—'],
+  ['개혁가상','주도력+감각력','반골 기질','A','—'],
+  ['책사상','지략+실행력','다 계획이 있음','A','—'],
+  ['사신상','지략+관계력','눈치 9단','A','—'],
+  ['선비상','지략+신뢰력','소신러','A','—'],
+  ['학자상','지략+감각력','꽂히면 끝까지','A','—'],
+  ['상단주상','실행력+관계력','장사의 신','A','—'],
+  ['무관상','실행력+신뢰력','존버왕','A','—'],
+  ['개척자상','실행력+감각력','깃발 먼저','A','—'],
+  ['의원상','관계력+신뢰력','인간 이불','A','—'],
+  ['예인상','관계력+감각력','인플루언서','C','존재감 강탈'],
+  ['장인상','신뢰력+감각력','손끝이 다름','A','—'],
+  ['군자상','6축 균형','만능캐','A','—'],
+];
+document.getElementById('setRows').innerHTML = SET.map(([f,a,p,l,sub]) => `
+  <tr>
+    <td class="t-formal">${f}</td>
+    <td class="t-axis">${a}</td>
+    <td class="t-pick">${p}</td>
+    <td class="t-lane">${l}</td>
+    <td class="t-formal">${sub}</td>
+  </tr>`).join('');
+</script>
