@@ -1,7 +1,7 @@
-// ═══ 16개 관상 캐릭터 DB (서버 전용, 2026-08-30 DB 이원화 2단계) ═══
+// ═══ 15개 관상 캐릭터 DB (서버 전용, 2026-08-30 DB 이원화 2단계) ═══
 // js/character/character-db.js를 서버로 이전한 것 — 캐릭터 이름·설명·강점/약점 등 카피 콘텐츠가
 // 브라우저 소스에 그대로 노출되던 문제를 막는다. getCharacterCatalog 함수(functions/index.js)를
-// 통해 로그인 세션으로만 전체 16종을 받아온다(카탈로그 크기가 작아 매번 전수 조회해도 무방).
+// 통해 로그인 세션으로만 전체 15종을 받아온다(카탈로그 크기가 작아 매번 전수 조회해도 무방).
 const CHARACTER_DB = {
   JAESANG: {
     id: 'JAESANG', name: '재상상', traits: ['lead', 'strategy'],
@@ -333,28 +333,6 @@ const CHARACTER_DB = {
     sparkTypes: ['SASIN'],
     frictionTypes: ['UIWON', 'JANGGUN'],
   },
-  GUNJA: {
-    id: 'GUNJA', name: '군자상', traits: [],
-    headline: '한쪽에 치우치지 않고 균형을 잡는 군자상', modernRole: '올라운더',
-    historical_role: '조선시대였다면 한쪽에 치우치지 않는 균형 잡힌 처신으로 존경받던 군자',
-    strengths: [
-      '상황에 따라 유연하게 접근 방식을 바꿔요',
-      '한쪽으로 치우치지 않아서 균형 잡힌 판단을 내려요',
-      '다양한 성향의 사람들과 두루 잘 어울려요',
-    ],
-    shadow: [
-      '뚜렷하게 강한 색이 없다 보니, 정작 자기가 뭘 제일 원하는지 스스로도 헷갈릴 때가 있어요',
-      '여러 방식이 다 가능해 보여서, 오히려 결정을 내리는 데 시간이 걸릴 때가 있어요',
-    ],
-    work: '회의 테이블에 앉으면 그날 필요한 역할로 자연스레 스며드는 편이에요. 발제가 필요하면 발제를, 정리가 필요하면 정리를 맡아서 티 나지 않게 채워 넣어요. 동료들은 종종 "저 사람 원래 뭐 하는 사람이지"라고 묻기도 하는데, 상황마다 다르게 움직이는 게 바로 이 사람의 몫이라는 걸 스스로 알아두면 마음이 편해져요.',
-    relationship: '모임에 가면 이쪽저쪽 이야기를 이어주는 역할을 은근히 맡게 되는 편이에요. 어색한 침묵이 흐를 때 화제를 슬쩍 돌리거나, 대립하는 의견 사이에서 다리를 놓아주기도 해요. 친구들은 "저 사람이 있으면 모임이 안 깨진다"고 하지만, 정작 본인이 뭘 좋아하는지는 잘 안 드러나니 가끔은 자기 얘기를 먼저 꺼내보는 것도 좋아요.',
-    love: '데이트 코스를 정할 때 딱히 고집하는 게 없어서 상대가 고른 곳으로 자연스레 따라가는 편이에요. 영화든 밥집이든 상대의 선택에 무리 없이 스며들다 보니 함께 있기 편한 사람으로 통해요. 다만 그러다 보면 정작 본인이 뭘 좋아하는지 상대가 끝까지 모를 수도 있는데, 가끔은 "나는 이게 좋아"라고 먼저 말해보는 것도 관계를 더 풍부하게 만들어줘요.',
-    money: '가계부를 쓸 때 무작정 아끼기보다 쓸 곳과 모을 곳을 상황 따라 갈라보는 편이에요. 목돈이 필요한 달엔 지갑을 조이고, 여유가 있는 달엔 적당히 풀어주는 식으로 흘러가요. 다만 매번 그 판단을 새로 하다 보니 결정에 시간이 걸릴 때가 있는데, 몇 가지 기준을 미리 정해두면 고민하는 시간을 줄일 수 있어요.',
-    growth: '지치는 시기가 오면 산책이든 운동이든 대화든 손에 잡히는 대로 이것저것 시도해보는 편이에요. 한 가지 방법에 매달리지 않아서 결국 자기한테 맞는 걸 건져내는 경우가 많아요. 다만 여러 걸 동시에 벌이다 보면 정작 하나에 깊이 들어가지 못할 때가 있는데, 그날 가장 효과가 있었던 방법 하나만 며칠 밀어붙여보는 것도 도움이 돼요.',
-    compatibleTypes: ['GAEHYEOKGA', 'GUNWANG'],
-    sparkTypes: ['GAECHEOKJA'],
-    frictionTypes: ['JANGGUN', 'YEIN'],
-  },
 };
 
 const CHARACTER_ILLUSTRATION_FALLBACK = 'images/UIWON.png';
@@ -363,7 +341,7 @@ const CHARACTER_ILLUSTRATION = {
   SURYEONG: 'images/SURYEONG.png', GAEHYEOKGA: 'images/GAEHYEOKGA.png', CHAEKSA: 'images/CHAEKSA.png',
   SASIN: 'images/SASIN.png', SEONBI: 'images/SEONBI.png', HAKJA: 'images/HAKJA.png',
   SANGDANJU: 'images/SANGDANJU.png', MUGWAN: 'images/MUGWAN.png', GAECHEOKJA: 'images/GAECHEOKJA.png',
-  UIWON: 'images/UIWON.png', YEIN: 'images/YEIN.png', JANGIN: 'images/JANGIN.png', GUNJA: 'images/GUNJA.png',
+  UIWON: 'images/UIWON.png', YEIN: 'images/YEIN.png', JANGIN: 'images/JANGIN.png',
 };
 function getCharacterIllustration(characterId) {
   return CHARACTER_ILLUSTRATION[characterId] || CHARACTER_ILLUSTRATION_FALLBACK;

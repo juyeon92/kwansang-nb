@@ -2553,7 +2553,7 @@ async function runGungham() {
     }
 
     // ②-2 관상 캐릭터 판정 — 개인별 관상 형상(눈모양·동물상) 카드·골든타임은 통합분석 탭에 이미 있어
-    // 여기서는 그리지 않는다(2026-08-20 재편). 궁합보기 Zone1(관상 궁합)이 16캐릭터 이름(무관상·책사상
+    // 여기서는 그리지 않는다(2026-08-20 재편). 궁합보기 Zone1(관상 궁합)이 15캐릭터 이름(무관상·책사상
     // 등)을 인용할 수 있도록 캐릭터 판정만 확정해둔다 — 통합분석 탭과 같은 룰베이스 엔진
     // (classifyAndBuildCharacter)을 그대로 재사용.
     if (lmA) await classifyAndBuildCharacter('gunghamA', CTX_CONFIG.gunghamA(), lmA);
@@ -3116,7 +3116,7 @@ function buildCoupleHeadline(sameRole) {
     : '누가 이끄냐로 다투지 않는다! 서로의 영역을 확실히 나누는 "전략적 파트너" 궁합';
 }
 
-// 헤드라인 아래 "근거" 서브카피로 두 사람의 16캐릭터 조합을 표기(궁합 리포트 구성.md 4-6). 사진이
+// 헤드라인 아래 "근거" 서브카피로 두 사람의 15캐릭터 조합을 표기(궁합 리포트 구성.md 4-6). 사진이
 // 없어 캐릭터 판정이 없으면 조용히 비워둔다.
 // 2026-08-30 DB 이원화 1단계 이후 — characterResult.characterName은 서버(analyzeCharacter)가 더 이상
 // 내려주지 않는다(CHARACTER_DB가 클라이언트에 없어 서버 쪽 계산 함수가 이름을 몰라서 characterId만

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>군자상 배정 빈도 측정</title>
+<style>
+body{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0f1716;color:#dfe8e6;padding:24px;font-size:12.5px;line-height:1.75;}
+h2{color:#55CCBB;font-size:14px;margin:20px 0 6px;border-bottom:1px solid #2c3836;padding-bottom:4px;}
+.ok{color:#7ee0b8;}.bad{color:#ff8b6b;}.warn{color:#e8c46a;}.dim{color:#7b8a87;}
+pre{white-space:pre-wrap;margin:0;}
+</style>
+<pre id="out">시뮬레이션 중…</pre>
+<script>
+// 실제 서버 엔진(functions/engine/*.js)을 그대로 불러서, 무작위 얼굴 조합 수만 건을 판정시킨다.
+// 목적: 군자상이 "얼마나 자주 나오는 캐릭터인지"를 실측한다 — 제거해도 되는지 판단의 근거.
+const MODULES={};
+async function load(name,path){
+  const src=await (await fetch(path)).text();
+  const module={exports:{}};
+  const require=p=>{const k=p.replace('./','').replace('.js','');if(!MODULES[k])throw new Error('미로드 '+p);return MODULES[k];};
+  new Function('module','exports','require',src)(module,module.exports,require);
+  MODULES[name]=module.exports;return module.exports;
+}
+const L=[];const H=t=>L.push(`\n<h2>${t}</h2>`);const P=(s,c)=>L.push(c?`<span class="${c}">${s}</span>`:s);
+
+(async()=>{
+try{
+  await load('trait-config','/functions/engine/trait-config.js');
+  await load('saju-tables','/functions/engine/saju-tables.js');
+  await load('face-trait-map','/functions/engine/face-trait-map.js');
+  await load('saju-trait-map','/functions/engine/saju-trait-map.js');
+  await load('compatibility-engine','/functions/engine/compatibility-engine.js');
+  const CE=await load('character-engine','/functions/engine/character-engine.js');
+  const {FACE_TRAIT_MAP}=MODULES['face-trait-map'];
+  const TC=MODULES['trait-config'];
+  const KO={JAESANG:'재상상',JANGGUN:'장군상',GUNWANG:'군왕상',SURYEONG:'수령상',GAEHYEOKGA:'개혁가상',CHAEKSA:'책사상',SASIN:'사신상',SEONBI:'선비상',HAKJA:'학자상',SANGDANJU:'상단주상',MUGWAN:'무관상',GAECHEOKJA:'개척자상',UIWON:'의원상',YEIN:'예인상',JANGIN:'장인상',GUNJA:'군자상'};
+
+  // featureIds의 키는 카테고리명이 아니라 idField다(character-engine.js FACE_CATEGORY_FIELD 참고).
+  const IDFIELD={eye_archetype:'eye_archetype_id',face_archetype:'face_archetype_id',forehead:'forehead_type_id',
+    eyebrow:'eyebrow_type_id',eye_shape:'eye_shape_id',nose:'nose_shape_id',mouth:'mouth_shape_id',
+    chin:'chin_shape_id',face_shape:'face_shape_type_id'};
+  const cats=Object.keys(IDFIELD);
+  P(`얼굴 판정 카테고리 ${cats.length}개: ${cats.map(c=>c+'('+Object.keys(FACE_TRAIT_MAP[c]).length+')').join(', ')}`,'dim');
+  const combos=cats.reduce((s,c)=>s*Object.keys(FACE_TRAIT_MAP[c]).length,1);
+  P(`이론상 가능한 얼굴 조합 수: ${combos.toLocaleString()}가지`,'dim');
+  P(`군자상 배정 조건: 6기질 표준편차 ≤ ${TC.GUNJA_STDEV_MAX} AND 최고-최저 폭 ≤ ${TC.GUNJA_RANGE_MAX}`,'dim');
+
+  function sample(rnd){
+    const featureIds={};
+    cats.forEach(c=>{const ks=Object.keys(FACE_TRAIT_MAP[c]);featureIds[IDFIELD[c]]=ks[Math.floor(rnd()*ks.length)];});
+    return CE.computeCharacterResult({featureIds:featureIds,confidences:null,partStatusMap:null});
+  }
+  const mkRnd=s=>()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+
+  const N=30000;
+  let rnd=mkRnd(987654321);
+  const count={};Object.keys(KO).forEach(k=>count[k]=0);
+  let nullCount=0;
+  const stdevs=[],ranges=[];
+  for(let i=0;i<N;i++){
+    const r=sample(rnd);
+    if(!r){nullCount++;continue;}
+    count[r.characterId]=(count[r.characterId]||0)+1;
+    const v=Object.values(r.traitScores);
+    const m=v.reduce((s,x)=>s+x,0)/v.length;
+    stdevs.push(Math.sqrt(v.reduce((s,x)=>s+(x-m)**2,0)/v.length));
+    ranges.push(Math.max(...v)-Math.min(...v));
+  }
+
+  H(`무작위 얼굴 조합 ${N.toLocaleString()}건 판정 결과`);
+  if(nullCount)P(`  판정 실패 ${nullCount}건`, nullCount?'bad':'dim');
+  Object.entries(count).sort((a,b)=>b[1]-a[1]).forEach(([id,n])=>{
+    const pct=(n/N*100);
+    P(`  ${KO[id].padEnd(6)} ${String(n).padStart(6)}건 ${pct.toFixed(2).padStart(6)}%  ${'#'.repeat(Math.round(pct/1.5))}`, id==='GUNJA'?'warn':'');
+  });
+
+  H('군자상 배정률 — 제거 판단의 핵심 수치');
+  const gp=count.GUNJA/N*100;
+  P(`  군자상: ${count.GUNJA.toLocaleString()}건 / ${N.toLocaleString()}건 = ${gp.toFixed(2)}%`, gp<2?'ok':gp<8?'warn':'bad');
+  const avgOther=(N-count.GUNJA)/15/N*100;
+  P(`  나머지 15개 평균: ${avgOther.toFixed(2)}%  → 군자상은 평균의 ${(gp/avgOther).toFixed(2)}배`,'dim');
+  const sm=stdevs.reduce((s,x)=>s+x,0)/stdevs.length, rm=ranges.reduce((s,x)=>s+x,0)/ranges.length;
+  P(`  6기질 표준편차 평균 ${sm.toFixed(1)} (군자상 기준선 ${TC.GUNJA_STDEV_MAX}) · 폭 평균 ${rm.toFixed(1)} (기준선 ${TC.GUNJA_RANGE_MAX})`,'dim');
+  const nearMiss=stdevs.filter((s,i)=>s<=TC.GUNJA_STDEV_MAX*1.3&&ranges[i]<=TC.GUNJA_RANGE_MAX*1.3).length;
+  P(`  기준선 1.3배 이내(경계에 걸친 얼굴): ${(nearMiss/N*100).toFixed(2)}%`,'dim');
+
+  H('군자상을 없애면 그 사람들은 어디로 가나');
+  // 군자상 분기를 뺐다고 가정하고, 같은 얼굴을 상위 2기질 기준으로 다시 배정해본다.
+  rnd=mkRnd(987654321);
+  const CT=MODULES['compatibility-engine'].CHARACTER_TRAITS;
+  const pairKey=p=>p.slice().sort((a,b)=>TC.TRAITS.indexOf(a)-TC.TRAITS.indexOf(b)).join('|');
+  const PAIR2ID={};Object.keys(CT).forEach(id=>{if(CT[id].length===2)PAIR2ID[pairKey(CT[id])]=id;});
+  const reassign={};let g=0;
+  for(let i=0;i<N;i++){
+    const r=sample(rnd);
+    if(!r||r.characterId!=='GUNJA')continue;
+    g++;
+    const ss=Object.entries(r.traitScores).sort((a,b)=>b[1]-a[1]);
+    const id=PAIR2ID[pairKey([ss[0][0],ss[1][0]])]||'?';
+    reassign[id]=(reassign[id]||0)+1;
+  }
+  if(!g){P('  군자상 표본이 0건이라 재배정을 계산할 수 없음','dim');}
+  else{
+    P(`  군자상 ${g}건을 상위 2기질 기준으로 재배정한 결과:`,'dim');
+    Object.entries(reassign).sort((a,b)=>b[1]-a[1]).forEach(([id,n])=>{
+      P(`    ${(KO[id]||id).padEnd(6)} ${String(n).padStart(5)}건 (군자상 중 ${(n/g*100).toFixed(1)}%)`,'dim');
+    });
+    const k=Object.keys(reassign).length;
+    const top=Math.max(...Object.values(reassign))/g*100;
+    P(`  → ${k}개 캐릭터로 분산 · 최다 쏠림 ${top.toFixed(1)}%`, k>=8&&top<40?'ok':'warn');
+  }
+
+  H('구조 참고');
+  P(`  6기질에서 2개를 뽑는 조합의 수 = C(6,2) = 15  → 15개 캐릭터가 2축 조합을 빠짐없이 덮는다.`,'warn');
+  P(`  군자상은 16번째 조합이 아니라, "2축을 못 고를 만큼 평평한 얼굴"을 받는 예외 처리다.`,'warn');
+
+}catch(e){P('오류: '+e.message,'bad');P(String(e.stack||''),'dim');}
+document.getElementById('out').innerHTML=L.join('\n');
+})();
+</script>

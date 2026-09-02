@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>군자상 벡터 탐색</title>
+<style>
+body{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0f1716;color:#dfe8e6;padding:24px;font-size:12.5px;line-height:1.7;}
+h2{color:#55CCBB;font-size:14px;margin:20px 0 6px;border-bottom:1px solid #2c3836;padding-bottom:4px;}
+.ok{color:#7ee0b8;}.bad{color:#ff8b6b;}.warn{color:#e8c46a;}.dim{color:#7b8a87;}
+pre{white-space:pre-wrap;margin:0;}
+</style>
+<pre id="out">계산 중…</pre>
+<script>
+const MODULES={};
+async function loadModule(name,path){
+  const src=await (await fetch(path)).text();
+  const module={exports:{}};
+  const require=p=>{const k=p.replace('./','').replace('.js','');if(!MODULES[k])throw new Error('미로드 '+p);return MODULES[k];};
+  new Function('module','exports','require',src)(module,module.exports,require);
+  MODULES[name]=module.exports;return module.exports;
+}
+const L=[];const H=t=>L.push(`\n<h2>${t}</h2>`);const P=(s,c)=>L.push(c?`<span class="${c}">${s}</span>`:s);
+
+(async()=>{
+try{
+  await loadModule('trait-config','/functions/engine/trait-config.js');
+  const E=await loadModule('compatibility-engine','/functions/engine/compatibility-engine.js');
+  const {CHARACTER_VECTOR,COMPATIBILITY_DB,cosineSimilarity,relationAdjust,FACE_TIERS}=E;
+  const T=['lead','strategy','drive','social','stability','sense'];
+  const ids=Object.keys(CHARACTER_VECTOR);
+  const KO={JAESANG:'재상',JANGGUN:'장군',GUNWANG:'군왕',SURYEONG:'수령',GAEHYEOKGA:'개혁가',CHAEKSA:'책사',SASIN:'사신',SEONBI:'선비',HAKJA:'학자',SANGDANJU:'상단주',MUGWAN:'무관',GAECHEOKJA:'개척자',UIWON:'의원',YEIN:'예인',JANGIN:'장인',GUNJA:'군자'};
+
+  // 임의의 GUNJA 벡터로 전체 점수표를 다시 계산하는 함수 (엔진 로직 재현)
+  function buildScores(gunjaVec){
+    const V=Object.assign({},CHARACTER_VECTOR,{GUNJA:gunjaVec});
+    const base={};ids.forEach(a=>base[a]={});
+    ids.forEach(a=>ids.forEach(b=>{if(a!==b)base[a][b]=cosineSimilarity(V[a],V[b])+relationAdjust(a,b);}));
+    const rowMean={};ids.forEach(a=>{const o=ids.filter(b=>b!==a);rowMean[a]=o.reduce((s,b)=>s+base[a][b],0)/o.length;});
+    const g=ids.reduce((s,a)=>s+rowMean[a],0)/ids.length;
+    const bias={};ids.forEach(a=>bias[a]=rowMean[a]-g);
+    const sc=(a,b)=>Math.max(5,Math.min(99,Math.round((base[a][b]-bias[a]-bias[b]-0.5)*200)));
+    const pairs=[];ids.forEach((a,i)=>ids.slice(i+1).forEach(b=>pairs.push({a,b,ko:`${KO[a]}×${KO[b]}`,s:sc(a,b)})));
+    pairs.sort((x,y)=>y.s-x.s);
+    return {sc,pairs,bias};
+  }
+  // 캐릭터 하나의 점수 폭
+  function spread(sc,x){const v=ids.filter(y=>y!==x).map(y=>sc(x,y));return {min:Math.min(...v),max:Math.max(...v),range:Math.max(...v)-Math.min(...v)};}
+  // 백분위 컷으로 5등급 나눠서, 특정 캐릭터가 최상위/최하위에 들 수 있는지
+  function tierReach(pairs,x){
+    const n=pairs.length,c1=Math.round(n*.10),c5=Math.round(n*.90);
+    const top=pairs.slice(0,c1),bot=pairs.slice(c5);
+    return {top:top.filter(p=>p.a===x||p.b===x).length, bot:bot.filter(p=>p.a===x||p.b===x).length};
+  }
+
+  // ── 현재 상태 ──
+  H('현재 상태 (군자상 = 전 축 60 균일)');
+  const cur=buildScores(CHARACTER_VECTOR.GUNJA);
+  const n=cur.pairs.length;
+  P(`전체 점수 범위: ${cur.pairs[n-1].s} ~ ${cur.pairs[0].s}점  (최고 ${cur.pairs[0].ko}, 최저 ${cur.pairs[n-1].ko})`,'warn');
+  P(`15개 캐릭터 평균 점수 폭: ${Math.round(ids.filter(x=>x!=='GUNJA').reduce((s,x)=>s+spread(cur.sc,x).range,0)/15)}점`,'dim');
+  const cg=spread(cur.sc,'GUNJA'),cr=tierReach(cur.pairs,'GUNJA');
+  P(`군자상 폭: ${cg.min}~${cg.max} (${cg.range}점) · 최상위10% 진입 ${cr.top}회 · 최하위10% ${cr.bot}회`, cg.range<40?'bad':'ok');
+
+  // ── 후보 벡터들 ──
+  // ⚠️ 핵심: 코사인 유사도는 벡터의 "방향"만 본다 → 전 축을 똑같이 올리거나 내려도 점수는 1점도
+  //    안 바뀐다. {60,60,...}과 {80,80,...}은 완전히 동일하다. 축 사이의 "기복"만이 의미가 있다.
+  const CANDIDATES=[
+    {name:'A. 현재(전축 60 균일)', v:{lead:60,strategy:60,drive:60,social:60,stability:60,sense:60},
+     note:'기준점'},
+    {name:'B. 전축 80 균일', v:{lead:80,strategy:80,drive:80,social:80,stability:80,sense:80},
+     note:'숫자만 올림 → 코사인은 방향만 보므로 A와 완전히 동일해야 함(검증용)'},
+    {name:'C. 약한 기복 (±6)', v:{lead:66,strategy:62,drive:58,social:64,stability:60,sense:54},
+     note:'"균형"을 유지하면서 미세한 순서만 부여'},
+    {name:'D. 중간 기복 (±12)', v:{lead:72,strategy:64,drive:56,social:68,stability:60,sense:48},
+     note:'주도력·관계력이 살짝 앞서는 올라운더'},
+    {name:'E. 강한 기복 (±20)', v:{lead:80,strategy:66,drive:52,social:74,stability:58,sense:40},
+     note:'사실상 주도력+관계력 캐릭터에 근접 — 정체성 훼손 위험'},
+    {name:'F. 전축 고르게 높음 (72~78)', v:{lead:78,strategy:74,drive:72,social:76,stability:73,sense:75},
+     note:'"모든 축이 평균 이상" 해석 — 기복은 아주 작음'},
+    {name:'G. 2축 약우세 (관계+신뢰)', v:{lead:58,strategy:56,drive:52,social:72,stability:70,sense:60},
+     note:'군자=덕(德) 해석 → 관계력·신뢰력 우세'},
+  ];
+
+  H('후보 벡터 비교');
+  P(`${'후보'.padEnd(26)} ${'군자폭'.padEnd(14)} ${'상위10%'.padEnd(8)} ${'하위10%'.padEnd(8)} ${'전체범위'.padEnd(10)} 비고`,'dim');
+  CANDIDATES.forEach(c=>{
+    const r=buildScores(c.v), sp=spread(r.sc,'GUNJA'), tr=tierReach(r.pairs,'GUNJA');
+    const nn=r.pairs.length;
+    const gapOk = sp.range>=40;
+    const reachOk = tr.top>0 && tr.bot>0;
+    P(`${c.name.padEnd(26)} ${(sp.min+'~'+sp.max+' ('+sp.range+')').padEnd(14)} ${String(tr.top+'회').padEnd(8)} ${String(tr.bot+'회').padEnd(8)} ${(r.pairs[nn-1].s+'~'+r.pairs[0].s).padEnd(10)} ${c.note}`,
+      gapOk&&reachOk?'ok':gapOk?'warn':'bad');
+  });
+
+  H('추천 후보(D) 상세 — 군자상이 누구와 어떤 등급인지');
+  const D=CANDIDATES.find(c=>c.name.startsWith('D'));
+  const rd=buildScores(D.v);
+  const gv=ids.filter(y=>y!=='GUNJA').map(y=>({k:KO[y],s:rd.sc('GUNJA',y)})).sort((a,b)=>b.s-a.s);
+  P(`  ${gv.map(o=>o.k+' '+o.s).join(' / ')}`,'dim');
+  P(`  → 폭 ${gv[gv.length-1].s}~${gv[0].s}  (현재는 ${cg.min}~${cg.max})`,'ok');
+
+  // ── 표시 점수 리맵 ──
+  H('표시용 점수 리맵 — 등급별 밴드 (내부 점수는 그대로, 화면에만 적용)');
+  const BANDS=[
+    {key:'PERFECT',lo:92,hi:99},{key:'BEST',lo:82,hi:91},{key:'GOOD',lo:70,hi:81},
+    {key:'GROWTH',lo:62,hi:69},{key:'CLASH',lo:55,hi:61},
+  ];
+  // 현재 엔진 점수 기준으로 등급을 나누고, 각 등급 안에서 내부점수 순위를 밴드에 선형 배치
+  const byTier={};BANDS.forEach(b=>byTier[b.key]=[]);
+  cur.pairs.forEach(p=>{const t=FACE_TIERS.find(t=>p.s>=t.min)||FACE_TIERS[4];byTier[t.key].push(p);});
+  BANDS.forEach(b=>{
+    const ps=byTier[b.key];if(!ps.length)return;
+    const lo=Math.min(...ps.map(p=>p.s)),hi=Math.max(...ps.map(p=>p.s));
+    const disp=p=>hi===lo?b.hi:Math.round(b.lo+(p.s-lo)/(hi-lo)*(b.hi-b.lo));
+    P(`  ${b.key.padEnd(8)} 내부 ${String(lo).padStart(2)}~${String(hi).padStart(2)} → 표시 ${b.lo}~${b.hi}   예: ${ps.slice(0,3).map(p=>`${p.ko} ${p.s}→${disp(p)}`).join(' / ')}`,'warn');
+  });
+  P(`\n  전체: 내부 ${cur.pairs[n-1].s}~${cur.pairs[0].s}점 → 표시 55~99점`,'ok');
+  P(`  순위는 그대로 보존되고, 숫자와 등급명이 절대 어긋나지 않는다(밴드가 겹치지 않으므로).`,'dim');
+
+  // ── 무작위 탐색: "균형 벡터로 최상위 등급에 닿을 수 있는가"의 상한을 실측한다 ──
+  H('무작위 탐색 — 균형을 유지하면서 최상위 등급에 닿을 수 있나');
+  const PERFECT_MIN=FACE_TIERS[0].min;
+  function balanceOf(v){const a=T.map(t=>v[t]);return Math.max(...a)-Math.min(...a);} // 기복(작을수록 균형)
+  const buckets=[{lab:'기복 ≤10 (뚜렷한 균형)',max:10},{lab:'기복 ≤20 (느슨한 균형)',max:20},
+                 {lab:'기복 ≤35 (균형이라 부르기 애매)',max:35},{lab:'기복 무제한 (사실상 일반 캐릭터)',max:999}];
+  const best={};buckets.forEach(b=>best[b.lab]={max:0,top:0,vec:null,range:0});
+  let seed=12345;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  for(let i=0;i<4000;i++){
+    const v={};T.forEach(t=>v[t]=Math.round(30+rnd()*60));
+    const bal=balanceOf(v);
+    const r=buildScores(v),sp=spread(r.sc,'GUNJA'),tr=tierReach(r.pairs,'GUNJA');
+    buckets.forEach(b=>{
+      if(bal>b.max)return;
+      const cell=best[b.lab];
+      if(sp.max>cell.max){cell.max=sp.max;cell.top=tr.top;cell.bot=tr.bot;cell.vec=v;cell.range=sp.range;cell.bal=bal;}
+    });
+  }
+  P(`  기준: 최상위 등급(PERFECT) 진입선 = 내부 ${PERFECT_MIN}점`,'dim');
+  buckets.forEach(b=>{
+    const c=best[b.lab];
+    if(!c.vec){P(`  ${b.lab.padEnd(30)} 해당 벡터 없음`,'dim');return;}
+    const reach=c.max>=PERFECT_MIN;
+    P(`  ${b.lab.padEnd(30)} 군자 최고점 ${String(c.max).padStart(2)}점 (폭 ${c.range}) · 상위10% ${c.top}회 · ${reach?'✅ 도달':'❌ 미달'}`,reach?'ok':'bad');
+    P(`     최적 벡터: ${T.map(t=>t+' '+c.vec[t]).join(', ')}  (기복 ${c.bal})`,'dim');
+  });
+  P(`\n  결론: 코사인 유사도에서 "균형 벡터"는 모든 벡터의 중심(centroid) 근처에 놓인다.`,'warn');
+  P(`  중심에 가까운 벡터는 정의상 모두와 거리가 비슷해서 편차가 작다 — 즉 "균형"과 "극단적 궁합"은`,'warn');
+  P(`  수학적으로 양립할 수 없다. 군자상을 최상위 등급에 닿게 하려면 균형(올라운더) 정체성을 포기해야 한다.`,'warn');
+
+}catch(e){P('❌ '+e.message,'bad');P(String(e.stack||''),'dim');}
+document.getElementById('out').innerHTML=L.join('\n');
+})();
+</script>

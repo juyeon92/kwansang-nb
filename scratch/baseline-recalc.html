@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>베이스라인 재계산</title>
+<style>
+body{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0f1716;color:#dfe8e6;padding:24px;font-size:12.5px;line-height:1.75;}
+h2{color:#55CCBB;font-size:14px;margin:20px 0 6px;border-bottom:1px solid #2c3836;padding-bottom:4px;}
+.ok{color:#7ee0b8;}.bad{color:#ff8b6b;}.warn{color:#e8c46a;}.dim{color:#7b8a87;}
+pre{white-space:pre-wrap;margin:0;}
+code{background:#1b2523;padding:1px 5px;border-radius:3px;color:#a8ded4;}
+</style>
+<pre id="out">계산 중…</pre>
+<script>
+// FACE_TRAIT_BASELINE을 FACE_TRAIT_MAP에서 해석적으로 재계산한다(몬테카를로 아님 — 재현 가능한 정확값).
+//
+// 모델: character-engine.js computeFaceTraitRaw과 동일한 가중평균.
+//   raw_t = [ Σ_c w_c · v_c[t]  +  w_ps · avg_ps[t] ] / (Σ_c w_c + w_ps)
+//   · 9개 얼굴 카테고리: 각 카테고리에서 옵션 하나를 균등 확률로 고른다고 본다.
+//   · part_status: judgePartStatus(app.js)가 11개 부위 중 항상 Math.ceil(11/2)=6개를 'strength'로
+//     표시하므로, C(11,6)=462개 부분집합을 전수 열거해 평균/분산을 정확히 구한다.
+// 각 항이 독립이므로 E[raw]와 Var[raw]를 닫힌 형태로 계산할 수 있다.
+const M={};
+async function load(n,p){const s=await (await fetch(p)).text();const m={exports:{}};
+  const require=q=>{const k=q.replace('./','').replace('.js','');if(!M[k])throw new Error('미로드 '+q);return M[k];};
+  new Function('module','exports','require',s)(m,m.exports,require);M[n]=m.exports;return m.exports;}
+const L=[];const H=t=>L.push(`\n<h2>${t}</h2>`);const P=(s,c)=>L.push(c?`<span class="${c}">${s}</span>`:s);
+
+(async()=>{
+try{
+  const TC=await load('trait-config','/functions/engine/trait-config.js');
+  const FTM=await load('face-trait-map','/functions/engine/face-trait-map.js');
+  await load('saju-tables','/functions/engine/saju-tables.js');
+  await load('saju-trait-map','/functions/engine/saju-trait-map.js');
+  const CEng=await load('compatibility-engine','/functions/engine/compatibility-engine.js');
+  const CE=await load('character-engine','/functions/engine/character-engine.js');
+  const {TRAITS,FACE_TRAIT_BASELINE,FACE_CATEGORY_WEIGHT}=TC;
+  const {FACE_TRAIT_MAP,PART_STATUS_TRAIT_MAP}=FTM;
+  const KOT={lead:'주도력',strategy:'지략',drive:'실행력',social:'관계력',stability:'신뢰력',sense:'감각력'};
+  const cats=Object.keys(FACE_TRAIT_MAP).filter(c=>c!=='part_status'&&FACE_CATEGORY_WEIGHT[c]);
+  const W_PS=FACE_CATEGORY_WEIGHT.part_status;
+  const W=cats.reduce((s,c)=>s+FACE_CATEGORY_WEIGHT[c],0)+W_PS;
+
+  // ── part_status: C(11,6) 전수 열거 ──
+  const parts=Object.keys(PART_STATUS_TRAIT_MAP);
+  const K=Math.ceil(parts.length/2);
+  const subsets=[];
+  (function pick(i,cur){ if(cur.length===K){subsets.push(cur.slice());return;}
+    if(i>=parts.length||cur.length+(parts.length-i)<K)return;
+    cur.push(parts[i]);pick(i+1,cur);cur.pop();pick(i+1,cur); })(0,[]);
+  const psVals={};TRAITS.forEach(t=>psVals[t]=subsets.map(sub=>
+    sub.reduce((s,p)=>s+(PART_STATUS_TRAIT_MAP[p][t]||0),0)/sub.length));
+
+  const stat=a=>{const m=a.reduce((s,x)=>s+x,0)/a.length;
+    return {mean:m,var:a.reduce((s,x)=>s+(x-m)**2,0)/a.length};};
+
+  // ── 해석적 평균·분산 ──
+  const exact={};
+  TRAITS.forEach(t=>{
+    let em=0, ev=0;
+    cats.forEach(c=>{
+      const w=FACE_CATEGORY_WEIGHT[c];
+      const vals=Object.keys(FACE_TRAIT_MAP[c]).map(k=>FACE_TRAIT_MAP[c][k][t]);
+      const s=stat(vals);
+      em += w*s.mean; ev += w*w*s.var;
+    });
+    const ps=stat(psVals[t]);
+    em += W_PS*ps.mean; ev += W_PS*W_PS*ps.var;
+    exact[t]={mean:em/W, stdev:Math.sqrt(ev)/W};
+  });
+
+  H(`베이스라인 재계산 — part_status ${K}/${parts.length}개 조합 ${subsets.length}가지 전수 열거`);
+  P(`  카테고리 가중치 합 ${W} (얼굴 9개 ${W-W_PS} + part_status ${W_PS})`,'dim');
+  P(`  ${'기질'.padEnd(8)} ${'기존(잘못된 값)'.padEnd(26)} ${'재계산(정확값)'.padEnd(26)} 기존의 z-오차`,'dim');
+  TRAITS.forEach(t=>{
+    const o=FACE_TRAIT_BASELINE[t], n=exact[t];
+    const z=(n.mean-o.mean)/o.stdev;
+    P(`  ${KOT[t].padEnd(8)} mean ${o.mean.toFixed(4)} sd ${o.stdev.toFixed(4)}  mean ${n.mean.toFixed(4)} sd ${n.stdev.toFixed(4)}  ${z>=0?'+':''}${z.toFixed(2)}`,
+      Math.abs(z)>1?'bad':Math.abs(z)>0.5?'warn':'ok');
+  });
+
+  H('trait-config.js에 붙여넣을 값');
+  P('<code>const FACE_TRAIT_BASELINE = {</code>');
+  TRAITS.forEach(t=>{
+    P(`<code>  ${(t+':').padEnd(11)}{ mean: ${exact[t].mean.toFixed(4)}, stdev: ${exact[t].stdev.toFixed(4)} },</code>`);
+  });
+  P('<code>};</code>');
+
+  // ── 새 베이스라인으로 캐릭터 배정 분포를 다시 측정 ──
+  H('새 베이스라인 적용 시 캐릭터 배정 분포 (시뮬레이션)');
+  const KOC={JAESANG:'재상상',JANGGUN:'장군상',GUNWANG:'군왕상',SURYEONG:'수령상',GAEHYEOKGA:'개혁가상',CHAEKSA:'책사상',SASIN:'사신상',SEONBI:'선비상',HAKJA:'학자상',SANGDANJU:'상단주상',MUGWAN:'무관상',GAECHEOKJA:'개척자상',UIWON:'의원상',YEIN:'예인상',JANGIN:'장인상',GUNJA:'군자상'};
+  const IDFIELD={eye_archetype:'eye_archetype_id',face_archetype:'face_archetype_id',forehead:'forehead_type_id',
+    eyebrow:'eyebrow_type_id',eye_shape:'eye_shape_id',nose:'nose_shape_id',mouth:'mouth_shape_id',
+    chin:'chin_shape_id',face_shape:'face_shape_type_id'};
+  function runDist(baseline){
+    // trait-config의 베이스라인 객체를 제자리에서 바꿔치기해 엔진을 그대로 돌린다.
+    TRAITS.forEach(t=>{FACE_TRAIT_BASELINE[t].mean=baseline[t].mean;FACE_TRAIT_BASELINE[t].stdev=baseline[t].stdev;});
+    let seed=555;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+    const N=20000, cnt={};Object.keys(KOC).forEach(k=>cnt[k]=0);
+    for(let i=0;i<N;i++){
+      const f={};cats.forEach(c=>{const ks=Object.keys(FACE_TRAIT_MAP[c]);f[IDFIELD[c]]=ks[Math.floor(rnd()*ks.length)];});
+      const psm={};parts.forEach((p,j)=>psm[p]='complement');
+      subsets[Math.floor(rnd()*subsets.length)].forEach(p=>psm[p]='strength');
+      const r=CE.computeCharacterResult({featureIds:f,confidences:null,partStatusMap:psm});
+      if(r)cnt[r.characterId]++;
+    }
+    return {cnt,N};
+  }
+  const before=Object.assign({},...TRAITS.map(t=>({[t]:{mean:FACE_TRAIT_BASELINE[t].mean,stdev:FACE_TRAIT_BASELINE[t].stdev}})));
+  const oldDist=runDist(before);
+  const newDist=runDist(exact);
+  const fmt=d=>Object.entries(d.cnt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${KOC[k]} ${(n/d.N*100).toFixed(1)}%`);
+  P(`  기존 베이스라인: ${fmt(oldDist).slice(0,6).join(' / ')} …`,'bad');
+  P(`  새 베이스라인:   ${fmt(newDist).slice(0,6).join(' / ')} …`,'ok');
+  P('');
+  P(`  ${'캐릭터'.padEnd(8)} ${'기존'.padEnd(8)} ${'새 값'.padEnd(8)}`,'dim');
+  Object.keys(KOC).forEach(k=>{
+    const o=oldDist.cnt[k]/oldDist.N*100, n=newDist.cnt[k]/newDist.N*100;
+    P(`  ${KOC[k].padEnd(8)} ${o.toFixed(2).padStart(6)}%  ${n.toFixed(2).padStart(6)}%  ${'#'.repeat(Math.round(n/1.5))}`);
+  });
+  const nv=Object.values(newDist.cnt).map(n=>n/newDist.N*100);
+  const ov=Object.values(oldDist.cnt).map(n=>n/oldDist.N*100);
+  P(`\n  최대 쏠림: ${Math.max(...ov).toFixed(1)}% → ${Math.max(...nv).toFixed(1)}%`, Math.max(...nv)<25?'ok':'warn');
+  P(`  0%인 캐릭터: ${ov.filter(x=>x<0.05).length}개 → ${nv.filter(x=>x<0.05).length}개`, nv.filter(x=>x<0.05).length===0?'ok':'warn');
+
+  // ── 등급 경계값이 영향을 받는가 ──
+  H('등급 경계값 — 재계산이 필요한가');
+  const ids=Object.keys(CEng.CHARACTER_VECTOR);
+  const pairs=[];ids.forEach((a,i)=>ids.slice(i+1).forEach(b=>pairs.push(CEng.compatScore(a,b))));
+  pairs.sort((x,y)=>y-x);
+  const n=pairs.length;
+  const cuts=[.10,.30,.70,.90].map(r=>pairs[Math.round(n*r)]);
+  P(`  compatScore는 CHARACTER_VECTOR와 COMPATIBILITY_DB만 쓴다 — FACE_TRAIT_BASELINE을 참조하지 않는다.`,'warn');
+  P(`  즉 베이스라인을 바꿔도 캐릭터 사이의 궁합 점수와 등급 경계는 그대로다.`,'warn');
+  P(`  현재 백분위 컷 재확인: 상위10%=${cuts[0]} / 30%=${cuts[1]} / 70%=${cuts[2]} / 90%=${cuts[3]}`,'dim');
+  P(`  코드에 박힌 FACE_TIERS.min: ${CEng.FACE_TIERS.map(t=>t.key+' '+t.min).join(' / ')}`,'dim');
+  P(`  → 베이스라인 수정으로 바뀌는 것은 "누가 어떤 캐릭터가 되는지"이고, "두 캐릭터가 몇 점인지"는 불변.`,'ok');
+  P(`     다만 배정 쏠림이 사라지면 실제 이용자가 보는 등급 분포가 설계값(10/20/40/20/10)에 가까워진다.`,'ok');
+
+}catch(e){P('오류: '+e.message,'bad');P(String(e.stack||''),'dim');}
+document.getElementById('out').innerHTML=L.join('\n');
+})();
+</script>

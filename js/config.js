@@ -34,7 +34,7 @@ const NYANG_ADMIN_GRANT_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfun
 // firebase deploy --only functions:adminNyangHistory 를 돌려야 내역 화면이 실제 데이터를 받아온다.
 const NYANG_ADMIN_HISTORY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/adminNyangHistory';
 
-// ═══ 16캐릭터 판정 / 궁합 함수 URL (2026-08-30 DB 이원화 1단계) ═══
+// ═══ 15캐릭터 판정 / 궁합 함수 URL (2026-08-30 DB 이원화 1단계) ═══
 // 판단 가중치·공식(functions/engine/*)이 브라우저에 노출되지 않도록 서버로 옮기면서 추가된 함수들.
 // firebase deploy 후 아래 URL이 실제로 배포될 때까지는 js/character-api.js가 이 값들이 비어 있으면
 // 에러를 그대로 사용자에게 보여준다(기존 프록시들과 달리 조용히 스킵하지 않음 — 캐릭터 판정은

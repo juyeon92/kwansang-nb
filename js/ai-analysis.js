@@ -401,15 +401,32 @@ function buildGunghapCharacterBlock(label, characterResult) {
 
 // 2026-08-30 DB 이원화 1단계 — COMPATIBILITY_DB(compatibility-engine.js)가 서버로 옮겨가서
 // CharacterAPI.getRelation을 거쳐야 한다. async가 됐으니 호출부(buildGunghapUserPrompt)도 await 필요.
+//
+// 2026-09-02 얼굴합 5단 개편 — 예전에는 good/spark/clash 분류만 보고 '귀인/단짝/호랑이 선생'을
+// 붙이고 나머지는 전부 '내 사람'으로 뭉뚱그렸다. 이제 등급은 점수 기반 5단(FACE_TIERS)이 단일
+// 기준이라 서버에서 tier를 받아 쓰고, good/spark/clash는 등급을 정하는 값이 아니라 "왜 그런
+// 조합인지" 설명하는 성격 힌트로만 넘긴다 — AI가 등급명과 다른 결론을 내지 않게 하려면 등급은
+// 하나의 출처에서만 와야 한다.
+const REL_NUANCE = {
+  good:  '기질이 한 축 겹치면서 나머지가 서로를 받쳐주는, 편하게 잘 맞는 조합',
+  spark: '겹치는 기질이 하나도 없는데도 서로 끌리는 희귀한 조합',
+  clash: '서로 다른 방향을 보고 있어 부딪히기 쉬운 조합',
+};
 async function buildGunghapRelationBlock(charIdA, charIdB) {
   if (!charIdA || !charIdB) return '';
+  const res = await CharacterAPI.getScoreWithTier(charIdA, charIdB);
+  if (!res || !res.tier) return '';
+
+  let nuance = '';
   const rel = await CharacterAPI.getRelation(charIdA);
-  if (!rel) return '';
-  let label = '내 사람';
-  if ((rel.good || []).indexOf(charIdB) >= 0) label = '귀인';
-  else if ((rel.spark || []).indexOf(charIdB) >= 0) label = '단짝';
-  else if ((rel.clash || []).indexOf(charIdB) >= 0) label = '호랑이 선생';
-  return `\n[두 관상 유형의 관계]\n${label}`;
+  if (rel) {
+    if ((rel.good || []).indexOf(charIdB) >= 0) nuance = REL_NUANCE.good;
+    else if ((rel.spark || []).indexOf(charIdB) >= 0) nuance = REL_NUANCE.spark;
+    else if ((rel.clash || []).indexOf(charIdB) >= 0) nuance = REL_NUANCE.clash;
+  }
+
+  return `\n[두 관상 유형의 얼굴합 등급 — 이미 확정된 값. 그대로 인용하되 새로 판단하지 말 것]
+등급: ${res.tier.genre} (5단계 중 ${res.tier.stars}★, 얼굴합 ${res.displayScore != null ? res.displayScore : res.score}점)${nuance ? `\n조합의 성격: ${nuance}` : ''}`;
 }
 
 function buildGunghapSajuBlock(label, pillars, ohaeng, sajuInsight) {
@@ -1180,7 +1197,7 @@ async function buildDeepReportUserPrompt(
   // classifyAndBuildCharacter가 이미 채워뒀을 가능성이 높지만(같은 분석 세션), 순서를 보장할 수 없는
   // 호출 경로도 있어 방어적으로 한 번 더 await한다 — 캐시가 있으면 즉시 반환되니 비용은 거의 없다.
   if (characterResult) await CharacterAPI.ensureCharacterCatalog();
-  // 스펙 §8-2 — Zone1(16캐릭터) 결과를 프롬프트에 넣고 "이것과 어긋나게 쓰지 말 것"을 못박는다.
+  // 스펙 §8-2 — Zone1(15캐릭터) 결과를 프롬프트에 넣고 "이것과 어긋나게 쓰지 말 것"을 못박는다.
   // 안 넣으면 AI가 "우직한 신뢰가형" 같은 새 유형명을 만들어 Zone1 캐릭터명과 화면에서 충돌한다
   // ("이 사람이 누구인가는 Zone1만 말한다"는 스펙 원칙 1).
   const characterBlock = characterResult && characterResult.characterId
@@ -2543,8 +2560,8 @@ async function getOrRequestPersonalAiData(
 // 이유(기획서 §38 QA 기준과 동일한 문제의식): Gemini 분류는 temperature를 0.25로 낮춰도 완전히
 // 결정론적이지 않아서, 같은 사진을 다시 분석해도 매번 다른 유형이 나올 수 있었다("캐릭터가 흔들리면
 // 안 된다"는 요구사항과 정면으로 부딪힘). 룰베이스는 같은 랜드마크 좌표에 대해 항상 같은 결과를 낸다.
-// 이 경로로 얻은 분류 결과는 16캐릭터 엔진(character-engine.js)의 입력으로도 그대로 재사용된다.
-// 16캐릭터 결과를 참고 이미지(어세스타류 MBTI 카드) 스타일의 일러스트 카드로 렌더링 — 사용자 요청
+// 이 경로로 얻은 분류 결과는 15캐릭터 엔진(character-engine.js)의 입력으로도 그대로 재사용된다.
+// 15캐릭터 결과를 참고 이미지(어세스타류 MBTI 카드) 스타일의 일러스트 카드로 렌더링 — 사용자 요청
 // 2026-08-14: "#canvasCard 여기 캐릭터 영역으로 쓸거야 ... 관상 영역 분석 타이틀 빼고 이미지 대신
 // 일러스트 카드를 넣으면 되는거야". 캐릭터별 실제 일러스트는 아직 4장(character-db.js의
 // CHARACTER_ILLUSTRATION)뿐이라 나머지는 폴백 이미지로 대체되는 "UI 준비" 단계다.
@@ -2567,7 +2584,7 @@ function renderCharacterCard(elId, characterResult) {
   `;
 }
 
-// 16캐릭터 상세 설명 — 일러스트 카드(renderCharacterCard) 바로 아래에 캐릭터별 확정 콘텐츠를 펼친다.
+// 15캐릭터 상세 설명 — 일러스트 카드(renderCharacterCard) 바로 아래에 캐릭터별 확정 콘텐츠를 펼친다.
 // 렌더링 로직은 character-db.js의 고정 필드를 템플릿에 끼우는 것뿐이고 AI 호출은 전혀 없다(스펙 §1).
 // 상황 5종은 기획서 §26 원문("일할 때·사람을 만날 때·연애할 때·돈을 다룰 때·힘든 상황에서") 그대로.
 const CHARACTER_SITUATION_FIELDS = [
@@ -2763,7 +2780,7 @@ function renderCharacterBasis(elId, characterResult) {
 
 // 판정 근거(6대 기질 점수·Top2·신뢰도)는 화면에 노출하지 않는다 — 사용자 요청 2026-08-15:
 // "판정 근거는 필요 없어, 그냥 콘솔로만 찍어". 값 자체는 requestPersonalAiRuleBased의 console.log
-// ([16캐릭터] …)로 계속 확인할 수 있고, characterResult로도 state에 그대로 남아 있다.
+// ([15캐릭터] …)로 계속 확인할 수 있고, characterResult로도 state에 그대로 남아 있다.
 function renderCharacterDetail(elId, characterResult, opts) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -2949,7 +2966,7 @@ async function reopenSavedCharacter(characterId) {
 }
 renderGwansangRevisitCard();
 
-// 룰베이스 분류 → 16캐릭터 판정까지. 관상보기(사주 없음)와 통합분석(사주 포함)이 같은 엔진을 쓰도록
+// 룰베이스 분류 → 15캐릭터 판정까지. 관상보기(사주 없음)와 통합분석(사주 포함)이 같은 엔진을 쓰도록
 // 공용으로 뺐다. cfg.pillars가 있으면 그대로 융합되므로 통합분석은 "관상70 + 사주30" 캐릭터가 나온다
 // (통합분석 화면_콘텐츠_스펙_260817.md Zone1).
 // 2026-08-30 DB 이원화 1단계 — 판단 자체(computeCharacterResult)는 서버(functions/engine/character-engine.js)
@@ -2986,7 +3003,7 @@ async function classifyAndBuildCharacter(ctx, cfg, lm) {
   // 이 시점부터 형상 분류는 확정이다 — 뒤이어 도는 Gemini 호출이 자기 분류로 덮어쓰지 못하게 막는다.
   // (getOrRequestPersonalAiData가 이 플래그를 보고 archetypeAnalysis 갱신을 건너뛴다)
   state[ctx].archetypeIsRuleBased = true;
-  if (characterResult) console.log(`[16캐릭터] ${ctx}:`, characterResult);
+  if (characterResult) console.log(`[15캐릭터] ${ctx}:`, characterResult);
   return { ids, confidences, characterResult };
 }
 

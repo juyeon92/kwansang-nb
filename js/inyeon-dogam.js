@@ -86,21 +86,64 @@
 
   // ── 궁합 점수 ────────────────────────────────────────────────────────
   // 2026-08-30 DB 이원화 1단계 — 캐릭터 6기질 벡터·good/spark/clash 분류(compatibility-engine.js)가
-  // 서버로 옮겨가서 CharacterAPI.getScore를 거친다. async가 됐으니 호출부도 await 필요.
+  // 서버로 옮겨가서 CharacterAPI를 거친다. async가 됐으니 호출부도 await 필요.
+  //
+  // 2026-09-03 표시 점수 리맵 — 점수가 두 종류가 됐다.
+  //   · score        내부 점수(14~81). 참여자 정렬과 등급 판정의 기준. 화면에 쓰지 않는다.
+  //   · displayScore 화면용 점수(55~99). 사용자에게 보여주는 숫자.
+  // 둘을 함께 저장한다 — 정렬은 내부 점수로 해야 순서가 맞고, 화면은 리맵값을 써야 한다.
   async function compatScore(idA, idB) {
-    return await CharacterAPI.getScore(idA, idB);
+    const r = await CharacterAPI.getScoreWithTier(idA, idB);
+    return r ? r.score : null;
+  }
+  async function compatResult(idA, idB) {
+    return await CharacterAPI.getScoreWithTier(idA, idB);
   }
   // ⚠️ 사용자 리포트(2026-08-18): 예전엔 캐릭터별로 미리 정해둔 "특별 5명"(good 2·spark 1·
   // clash 2)에 들었는지만 보고 나머지 10명은 점수(5~99)와 무관하게 전부 "내 사람"으로 뭉뚱그렸다
   // — 그래서 69점·69점·28점이 나란히 다 "내 사람"으로 보이는 문제가 있었다. compatScore()가 이미
-  // good/spark/clash 보정(+18/+8/-15)을 점수에 반영해두므로, 레이블도 그 최종 점수 하나로만
-  // 4단계로 나눈다(사용자 지정 구간).
+  // good/spark/clash 보정을 점수에 반영해두므로, 레이블도 그 최종 점수 하나로만 나눈다.
+  //
+  // 2026-09-02 얼굴합 5단 개편 — 4단계(귀인/단짝/내 사람/호랑이 선생)를 드라마 장르 5단계로
+  // 바꿨다. "내 사람"은 사실 특별 지정에 안 걸린 나머지를 뭉뚱그린 기본값이었고, "호랑이 선생"은
+  // 이름만 부드럽고 실제로는 최하위였다 — 관상 서비스답게 "얼굴합"을 캐스팅 케미로 읽는 쪽이
+  // 공유하고 싶은 결과가 된다. 경계값은 서버(compatibility-engine.js FACE_TIERS)가 단일 기준이고,
+  // 아래 표는 서버 tier를 못 받았을 때만 쓰는 폴백이다.
+  // min = 내부 점수 진입선, obs = 그 등급에 실제로 들어오는 내부 점수 범위, display = 화면 밴드.
+  // obs·display는 서버 displayScore()가 쓰는 값을 그대로 옮긴 사본이다 — 벡터나 등급 경계를
+  // 바꾸면 서버와 함께 이 표도 갱신해야 한다.
+  // 2026-09-03 군자상 제거로 조합이 105쌍이 되면서 min·obs를 모두 다시 뽑았다(이전 79/71/46/33).
+  const FACE_TIER_FALLBACK = [
+    { key: 'PERFECT', min: 76, genre: '천만 영화 투톱',      stars: 5, obs: [76, 81], display: [92, 99] },
+    { key: 'BEST',    min: 69, genre: '믿고 보는 시즌제',    stars: 4, obs: [69, 75], display: [82, 91] },
+    { key: 'GOOD',    min: 38, genre: '잔잔한 일상 드라마',  stars: 3, obs: [38, 68], display: [70, 81] },
+    { key: 'GROWTH',  min: 26, genre: '고난 끝 성장 청춘물', stars: 2, obs: [26, 37], display: [62, 69] },
+    { key: 'CLASH',   min: 0,  genre: '좌충우돌 일일시트콤', stars: 1, obs: [14, 24], display: [55, 61] },
+  ];
+  function faceTierOf(score) {
+    if (score == null) return null;
+    return FACE_TIER_FALLBACK.find(t => score >= t.min) || FACE_TIER_FALLBACK[FACE_TIER_FALLBACK.length - 1];
+  }
+  // 화면에 그대로 박히는 라벨 — 장르명이 곧 등급 이름이다.
   function relationLabel(score) {
-    if (score == null) return '';
-    if (score >= 80) return '귀인';
-    if (score >= 60) return '단짝';
-    if (score >= 40) return '내 사람';
-    return '호랑이 선생';
+    const t = faceTierOf(score);
+    return t ? t.genre : '';
+  }
+  // 내부 점수 → 화면용 점수. 서버가 내려준 displayScore가 있으면 그걸 쓰고, 이 함수는 리맵 도입
+  // 이전에 저장된 참여 기록(displayScore 필드가 없는 항목)을 그릴 때의 폴백이다.
+  function displayScoreOf(score) {
+    const t = faceTierOf(score);
+    if (!t) return null;
+    const [olo, ohi] = t.obs, [dlo, dhi] = t.display;
+    if (ohi === olo) return dhi;
+    const ratio = Math.max(0, Math.min(1, (score - olo) / (ohi - olo)));
+    return Math.round(dlo + ratio * (dhi - dlo));
+  }
+  // 참여 기록 한 건을 화면에 그릴 때 쓸 점수 — 저장된 displayScore 우선, 없으면 내부 점수로 계산.
+  function shownScore(entry) {
+    if (!entry) return null;
+    if (typeof entry.displayScore === 'number') return entry.displayScore;
+    return displayScoreOf(entry.score);
   }
 
   // ── 저장소 ───────────────────────────────────────────────────────────
@@ -680,7 +723,7 @@
               '<span class="dogam-row-tag">' + esc(m.relation || '') + '</span></div>' +
             '<div class="dogam-row-desc">' + esc(ch ? ch.name + ' · ' + ch.headline : '') + '</div>' +
           '</div>' +
-          '<div class="dogam-match-score"><b>' + (m.score == null ? '-' : m.score) + '</b><span>매칭</span></div>' +
+          '<div class="dogam-match-score"><b>' + (shownScore(m) == null ? '-' : shownScore(m)) + '</b><span>매칭</span></div>' +
         '</div>' +
       '</div>';
   }
@@ -704,15 +747,21 @@
   function entryRow(e) {
     const ch = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[e.characterId]) || null;
     const img = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(e.characterId) : '';
+    // 카탈로그에 없는 캐릭터가 저장돼 있을 수 있다 — 2026-09-03 군자상 제거 이전에 등록된 기록이
+    // 그렇다. 얼굴 데이터는 저장하지 않으니 다시 판정할 방법이 없어서, 빈칸 대신 사정을 밝힌다.
+    // (그냥 두면 이름은 빈칸, 일러스트는 폴백 이미지, 점수는 "-"로 나와 고장처럼 보인다.)
+    const legacy = !ch && !!e.characterId;
+    const desc = ch ? ch.name + ' · ' + ch.headline
+      : (legacy ? '지금은 쓰지 않는 유형이에요. 사진을 다시 올리면 새로 판정돼요.' : '');
     return '' +
-      '<div class="dogam-row">' +
+      '<div class="dogam-row' + (legacy ? ' is-legacy' : '') + '">' +
         '<img class="dogam-row-thumb" src="' + esc(img) + '" alt="' + esc(ch ? ch.name : '') + '">' +
         '<div class="dogam-row-body">' +
           '<div class="dogam-row-name">' + esc(e.name) +
             '<span class="dogam-row-tag">' + esc(e.relation || '') + '</span></div>' +
-          '<div class="dogam-row-desc">' + esc(ch ? ch.name + ' · ' + ch.headline : '') + '</div>' +
+          '<div class="dogam-row-desc">' + esc(desc) + '</div>' +
         '</div>' +
-        '<div class="dogam-row-score"><b>' + (e.score == null ? '-' : e.score) + '</b><span>점</span></div>' +
+        '<div class="dogam-row-score"><b>' + (shownScore(e) == null ? '-' : shownScore(e)) + '</b><span>점</span></div>' +
       '</div>';
   }
 
@@ -1021,16 +1070,24 @@
       return;
     }
 
-    const score = await compatScore(guestDogam.ownerCharacterId, charId);
+    // ⚠️ 2026-09-02 이전에는 이 점수와 아래 ③의 내 도감용 점수를 각각 따로 계산했는데,
+    // compatScore()가 비대칭이라 같은 관계인데도 두 도감에 서로 다른 숫자가 저장됐다(120개 짝 중
+    // 43개). "인연은 양쪽에 함께 등록돼요"라고 안내하면서 서로 다른 점수를 보여주던 셈이다.
+    // 엔진이 대칭이 된 지금은 한 번만 계산해서 양쪽에 같은 값을 쓴다 — API 호출도 한 번 줄어든다.
+    const compat = await compatResult(guestDogam.ownerCharacterId, charId);
+    const score = compat ? compat.score : null;                    // 내부 점수 — 정렬·등급 판정용
+    const shown = compat && compat.displayScore != null             // 화면용 점수 — 사용자에게 보이는 숫자
+      ? compat.displayScore : displayScoreOf(score);
+    const relation = (compat && compat.tier && compat.tier.genre) || relationLabel(score);
     const inviter = guestDogam; // 아래에서 guestDogam을 비우므로 미리 붙잡아 둔다
     try {
       // ① 친구 도감에 나를 등록 — 문서 id를 내 uid로 둬서 중복 등록을 막고 본인 삭제 권한을 명확히 한다.
       await fbDb.collection('dogam').doc(inviter.slug).collection('entries').doc(uid).set({
         uid: uid, name: name, characterId: charId, score: score,
-        relation: relationLabel(score),
+        displayScore: shown, relation: relation,
         createdAt: new Date().toISOString(),
       });
-      console.log('[dogam] 상대 도감에 등록 완료', { slug: inviter.slug, entry: uid, score: score });
+      console.log('[dogam] 상대 도감에 등록 완료', { slug: inviter.slug, entry: uid, score: score, displayScore: shown });
 
       // ② 내 도감이 없으면 이때 함께 만들어진다(요청: 등록과 동시에 내 인연도감 생성).
       //    방금 입력한 이름으로 만들어야 상대가 보는 내 이름과 어긋나지 않는다.
@@ -1039,20 +1096,19 @@
       if (!mine) throw new Error('내 인연도감을 만들지 못했어요.');
 
       // ③ 인연은 양쪽에 함께 등록된다 — 방금 초대해준 사람도 내 도감에 올린다.
-      const myScore = await compatScore(charId, inviter.ownerCharacterId);
-      const myRelation = relationLabel(myScore);
+      //    점수는 대칭이므로 위에서 구한 값을 그대로 쓴다(두 도감에 같은 숫자가 저장된다).
       await fbDb.collection('dogam').doc(mine.slug).collection('entries').doc(inviter.ownerUid).set({
         uid: inviter.ownerUid, name: inviter.ownerName, characterId: inviter.ownerCharacterId,
-        score: myScore, relation: myRelation,
+        score: score, displayScore: shown, relation: relation,
         createdAt: new Date().toISOString(),
       });
-      console.log('[dogam] 내 도감에 상대 등록 완료', { slug: mine.slug, entry: inviter.ownerUid, score: myScore });
+      console.log('[dogam] 내 도감에 상대 등록 완료', { slug: mine.slug, entry: inviter.ownerUid, score: score, displayScore: shown });
 
       // 등록 직후 화면에 "방금 맺은 인연"을 보여주기 위해 기억해둔다(이 페이지 세션 동안만).
       lastMatch = {
         uid: inviter.ownerUid, name: inviter.ownerName,
-        characterId: inviter.ownerCharacterId, score: myScore,
-        relation: myRelation,
+        characterId: inviter.ownerCharacterId, score: score,
+        displayScore: shown, relation: relation,
       };
       myDogam = null; // 다음 render에서 방금 쓴 항목까지 포함해 다시 읽도록 캐시를 비운다
       // ④ 등록이 끝나면 "공유받은 사람"이 아니라 "내 도감 주인" 화면으로 전환한다.

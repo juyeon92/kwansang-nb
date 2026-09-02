@@ -298,7 +298,7 @@ function getGwansangRatios(lm) {
   const browLenR_ = Math.hypot(lm[IDX.browOuterR].x-lm[IDX.browInnerR].x, lm[IDX.browOuterR].y-lm[IDX.browInnerR].y);
 
   // ── 부위별 생김새(이마·눈썹·눈크기·코·입·턱·얼굴형) 룰베이스 분류 전용 — 기존 5개 지표만으로는
-  // 구분 못 하는 "모양" 축을 위해 추가한 지표. 16캐릭터 시스템(character/*.js)이 Gemini 분류 없이도
+  // 구분 못 하는 "모양" 축을 위해 추가한 지표. 15캐릭터 시스템(character/*.js)이 Gemini 분류 없이도
   // archetype-db.js의 7개 세부 DB를 채우기 위한 최소 세트이며, 전부 "이 지표가 크면 이런 모양 쪽으로
   // 치우쳤다"는 근사치다(정밀한 형태 인식이 아니라 랜드마크 좌표만으로 낸 값 — classifyForeheadTypeRuleBased 등 주석 참고).
   const foreheadW = Math.abs(lm[IDX.browPeakR].x - lm[IDX.browPeakL].x); // 이마 폭(눈썹 정점 간 거리로 근사)

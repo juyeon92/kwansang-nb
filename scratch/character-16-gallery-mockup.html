@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>16개 관상 캐릭터 갤러리 목업</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --mint:#55CCBB; --mint-10:rgba(85,204,187,.10); --mint-soft:#EDF9F6; --mint-border:#CBEDE6;
+  --beige:#E6D1A7; --beige-bg:#F8F4EC; --beige-chip-bg:#F3E8D3; --beige-chip-text:#675536;
+  --ink:#163B38; --jade:#2F6F68; --card2:#F0F4F3; --border:#E3E9E7;
+  --surface:#FFFFFF; --text:#17201F; --text2:#68716F; --text3:#9AA3A1;
+  --page-bg:#EDEBE6; --paper:#FFFFFF;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--page-bg);}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Pretendard','Malgun Gothic','맑은 고딕',sans-serif;
+  color:var(--text); padding:40px 20px 72px; min-height:100vh;
+}
+.wrap{max-width:1080px;margin:0 auto;}
+
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--jade);text-transform:uppercase;}
+h1{font-family:'Noto Serif KR',serif;font-size:26px;font-weight:900;color:var(--ink);margin-top:8px;text-wrap:balance;line-height:1.4;}
+.lede{font-size:14.5px;color:var(--text2);line-height:1.75;margin-top:12px;max-width:66ch;}
+.lede b{color:var(--jade);}
+
+.axis-legend{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:18px;padding:14px 16px;background:var(--paper);border:1px solid var(--border);border-radius:14px;}
+.axis-chip{font-size:11.5px;font-weight:700;color:var(--text2);}
+.axis-chip b{color:var(--ink);}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:28px;}
+@media (max-width:980px){.grid{grid-template-columns:repeat(3,1fr);}}
+@media (max-width:720px){.grid{grid-template-columns:repeat(2,1fr);}}
+@media (max-width:480px){.grid{grid-template-columns:1fr;max-width:390px;margin-left:auto;margin-right:auto;}}
+
+.card{
+  background:var(--paper); border:1px solid var(--border); border-radius:18px; overflow:hidden;
+  display:flex; flex-direction:column; transition:transform .15s, box-shadow .15s;
+}
+.card:hover{transform:translateY(-3px); box-shadow:0 14px 30px -16px rgba(22,59,56,.28);}
+.card-img{aspect-ratio:1/1; background:var(--beige-bg); display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;}
+.card-img img{width:100%; height:100%; object-fit:cover;}
+.card-num{position:absolute; top:8px; left:8px; font-size:10px; font-weight:800; color:var(--text2); background:rgba(255,255,255,.85); border-radius:999px; padding:2px 7px;}
+.card-body{padding:14px 14px 16px; display:flex; flex-direction:column; gap:8px; flex:1;}
+.card-name{font-family:'Noto Serif KR',serif; font-size:17px; font-weight:900; color:var(--ink);}
+.card-role{display:inline-block; align-self:flex-start; font-size:10.5px; font-weight:800; color:var(--jade); background:var(--mint-soft); border:1px solid var(--mint-border); border-radius:999px; padding:2px 9px;}
+.card-headline{font-size:12.5px; color:var(--text2); line-height:1.55; flex:1;}
+.card-traits{display:flex; flex-wrap:wrap; gap:5px; margin-top:2px;}
+.trait-tag{font-size:10px; font-weight:700; color:var(--beige-chip-text); background:var(--beige-chip-bg); border-radius:999px; padding:2px 8px;}
+.trait-tag.balanced{color:var(--jade); background:var(--card2);}
+
+.foot-note{margin-top:32px; font-size:12px; color:var(--text3); line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Character Gallery Mockup</div>
+  <h1>16가지 관상 캐릭터, 당신은 어떤 상(相)인가요?</h1>
+  <p class="lede">얼굴형·눈·눈썹·코·입·턱의 조합을 <b>리더십 · 전략 · 추진력 · 사교 · 안정 · 감각</b> 6개 축으로 읽어 16개 캐릭터 중 하나로 매칭해요. 이미지는 <code>images/*.png</code> 일러스트를 그대로 사용했습니다.</p>
+
+  <div class="axis-legend">
+    <span class="axis-chip"><b>리더십</b> lead</span>
+    <span class="axis-chip"><b>전략</b> strategy</span>
+    <span class="axis-chip"><b>추진력</b> drive</span>
+    <span class="axis-chip"><b>사교</b> social</span>
+    <span class="axis-chip"><b>안정</b> stability</span>
+    <span class="axis-chip"><b>감각</b> sense</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <p class="foot-note">※ 목업 데이터 출처: functions/engine/character-db.js (CHARACTER_DB, 16종). 실제 서비스에서는 로그인 세션을 통해 서버 API(getCharacterCatalog)로만 카피 전체를 내려받습니다.</p>
+</div>
+
+<script>
+const AXIS_LABEL = { lead:'리더십', strategy:'전략', drive:'추진력', social:'사교', stability:'안정', sense:'감각' };
+const CHARACTERS = [
+  { id:'JAESANG', name:'재상상', role:'전략형 리더', headline:'사람과 판을 함께 읽는 재상상', traits:['lead','strategy'] },
+  { id:'JANGGUN', name:'장군상', role:'추진형 리더', headline:'결정하면 끝까지 밀어붙이는 장군상', traits:['lead','drive'] },
+  { id:'GUNWANG', name:'군왕상', role:'사람을 모으는 리더', headline:'사람을 모아 방향을 만드는 군왕상', traits:['lead','social'] },
+  { id:'SURYEONG', name:'수령상', role:'책임형 리더', headline:'책임질 일에는 끝까지 서는 수령상', traits:['lead','stability'] },
+  { id:'GAEHYEOKGA', name:'개혁가상', role:'혁신형 리더', headline:'남들이 당연하게 보는 판을 뒤집는 개혁가상', traits:['lead','sense'] },
+  { id:'CHAEKSA', name:'책사상', role:'전략 실행가', headline:'한발 먼저 읽고 때가 오면 움직이는 책사상', traits:['strategy','drive'] },
+  { id:'SASIN', name:'사신상', role:'협상가·조정자', headline:'사람 사이의 수를 읽는 사신상', traits:['strategy','social'] },
+  { id:'SEONBI', name:'선비상', role:'원칙형 전문가', headline:'자기 기준으로 오래 신뢰받는 선비상', traits:['strategy','stability'] },
+  { id:'HAKJA', name:'학자상', role:'연구·아이디어형', headline:'익숙한 것에서도 새로운 답을 찾는 학자상', traits:['strategy','sense'] },
+  { id:'SANGDANJU', name:'상단주상', role:'사업·영업형', headline:'사람과 기회를 움직이는 상단주상', traits:['drive','social'] },
+  { id:'MUGWAN', name:'무관상', role:'끈기 있는 실행가', headline:'묵묵히 버티고 결국 완수하는 무관상', traits:['drive','stability'] },
+  { id:'GAECHEOKJA', name:'개척자상', role:'빠른 혁신가', headline:'없는 길도 먼저 만들어 보는 개척자상', traits:['drive','sense'] },
+  { id:'UIWON', name:'의원상', role:'돌봄·신뢰형', headline:'사람을 살피며 마음을 얻는 의원상', traits:['social','stability'] },
+  { id:'YEIN', name:'예인상', role:'표현·매력형', headline:'분위기와 매력으로 사람을 끌어당기는 예인상', traits:['social','sense'] },
+  { id:'JANGIN', name:'장인상', role:'섬세한 전문가', headline:'감각을 오래 다듬어 실력으로 만드는 장인상', traits:['stability','sense'] },
+  { id:'GUNJA', name:'군자상', role:'올라운더', headline:'한쪽에 치우치지 않고 균형을 잡는 군자상', traits:[] },
+];
+
+const grid = document.getElementById('grid');
+grid.innerHTML = CHARACTERS.map((c, i) => `
+  <div class="card">
+    <div class="card-img">
+      <span class="card-num">${String(i+1).padStart(2,'0')}</span>
+      <img src="../images/${c.id}.png" alt="${c.name}" loading="lazy">
+    </div>
+    <div class="card-body">
+      <div class="card-name">${c.name}</div>
+      <span class="card-role">${c.role}</span>
+      <div class="card-headline">${c.headline}</div>
+      <div class="card-traits">
+        ${c.traits.length
+          ? c.traits.map(t => `<span class="trait-tag">${AXIS_LABEL[t]}</span>`).join('')
+          : `<span class="trait-tag balanced">6축 균형</span>`}
+      </div>
+    </div>
+  </div>
+`).join('');
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>베이스라인 적용 검증</title>
+<style>
+body{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0f1716;color:#dfe8e6;padding:24px;font-size:12.5px;line-height:1.75;}
+h2{color:#55CCBB;font-size:14px;margin:20px 0 6px;border-bottom:1px solid #2c3836;padding-bottom:4px;}
+.ok{color:#7ee0b8;}.bad{color:#ff8b6b;}.warn{color:#e8c46a;}.dim{color:#7b8a87;}
+pre{white-space:pre-wrap;margin:0;}
+</style>
+<pre id="out">검증 중…</pre>
+<script>
+const M={};
+async function load(n,p){const s=await (await fetch(p)).text();const m={exports:{}};
+  const require=q=>{const k=q.replace('./','').replace('.js','');if(!M[k])throw new Error('미로드 '+q);return M[k];};
+  new Function('module','exports','require',s)(m,m.exports,require);M[n]=m.exports;return m.exports;}
+const L=[];let fail=0;
+const H=t=>L.push(`\n<h2>${t}</h2>`);const P=(s,c)=>L.push(c?`<span class="${c}">${s}</span>`:s);
+const check=(l,p)=>{P((p?'✅ ':'❌ ')+l,p?'ok':'bad');if(!p)fail++;};
+
+(async()=>{
+try{
+  const TC=await load('trait-config','/functions/engine/trait-config.js');
+  const FTM=await load('face-trait-map','/functions/engine/face-trait-map.js');
+  await load('saju-tables','/functions/engine/saju-tables.js');
+  const STM=await load('saju-trait-map','/functions/engine/saju-trait-map.js');
+  await load('compatibility-engine','/functions/engine/compatibility-engine.js');
+  const CE=await load('character-engine','/functions/engine/character-engine.js');
+  const {TRAITS,FACE_TRAIT_BASELINE,SAJU_TRAIT_BASELINE,FACE_CATEGORY_WEIGHT}=TC;
+  const {FACE_TRAIT_MAP,PART_STATUS_TRAIT_MAP}=FTM;
+  const KOT={lead:'주도력',strategy:'지략',drive:'실행력',social:'관계력',stability:'신뢰력',sense:'감각력'};
+  // 캐릭터 목록은 엔진에서 가져온다 — 여기 하드코딩하면 캐릭터를 더하거나 뺄 때 검증이 어긋난다
+  // (2026-09-03 군자상 제거 때 실제로 어긋났다: 이미 없는 캐릭터를 0%라고 실패 처리했다).
+  const KO_ALL={JAESANG:'재상상',JANGGUN:'장군상',GUNWANG:'군왕상',SURYEONG:'수령상',GAEHYEOKGA:'개혁가상',CHAEKSA:'책사상',SASIN:'사신상',SEONBI:'선비상',HAKJA:'학자상',SANGDANJU:'상단주상',MUGWAN:'무관상',GAECHEOKJA:'개척자상',UIWON:'의원상',YEIN:'예인상',JANGIN:'장인상'};
+  const KOC={};
+  Object.keys(M['compatibility-engine'].CHARACTER_TRAITS).forEach(id=>{KOC[id]=KO_ALL[id]||id;});
+  const cats=Object.keys(FACE_TRAIT_MAP).filter(c=>c!=='part_status'&&FACE_CATEGORY_WEIGHT[c]);
+  const IDFIELD={eye_archetype:'eye_archetype_id',face_archetype:'face_archetype_id',forehead:'forehead_type_id',
+    eyebrow:'eyebrow_type_id',eye_shape:'eye_shape_id',nose:'nose_shape_id',mouth:'mouth_shape_id',
+    chin:'chin_shape_id',face_shape:'face_shape_type_id'};
+  const parts=Object.keys(PART_STATUS_TRAIT_MAP);
+  const K=Math.ceil(parts.length/2);
+  const subsets=[];
+  (function pick(i,cur){if(cur.length===K){subsets.push(cur.slice());return;}
+    if(i>=parts.length||cur.length+(parts.length-i)<K)return;
+    cur.push(parts[i]);pick(i+1,cur);cur.pop();pick(i+1,cur);})(0,[]);
+
+  // ── ① 적용된 베이스라인이 실측 분포와 맞는가 ──
+  H('① 적용된 FACE_TRAIT_BASELINE이 실제 분포와 일치하는가');
+  let seed=31337;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  const N=20000;
+  const raws={};TRAITS.forEach(t=>raws[t]=[]);
+  const cnt={};Object.keys(KOC).forEach(k=>cnt[k]=0);
+  const W=cats.reduce((s,c)=>s+FACE_CATEGORY_WEIGHT[c],0)+FACE_CATEGORY_WEIGHT.part_status;
+  for(let i=0;i<N;i++){
+    const f={};const chosen={};
+    cats.forEach(c=>{const ks=Object.keys(FACE_TRAIT_MAP[c]);const k=ks[Math.floor(rnd()*ks.length)];f[IDFIELD[c]]=k;chosen[c]=k;});
+    const sub=subsets[Math.floor(rnd()*subsets.length)];
+    const psm={};parts.forEach(p=>psm[p]='complement');sub.forEach(p=>psm[p]='strength');
+    // raw 재현
+    const sums={};TRAITS.forEach(t=>sums[t]=0);
+    cats.forEach(c=>{const w=FACE_CATEGORY_WEIGHT[c];const v=FACE_TRAIT_MAP[c][chosen[c]];TRAITS.forEach(t=>sums[t]+=v[t]*w);});
+    const agg={};TRAITS.forEach(t=>agg[t]=0);
+    sub.forEach(p=>TRAITS.forEach(t=>agg[t]+=PART_STATUS_TRAIT_MAP[p][t]||0));
+    TRAITS.forEach(t=>sums[t]+=(agg[t]/sub.length)*FACE_CATEGORY_WEIGHT.part_status);
+    TRAITS.forEach(t=>raws[t].push(sums[t]/W));
+    const r=CE.computeCharacterResult({featureIds:f,confidences:null,partStatusMap:psm});
+    if(r)cnt[r.characterId]++;
+  }
+  let maxZ=0;
+  TRAITS.forEach(t=>{
+    const a=raws[t], m=a.reduce((s,x)=>s+x,0)/a.length;
+    const sd=Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/a.length);
+    const b=FACE_TRAIT_BASELINE[t];
+    const z=(m-b.mean)/b.stdev, sdr=sd/b.stdev;
+    maxZ=Math.max(maxZ,Math.abs(z));
+    P(`  ${KOT[t].padEnd(8)} 베이스라인 ${b.mean.toFixed(4)}/${b.stdev.toFixed(4)}  실측 ${m.toFixed(4)}/${sd.toFixed(4)}  z ${z>=0?'+':''}${z.toFixed(2)}  sd비 ${sdr.toFixed(2)}`,
+      Math.abs(z)>0.3?'bad':'ok');
+  });
+  check(`모든 기질의 z-오차가 0.3 이내 (최대 ${maxZ.toFixed(2)} · 수정 전 3.46)`, maxZ<=0.3);
+
+  // ── ② 캐릭터 배정 분포 ──
+  H('② 캐릭터 배정 분포');
+  const rows=Object.entries(cnt).map(([k,n])=>({k,pct:n/N*100})).sort((a,b)=>b.pct-a.pct);
+  rows.forEach(r=>P(`  ${KOC[r.k].padEnd(8)} ${r.pct.toFixed(2).padStart(6)}%  ${'#'.repeat(Math.round(r.pct/1.5))}`, r.pct>25?'bad':''));
+  const top=rows[0].pct, zero=rows.filter(r=>r.pct<0.05).length;
+  check(`한 캐릭터 쏠림 25% 이하 (최대 ${top.toFixed(1)}% · 수정 전 66.9%)`, top<=25);
+  check(`배정 0%인 캐릭터 없음 (${zero}개 · 수정 전 4개)`, zero===0);
+
+  // ── ③ 등급 경계값이 여전히 유효한가 ──
+  H('③ 등급 경계값 유효성 (베이스라인과 무관해야 함)');
+  const CEng=M['compatibility-engine'];
+  const ids=Object.keys(CEng.CHARACTER_VECTOR);
+  const tc={};CEng.FACE_TIERS.forEach(t=>tc[t.key]=0);
+  let total=0;
+  ids.forEach((a,i)=>ids.slice(i+1).forEach(b=>{tc[CEng.faceTier(CEng.compatScore(a,b)).key]++;total++;}));
+  CEng.FACE_TIERS.forEach(t=>P(`  ${t.stars}★ ${t.key.padEnd(8)} ${String(tc[t.key]).padStart(3)}짝 (${Math.round(tc[t.key]/total*100)}%) — 목표 ${[10,20,40,20,10][CEng.FACE_TIERS.indexOf(t)]}%`,'warn'));
+  const shares=CEng.FACE_TIERS.map(t=>tc[t.key]/total*100);
+  const target=[10,20,40,20,10];
+  const maxDev=Math.max(...shares.map((s,i)=>Math.abs(s-target[i])));
+  check(`5등급 분포가 설계 목표에서 5%p 이내 (최대 편차 ${maxDev.toFixed(1)}%p)`, maxDev<=5);
+
+  // ── ④ 사주 베이스라인에도 같은 문제가 있는가 ──
+  H('④ SAJU_TRAIT_BASELINE 점검 (같은 종류의 결함인지)');
+  const {OHAENG_TRAIT_VECTOR}=STM;
+  const ohKeys=Object.keys(OHAENG_TRAIT_VECTOR||{});
+  if(!ohKeys.length){P('  OHAENG_TRAIT_VECTOR를 찾을 수 없어 점검 생략','dim');}
+  else{
+    // 오행 분포를 무작위로 만들어 raw 사주 기질값 분포를 구한다(가중치 0.70 항).
+    const sraw={};TRAITS.forEach(t=>sraw[t]=[]);
+    for(let i=0;i<20000;i++){
+      // 8글자를 오행에 무작위 배분
+      const counts={};ohKeys.forEach(k=>counts[k]=0);
+      for(let j=0;j<8;j++)counts[ohKeys[Math.floor(rnd()*ohKeys.length)]]++;
+      const sums={};TRAITS.forEach(t=>sums[t]=0);let tot=0;
+      ohKeys.forEach(k=>{const v=OHAENG_TRAIT_VECTOR[k];const c=counts[k];if(!c||!v)return;
+        TRAITS.forEach(t=>sums[t]+=(v[t]||0)*c);tot+=c;});
+      if(tot)TRAITS.forEach(t=>sraw[t].push(sums[t]/tot));
+    }
+    let smaxZ=0;
+    TRAITS.forEach(t=>{
+      const a=sraw[t];if(!a.length)return;
+      const m=a.reduce((s,x)=>s+x,0)/a.length;
+      const sd=Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/a.length);
+      const b=SAJU_TRAIT_BASELINE[t];
+      const z=(m-b.mean)/b.stdev;
+      smaxZ=Math.max(smaxZ,Math.abs(z));
+      P(`  ${KOT[t].padEnd(8)} 베이스라인 ${b.mean.toFixed(4)}/${b.stdev.toFixed(4)}  실측 ${m.toFixed(4)}/${sd.toFixed(4)}  z ${z>=0?'+':''}${z.toFixed(2)}`,
+        Math.abs(z)>1?'bad':Math.abs(z)>0.5?'warn':'ok');
+    });
+    P(`  최대 z-오차 ${smaxZ.toFixed(2)}`, smaxZ>1?'bad':smaxZ>0.5?'warn':'ok');
+    P(`  ⚠️ 이 점검은 오행 8글자를 균등 무작위로 배분한 근사다 — 실제 만세력 분포·신살 보정은 반영하지 않았다.`,'dim');
+    P(`     사주는 얼굴과 달리 가중치가 0.25~0.30이라 영향이 작지만, z-오차가 크면 별도 확인이 필요하다.`,'dim');
+  }
+
+  P('');
+  P(fail===0?'✅ 검증 전체 통과':`❌ ${fail}개 실패`,fail===0?'ok':'bad');
+}catch(e){P('오류: '+e.message,'bad');P(String(e.stack||''),'dim');}
+document.getElementById('out').innerHTML=L.join('\n');
+})();
+</script>

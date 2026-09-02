@@ -968,6 +968,9 @@ body.overlay-open { overflow: hidden; }
 .dogam-row-name { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: var(--text-strong); }
 .dogam-row-tag { font-size: 10px; font-weight: 500; color: var(--jade); background: var(--mint-10); border-radius: 50px; padding: 1px 8px; }
 .dogam-row-desc { font-size: 11.5px; color: var(--text-sub); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 지금 카탈로그에 없는 캐릭터가 저장된 옛 기록 — 판정을 못 믿는 줄이라는 걸 옅게 표시한다 */
+.dogam-row.is-legacy .dogam-row-thumb { opacity: 0.45; }
+.dogam-row.is-legacy .dogam-row-desc { color: var(--text3); font-style: italic; }
 .dogam-row-score { text-align: right; flex-shrink: 0; }
 .dogam-row-score b { font-size: 17px; font-weight: 800; color: var(--jade); }
 .dogam-row-score span { font-size: 11px; color: var(--text-sub); margin-left: 1px; }

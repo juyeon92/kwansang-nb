@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>궁합 엔진 회귀 테스트</title>
+<style>
+body{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0f1716;color:#dfe8e6;padding:24px;font-size:13px;line-height:1.75;}
+h2{color:#55CCBB;font-size:14px;margin:22px 0 8px;border-bottom:1px solid #2c3836;padding-bottom:4px;}
+.ok{color:#7ee0b8;} .bad{color:#ff8b6b;} .warn{color:#e8c46a;} .dim{color:#7b8a87;}
+pre{white-space:pre-wrap;margin:0;}
+</style>
+<pre id="out">불러오는 중…</pre>
+<script>
+// 실제 서버 엔진 파일(functions/engine/*.js)을 그대로 가져와 CommonJS 셈으로 실행한다.
+// 데이터를 복사해오면 "복사본이 맞는지"만 검증하게 되므로, 진짜 배포 코드를 대상으로 돌린다.
+const MODULES = {};
+async function loadModule(name, path) {
+  const src = await (await fetch(path)).text();
+  const module = { exports: {} };
+  const require = (p) => {
+    const key = p.replace('./', '').replace('.js', '');
+    if (!MODULES[key]) throw new Error('의존 모듈 미로드: ' + p);
+    return MODULES[key];
+  };
+  new Function('module', 'exports', 'require', src)(module, module.exports, require);
+  MODULES[name] = module.exports;
+  return module.exports;
+}
+
+const L = [];
+let fail = 0;
+const H = t => L.push(`\n<h2>${t}</h2>`);
+const P = (s, c) => L.push(c ? `<span class="${c}">${s}</span>` : s);
+function check(label, pass) { P((pass ? '✅ ' : '❌ ') + label, pass ? 'ok' : 'bad'); if (!pass) fail++; }
+
+(async () => {
+  try {
+    await loadModule('trait-config', '/functions/engine/trait-config.js');
+    const E = await loadModule('compatibility-engine', '/functions/engine/compatibility-engine.js');
+    const { CHARACTER_TRAITS, CHARACTER_VECTOR, COMPATIBILITY_DB, compatScore, faceTier, FACE_TIERS, relationAdjust, displayScore } = E;
+    const ids = Object.keys(CHARACTER_TRAITS);
+    const KO = {JAESANG:'재상',JANGGUN:'장군',GUNWANG:'군왕',SURYEONG:'수령',GAEHYEOKGA:'개혁가',CHAEKSA:'책사',SASIN:'사신',SEONBI:'선비',HAKJA:'학자',SANGDANJU:'상단주',MUGWAN:'무관',GAECHEOKJA:'개척자',UIWON:'의원',YEIN:'예인',JANGIN:'장인',GUNJA:'군자'};
+
+    P(`<span class="dim">로드 완료 — 캐릭터 ${ids.length}개, export ${Object.keys(E).length}개</span>`);
+
+    // ── 검증8: 대칭성 ──
+    H('검증8 (결함①) — compatScore 대칭성');
+    let asym = 0, samples = [];
+    ids.forEach(a => ids.forEach(b => {
+      if (a >= b) return;
+      if (compatScore(a, b) !== compatScore(b, a)) {
+        asym++;
+        if (samples.length < 3) samples.push(`${KO[a]}↔${KO[b]} ${compatScore(a,b)} vs ${compatScore(b,a)}`);
+      }
+    }));
+    samples.forEach(s => P('  비대칭: ' + s, 'bad'));
+    check(`비대칭 페어 0건 (실제 ${asym}건 / ${ids.length*(ids.length-1)/2})`, asym === 0);
+    check(`relationAdjust 대칭 — 양방향 값이 동일`, ids.every(a => ids.every(b => a === b || relationAdjust(a,b) === relationAdjust(b,a))));
+
+    // ── 검증9: 편향 제거 ──
+    H('검증9 (결함②) — 캐릭터별 편향 제거');
+    const recv = {};
+    ids.forEach(a => { const v = ids.filter(b => b !== a).map(b => compatScore(a, b)); recv[a] = v.reduce((s,x)=>s+x,0)/v.length; });
+    const sorted = Object.entries(recv).sort((x,y)=>y[1]-x[1]);
+    const gap = Math.round(sorted[0][1] - sorted[sorted.length-1][1]);
+    P(`  받는 평균: ${sorted.map(([k,v])=>KO[k]+' '+v.toFixed(0)).join(' / ')}`, 'dim');
+    check(`받는 평균 격차 6점 이하 (실제 ${gap}점 · 수정 전 31점)`, gap <= 6);
+
+    // ── 검증10: 5단 분포 ──
+    H('검증10 — 얼굴합 5단 등급 분포');
+    const cnt = {}; FACE_TIERS.forEach(t => cnt[t.key] = 0);
+    const pairs = [];
+    ids.forEach((a,i) => ids.slice(i+1).forEach(b => {
+      const s = compatScore(a,b), t = faceTier(s);
+      cnt[t.key]++; pairs.push({ko:`${KO[a]}×${KO[b]}`, s, t:t.key});
+    }));
+    const total = pairs.length;
+    FACE_TIERS.forEach(t => {
+      const n = cnt[t.key], pct = Math.round(n/total*100);
+      P(`  ${t.stars}★ ${t.key.padEnd(8)} ${t.genre.padEnd(12)} ${String(n).padStart(3)}짝 (${pct}%)`, 'warn');
+    });
+    const empty = Object.values(cnt).filter(v => v === 0).length;
+    const maxShare = Math.max(...Object.values(cnt))/total;
+    check(`빈 등급 없음 (${empty}개) 및 한 등급 60% 이하 (최대 ${Math.round(maxShare*100)}%)`, empty === 0 && maxShare <= 0.6);
+    check(`등급 경계 단조성 — 점수가 높을수록 등급도 높거나 같음`,
+      pairs.slice().sort((x,y)=>y.s-x.s).every((p,i,arr) => i===0 || FACE_TIERS.findIndex(t=>t.key===p.t) >= FACE_TIERS.findIndex(t=>t.key===arr[i-1].t)));
+
+    // ── 검증11: 표시용 점수 리맵 ──
+    H('검증11 — 표시용 점수 리맵 (내부 점수 → 화면 55~99)');
+    const scored = pairs.map(p => ({...p, d: displayScore(p.s), tierObj: faceTier(p.s)})).sort((x,y)=>x.s-y.s);
+    let mono = true;
+    for (let i=1;i<scored.length;i++) if (scored[i].d < scored[i-1].d) {
+      mono = false;
+      P(`  단조성 위반: ${scored[i-1].ko} ${scored[i-1].s}→${scored[i-1].d} > ${scored[i].ko} ${scored[i].s}→${scored[i].d}`,'bad');
+    }
+    check('단조성 — 내부 점수 순서가 표시 점수에서도 유지됨', mono);
+    const bandOk = scored.every(x => {
+      const [lo,hi] = x.tierObj.display, ok = x.d>=lo && x.d<=hi;
+      if (!ok) P(`  밴드 이탈: ${x.ko} ${x.tierObj.key} 표시 ${x.d} (밴드 ${lo}~${hi})`,'bad');
+      return ok;
+    });
+    const dMin=Math.min(...scored.map(x=>x.d)), dMax=Math.max(...scored.map(x=>x.d));
+    check(`표시 점수가 등급 밴드를 벗어나지 않음 (실제 범위 ${dMin}~${dMax}점)`, bandOk);
+    FACE_TIERS.forEach(t => {
+      const ps = scored.filter(x=>x.tierObj.key===t.key).sort((a,b)=>b.s-a.s);
+      if (!ps.length) return;
+      P(`  ${t.stars}★ ${t.key.padEnd(8)} 내부 ${String(ps[ps.length-1].s).padStart(2)}~${String(ps[0].s).padStart(2)} → 표시 ${String(ps[ps.length-1].d).padStart(2)}~${String(ps[0].d).padStart(2)}  예: ${ps.slice(0,3).map(p=>`${p.ko} ${p.d}점`).join(' / ')}`,'warn');
+    });
+
+    // ── 검증12: 같은 캐릭터끼리도 점수가 나오는가 ──
+    // 인연도감에서 친구 둘이 같은 캐릭터로 판정되는 일은 흔하다. null이면 화면에 "-"로 보여
+    // 그대로 버그로 읽힌다(2026-09-03 회귀 발생 지점).
+    H('검증12 — 같은 캐릭터 조합');
+    const selfScores = ids.map(x => ({x, s: compatScore(x, x)}));
+    const selfNull = selfScores.filter(o => o.s == null);
+    selfNull.forEach(o => P(`  null 반환: ${KO[o.x]}×${KO[o.x]}`, 'bad'));
+    check(`${ids.length}개 전부 자기 자신과의 점수가 나옴 (null ${selfNull.length}개)`, selfNull.length === 0);
+    const selfVals = selfScores.filter(o => o.s != null).map(o => o.s);
+    if (selfVals.length) {
+      const lo = Math.min(...selfVals), hi = Math.max(...selfVals);
+      const dv = selfScores.filter(o => o.s != null).map(o => displayScore(o.s));
+      P(`  내부 ${lo}~${hi}점 → 표시 ${Math.min(...dv)}~${Math.max(...dv)}점 (최고 등급 부근에 놓임)`, 'dim');
+      check('같은 캐릭터 조합이 최고 등급(PERFECT)으로 분류됨', selfScores.every(o => o.s == null || faceTier(o.s).key === 'PERFECT'));
+    }
+
+    // ── 검증13: 모든 캐릭터가 여러 등급을 보는가 ──
+    // 군자상을 제거한 직접적인 이유다. 벡터가 모든 벡터의 중심에 가까우면 상대 전원과 같은 등급이
+    // 나오고, 그 캐릭터로 판정된 이용자의 도감은 15줄이 전부 같은 문구가 된다 — 인연도감은 서로
+    // 다른 등급을 비교하며 공유하는 기능이라 그건 기능이 죽은 것과 같다. 캐릭터를 더하거나
+    // 벡터를 손볼 때 같은 함정에 다시 빠지지 않도록 검사로 못박는다.
+    H('검증13 — 캐릭터별 등급 다양성 (군자상 제거의 근거)');
+    const MIN_TIERS = 3;
+    const diversity = ids.map(x => {
+      const ts = ids.filter(y => y !== x).map(y => faceTier(compatScore(x, y)).key);
+      const d = {}; ts.forEach(t => d[t] = (d[t]||0)+1);
+      return { x, kinds: new Set(ts).size, dist: d };
+    }).sort((a,b) => a.kinds - b.kinds);
+    diversity.forEach(o => P(`  ${KO[o.x].padEnd(4)} ${o.kinds}종  ${FACE_TIERS.filter(t=>o.dist[t.key]).map(t=>t.key+':'+o.dist[t.key]).join(' ')}`,
+      o.kinds < MIN_TIERS ? 'bad' : 'dim'));
+    const poor = diversity.filter(o => o.kinds < MIN_TIERS);
+    check(`모든 캐릭터가 ${MIN_TIERS}종 이상의 등급을 봄 (최소 ${diversity[0].kinds}종 · 군자상은 1종이었다)`, poor.length === 0);
+
+    // ── 참고: 점수 폭이 가장 넓은/좁은 캐릭터 ──
+    H('참고 — 점수 폭');
+    const spreads = ids.map(x => {
+      const v = ids.filter(y=>y!==x).map(y=>compatScore(x,y));
+      return { x, lo: Math.min(...v), hi: Math.max(...v) };
+    }).sort((a,b) => (b.hi-b.lo)-(a.hi-a.lo));
+    spreads.forEach(o => P(`  ${KO[o.x].padEnd(4)} ${o.lo}~${o.hi} (폭 ${o.hi-o.lo})`, 'dim'));
+
+    H('참고 — 등급별 대표 조합');
+    FACE_TIERS.forEach(t => {
+      const ps = pairs.filter(p=>p.t===t.key).sort((x,y)=>y.s-x.s);
+      P(`  ${t.genre}: ${ps.slice(0,5).map(p=>p.ko+' '+p.s).join(' / ')}${ps.length>5?' …':''}`, 'dim');
+    });
+
+    P('');
+    P(fail === 0 ? '✅ 회귀 테스트 전체 통과' : `❌ ${fail}개 실패`, fail === 0 ? 'ok' : 'bad');
+  } catch (e) {
+    P('❌ 실행 오류: ' + e.message, 'bad');
+    P(String(e.stack||''), 'dim');
+  }
+  document.getElementById('out').innerHTML = L.join('\n');
+})();
+</script>

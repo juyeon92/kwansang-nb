@@ -1,4 +1,4 @@
-// ═══ 16캐릭터 Character Engine — 결정론적 Rule Engine (서버 전용) ═══
+// ═══ 15캐릭터 Character Engine — 결정론적 Rule Engine (서버 전용) ═══
 // js/character/character-engine.js를 Cloud Functions로 이전한 것(2026-08-30 DB 이원화) — 판단
 // 가중치·공식이 브라우저에 노출되지 않도록 서버에서만 계산하고 결과만 반환한다.
 // 원본과의 차이 2가지:
@@ -11,7 +11,7 @@
 //     그 baseline도 서버 전용 상수가 됐으므로 여기서 미리 계산해 함께 내려준다.
 const {
   TRAITS, FACE_CATEGORY_WEIGHT, CONFIDENCE_FULL, CONFIDENCE_PARTIAL, CONFIDENCE_PARTIAL_RATIO,
-  SAJU_WEIGHT, FUSION_WEIGHT, GUNJA_STDEV_MAX, GUNJA_RANGE_MAX,
+  SAJU_WEIGHT, FUSION_WEIGHT,
   SAJU_MODIFIER_CAP_PER_ITEM, SAJU_MODIFIER_CAP_TOTAL, TIEBREAK_PRIORITY, TIEBREAK_EPSILON,
   FACE_TRAIT_BASELINE, SAJU_TRAIT_BASELINE, T_SCORE_CENTER, T_SCORE_SPREAD,
 } = require('./trait-config');
@@ -202,15 +202,12 @@ function combineFinalTraitScore(faceResult, sajuResult, hasHour) {
   return { traitScores, basisLabel };
 }
 
+// 2026-09-03 군자상 제거 — 기질이 평평할 때(표준편차·폭이 임계 이하) 군자상으로 빼던 분기를
+// 걷어냈다. 평평한 얼굴도 이제 상위 2개 기질을 그대로 써서 15개 중 하나로 배정된다. 1·2위 차이가
+// 작을 때는 아래 TIEBREAK_PRIORITY가 부위별 근거를 보고 2위를 정하므로, 평평한 얼굴일수록 그
+// 타이브레이크가 실제로 판단을 맡는다. balanced 필드는 호출부 호환을 위해 남기고 항상 false다.
 function determineCharacter(traitScores, faceEvidenceByCategory) {
   const sorted = TRAITS.map(t => ({ t, score: traitScores[t] })).sort((a, b) => b.score - a.score);
-  const mean = sorted.reduce((s, x) => s + x.score, 0) / sorted.length;
-  const stdev = Math.sqrt(sorted.reduce((s, x) => s + (x.score - mean) ** 2, 0) / sorted.length);
-  const range = sorted[0].score - sorted[sorted.length - 1].score;
-
-  if (stdev <= GUNJA_STDEV_MAX && range <= GUNJA_RANGE_MAX) {
-    return { characterId: 'GUNJA', primaryTrait: sorted[0].t, secondaryTrait: sorted[1].t, balanced: true, sorted };
-  }
 
   let primary = sorted[0], secondaryCandidateA = sorted[1], secondaryCandidateB = sorted[2];
   let secondary = secondaryCandidateA;

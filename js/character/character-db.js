@@ -1,4 +1,4 @@
-// ═══ 16개 관상 캐릭터 DB — 서버 카탈로그 캐시 (2026-08-30 DB 이원화 2단계) ═══
+// ═══ 15개 관상 캐릭터 DB — 서버 카탈로그 캐시 (2026-08-30 DB 이원화 2단계) ═══
 // 실제 내용(캐릭터 이름·강점·약점·상황별 서술 등)은 functions/engine/character-db.js에만 있다.
 // CHARACTER_DB는 처음엔 빈 객체이고, CharacterAPI.ensureCharacterCatalog()가 로그인 세션으로 서버에서
 // 받아온 뒤 채워 넣는다 — 각 레코드에는 illustration(이미지 경로)·compatTags(good/spark/clash)도

@@ -6,7 +6,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const { computeCharacterResult } = require('./engine/character-engine');
-const { classifyCompatibility, compatScore } = require('./engine/compatibility-engine');
+const { classifyCompatibility, compatScore, faceTier, displayScore, CHARACTER_TRAITS } = require('./engine/compatibility-engine');
 const archetypeDb = require('./engine/archetype-db');
 const characterDb = require('./engine/character-db');
 
@@ -186,7 +186,7 @@ exports.nyangSpend = onRequest({ cors: true }, async (req, res) => {
   }
 });
 
-// ═══ 16캐릭터 판정 (2026-08-30 DB 이원화 1단계) ═══
+// ═══ 15캐릭터 판정 (2026-08-30 DB 이원화 1단계) ═══
 // 관상×사주 판단 가중치·공식(engine/character-engine.js)이 브라우저 소스에 그대로 노출되던 문제를
 // 막기 위해, 판정 자체를 서버로 옮겼다 — 클라이언트(js/ai-analysis.js classifyAndBuildCharacter)는
 // 분류된 feature id·confidence·사주 정보만 보내고, 계산된 결과만 돌려받는다.
@@ -243,7 +243,14 @@ exports.getCompatibility = onRequest({ cors: true }, async (req, res) => {
   try {
     const result = {};
     if (characterId) result.relation = classifyCompatibility(characterId);
-    if (idA && idB) result.score = compatScore(idA, idB);
+    if (idA && idB) {
+      // score는 내부 점수(정렬·등급 판정 기준), displayScore는 화면에 보여줄 55~99 리맵값이다.
+      // 둘을 다 내려주는 이유: 인연도감은 점수로 참여자를 정렬하므로 내부 점수가 계속 필요하고,
+      // 화면에는 리맵값을 써야 한다. 등급 경계와 밴드가 모두 서버에만 있어야 기준을 한 곳에서 바꿀 수 있다.
+      result.score = compatScore(idA, idB);
+      result.displayScore = displayScore(result.score);
+      result.tier = faceTier(result.score);
+    }
     res.json({ ok: true, ...result });
   } catch (e) {
     console.error('getCompatibility 실패', e);
@@ -252,9 +259,9 @@ exports.getCompatibility = onRequest({ cors: true }, async (req, res) => {
 });
 
 // ═══ 관상 유형 / 캐릭터 콘텐츠 카탈로그 (2026-08-30 DB 이원화 2단계) ═══
-// js/archetype-db.js·js/character/character-db.js(카피 콘텐츠 — 눈모양/동물형상 설명, 16캐릭터
+// js/archetype-db.js·js/character/character-db.js(카피 콘텐츠 — 눈모양/동물형상 설명, 15캐릭터
 // 이름·강점·약점·상황별 서술 등)가 정적 스크립트로 그대로 노출되던 문제를 막기 위해 서버로 옮겼다.
-// 카탈로그 크기가 작아(관상 9종 합쳐 69개 항목, 캐릭터 16개) 매번 전체를 내려주고 클라이언트가
+// 카탈로그 크기가 작아(관상 9종 합쳐 69개 항목, 캐릭터 15개) 매번 전체를 내려주고 클라이언트가
 // 한 번만 받아 캐시한다 — 판정 결과에 따라 골라 내려주는 것보다 구조가 단순하고, 어차피 로그인
 // 사용자에게는 결과 화면에서 실질적으로 노출되는 내용이라 부분 공개로 얻는 이득이 크지 않다.
 exports.getArchetypeCatalog = onRequest({ cors: true }, async (req, res) => {
@@ -279,6 +286,73 @@ exports.getCharacterCatalog = onRequest({ cors: true }, async (req, res) => {
 // Firestore는 부분 문자열 검색을 기본 지원하지 않는다. 로컬 테스트/소수 베타 유저 전제인 이번
 // 스코프에서는 users 컬렉션을 통째로 훑어 닉네임·이메일·uid에 부분 일치하는 것만 추리는 방식으로
 // 충분하다고 판단함 — 유저가 많아지면 Algolia/Typesense 같은 검색 인덱스로 교체가 필요하다.
+// ═══ 캐릭터 배정 분포 집계 (2026-09-03) ═══
+// FACE_TRAIT_BASELINE을 재계산했지만, 그 계산은 "얼굴 특징이 각 카테고리에서 균등하게 나온다"는
+// 가정에 서 있다(trait-config.js 주석 참고). 실제 사람 얼굴에서 특정 옵션이 훨씬 자주 판정되면
+// 배정이 다시 한쪽으로 쏠린다 — 그걸 확인할 수 있는 유일한 실측 데이터가 인연도감 참여 기록의
+// characterId다. 시뮬레이션이 아니라 실제 이용자 분포를 보려고 만든 함수다.
+//
+// collectionGroup을 쓰는 이유: 참여 기록은 dogam/{slug}/entries/{uid}로 도감마다 흩어져 있다.
+// 클라이언트에서 같은 질의를 하면 firestore.rules가 막는다(entries의 read 규칙이 /dogam/{slug}
+// 아래로만 걸려 있어 컬렉션그룹 질의를 인가하지 않는다) — Admin SDK는 규칙을 우회하므로 서버에서만
+// 가능하다. 집계 결과라도 서비스 전체 현황이 드러나므로 관리자로 제한한다.
+exports.adminCharacterStats = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  let uid;
+  try { uid = (await admin.auth().verifyIdToken(idToken)).uid; }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+  if (!(await isAdmin(uid))) { res.status(403).json({ error: '관리자만 사용할 수 있습니다.' }); return; }
+
+  try {
+    const known = Object.keys(CHARACTER_TRAITS);
+    const counts = {};
+    known.forEach(id => { counts[id] = 0; });
+    const unknown = {};   // 지금 카탈로그에 없는 id — 군자상처럼 제거된 캐릭터가 옛 기록에 남아 있는 경우
+    let total = 0, missing = 0;
+
+    // 도감 주인 자신은 entries에 없으므로 dogam 문서의 ownerCharacterId도 함께 센다.
+    const owners = await db.collection('dogam').select('ownerCharacterId').get();
+    owners.forEach(doc => {
+      const id = (doc.data() || {}).ownerCharacterId;
+      if (!id) { missing++; return; }
+      total++;
+      if (counts[id] !== undefined) counts[id]++;
+      else unknown[id] = (unknown[id] || 0) + 1;
+    });
+
+    const entries = await db.collectionGroup('entries').select('characterId').get();
+    entries.forEach(doc => {
+      const id = (doc.data() || {}).characterId;
+      if (!id) { missing++; return; }
+      total++;
+      if (counts[id] !== undefined) counts[id]++;
+      else unknown[id] = (unknown[id] || 0) + 1;
+    });
+
+    // 많은 순으로 정렬해 비율까지 붙여 돌려준다 — 쏠림을 바로 읽을 수 있게.
+    const distribution = Object.keys(counts)
+      .map(id => ({ id, count: counts[id], pct: total ? Math.round(counts[id] / total * 1000) / 10 : 0 }))
+      .sort((a, b) => b.count - a.count);
+    const top = distribution[0] || null;
+
+    res.json({
+      ok: true,
+      total,                       // 집계에 쓴 판정 건수(도감 주인 + 참여 기록)
+      missingCharacterId: missing, // characterId가 비어 있던 기록 수
+      distribution,
+      unknownIds: unknown,         // 비어 있어야 정상. 값이 있으면 제거된 캐릭터가 옛 기록에 남아 있다는 뜻
+      maxShare: top ? top.pct : 0, // 이 값이 25%를 넘으면 베이스라인을 실제 분포로 다시 잡아야 한다
+      zeroCount: distribution.filter(d => d.count === 0).length,
+    });
+  } catch (e) {
+    console.error('adminCharacterStats 실패', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 exports.adminSearchUsers = onRequest({ cors: true }, async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
 

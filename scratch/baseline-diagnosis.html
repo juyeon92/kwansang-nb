@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>기질 베이스라인 진단</title>
+<style>
+body{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0f1716;color:#dfe8e6;padding:24px;font-size:12.5px;line-height:1.75;}
+h2{color:#55CCBB;font-size:14px;margin:20px 0 6px;border-bottom:1px solid #2c3836;padding-bottom:4px;}
+.ok{color:#7ee0b8;}.bad{color:#ff8b6b;}.warn{color:#e8c46a;}.dim{color:#7b8a87;}
+pre{white-space:pre-wrap;margin:0;}
+</style>
+<pre id="out">진단 중…</pre>
+<script>
+// FACE_TRAIT_BASELINE(기질별 z-score 기준값)이 실제 얼굴 판정이 만들어내는 raw 분포와 맞는지 본다.
+// 베이스라인이 실제 분포보다 낮으면 그 기질의 z-score가 부풀려지고, 그 기질을 쓰는 캐릭터가
+// 과다 배정된다. 사진 없이 코드만으로 확인할 수 있는 진단이다.
+const M={};
+async function load(n,p){const s=await (await fetch(p)).text();const m={exports:{}};
+  const require=q=>{const k=q.replace('./','').replace('.js','');if(!M[k])throw new Error('미로드 '+q);return M[k];};
+  new Function('module','exports','require',s)(m,m.exports,require);M[n]=m.exports;return m.exports;}
+const L=[];const H=t=>L.push(`\n<h2>${t}</h2>`);const P=(s,c)=>L.push(c?`<span class="${c}">${s}</span>`:s);
+
+(async()=>{
+try{
+  const TC=await load('trait-config','/functions/engine/trait-config.js');
+  const FTM=await load('face-trait-map','/functions/engine/face-trait-map.js');
+  const {TRAITS,FACE_TRAIT_BASELINE,FACE_CATEGORY_WEIGHT}=TC;
+  const {FACE_TRAIT_MAP}=FTM;
+  const KOT={lead:'주도력',strategy:'지략',drive:'실행력',social:'관계력',stability:'신뢰력',sense:'감각력'};
+  const cats=Object.keys(FACE_TRAIT_MAP).filter(c=>c!=='part_status'&&FACE_CATEGORY_WEIGHT[c]);
+
+  // 균등 무작위로 얼굴을 만들어 raw 기질값 분포를 구한다(character-engine의 가중평균과 같은 식).
+  let seed=2024;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  const N=40000;
+  const samples={};TRAITS.forEach(t=>samples[t]=[]);
+  for(let i=0;i<N;i++){
+    const sums={};TRAITS.forEach(t=>sums[t]=0);let tw=0;
+    cats.forEach(c=>{
+      const ks=Object.keys(FACE_TRAIT_MAP[c]);
+      const v=FACE_TRAIT_MAP[c][ks[Math.floor(rnd()*ks.length)]];
+      const w=FACE_CATEGORY_WEIGHT[c];
+      TRAITS.forEach(t=>sums[t]+=v[t]*w); tw+=w;
+    });
+    TRAITS.forEach(t=>samples[t].push(sums[t]/tw));
+  }
+  const stat=a=>{const m=a.reduce((s,x)=>s+x,0)/a.length;
+    return {mean:m,sd:Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/a.length)};};
+
+  H('FACE_TRAIT_BASELINE vs 실제 판정이 만들어내는 raw 분포');
+  P(`  균등 무작위 얼굴 ${N.toLocaleString()}건의 raw 기질값을 베이스라인과 비교한다.`,'dim');
+  P(`  ${'기질'.padEnd(8)} ${'베이스라인'.padEnd(20)} ${'실측 분포'.padEnd(20)} z-편차`,'dim');
+  const zshift={};
+  TRAITS.forEach(t=>{
+    const b=FACE_TRAIT_BASELINE[t], s=stat(samples[t]);
+    // 베이스라인 기준으로 실측 평균을 z로 환산 — 0이면 딱 맞고, 양수면 그 기질이 과대평가된다.
+    const z=(s.mean-b.mean)/b.stdev;
+    zshift[t]=z;
+    const flag=Math.abs(z)>1?'bad':Math.abs(z)>0.5?'warn':'ok';
+    P(`  ${KOT[t].padEnd(8)} mean ${b.mean.toFixed(4)} sd ${b.stdev.toFixed(4)}  mean ${s.mean.toFixed(4)} sd ${s.sd.toFixed(4)}  z ${z>=0?'+':''}${z.toFixed(2)}`,flag);
+  });
+  P(`\n  z-편차가 +면 그 기질 점수가 구조적으로 높게 나온다 → 그 기질을 쓰는 캐릭터가 과다 배정된다.`,'dim');
+
+  H('기질별 z-편차 순위 → 어떤 캐릭터가 유리해지나');
+  const CT=(await load('compatibility-engine','/functions/engine/compatibility-engine.js')).CHARACTER_TRAITS;
+  const KOC={JAESANG:'재상상',JANGGUN:'장군상',GUNWANG:'군왕상',SURYEONG:'수령상',GAEHYEOKGA:'개혁가상',CHAEKSA:'책사상',SASIN:'사신상',SEONBI:'선비상',HAKJA:'학자상',SANGDANJU:'상단주상',MUGWAN:'무관상',GAECHEOKJA:'개척자상',UIWON:'의원상',YEIN:'예인상',JANGIN:'장인상',GUNJA:'군자상'};
+  const ranked=TRAITS.slice().sort((a,b)=>zshift[b]-zshift[a]);
+  P(`  유리 → 불리: ${ranked.map(t=>`${KOT[t]}(${zshift[t]>=0?'+':''}${zshift[t].toFixed(2)})`).join('  ')}`,'warn');
+  const predict=Object.keys(CT).filter(id=>CT[id].length===2)
+    .map(id=>({id,sum:CT[id].reduce((s,t)=>s+zshift[t],0)})).sort((a,b)=>b.sum-a.sum);
+  P(`\n  두 축의 z-편차 합으로 예측한 배정 유리 순위:`,'dim');
+  predict.forEach((o,i)=>P(`    ${String(i+1).padStart(2)}. ${KOC[o.id].padEnd(7)} ${o.sum>=0?'+':''}${o.sum.toFixed(2)}`,i<2?'bad':i>=13?'dim':''));
+
+  H('진단');
+  const worst=ranked[0], best=ranked[ranked.length-1];
+  P(`  가장 부풀려진 기질: ${KOT[worst]} (z ${zshift[worst].toFixed(2)})`,'bad');
+  P(`  가장 눌린 기질: ${KOT[best]} (z ${zshift[best].toFixed(2)})`,'bad');
+  P(`  → 베이스라인의 mean이 실제 판정 분포와 어긋나 있어서, 특정 기질의 z-score가 항상 높게`,'warn');
+  P(`    나오고 그 기질을 쓰는 캐릭터가 배정을 독식한다. 사진을 더 모아도 이 어긋남 자체는 안 바뀐다.`,'warn');
+  P(`\n  ⚠️ 단서: 이 진단은 얼굴 특징을 "균등 무작위"로 뽑은 것이다. 실제 사람 얼굴에서 각 특징이`,'dim');
+  P(`     고르게 나오지 않는다면 실측 분포는 달라진다. 다만 어긋남의 크기(|z| > 1)가 커서,`,'dim');
+  P(`     특징 분포가 어지간히 치우쳐도 상쇄되기 어렵다.`,'dim');
+
+}catch(e){P('오류: '+e.message,'bad');P(String(e.stack||''),'dim');}
+document.getElementById('out').innerHTML=L.join('\n');
+})();
+</script>
