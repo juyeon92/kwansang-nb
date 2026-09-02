@@ -1077,6 +1077,12 @@ body.overlay-open { overflow: hidden; }
 .legal-footer-link { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; font-size: 12px; color: var(--text-sub2); }
 .legal-footer-link:hover { text-decoration: underline; }
 .legal-footer-sep { color: var(--text-sub2); }
+
+/* 사업자정보 표시 — .wrap 바깥이 아니라 안쪽 맨 끝(모든 .panel의 형제)에 둬서, 지금 활성화된 탭이
+   무엇이든 항상 보인다(.panel은 active가 아니면 display:none이라 그 안에 넣으면 그 탭에서만 보인다).
+   body의 padding-bottom(하단 네비+CTA독 몫)이 이미 화면 전체에 잡혀 있어 별도 여백 보정 없이도
+   하단 네비에 가리지 않는다. */
+.biz-footer { padding: 12px 0 4px; text-align: center; font-size: 11px; color: var(--text-sub2); }
 .legal-page { padding-top: 8px; }
 /* ══ 이용약관/개인정보처리방침(.legal-doc) — legal/*.html 내용을 그대로 인라인으로 옮겨왔다(사용자
    요청 2026-08-25: iframe으로 넣었더니 "다른 화면들은 iframe 외부에 스크롤이 있는데" — 다른 탭과
@@ -2494,6 +2500,10 @@ body.overlay-open { overflow: hidden; }
   <div class="panel" id="panel-nyanghistory"></div>
   <!-- 결제내역(js/pay-history.js) — 사용자 본인의 냥 지급·사용·구매 내역 -->
   <div class="panel" id="panel-payhistory"></div>
+
+  <!-- 사업자정보 표시 — 전자상거래법상 통신판매업자 표시 의무 최소 항목(상호·대표자·사업자등록번호)만
+       우선 넣어둔다. 통신판매업신고번호·주소·연락처는 발급/확정되는 대로 이어서 채운다. -->
+  <div class="biz-footer">관상냥반 · 대표 최주연 · 사업자등록번호 521-32-01773</div>
 
 </div><!-- /wrap -->
 
