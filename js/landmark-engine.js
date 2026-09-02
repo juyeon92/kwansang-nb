@@ -829,13 +829,20 @@ function classifyForeheadTypeRuleBased(lm) {
 // 해석돼 버려 아예 안 쓰인다, EYE_SIGNATURES의 tilt:0 항목들과 동일한 기존 관례). 그래서 EB_CRESCENT는
 // browTiltR 단일 축만 써서 이 오차의 영향을 최소화했다 — 실측 사진(아치가 뚜렷한 눈썹)으로 확인한 결과
 // 이 구성이 다른 5종보다 확실히 낮은 오차로 반달을 골라냈다(2026-08-14 재검증).
+// ⚠️ 2026-09-02 재보정 — 기획서/ 폴더 실사진 73장을 실측해보니 EYEBROW_SIGNATURES가 EYE_SHAPE/
+// NOSE_SIGNATURES(8/27 재보정)와 똑같은 문제를 갖고 있었다: EB_RAISED·EB_THIN의 browLenR 기준값
+// (1.05/1.10)이 실측 범위(1.43~1.71) 밖에 있었고, EB_THICK의 mgW(0.75)도 실측 범위(0.88~1.20) 밖이라
+// 사실상 뽑힐 수 없었다 — 73장 중 58장(79%)이 EB_TRIANGLE 하나로만 쏠렸다(인연도감 캐릭터 분포 점검
+// 중 발견: "지략+관계력" 조합 캐릭터가 73장 중 단 한 번도 안 나옴). EB_CRESCENT는 실측해보니 이미
+// 적당한 위치라 그대로 뒀고, 나머지 5종만 실측 백분위(browSlopeR/mgW/browLenR 각각 p10~p90)로
+// 재배치했다 — 상대 순서는 그대로 유지.
 const EYEBROW_SIGNATURES = {
-  EB_CRESCENT:  { browTiltR: -0.14 },                                // 반달 — 정점이 매끄럽게 솟은 아치만으로 판별
-  EB_RAISED:    { browSlopeR: -0.10, browLenR: 1.05 },               // 올라간·짧고 두꺼움 — 바깥쪽이 확 올라간 대각선
-  EB_DROOPY:    { browSlopeR:  0.08, mgW: 1.15 },                    // 처진·미간 넓음
-  EB_TRIANGLE:  { browSlopeR: -0.02, mgW: 1.00 },                    // 삼각·일자 — 기울기 거의 없음, 미간은 표준
-  EB_THICK:     { browSlopeR: -0.02, mgW: 0.75 },                    // 두꺼운·미간 좁음
-  EB_THIN:      { browSlopeR:  0.02, mgW: 0.95, browLenR: 1.10 },    // 가는 눈썹
+  EB_CRESCENT:  { browTiltR: -0.14 },                                 // 반달 — 정점이 매끄럽게 솟은 아치만으로 판별
+  EB_RAISED:    { browSlopeR: -0.023, browLenR: 1.525 },              // 올라간·짧고 두꺼움 — 바깥쪽이 확 올라간 대각선
+  EB_DROOPY:    { browSlopeR:  0.053, mgW: 1.099 },                   // 처진·미간 넓음
+  EB_TRIANGLE:  { browSlopeR: -0.002, mgW: 1.025 },                   // 삼각·일자 — 기울기 거의 없음, 미간은 표준
+  EB_THICK:     { browSlopeR: -0.002, mgW: 0.969 },                   // 두꺼운·미간 좁음
+  EB_THIN:      { browSlopeR:  0.023, mgW: 0.991, browLenR: 1.631 },  // 가는 눈썹
 };
 function classifyEyebrowTypeRuleBased(lm) {
   return nearestSignatureMatchWithConfidence(getGwansangRatios(lm), EYEBROW_SIGNATURES);
