@@ -28,7 +28,11 @@
 
   // feature: 'combined' | 'gungham' — 어떤 분석에 썼는지 Ledger의 note로 남는다.
   // relatedId: 있으면 어떤 리포트에 썼는지 추적용(현재는 아직 report_id가 차감 시점엔 없어 생략 가능).
-  // 반환: { ok:true, balance } | { ok:false, error, code }
+  // 반환: { ok:true, balance, ticketId } | { ok:false, error, code }
+  // ⚠️ ticketId는 functions/index.js analyzeCharacter가 요구하는 1회용 결제 증표다 — 차감이 끝났다고
+  // 곧바로 분석을 시작하지 말고, 반드시 이 ticketId를 CharacterAPI.analyzeCharacter 호출에 함께
+  // 실어 보내야 한다(js/ai-analysis.js CTX_CONFIG 참고). 그냥 잔액만 깎고 ticketId를 버리면 서버가
+  // "결제가 필요합니다"로 analyzeCharacter를 거절한다.
   async function spend(feature, relatedId) {
     if (!NYANG_SPEND_FUNCTION_URL) {
       // 배포 전 로컬 확인 단계 — 차감 없이 항상 통과시킨다(기존 GEMINI_PROXY_URL 미설정 시 패턴과 동일).
@@ -46,12 +50,13 @@
       const data = await res.json();
       if (!res.ok || !data.ok) return { ok: false, error: data.error || '냥 차감에 실패했어요.', code: data.code };
       cachedBalance = data.balance;
-      return { ok: true, balance: data.balance };
+      return { ok: true, balance: data.balance, ticketId: data.ticketId };
     } catch (e) {
       console.error('[wallet] 차감 요청 실패', e);
       return { ok: false, error: '네트워크 오류로 냥 차감에 실패했어요. 잠시 후 다시 시도해주세요.' };
     }
   }
+
 
   // ── 관리자 전용 — kakao-auth.js의 마이페이지 관리자 섹션에서만 호출된다 ──
   async function adminSearchUsers(q) {

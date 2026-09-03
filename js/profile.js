@@ -979,6 +979,10 @@
     if (!window.Wallet) return true; // wallet.js 로딩 실패 등 — 있을 수 없는 상황이라 막지 않고 통과
     const result = await Wallet.spend(feature);
     if (result.ok) {
+      // analyzeCharacter가 요구하는 1회용 결제 증표 — state[feature]에 걸어두면 CTX_CONFIG(js/ai-analysis.js)가
+      // 그대로 읽어서 analyzeCharacter 호출에 실어 보낸다(feature 이름이 state의 최상위 키와 같다:
+      // 'combined'→state.combined, 'gungham'→state.gungham).
+      if (state[feature]) state[feature].nyangTicketId = result.ticketId || null;
       showToast(result.skipped ? '분석을 시작합니다.' : '구매되었습니다.');
       return true;
     }

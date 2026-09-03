@@ -2392,7 +2392,9 @@ function renderArchetypesFallback(archetypeId, lm, fallbackReason, genderVal, pe
 // cardsId는 궁합 탭엔 부위별 카드 그리드가 없어서 실제로 안 쓰이지만(renderPartAdditions가 컨테이너를
 //못 찾으면 조용히 스킵), 나머지 컨텍스트와 동일한 형태를 유지하기 위해 값만 채워둔다.
 const CTX_CONFIG = {
-  gwansang: () => ({ canvasId:'gwansangCanvas', cardsId:'gwansangCards', archetypeId:'gwansangArchetype', shapeDetailId:'gwansangShapeDetails', deepReportId:'gwansangDeepReport', relVal:state.gwansang.relation, pillars:null, ohaeng:null, genderVal:gender }),
+  // feature: 'gwansang'은 NYANG_GATED_FEATURES(functions/index.js)에 없는 값이라 analyzeCharacter가
+  // 티켓 없이도 통과시킨다 — 관상보기 최초 1회 무료 판정은 원래부터 냥 차감 대상이 아니었다.
+  gwansang: () => ({ canvasId:'gwansangCanvas', cardsId:'gwansangCards', archetypeId:'gwansangArchetype', shapeDetailId:'gwansangShapeDetails', deepReportId:'gwansangDeepReport', relVal:state.gwansang.relation, pillars:null, ohaeng:null, genderVal:gender, feature:'gwansang' }),
   // shapeDetailId를 안 보이는 그릇으로 돌려, "부위별 생김새 유형" 블록이 전통 형상 카드(cmbArchetype)에
   // 붙지 않게 한다 — 그 내용은 이제 부위별 병합 카드(#cmbPartCards) 안에서만 보인다.
   // zone4TemperamentId/zone4HiddenSelfId/zone4AdviceId(2026-08-21 4차 개편) — index.html에 아직
@@ -2400,12 +2402,17 @@ const CTX_CONFIG = {
   // div를 추가하는 순간 바로 렌더링되니, 그때 이 id들과 이름을 맞추면 된다.
   // partDeepDiveId/sinsalReadingId(2026-08-21 추가) — 관상 부위별 상세해설·신살종합풀이는 관상탭·
   // 사주탭에서 이미 AI에게 요청하고 있었지만 통합분석에는 담을 그릇이 없어 매번 버려지고 있었다.
-  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', partDeepDiveId:'cmbPartDeepDive', deepReportId:null, zone2ReviewId:'cmbZone2Review', zone2CommonDiffId:'cmbZone2CommonDiff', sinsalReadingId:'cmbSinsalReading', zone3Reading1Id:'cmbZone3Reading1', zone2OhaengReadingId:'cmbZone2OhaengReading', zone3Reading3Id:'cmbZone3Reading3', zone4Card1Id:'cmbZone4Card1', zone4TemperamentId:'cmbZone4Temperament', zone4HiddenSelfId:'cmbZone4HiddenSelf', zone4AdviceId:'cmbZone4Advice', zone4CardsId:'cmbZone4Cards', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender }),
+  // feature/ticketId — analyzeCharacter가 냥 결제를 확인하는 데 쓴다(profile.js chargeNyangOrAlert가
+  // 차감 직후 state.combined.nyangTicketId에 써둔 값을 그대로 읽는다). 없으면(=결제를 안 거쳤으면)
+  // 서버가 402로 거절한다.
+  combined: () => ({ canvasId:'combinedCanvas', cardsId:'cmbGwansangCards', archetypeId:'cmbArchetype', shapeDetailId:'cmbShapeDetailsSink', partCardsId:'cmbPartCards', partDeepDiveId:'cmbPartDeepDive', deepReportId:null, zone2ReviewId:'cmbZone2Review', zone2CommonDiffId:'cmbZone2CommonDiff', sinsalReadingId:'cmbSinsalReading', zone3Reading1Id:'cmbZone3Reading1', zone2OhaengReadingId:'cmbZone2OhaengReading', zone3Reading3Id:'cmbZone3Reading3', zone4Card1Id:'cmbZone4Card1', zone4TemperamentId:'cmbZone4Temperament', zone4HiddenSelfId:'cmbZone4HiddenSelf', zone4AdviceId:'cmbZone4Advice', zone4CardsId:'cmbZone4Cards', relVal:state.combined.relation, pillars:state.combined.pillars, ohaeng:state.combined.ohaeng, genderVal:cmbGender, feature:'combined', ticketId:state.combined.nyangTicketId }),
   // personLabel: "당신" 대신 실제 이름 사용. hideShapeDetails: 궁합 탭 Zone1에선 "🧩 부위별 생김새
   // 유형"을 아예 안 보여주기로 함(사용자 요청 2026-08-20) — shapeDetailId 싱크도 안 주고 shapeIds 자체를
   // 호출부에서 null로 넘기게 하는 플래그.
-  gunghamA: () => ({ canvasId:'gunghamCanvasA', cardsId:'ggPersonAGwansang', archetypeId:'ggArchetypeA', deepReportId:null, hideShapeDetails:true, personLabel: state.gunghamA.name ? state.gunghamA.name+'님' : '당신', relVal:'연인/배우자', pillars:state.gunghamA.pillars, ohaeng:state.gunghamA.ohaeng, genderVal:ggGenderA }),
-  gunghamB: () => ({ canvasId:'gunghamCanvasB', cardsId:'ggPersonBGwansang', archetypeId:'ggArchetypeB', deepReportId:null, hideShapeDetails:true, personLabel: state.gunghamB.name ? state.gunghamB.name+'님' : '당신', relVal:'연인/배우자', pillars:state.gunghamB.pillars, ohaeng:state.gunghamB.ohaeng, genderVal:ggGenderB }),
+  // 궁합보기는 냥 1회 차감으로 나/상대방 두 사람을 판정해야 해서, 티켓은 state.gungham(전용 state.gunghamA/B가
+  // 아니라)에 걸린 것 하나를 A·B 호출이 함께 쓴다(nyangSpend가 feature='gungham'엔 remainingUses:2를 준다).
+  gunghamA: () => ({ canvasId:'gunghamCanvasA', cardsId:'ggPersonAGwansang', archetypeId:'ggArchetypeA', deepReportId:null, hideShapeDetails:true, personLabel: state.gunghamA.name ? state.gunghamA.name+'님' : '당신', relVal:'연인/배우자', pillars:state.gunghamA.pillars, ohaeng:state.gunghamA.ohaeng, genderVal:ggGenderA, feature:'gungham', ticketId:state.gungham.nyangTicketId }),
+  gunghamB: () => ({ canvasId:'gunghamCanvasB', cardsId:'ggPersonBGwansang', archetypeId:'ggArchetypeB', deepReportId:null, hideShapeDetails:true, personLabel: state.gunghamB.name ? state.gunghamB.name+'님' : '당신', relVal:'연인/배우자', pillars:state.gunghamB.pillars, ohaeng:state.gunghamB.ohaeng, genderVal:ggGenderB, feature:'gungham', ticketId:state.gungham.nyangTicketId }),
 };
 
 // ═══ 관상 AI 분류 결과 캐시 / 공유 ═══
@@ -2978,6 +2985,10 @@ async function classifyAndBuildCharacter(ctx, cfg, lm) {
     sinsalList: cfg.pillars ? collectSajuInsightSummary(cfg.pillars).sinsalList : null,
     gwiinList: cfg.pillars ? collectSajuInsightSummary(cfg.pillars).gwiinList : null,
     hasHour: cfg.pillars ? cfg.pillars[3].stem >= 0 : false,
+    // 유료 기능(combined/gungham)인지, 결제 티켓이 있는지 — 서버가 이걸로 무료 우회를 막는다
+    // (functions/index.js analyzeCharacter의 NYANG_GATED_FEATURES 참고).
+    feature: cfg.feature || null,
+    ticketId: cfg.ticketId || null,
   });
   // CHARACTER_DB도 마찬가지로 빈 캐시라, 호출부가 renderCharacterCard/renderCharacterDetail 등을
   // 곧바로 부를 수 있도록 반환하기 전에 채워둔다.

@@ -139,10 +139,18 @@ async function isAdmin(uid) {
   return snap.exists && snap.data().role === 'admin';
 }
 
+// feature별로 이 요청 하나가 최종적으로 몇 번의 analyzeCharacter 호출을 정당하게 커버하는지 —
+// 궁합보기는 나/상대방 두 사람 얼굴을 각각 판정해야 해서(js/app.js runGungham) 1회 차감으로 2번까지 허용한다.
+const NYANG_FEATURE_ANALYSIS_USES = { combined: 1, gungham: 2 };
+
 // ═══ 통합분석/궁합보기 1회 사용 = 냥 1 차감 (기획서 §3.2) ═══
-// 잔액 확인 → 차감 → (프론트가 이어서) 분석 실행 순서를 지키기 위해, 이 함수가 성공 응답을 줘야만
-// 프론트가 실제 분석을 시작한다. 트랜잭션 안에서 잔액을 다시 읽고 확인하므로 중복 클릭·동시 요청에도
-// 잔액이 음수로 내려가지 않는다(Firestore 트랜잭션의 낙관적 동시성 제어가 DB의 row lock 역할을 한다).
+// ⚠️ 2026-09-03 보안 수정 — 예전엔 이 함수가 잔액만 깎고, 그 뒤에 프론트가 "알아서" analyzeCharacter를
+// 불러주는 걸 신뢰하는 구조였다. 즉 로그인만 돼 있으면(비로그인도 익명 로그인으로 무료) 개발자 도구로
+// analyzeCharacter Cloud Function URL에 직접 POST하는 사람은 nyangSpend를 아예 건너뛰고 무제한
+// 공짜로 캐릭터 판정을 받을 수 있었다 — 두 함수가 서로 독립적이라 클라이언트가 순서를 지킨다는
+// 보장이 전혀 없었기 때문. 이제 이 함수는 잔액을 깎는 동시에 1회용 티켓(analysisTickets)을 발급하고,
+// analyzeCharacter는 그 티켓이 없거나 이미 소진됐으면 결과를 계산하지 않고 거절한다(아래 analyzeCharacter
+// 참고) — "결제 없이 엔드포인트만 직접 호출"하는 우회 경로 자체를 없앤다.
 exports.nyangSpend = onRequest({ cors: true }, async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
 
@@ -158,6 +166,7 @@ exports.nyangSpend = onRequest({ cors: true }, async (req, res) => {
 
   const walletRef = db.collection('wallets').doc(uid);
   const ledgerRef = db.collection('nyangLedger').doc();
+  const ticketRef = db.collection('analysisTickets').doc();
   try {
     const balance = await db.runTransaction(async (tx) => {
       const snap = await tx.get(walletRef);
@@ -173,9 +182,13 @@ exports.nyangSpend = onRequest({ cors: true }, async (req, res) => {
         userId: uid, type: 'spend', amount: -1, balanceAfter: next,
         relatedId, note: feature, createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      tx.set(ticketRef, {
+        uid, feature, remainingUses: NYANG_FEATURE_ANALYSIS_USES[feature] || 1,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
       return next;
     });
-    res.json({ ok: true, balance });
+    res.json({ ok: true, balance, ticketId: ticketRef.id });
   } catch (e) {
     if (e.code === 'INSUFFICIENT_BALANCE') {
       res.status(402).json({ ok: false, error: e.message, code: e.code });
@@ -186,21 +199,49 @@ exports.nyangSpend = onRequest({ cors: true }, async (req, res) => {
   }
 });
 
+// feature가 이 목록에 있으면 유료 기능 — nyangSpend가 발급한 유효한 티켓 없이는 절대 계산해주지 않는다.
+// 목록에 없는 feature(예: 'gwansang' 관상보기 최초 1회 무료 판정)는 지금까지처럼 티켓 없이 통과시킨다.
+const NYANG_GATED_FEATURES = new Set(['combined', 'gungham']);
+
 // ═══ 16캐릭터 판정 (2026-08-30 DB 이원화 1단계) ═══
 // 관상×사주 판단 가중치·공식(engine/character-engine.js)이 브라우저 소스에 그대로 노출되던 문제를
 // 막기 위해, 판정 자체를 서버로 옮겼다 — 클라이언트(js/ai-analysis.js classifyAndBuildCharacter)는
 // 분류된 feature id·confidence·사주 정보만 보내고, 계산된 결과만 돌려받는다.
-// nyangSpend와 같은 인증 방식을 쓴다 — 이 판정은 냥 차감 직후에만 호출되므로 로그인(익명 포함)
-// 세션이 이미 있는 상태다.
+// ⚠️ 2026-09-03 보안 수정 — "로그인만 하면(익명 포함) 통과"였던 인증만으로는, 개발자 도구로 이
+// 함수 URL에 직접 요청을 보내 nyangSpend를 건너뛰고 무제한 공짜 판정을 받는 걸 막을 수 없었다
+// (nyangSpend 주석 참고). combined/gungham처럼 유료인 feature는 이제 nyangSpend가 발급한 1회용
+// 티켓(analysisTickets)을 요청에 함께 보내야 하고, 서버가 그 티켓을 트랜잭션으로 검증·소진한 뒤에만
+// 계산을 시작한다 — 티켓이 없거나 이미 다 썼으면 계산 자체를 하지 않고 거절한다.
 exports.analyzeCharacter = onRequest({ cors: true }, async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
 
   const idToken = getBearerToken(req);
   if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
-  try { await admin.auth().verifyIdToken(idToken); }
+  let uid;
+  try { uid = (await admin.auth().verifyIdToken(idToken)).uid; }
   catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
 
-  const { featureIds, confidences, partStatusMap, pillars, ohaengCounts, sinsalList, gwiinList, hasHour } = req.body || {};
+  const { featureIds, confidences, partStatusMap, pillars, ohaengCounts, sinsalList, gwiinList, hasHour, feature, ticketId } = req.body || {};
+
+  if (NYANG_GATED_FEATURES.has(feature)) {
+    if (!ticketId) { res.status(402).json({ ok: false, error: '결제가 필요합니다.', code: 'PAYMENT_REQUIRED' }); return; }
+    const ticketRef = db.collection('analysisTickets').doc(ticketId);
+    try {
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ticketRef);
+        if (!snap.exists) { const err = new Error('유효하지 않은 결제 정보예요.'); err.code = 'PAYMENT_REQUIRED'; throw err; }
+        const t = snap.data();
+        if (t.uid !== uid || t.feature !== feature || !(t.remainingUses > 0)) {
+          const err = new Error('결제가 필요합니다.'); err.code = 'PAYMENT_REQUIRED'; throw err;
+        }
+        tx.update(ticketRef, { remainingUses: t.remainingUses - 1, lastUsedAt: admin.firestore.FieldValue.serverTimestamp() });
+      });
+    } catch (e) {
+      res.status(402).json({ ok: false, error: e.message, code: e.code || 'PAYMENT_REQUIRED' });
+      return;
+    }
+  }
+
   try {
     const characterResult = computeCharacterResult({
       featureIds: featureIds || null,

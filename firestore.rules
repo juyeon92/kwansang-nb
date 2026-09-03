@@ -25,6 +25,12 @@ service cloud.firestore {
       // 기획서 스코프상 별도 조회 화면이 없음 — 필요하면 Firebase 콘솔에서 직접 조회.
       allow read, write: if false;
     }
+    // 유료 분석(통합분석/궁합보기) 1회용 티켓 — nyangSpend가 발급하고 analyzeCharacter가 소진한다
+    // (둘 다 Admin SDK, 이 규칙을 우회). 클라이언트가 remainingUses를 직접 늘려쓰면 결제 없이
+    // 무제한 분석을 받게 되므로 읽기·쓰기 전부 막는다.
+    match /analysisTickets/{ticketId} {
+      allow read, write: if false;
+    }
     // 관리자 여부만 담는 별도 문서 — users/{uid}에 role 필드를 두면 "본인 문서 자유 쓰기" 규칙 때문에
     // 누구나 스스로 admin으로 바꿀 수 있어 여기로 분리했다. 이 문서 자체는 클라이언트가 절대 못 쓰고
     // (Firebase 콘솔에서 수동 생성/수정), 자기 것만 읽어서 "관리자 지급 화면을 보여줄지" 판단하는 용도.
