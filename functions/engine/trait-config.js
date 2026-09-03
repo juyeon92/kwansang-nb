@@ -44,13 +44,22 @@ const SAJU_MODIFIER_CAP_TOTAL = 12;
 const TIEBREAK_PRIORITY = ['face_archetype', 'eye_archetype', 'face_shape', 'eye_shape', 'eyebrow', 'nose', 'mouth', 'chin', 'forehead', 'saju'];
 const TIEBREAK_EPSILON = 3;
 
+// ⚠️ 2026-09-03 재도출 — js/landmark-engine.js의 이마/눈썹/눈크기/코/입/턱/얼굴형/동물상 8개 분류기를
+// "목표값 최근접" 방식에서 "실측 백분위 매칭" 방식으로 전면 개편하면서 함께 다시 계산했다. 분류기
+// 출력값이 통째로 바뀌었는데 이 baseline을 예전 그대로 두면, baseline 자체가 옛 분류기의 버그투성이
+// 출력 분포에 맞춰져 있던 탓에 특정 트레잇(특히 관계력)으로 쏠리는 새 회귀가 생겼다(73장 시뮬레이션:
+// 관계력 73장 중 53장=73%). 아래 값은 새 분류기 + confidence 배율 1.0(위 nearestSignatureMatchWithConfidencePct
+// 주석 참고)으로 기획서/ 폴더 실사진 73장을 다시 돌려 나온 6개 트레잇 원점수(raw)의 평균/표준편차다 —
+// "새 분류기가 실제로 뭘 내놓는지"에 baseline을 맞춘 것이라, 8개 분류기나 confidence 배율 중 하나라도
+// 다시 바뀌면 이 값도 함께 재도출해야 한다. 결과 검증: 16캐릭터 전부 등장, 최대 쏠림 15.1%,
+// 9개 카테고리 전부 confidence 미달인 사진 73장 중 1장(1.4%, 개편 전과 동일 수준).
 const FACE_TRAIT_BASELINE = {
-  lead:      { mean: 0.2430, stdev: 0.0763 },
-  strategy:  { mean: 0.3869, stdev: 0.1246 },
-  drive:     { mean: 0.2448, stdev: 0.1039 },
-  social:    { mean: 0.1725, stdev: 0.0650 },
-  stability: { mean: 0.3209, stdev: 0.0768 },
-  sense:     { mean: 0.1051, stdev: 0.0419 },
+  lead:      { mean: 0.2224, stdev: 0.0888 },
+  strategy:  { mean: 0.1966, stdev: 0.1066 },
+  drive:     { mean: 0.2308, stdev: 0.1147 },
+  social:    { mean: 0.2985, stdev: 0.1261 },
+  stability: { mean: 0.2981, stdev: 0.1144 },
+  sense:     { mean: 0.2159, stdev: 0.1433 },
 };
 const SAJU_TRAIT_BASELINE = {
   lead:      { mean: 0.1240, stdev: 0.0242 },
