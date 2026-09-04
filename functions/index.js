@@ -18,6 +18,64 @@ const db = admin.firestore();
 // 값 설정: firebase functions:secrets:set GEMINI_API_KEYS  (예: key1,key2,key3)
 const geminiApiKeys = defineSecret('GEMINI_API_KEYS');
 
+// 서비스 커스텀 도메인 — 카카오톡 등에 공유됐을 때 미리보기 카드가 실제로 이동시킬 주소의 기준이 된다.
+const SITE_URL = 'https://kwansang-nb.com';
+
+// ═══ 인연도감 공유 미리보기 (2026-09-04) ═══
+// index.html은 정적 SPA라 <meta og:*> 태그가 고정돼 있어서, 누가 공유하든 카카오톡 미리보기가 항상
+// "관상냥반"이라는 똑같은 제목으로만 떴다(사용자 리포트: "다른 서비스는 공유자 이름이 같이 나가는데
+// 우리는 그냥 관상냥반이라고만 나간다"). 카카오톡의 링크 미리보기 크롤러는 자바스크립트를 실행하지
+// 않고 응답 HTML의 <meta> 태그만 그대로 읽기 때문에, 클라이언트 스크립트로 제목을 바꾸는 방식으론
+// 원천적으로 해결이 안 된다 — 사람마다 다른 og 태그를 내려주는 서버 응답이 별도로 있어야 한다.
+//
+// 그래서 공유 링크 자체를 이 함수 주소로 바꾼다. 이 함수는 slug로 dogam 문서를 찾아 그 사람의
+// ownerName·ownerCharacterId로 og:title/og:description/og:image를 채운 HTML을 돌려주고,
+// 실제 사람이 그 링크를 클릭하면(크롤러가 아니라) 곧바로 진짜 서비스 페이지(index.html?dogam=slug)로
+// 넘겨준다(meta refresh + JS redirect 이중 처리 — 리다이렉트를 안 따라가는 크롤러도 있어서 meta 태그는
+// 항상 정확한 값으로 응답 본문에 있어야 한다).
+// ownerName은 js/inyeon-dogam.js share()가 이미 "로그인이면 대표 프로필 이름, 비로그인이면 공유
+// 시점에 물어보는 닉네임"으로 정확히 채워서 저장해둔 값이라(dogam.ownerName), 이 함수는 그 값을
+// 그대로 읽기만 하면 된다 — 이름을 결정하는 로직 자체는 새로 만들 필요가 없었다.
+exports.dogamSharePreview = onRequest({ cors: true }, async (req, res) => {
+  const slug = (req.query && req.query.slug) || '';
+  const redirectUrl = slug ? `${SITE_URL}/?dogam=${encodeURIComponent(slug)}` : SITE_URL;
+
+  let ownerName = '';
+  let ownerCharacterId = '';
+  if (slug) {
+    try {
+      const snap = await db.collection('dogam').doc(slug).get();
+      if (snap.exists) {
+        ownerName = snap.data().ownerName || '';
+        ownerCharacterId = snap.data().ownerCharacterId || '';
+      }
+    } catch (e) {
+      console.error('[dogamSharePreview] 조회 실패', e);
+    }
+  }
+
+  const title = ownerName ? `${ownerName}님의 인연도감` : '관상냥반 인연도감';
+  const description = '내 사진 한 장으로 나만의 관상 캐릭터를 만나보세요. 인연도감에서 나와 주변 사람들의 인연도 확인할 수 있어요.';
+  // 캐릭터 일러스트가 있으면 그 사람 전용 이미지로, 없으면 기본 로고로 — images/{characterId}.png는
+  // character-db.js의 16개 캐릭터 ID와 1:1로 이미 존재하는 파일들이다.
+  const image = `${SITE_URL}/images/${ownerCharacterId ? encodeURIComponent(ownerCharacterId) : 'Logo'}.png`;
+
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="ko"><head>
+<meta charset="utf-8">
+<title>${esc(title)}</title>
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:image" content="${esc(image)}">
+<meta property="og:url" content="${esc(redirectUrl)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta http-equiv="refresh" content="0; url=${esc(redirectUrl)}">
+<script>location.replace(${JSON.stringify(redirectUrl)});</script>
+</head><body>이동 중이에요...</body></html>`);
+});
+
 exports.kakaoLogin = onRequest({ cors: true }, async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'POST만 허용됩니다.' });

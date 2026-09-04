@@ -47,3 +47,9 @@ const GET_COMPATIBILITY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfun
 // 클라이언트는 세션당 한 번만 받아 캐시한다(js/character-api.js의 ensureArchetypeCatalog/ensureCharacterCatalog).
 const GET_ARCHETYPE_CATALOG_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/getArchetypeCatalog';
 const GET_CHARACTER_CATALOG_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/getCharacterCatalog';
+
+// ═══ 인연도감 공유 미리보기 함수 URL (2026-09-04) ═══
+// 카카오톡 등에 공유됐을 때 "관상냥반"이라는 고정 제목 대신 "{이름}님의 인연도감"이 뜨도록,
+// js/inyeon-dogam.js shareUrl()이 실제 서비스 주소 대신 이 함수 주소를 공유 링크로 쓴다.
+// firebase deploy 후 비어 있으면 shareUrl()이 예전처럼 서비스 주소를 그대로 쓴다(폴백).
+const DOGAM_SHARE_PREVIEW_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/dogamSharePreview';
