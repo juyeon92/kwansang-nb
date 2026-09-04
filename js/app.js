@@ -708,7 +708,25 @@ async function startAnalysis(ctx) {
     // 쳐서 503 등 API 장애가 그대로 사용자에게 "AI 리포트 생성 실패" 문구로 노출되는 문제가 있었다.
     // 장문 해설은 고정 템플릿 하네스(별도 전달 예정)로 교체될 때까지 이 탭에서는 아예 호출하지 않는다.
     setSpinner(m.spinner, '관상 분석중~');
-    await requestPersonalAi('gwansang');
+    // ⚠️ 버그 수정(2026-09-03 사용자 리포트: "비로그인으로 인연도감 만들려고 얼굴 넣으면 분석중만
+    // 뜨고 안 끝남") — requestPersonalAi가 안에서 부르는 CharacterAPI(character-api.js)는 캐릭터
+    // 판정 데이터를 Cloud Functions에서 받아오는데 Firebase ID 토큰이 필수다(2026-08-30 DB 이원화).
+    // 인연도감은 원래 비로그인으로도 쓸 수 있는 탭이라 로그인 안 한 사람은 fbAuth.currentUser가
+    // 없어 토큰 자체가 없고, 그러면 여기서 예외가 터져 try/catch 없이 곧장 빠져나가면서 바로 아래
+    // hideSpinner까지 건너뛰어 "분석중" 화면에 멈춰있던 것이었다. 도감 등록/공유 시에만 쓰던 익명
+    // 인증 발급을 여기서도 먼저 해서 최소한 익명 uid라도 확보해두고, 그래도 실패하면(네트워크 등)
+    // 화면에 갇히는 대신 에러를 보여주고 스피너를 확실히 끈다.
+    if (window.Dogam && Dogam.ensureAuthUid) {
+      try { await Dogam.ensureAuthUid(); } catch (e) { console.error('[startAnalysis] 익명 인증 실패', e); }
+    }
+    try {
+      await requestPersonalAi('gwansang');
+    } catch (e) {
+      console.error('[startAnalysis] 관상 분석 실패', e);
+      hideSpinner(m.spinner);
+      showErr(m.err, '분석 중 오류가 발생했어요. 다시 시도해주세요.');
+      return;
+    }
     hideSpinner(m.spinner);
     document.getElementById('gwansangResult').classList.remove('hidden');
     markAnalyzed('gwansang');

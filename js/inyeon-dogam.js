@@ -1206,6 +1206,12 @@
     // 창구(사용자 정책: "원본은 하나여야 해"). ensureMyDogam은 로그인/비로그인 양쪽 다 처리하고
     // SLUG_KEY 캐시까지 갖고 있어 archive.js가 새로 구현할 필요 없이 그대로 재사용할 수 있다.
     ensureMyDogam: ensureMyDogam,
+    // ⚠️ 버그 수정(2026-09-03 사용자 리포트: "비로그인으로 인연도감 만들려고 얼굴 넣으면 분석중만
+    // 뜨고 안 끝남") — character-api.js가 캐릭터 판정 데이터를 서버(Cloud Functions)에서 받아오는데,
+    // 그 호출이 Firebase ID 토큰을 필수로 요구한다(로그인 안 한 사용자는 fbAuth.currentUser가 없어
+    // 토큰 자체가 없음). 이 함수(원래 도감 등록/공유 시에만 쓰던 익명 인증 발급)를 startAnalysis가
+    // 얼굴 분석 직후·캐릭터 판정 직전에도 불러 최소한 익명 uid라도 먼저 만들어두게 한다.
+    ensureAuthUid: ensureAuthUid,
     _score: compatScore, _policy: DOGAM_POLICY,
   };
 })();
