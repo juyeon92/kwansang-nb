@@ -920,48 +920,48 @@
     document.body.classList.remove('overlay-open');
   }
 
-  // ⚠️ 사용자 리포트(2026-09-04): "비로그인으로 만든 도감이 로그인된 도감에 머지되면서 사라진 것
-  // 같다" — 예전 서버 로직(settleDogamForUid)은 로그인 시 계정 밑에 도감이 2개 이상 남으면 캐릭터가
-  // 같든 다르든 무조건 하나만 남기고 나머지를 완전히 지웠다. 지금은 캐릭터가 같으면 서버가 참여
-  // 기록을 합쳐서 유실 없이 정리하고(notifyDogamMerged로 안내), 캐릭터가 다르면 자동으로 아무것도
-  // 지우지 않고 그대로 둔 채 kakaoLogin 응답에 실어 보낸다 — 여기서 그 목록을 받아 사용자가 직접
-  // 대표 도감을 고르게 한다(정책 §3). 고르지 않고 닫아도 두 도감 다 그대로 남는다.
-  function conflictCardHtml(label, characterId, ownerName, entryCount, actionsHtml) {
-    const ch = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[characterId]) || null;
-    const img = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(characterId) : '';
+  // ⚠️ 정책 개편(인연도감 서비스 정책.md 3장, 2026-09-05 — "대표 도감" 개념 폐기) — 예전엔 캐릭터가
+  // 다른 도감이 충돌하면 자동으로 고른 도감을 "대표"로 쓰고 나머지는 "비대표"로 접어서 계속 남겨뒀다
+  // (골라도 삭제되지 않고, 안 골라도 그대로 남는 방식). 이제는 계정당 도감이 항상 정확히 1개여야
+  // 한다 — 후보 도감(지금 쓰고 있는 myDogam 포함) 전부를 동등한 선택지로 보여주고, 사용자가 하나를
+  // 고르면 그 즉시 나머지는 완전히 삭제한다. 캐릭터가 같은 도감은 여기까지 오지 않는다(서버가
+  // settleDogamForUid에서 이미 자동 병합 — notifyDogamMerged로 안내). 캐릭터가 다른 경우에만
+  // kakaoLogin 응답의 dogamConflicts에 실려 여기로 온다.
+  let conflictCandidates = null; // 지금 화면에 떠 있는 선택지의 slug 전체 — 하나를 고르면 나머지를 지우는 데 쓴다
+  function conflictCardHtml(c) {
+    const ch = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[c.ownerCharacterId]) || null;
+    const img = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(c.ownerCharacterId) : '';
     return '' +
       '<div class="dogam-row" style="cursor:default;">' +
         '<img class="dogam-row-thumb" src="' + esc(img) + '" alt="' + esc(ch ? ch.name : '') + '">' +
         '<div class="dogam-row-body">' +
-          '<div class="dogam-row-name">' + esc(label) + '<span class="dogam-row-tag">' + esc(ch ? ch.name : '') + '</span></div>' +
-          '<div class="dogam-row-desc">' + esc((ownerName || '') + ' · 인연 ' + entryCount + '명') + '</div>' +
+          '<div class="dogam-row-name">' + esc(c.ownerName || '') + '<span class="dogam-row-tag">' + esc(ch ? ch.name : '') + '</span></div>' +
+          '<div class="dogam-row-desc">' + esc('인연 ' + c.entryCount + '명') + '</div>' +
         '</div>' +
       '</div>' +
-      '<div style="display:flex; align-items:center; gap:8px; margin:8px 0 16px 50px;">' + actionsHtml + '</div>';
+      '<div style="margin:8px 0 16px 50px;">' +
+        '<button type="button" class="submit-btn" style="padding:8px 14px;font-size:13px;width:auto;" onclick="Dogam.chooseDogam(\'' + esc(c.slug) + '\')">이 도감으로 계속 쓰기</button>' +
+      '</div>';
   }
+  // ⚠️ 이 화면은 의도적으로 닫을 수 없다(overlay-close 버튼도, backdrop onclick도 없음) — 정책
+  // 문서가 "반드시 하나 고를 때까지 모달 유지"로 확정했기 때문. 골라야만 다음으로 넘어간다.
   function showDogamConflict(conflicts) {
     if (!conflicts || !conflicts.length || !myDogam) return;
     closeDogamConflict();
+    const candidates = [{ slug: myDogam.slug, ownerCharacterId: myDogam.ownerCharacterId, ownerName: myDogam.ownerName, entryCount: (myDogam.entries || []).length }]
+      .concat(conflicts.map(function (c) { return { slug: c.slug, ownerCharacterId: c.ownerCharacterId, ownerName: c.ownerName, entryCount: c.entryCount }; }));
+    conflictCandidates = candidates.map(function (c) { return c.slug; });
     const root = document.createElement('div');
     root.id = 'dogamConflictRoot';
-    const keeperCard = conflictCardHtml('지금 대표 도감', myDogam.ownerCharacterId, myDogam.ownerName, (myDogam.entries || []).length,
-      '<span style="font-size:12px;color:var(--text-sub);">지금 쓰고 있는 도감이에요</span>');
-    const otherCards = conflicts.map(function (c) {
-      return conflictCardHtml('다른 인연도감', c.ownerCharacterId, c.ownerName, c.entryCount,
-        '<button type="button" class="submit-btn" style="padding:8px 14px;font-size:13px;width:auto;" onclick="Dogam.chooseDogamAsPrimary(\'' + esc(c.slug) + '\')">이 도감을 대표로 두기</button>' +
-        '<button type="button" class="revisit-del" title="삭제" onclick="Dogam.discardConflictDogam(\'' + esc(c.slug) + '\')"><span class="material-symbols-outlined">close</span></button>'
-      );
-    }).join('');
     root.innerHTML = '' +
-      '<div class="overlay-backdrop" onclick="Dogam.closeDogamConflict()"></div>' +
+      '<div class="overlay-backdrop"></div>' +
       '<div class="form-popup">' +
         '<div class="popup-header">' +
-          '<span>인연도감이 두 개 있어요</span>' +
-          '<button class="overlay-close" onclick="Dogam.closeDogamConflict()"><span class="material-symbols-outlined">close</span></button>' +
+          '<span>인연도감이 여러 개 있어요</span>' +
         '</div>' +
         '<div class="popup-body">' +
-          '<p class="dogam-guide">전에 다른 곳에서 만든 인연도감을 캐릭터가 서로 달라서 자동으로 합치지 못했어요. 어느 걸 계속 쓸지 골라주세요 — 고르지 않아도 둘 다 그대로 남아있어요.</p>' +
-          keeperCard + otherCards +
+          '<p class="dogam-guide">다른 기기·브라우저에서 이미 만든 인연도감이 있어요. 계정에는 인연도감을 하나만 둘 수 있어서, 계속 쓸 도감을 하나 골라주세요. 고르지 않은 도감은 완전히 삭제되고 되돌릴 수 없어요.</p>' +
+          candidates.map(conflictCardHtml).join('') +
         '</div>' +
       '</div>';
     document.body.appendChild(root);
@@ -972,34 +972,30 @@
     if (root) root.remove();
     document.body.classList.remove('overlay-open');
   }
-  async function chooseDogamAsPrimary(slug) {
+  // 고른 도감만 남기고 나머지는 이 자리에서 바로 지운다 — deleteMyDogam()과 같은 순서(entries
+  // 전부 삭제 후 도감 문서 삭제)를 후보 전체에 반복 적용한다. 확인창을 따로 두지 않는 이유는
+  // showDogamConflict의 안내 문구에 "고르지 않은 도감은 완전히 삭제된다"를 이미 명시해뒀기 때문
+  // (또 한 번 confirm을 띄우면 "골랐는데 왜 또 물어보나"는 혼란만 준다).
+  async function chooseDogam(chosenSlug) {
     const uid = currentUid();
-    if (!uid || !window.fbDb) return;
+    if (!uid || !window.fbDb || !conflictCandidates) return;
+    const others = conflictCandidates.filter(function (s) { return s !== chosenSlug; });
     try {
-      await fbDb.collection('users').doc(uid).set({ dogamSlug: slug }, { merge: true });
-      localStorage.setItem(SLUG_KEY, slug);
-      myDogam = null; // 다음 render()가 새 대표 도감을 새로 읽도록 캐시를 비운다
+      await fbDb.collection('users').doc(uid).set({ dogamSlug: chosenSlug }, { merge: true });
+      localStorage.setItem(SLUG_KEY, chosenSlug);
+      for (const slug of others) {
+        const ref = fbDb.collection('dogam').doc(slug);
+        const entriesSnap = await ref.collection('entries').get();
+        for (const d of entriesSnap.docs) await d.ref.delete();
+        await ref.delete();
+      }
+      conflictCandidates = null;
+      myDogam = null; // 다음 render()가 방금 고른 도감을 새로 읽도록 캐시를 비운다
       closeDogamConflict();
-      toast('대표 도감을 바꿨어요');
+      toast('선택한 인연도감으로 정리했어요');
       await render();
     } catch (e) {
-      alert('바꾸는 중 문제가 생겼어요. 잠시 후 다시 시도해줘.');
-    }
-  }
-  // deleteMyDogam()과 같은 방식(entries 전부 삭제 후 도감 문서 삭제)이지만, 이건 지금 쓰는 도감이
-  // 아니라 conflicts로 남아있던 특정 slug 하나만 지운다 — 사용자가 명시적으로 고른 경우에만
-  // 호출되므로, 지워졌다는 사실이 조용히 묻히지 않게 여기서 바로 확인하고 알린다.
-  async function discardConflictDogam(slug) {
-    if (!confirm('이 인연도감을 완전히 삭제할까요?\n등록된 인연도 함께 사라지고, 되돌릴 수 없어요.')) return;
-    try {
-      const ref = fbDb.collection('dogam').doc(slug);
-      const entriesSnap = await ref.collection('entries').get();
-      for (const d of entriesSnap.docs) await d.ref.delete();
-      await ref.delete();
-      closeDogamConflict();
-      toast('삭제했어요');
-    } catch (e) {
-      alert('삭제 중 문제가 생겼어요. 잠시 후 다시 시도해줘.');
+      alert('정리하는 중 문제가 생겼어요. 잠시 후 다시 시도해줘.');
     }
   }
   // 캐릭터가 같아서 서버가 자동으로 합친 경우 — 데이터는 안 잃었지만 "도감 하나가 사라졌다"는 사실
@@ -1618,7 +1614,7 @@
     showEntryDetail: showEntryDetail, closeEntryDetail: closeEntryDetail,
     deleteEntry: deleteEntry, setEntryFilter: setEntryFilter,
     showDogamConflict: showDogamConflict, closeDogamConflict: closeDogamConflict,
-    chooseDogamAsPrimary: chooseDogamAsPrimary, discardConflictDogam: discardConflictDogam,
+    chooseDogam: chooseDogam,
     notifyDogamMerged: notifyDogamMerged,
     dismissLoginModal: dismissLoginModal,
     snoozeLoginModal: snoozeLoginModal,
