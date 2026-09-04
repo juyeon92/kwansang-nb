@@ -86,8 +86,17 @@
   function sharedSlugFromUrl() {
     return new URLSearchParams(location.search).get(PARAM);
   }
+  // ⚠️ 2026-09-04 — 카카오톡 등에 이 링크를 붙여넣으면 index.html의 고정 <meta> 태그 때문에 누가
+  // 공유하든 항상 "관상냥반"이라는 같은 제목으로만 미리보기가 떴다(사용자 리포트). 크롤러는 자바스크립트를
+  // 안 돌리고 응답 HTML의 태그만 읽어서, 정적 SPA인 이 페이지 자체로는 사람마다 다른 제목을 보여줄
+  // 방법이 없다 — 그래서 실제 서비스 페이지 대신 functions/index.js dogamSharePreview를 먼저 거치게
+  // 한다. 그 함수가 slug로 ownerName을 찾아 "{이름}님의 인연도감" 태그를 응답한 뒤, 실제로 클릭한
+  // 사람은 곧바로 이 페이지(진짜 서비스 주소)로 다시 보낸다. 함수가 배포 전이면(URL 비어있음) 예전처럼
+  // 이 페이지 주소를 그대로 공유한다.
   function shareUrl(slug) {
-    return location.origin + location.pathname + '?' + PARAM + '=' + slug;
+    const target = location.origin + location.pathname + '?' + PARAM + '=' + slug;
+    if (typeof DOGAM_SHARE_PREVIEW_FUNCTION_URL === 'undefined' || !DOGAM_SHARE_PREVIEW_FUNCTION_URL) return target;
+    return DOGAM_SHARE_PREVIEW_FUNCTION_URL + '?slug=' + encodeURIComponent(slug);
   }
 
   // ── 궁합 점수 ────────────────────────────────────────────────────────
@@ -620,6 +629,7 @@
     el.innerHTML = renderOwnerView(myDogam);
     syncLiveBlocks(); // 보관함에서 열어둔 도감 영역도 같은 내용으로 맞춘다(등록·삭제 직후 등)
     if (myDogam && myDogam.slug) watchEntries(myDogam.slug); else stopWatchingEntries();
+    maybeShowLoginModal(myDogam); // 정책 2-1 3번 — 오너가 자기 도감(캐릭터 있음)을 볼 때만, 1회
   }
 
   // "내 도감 보러가기" — 공유 링크(?dogam=code)에 머물던 화면에서 사용자가 직접 눌러야만 내 도감으로
@@ -715,17 +725,56 @@
   // 비로그인은 익명 신원이라 이 기기/브라우저에만 묶인다 — 기록을 지우거나 기기를 바꾸면 도감을 잃는다.
   // 그 사실을 인연 목록 바로 아래(같은 카드 안)에서 알린다. 쌓인 인연을 눈으로 본 직후라야
   // "이걸 잃을 수 있다"가 와닿는다. 스타일은 업로드 화면의 안심 안내(.reassure-box)를 그대로 쓴다.
+  // 인연도감 서비스 정책.md v4 2-1 3번/7장 — "지속 인라인 배너"에 해당. 문구를 정책이 제시한
+  // 표현("회원가입 전 도감은 이 기기·브라우저에만 연결돼 있어요... 방장 권한과 보관함 연결을
+  // 잃을 수 있어요")에 맞춰 다시 썼다. 로그인 전까지 매번 그대로 노출되고(사주도령 방식), 모달과
+  // 달리 "한 번만"이 아니다 — 그래서 별도 노출 이력 관리 없이 loggedIn 여부만으로 매번 판단한다.
   function keepNotice(loggedIn) {
     if (loggedIn) return '';
     return '' +
       '<div class="reassure-box dogam-keep">' +
         '<div class="reassure-head">' +
           '<span class="icon material-symbols-outlined">info</span>' +
-          '<span class="label">이 기기에만 저장돼 있어요</span>' +
+          '<span class="label">회원가입 전이에요</span>' +
         '</div>' +
-        '<p class="reassure-sub">브라우저 기록을 지우거나 기기를 바꾸면 지금까지 쌓은 인연이 사라질 수 있어요.</p>' +
+        '<p class="reassure-sub">지금 도감은 이 기기·브라우저에만 연결돼 있어요. 기기를 바꾸거나 브라우저 기록을 지우면 방장 권한과 보관함 연결을 잃을 수 있어요.</p>' +
         '<button class="submit-btn" onclick="Dogam.loginAndKeep()">로그인하고 내 인연도감 유지하기</button>' +
       '</div>';
+  }
+
+  // 인연도감 서비스 정책.md v4 2-1 3번/7장 — "로그인 유도 모달". 도감 생성 직후(또는 이 브라우저가
+  // 그 도감을 처음 여는 순간) 1회만 노출하고, 닫으면(로그인하러 가든 "나중에 할게요"든) 다시는
+  // 뜨지 않는다 — localStorage에 도감 slug별로 노출 여부를 기록해서 새로고침해도 다시 안 뜬다
+  // (배너와 달리 "한 번만"이 핵심이라 배너처럼 loggedIn만으로 매번 판단하면 안 된다).
+  function maybeShowLoginModal(dogam) {
+    if (!dogam || !dogam.slug || !dogam.ownerCharacterId) return;
+    if (!!currentUid() && !isAnonymousUser()) return; // 이미 로그인 — 유도할 필요 없음
+    const key = 'dogamLoginModalSeen:' + dogam.slug;
+    try { if (localStorage.getItem(key)) return; } catch (e) { return; }
+    if (document.getElementById('dogamLoginModalRoot')) return; // 이미 떠 있음(중복 방지)
+    try { localStorage.setItem(key, '1'); } catch (e) { /* 프라이빗 브라우징 등 — 못 남기면 이번만 보여주고 만다 */ }
+    const root = document.createElement('div');
+    root.id = 'dogamLoginModalRoot';
+    root.innerHTML = '' +
+      '<div class="overlay-backdrop" onclick="Dogam.dismissLoginModal()"></div>' +
+      '<div class="form-popup">' +
+        '<div class="popup-header">' +
+          '<span>이 인연도감을 계정에 보관할까요?</span>' +
+          '<button class="overlay-close" onclick="Dogam.dismissLoginModal()"><span class="material-symbols-outlined">close</span></button>' +
+        '</div>' +
+        '<div class="popup-body">' +
+          '<p class="dogam-guide">로그인하면 인연도감이 계정에 저장돼서, 기기를 바꾸거나 브라우저 기록을 지워도 계속 유지돼요.</p>' +
+          '<button class="submit-btn" onclick="Dogam.dismissLoginModal();Dogam.loginAndKeep();">로그인·회원가입하고 보관하기</button>' +
+          '<button type="button" style="display:block;width:100%;margin-top:10px;padding:10px;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;" onclick="Dogam.dismissLoginModal()">나중에 할게요</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(root);
+    document.body.classList.add('overlay-open');
+  }
+  function dismissLoginModal() {
+    const root = document.getElementById('dogamLoginModalRoot');
+    if (root) root.remove();
+    document.body.classList.remove('overlay-open');
   }
 
   // 참여자 상세 재열람용 캐시(정책 2-3/7장) — "재방문 참여자" 분기를 없앤 대신, 목록에서 본인(또는
@@ -1339,6 +1388,7 @@
     render: render, renderInto: renderIntoEl, share: share, registerEntry: registerEntry,
     createMyDogamFromInvite: createMyDogamFromInvite,
     showEntryDetail: showEntryDetail, closeEntryDetail: closeEntryDetail,
+    dismissLoginModal: dismissLoginModal,
     loginAndKeep: loginAndKeep, goCombined: goCombined, deleteMyDogam: deleteMyDogam,
     migrateLocalOnLogin: migrateLocalOnLogin, leaveSharedView: leaveSharedView,
     // 보관함(archive.js)이 "생성 시간"으로 안정적인 값을 쓰게 하려는 용도 — 도감 문서의 실제
