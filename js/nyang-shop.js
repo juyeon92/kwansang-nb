@@ -2,10 +2,9 @@
 // 팝업이 아니라 .wrap 안의 페이지(#panel-nyangshop)다 — 보관함(js/archive.js)과 같은 방식으로
 // .panel을 갈아끼워 "화면 이동"처럼 보이게 한다(라우터가 없는 정적 사이트라 이 패턴을 그대로 따랐다).
 //
-// ⚠️ 결제(PG) 연동은 기획서 표지에 명시된 대로 이번 스코프가 아니다. 그래서 이 페이지는 "가격표를
-// 보여주고 상품을 고르는 데"까지만 담당하고, 실제 결제 버튼은 준비중 안내로 끝난다. 결제가 붙는
-// 시점에 buy()의 안내 부분만 PG 호출로 바꾸면 되고, 냥 지급은 서버가 NyangLedger에 type='purchase'로
-// 기록하는 흐름(기획서 §6)이라 이 파일은 더 손댈 필요가 없다.
+// ⚠️ 2026-09-03 카카오페이 연동 — 아직 카카오페이 가맹점 심사 전이라 functions/index.js의
+// KAKAO_PAY_CID가 테스트 코드(TC0ONETIME)로 되어 있다. 코드 흐름 자체는 실제 가맹점 승인 후에도
+// CID만 실제 값으로 바꾸면 그대로 쓸 수 있다 — 결제창 진입부터 승인·냥 지급까지 전부 이 상태로 동작한다.
 (function () {
   // 가격표 — 사용자 요청 2026-08-16: "우선은 1냥 990원, 가격표는 1냥만". 묶음 상품(3냥/5냥/10냥 등)은
   // 여기 배열에 행을 추가하기만 하면 화면·선택 로직이 그대로 따라간다.
@@ -42,16 +41,34 @@
 
   function select(id) { selectedId = id; render(); }
 
-  function buy() {
+  function notify(msg) {
+    if (window.KakaoAuth && KakaoAuth.showConfirm) KakaoAuth.showConfirm(msg, '확인', function () {});
+    else alert(msg);
+  }
+
+  async function buy() {
     const p = PRODUCTS.find(x => x.id === selectedId);
     if (!p) return;
-    // 결제 모듈이 붙기 전까지는 여기서 끝난다. 냥을 임의로 늘려주는 임시 코드는 절대 넣지 않는다 —
-    // 잔액은 서버(Cloud Function)만 바꿀 수 있고, 테스트용 충전은 관리자 지급(기획서 §3.3)으로 한다.
-    if (window.KakaoAuth && KakaoAuth.showConfirm) {
-      KakaoAuth.showConfirm(p.name + ' · ' + won(p.price) + '\n결제 기능은 준비 중이에요.\n지금은 관리자 지급으로만 냥을 받을 수 있어요.', '확인', function () {});
-    } else {
-      alert('결제 기능은 준비 중이에요.');
+    if (!window.fbAuth || !fbAuth.currentUser) { notify('로그인 후 구매할 수 있어요.'); return; }
+    if (!KAKAO_PAY_READY_FUNCTION_URL) {
+      // 함수가 아직 배포 전이면 예전과 같은 "준비 중" 안내로 폴백 — 잔액은 절대 임의로 늘리지 않는다.
+      notify(p.name + ' · ' + won(p.price) + '\n결제 기능은 준비 중이에요.');
+      return;
     }
+    const btn = document.querySelector('.shop-cta-dock .submit-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '결제 준비 중...'; }
+    const result = await Wallet.kakaoPayReady(p.id);
+    if (!result.ok) {
+      notify(result.error || '결제 준비에 실패했어요.');
+      render();
+      return;
+    }
+    // 모바일 브라우저는 카카오페이 앱/모바일웹으로, PC는 QR·카드결제 선택 화면으로 — 카카오가 각각
+    // 다른 리다이렉트 주소를 내려준다. 돌아올 때는 kakaoPayReady가 등록해둔 approval_url(정적 주소)로
+    // 오므로 이 페이지 상태와 무관하게 항상 같은 곳(냥샵)으로 복귀한다.
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    const redirectUrl = isMobile ? result.next_redirect_mobile_web_url : result.next_redirect_pc_url;
+    window.location.href = redirectUrl || result.next_redirect_pc_url;
   }
 
   function render() {
@@ -89,5 +106,32 @@
       '</div>';
   }
 
-  window.NyangShop = { open: open, close: close, select: select, buy: buy };
+  // 카카오페이 결제창에서 돌아왔을 때(성공/취소/실패) 처리 — kakao-auth.js의 onAuthStateChanged에서
+  // 로그인이 확정된 직후 호출된다. URL 쿼리스트링만으로 판단하고, 처리 즉시 지워서 새로고침해도
+  // 중복 승인 요청이 나가지 않게 한다(서버도 kakaoPayOrders.status로 한 번 더 막아주지만 이중 방어).
+  function handleKakaoPayReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const kakaopay = params.get('kakaopay');
+    if (!kakaopay) return;
+    const orderId = params.get('orderId');
+    const pgToken = params.get('pg_token');
+    history.replaceState(null, '', window.location.pathname);
+
+    if (kakaopay === 'cancel') { notify('결제를 취소했어요.'); return; }
+    if (kakaopay === 'fail') { notify('결제에 실패했어요. 다시 시도해주세요.'); return; }
+    if (kakaopay !== 'success' || !orderId || !pgToken) return;
+
+    open();
+    notify('결제를 확인하고 있어요...');
+    Wallet.kakaoPayApprove(orderId, pgToken).then(function (result) {
+      if (result.ok) {
+        notify(result.alreadyCompleted ? '이미 처리된 결제예요. 보유 냥 ' + result.balance + '냥.' : '결제가 완료됐어요! 냥이 충전됐어요.');
+      } else {
+        notify(result.error || '결제 승인에 실패했어요. 문의해주세요.');
+      }
+      render();
+    });
+  }
+
+  window.NyangShop = { open: open, close: close, select: select, buy: buy, handleKakaoPayReturn: handleKakaoPayReturn };
 })();

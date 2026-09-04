@@ -25,6 +25,12 @@ service cloud.firestore {
       // 기획서 스코프상 별도 조회 화면이 없음 — 필요하면 Firebase 콘솔에서 직접 조회.
       allow read, write: if false;
     }
+    // 카카오페이 주문 기록 — kakaoPayReady가 만들고 kakaoPayApprove(둘 다 Admin SDK, 이 규칙을
+    // 우회)만 completed로 바꾼다. 클라이언트가 직접 completed로 바꿔써서 냥을 공짜로 받는 걸
+    // 막아야 하므로 읽기·쓰기 전부 막는다 — 필요하면 Firebase 콘솔에서 직접 조회.
+    match /kakaoPayOrders/{orderId} {
+      allow read, write: if false;
+    }
     // 유료 분석(통합분석/궁합보기) 1회용 티켓 — nyangSpend가 발급하고 analyzeCharacter가 소진한다
     // (둘 다 Admin SDK, 이 규칙을 우회). 클라이언트가 remainingUses를 직접 늘려쓰면 결제 없이
     // 무제한 분석을 받게 되므로 읽기·쓰기 전부 막는다.

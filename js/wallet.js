@@ -57,6 +57,46 @@
     }
   }
 
+  // ── 카카오페이 결제 ── productId: js/nyang-shop.js의 PRODUCTS와 같은 id.
+  // 반환: { ok:true, orderId, next_redirect_pc_url, next_redirect_mobile_web_url } | { ok:false, error }
+  async function kakaoPayReady(productId) {
+    if (!KAKAO_PAY_READY_FUNCTION_URL) return { ok: false, error: '결제 기능은 아직 준비 중이에요.' };
+    const idToken = await getIdToken();
+    if (!idToken) return { ok: false, error: '로그인이 필요해요.' };
+    try {
+      const res = await fetch(KAKAO_PAY_READY_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+        body: JSON.stringify({ productId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) return { ok: false, error: data.error || '결제 준비에 실패했어요.' };
+      return data;
+    } catch (e) {
+      console.error('[wallet] 카카오페이 결제 준비 실패', e);
+      return { ok: false, error: '네트워크 오류로 결제 준비에 실패했어요.' };
+    }
+  }
+
+  // 카카오페이 결제창에서 승인하고 돌아온 뒤 최종 확정 — orderId·pgToken은 approval_url 쿼리스트링에서 읽는다.
+  async function kakaoPayApprove(orderId, pgToken) {
+    const idToken = await getIdToken();
+    if (!idToken) return { ok: false, error: '로그인이 필요해요.' };
+    try {
+      const res = await fetch(KAKAO_PAY_APPROVE_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+        body: JSON.stringify({ orderId, pgToken }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) return { ok: false, error: data.error || '결제 승인에 실패했어요.' };
+      cachedBalance = data.balance;
+      return data;
+    } catch (e) {
+      console.error('[wallet] 카카오페이 결제 승인 실패', e);
+      return { ok: false, error: '네트워크 오류로 결제 승인에 실패했어요.' };
+    }
+  }
 
   // ── 관리자 전용 — kakao-auth.js의 마이페이지 관리자 섹션에서만 호출된다 ──
   async function adminSearchUsers(q) {
@@ -99,5 +139,5 @@
     return data.rows || [];
   }
 
-  window.Wallet = { fetchBalance, getCachedBalance, spend, adminSearchUsers, adminGrant, adminHistory };
+  window.Wallet = { fetchBalance, getCachedBalance, spend, kakaoPayReady, kakaoPayApprove, adminSearchUsers, adminGrant, adminHistory };
 })();

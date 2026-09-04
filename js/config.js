@@ -42,6 +42,12 @@ const NYANG_ADMIN_HISTORY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudf
 const ANALYZE_CHARACTER_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/analyzeCharacter';
 const GET_COMPATIBILITY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/getCompatibility';
 
+// ═══ 카카오페이 결제 함수 URL (2026-09-03) ═══
+// firebase deploy 후 아래 2개를 실제 함수 URL로 채워야 냥샵의 "구매하기" 버튼이 실제 카카오페이
+// 결제창으로 연결된다. 비어 있으면 js/nyang-shop.js가 예전처럼 "준비 중" 안내만 보여준다.
+const KAKAO_PAY_READY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/kakaoPayReady';
+const KAKAO_PAY_APPROVE_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/kakaoPayApprove';
+
 // ═══ 관상/캐릭터 콘텐츠 카탈로그 함수 URL (2026-08-30 DB 이원화 2단계) ═══
 // archetype-db.js·character-db.js의 실제 콘텐츠(이름/설명/강점/약점 등)를 서버로 옮기면서 추가.
 // 클라이언트는 세션당 한 번만 받아 캐시한다(js/character-api.js의 ensureArchetypeCatalog/ensureCharacterCatalog).
