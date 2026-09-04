@@ -1062,7 +1062,7 @@
         '<label class="dogam-check"><input type="checkbox" id="dogamAgree">' +
           '<span>이름과 관상 캐릭터 결과를 인연도감 표시·궁합 계산에 이용하는 데 동의해요. <b>(필수)</b></span></label>' +
         // 사진 업로드는 렌더 이후에 일어나므로 disabled로 막지 않는다 — 누른 시점에 검사해 안내한다.
-        '<button class="submit-btn" onclick="Dogam.registerEntry()">도감에 인연 등록하기</button>' +
+        '<button class="submit-btn" id="dogamRegisterBtn" onclick="Dogam.registerEntry()">도감에 인연 등록하기</button>' +
       '</div>';
 
     el.innerHTML = '' +
@@ -1106,7 +1106,7 @@
         '<div id="dogamOwnerCard"></div>' +
         '<div id="dogamOwnerDetail"></div>' +
       '</div>' +
-      '<div class="dogam-block dogam-matched">' +
+      '<div class="dogam-block dogam-matched" id="dogamMergedResultBlock">' +
         '<div class="dogam-head"><span class="dogam-title">인연도감 등록 완료</span></div>' +
         '<div id="dogamMyResultCard"></div>' +
         '<div class="dogam-match-row">' +
@@ -1152,11 +1152,25 @@
   // ── 동작 ─────────────────────────────────────────────────────────────
   async function registerEntry() {
     if (!guestDogam) return;
+    // ⚠️ 사용자 리포트(2026-09-04): "등록 누르면 한참 걸리는데 로딩 표시가 없어서 오류난 줄 안다" —
+    // 익명 인증 발급부터 얼굴 분석(수 초), 궁합 점수 서버 호출, Firestore 쓰기까지 이어지는 동안
+    // 화면에 아무 변화가 없었다. #gwansangSpinner는 이 시점엔 captureUploadNodes()로 이미 등록
+    // 폼(#dogamUploadSlot) 안에 옮겨와 있어서(showGuestView 참고) 여기서 그대로 재사용할 수 있다.
+    // 버튼도 로딩 중 연타(중복 등록 자체는 정책상 막지 않지만, 불필요한 네트워크 요청만 늘림)를
+    // 막기 위해 처리가 끝날 때까지 비활성화한다. 검증 실패로 되돌아가는 경로도 전부 정리해야 하므로
+    // 함수 맨 앞에서 한 번만 켜고, 모든 return 지점에서 끄는 짝을 맞춘다.
+    const m = ctxMap.gwansang;
+    const registerBtn = document.getElementById('dogamRegisterBtn');
+    if (registerBtn) registerBtn.disabled = true;
+    setSpinner(m.spinner, '등록을 준비하는 중...');
+    const stop = function () { hideSpinner(m.spinner); if (registerBtn) registerBtn.disabled = false; };
+
     let uid;
     try {
       uid = await ensureAuthUid();
     } catch (e) {
       console.error('[dogam] 익명 인증 실패', e);
+      stop();
       if (e && e.code === 'auth/operation-not-allowed') {
         alert('로그인 없이 등록하려면 Firebase 콘솔에서 "익명" 로그인을 켜야 해요.\n(Authentication → Sign-in method → 익명)');
       } else {
@@ -1164,12 +1178,13 @@
       }
       return;
     }
-    if (!uid) { alert('등록을 처리할 수 없어요. 잠시 후 다시 시도해주세요.'); return; }
+    if (!uid) { stop(); alert('등록을 처리할 수 없어요. 잠시 후 다시 시도해주세요.'); return; }
     const nameEl = document.getElementById('dogamGuestName');
     const name = (nameEl && nameEl.value || '').trim();
-    if (!name) { alert('이름 또는 별명을 입력해주세요.'); return; }
+    if (!name) { stop(); alert('이름 또는 별명을 입력해주세요.'); return; }
     const agree = document.getElementById('dogamAgree');
-    if (!agree || !agree.checked) { alert('필수 동의 항목에 체크해주세요.'); return; }
+    if (!agree || !agree.checked) { stop(); alert('필수 동의 항목에 체크해주세요.'); return; }
+    setSpinner(m.spinner, '관상 캐릭터를 확인하는 중...');
 
     // 초대받은 사람에게는 "내 관상 캐릭터 뽑기" 버튼을 띄우지 않는다 — 이 버튼 하나로 분석까지 끝낸다.
     // 아래 render 과정에서 폼이 다시 그려지므로, 입력값은 이 시점에 이미 name에 담아뒀다.
@@ -1181,12 +1196,19 @@
     // 이미 있어도 그 사진으로 다시 분석해서 inyeonLastCharacter를 갱신한다 — 사진 없이 등록 버튼만
     // 다시 누른 경우에만(hasPhoto=false) 기존 캐릭터를 그대로 쓴다.
     if (hasPhoto) {
-      if (typeof startAnalysis !== 'function') { alert('분석 기능을 불러오지 못했어요. 새로고침 후 다시 시도해주세요.'); return; }
+      if (typeof startAnalysis !== 'function') {
+        stop();
+        alert('분석 기능을 불러오지 못했어요. 새로고침 후 다시 시도해주세요.'); return;
+      }
       console.log('[dogam] 새 사진으로 관상 분석 실행');
-      await startAnalysis('gwansang');
+      await startAnalysis('gwansang'); // 내부에서 같은 스피너를 "관상 분석중~"으로 바꿔 보였다가, 끝나면 스스로 끈다.
       charId = myCharacterId();
-      if (!charId) return; // 얼굴 인식 실패 — startAnalysis가 이미 사유를 화면에 표시한다
+      if (!charId) { if (registerBtn) registerBtn.disabled = false; return; } // 얼굴 인식 실패 — startAnalysis가 이미 사유를 화면에 표시한다
+      // 분석은 끝났지만 궁합 점수 계산·서버 등록이 아직 남아있으니 스피너를 다시 켠다
+      // (startAnalysis가 끝나면서 이미 꺼뒀기 때문에 여기서 다시 안 켜면 이후 구간이 무반응처럼 보인다).
+      setSpinner(m.spinner, '인연도감에 등록하는 중...');
     } else if (!charId) {
+      stop();
       alert('먼저 사진을 올려주세요.');
       return;
     }
@@ -1214,11 +1236,16 @@
       };
       // 참여자 목록에 방금 등록한 나를 포함해 최신화한다(guestEntriesBlock이 이 목록을 그대로 씀).
       guestDogam = await loadDogam(inviter.slug).catch(function () { return inviter; });
+      hideSpinner(m.spinner); // render()가 이 폼 자체를 병합 결과 화면으로 갈아치우기 직전에 꺼둔다
       await render();
-      const gh = document.getElementById('dogamGuestSection');
-      if (gh) gh.scrollIntoView({ behavior: 'smooth' });
+      // ⚠️ 사용자 요청(2026-09-04) — 등록·로딩이 끝나면 화면(특히 #dogamGuestSection 맨 위, A의
+      // 카드가 다시 보이는 자리)이 아니라 "인연도감 등록 완료!" 병합 결과 블록(내 캐릭터가 보이는
+      // 곳)으로 포커스를 옮긴다 — renderGuestMergedResult가 그 블록에 id를 붙여둔다.
+      const resultBlock = document.getElementById('dogamMergedResultBlock');
+      if (resultBlock) resultBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
       console.error('[dogam] 등록 실패', e);
+      stop();
       alert('등록 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
     }
   }
