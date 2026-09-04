@@ -8,6 +8,12 @@
 (function () {
   let currentUser = null;
   let isAdminUser = false; // roles/{uid} 문서 존재 + role==='admin'일 때만 true — 마이페이지 관리자 섹션 노출 여부
+  // kakaoLogin이 이번 로그인에서 캐릭터가 서로 달라 자동 병합하지 못한 도감을 돌려주면 여기 잠깐
+  // 담아둔다 — onAuthStateChanged 핸들러는 fetch 응답을 직접 볼 수 없어서(별도 콜백) 이 값을 거쳐
+  // 전달한다. 쓰고 나면 바로 비워서, 토큰 갱신 등으로 onAuthStateChanged가 다시 불려도 같은 선택
+  // 모달이 또 뜨지 않게 한다.
+  let pendingDogamConflicts = null;
+  let pendingDogamMerged = null; // 같은 캐릭터라 자동으로 합쳐진 도감 개수 — 있으면 로그인 후 안내한다.
   // ⚠️ 버그 수정(2026-08-19 사용자 리포트: "로그인 이미 했는데 로그인 팝업이 자꾸 뜬다") — 새로고침
   // 직후 restoreLastTab()이 로그인 필요 탭(통합분석·사주보기·궁합보기)을 클릭으로 복원하는데, 그 시점엔
   // fbAuth.onAuthStateChanged가 아직 한 번도 불리지 않아 currentUser가 항상 null이다. isRealLoggedIn()은
@@ -131,12 +137,29 @@
             // 인연도감 쪽 보관함 동기화는 이제 별도로 챙길 필요가 없다 — 위 Dogam.render()(paintOwnerView)가
             // 렌더할 때마다 항상 Archive.save('gwansang')로 다시 맞춰두므로, 로그인 시점에도 이미 반영돼 있다.
           })
+          .then(function () {
+            // 이관·병합이 다 끝난 뒤(즉 myDogam이 최신 keeper를 가리키게 된 뒤)에 물어봐야 선택 모달에
+            // "지금 대표 도감"을 정확히 같이 보여줄 수 있다 — settling보다 먼저 물으면 아직 옛 도감이
+            // 화면에 남아 있어 혼란스럽다.
+            if (pendingDogamMerged && window.Dogam && Dogam.notifyDogamMerged) {
+              Dogam.notifyDogamMerged(pendingDogamMerged);
+            }
+            pendingDogamMerged = null;
+            if (pendingDogamConflicts && window.Dogam && Dogam.showDogamConflict) {
+              Dogam.showDogamConflict(pendingDogamConflicts);
+            }
+            pendingDogamConflicts = null;
+          })
           .then(hideAuthLoading);
         resolveAccountInfo(user.uid);
         // 냥 잔액/관리자 여부는 로딩 오버레이를 걸어둘 필요 없는 부가 정보 — 마이페이지를 열기 전에
         // 미리 받아두기만 하면 된다.
         if (window.Wallet) Wallet.fetchBalance().then(refreshMyPageIfOpen);
         checkAdminRole(user.uid).then(refreshMyPageIfOpen);
+        // 카카오페이 결제창에서 돌아온 직후라면(functions/index.js kakaoPayReady가 등록한
+        // approval_url) — 로그인이 막 확정된 지금이 승인 요청을 보내도 되는 첫 시점이다.
+        // onAuthStateChanged는 토큰 갱신 등으로 여러 번 불릴 수 있어 URL을 즉시 정리해 한 번만 처리한다.
+        if (window.NyangShop && NyangShop.handleKakaoPayReturn) NyangShop.handleKakaoPayReturn();
       } else {
         isAdminUser = false;
         renderLoggedOut();
@@ -325,6 +348,8 @@
       const data = await res.json();
       if (!res.ok || !data.customToken) throw new Error(data.error || '커스텀 토큰 발급 실패');
       if (data.migrated) console.log('[kakao-auth] 익명 데이터 이관 완료', data.migrated);
+      pendingDogamConflicts = (data.dogamConflicts && data.dogamConflicts.length) ? data.dogamConflicts : null;
+      pendingDogamMerged = data.dogamMerged || null;
       console.log('[kakao-auth] 커스텀 토큰 수신 완료 — Firebase 로그인 시도');
       const cred = await fbAuth.signInWithCustomToken(data.customToken);
       console.log('[kakao-auth] Firebase 로그인 성공', cred.user.uid);

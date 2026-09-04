@@ -134,11 +134,16 @@ exports.kakaoLogin = onRequest({ cors: true }, async (req, res) => {
     // 테스트하면 계정 밑에 도감이 여러 개 쌓이는 사고가 있었다(settleDogamForUid 주석 참고).
     // 익명 이관 여부와 무관하게 매 로그인마다 검사한다 — 이미 중복이 쌓인 기존 계정도 다음
     // 로그인에서 저절로 정리된다.
-    try { await settleDogamForUid(uid, preExistingDogamSlug); }
+    let settled = null;
+    try { settled = await settleDogamForUid(uid, preExistingDogamSlug); }
     catch (e) { console.error('[kakaoLogin] 도감 중복 정리 실패', e); }
 
     const customToken = await admin.auth().createCustomToken(uid);
-    res.json({ customToken, migrated });
+    // dogamConflicts: 캐릭터가 서로 달라 자동 병합하지 못하고 그대로 남겨둔 도감 목록 — 클라이언트가
+    // "어느 걸 대표로 둘까요?" 선택 UI를 띄우는 신호로 쓴다(settleDogamForUid 주석 참고).
+    const dogamConflicts = (settled && settled.conflicts && settled.conflicts.length) ? settled.conflicts : undefined;
+    const dogamMerged = (settled && settled.merged) ? settled.merged : undefined;
+    res.json({ customToken, migrated, dogamConflicts, dogamMerged });
   } catch (e) {
     console.error('kakaoLogin 처리 실패', e);
     res.status(500).json({ error: e.message });
@@ -196,6 +201,147 @@ async function isAdmin(uid) {
   const snap = await db.collection('roles').doc(uid).get();
   return snap.exists && snap.data().role === 'admin';
 }
+
+// ═══ 카카오페이 결제 연동 (2026-09-03) ═══
+// 단건결제(카카오 디벨로퍼스 REST API, kapi.kakao.com) 방식 — ready에서 결제를 준비하고 tid를 받아
+// kakaoPayOrders에 저장해두면, 사용자가 카카오페이 결제창에서 승인한 뒤 우리 사이트로 돌아왔을 때
+// approve가 그 tid로 최종 승인을 확정하고 냥을 지급한다. 결제 승인은 반드시 서버(Admin SDK)에서만
+// 하고, 클라이언트가 "결제됐다"고 주장하는 값만으로는 냥을 주지 않는다(위조 방지).
+//
+// ⚠️ CID(가맹점 코드)는 아직 카카오페이 가맹점 심사를 신청하기 전이라 카카오가 공식 제공하는
+// 테스트 코드(TC0ONETIME)를 쓴다 — 실제 결제 없이 카카오페이 결제창 흐름 전체를 테스트할 수 있다.
+// 가맹점 승인을 받으면 카카오페이 비즈니스 파트너센터에서 발급되는 실제 CID로 이 값만 바꾸면 된다.
+// ADMIN_KEY는 카카오 디벨로퍼스 앱 설정 → 앱 키 → Admin 키(REST API 키와 다름, 절대 노출 금지)이며,
+// 값 설정: firebase functions:secrets:set KAKAO_ADMIN_KEY
+const kakaoAdminKey = defineSecret('KAKAO_ADMIN_KEY');
+const KAKAO_PAY_CID = 'TC0ONETIME';
+// 서비스 커스텀 도메인(2026-09-03부터 kwansang-nb.com — 카카오 로그인 플랫폼 등록 도메인과도
+// 일치해야 함) — 결제 승인/취소/실패 후 카카오페이가 사용자를 돌려보낼 주소의 기준이 된다.
+const NYANG_SHOP_SITE_URL = 'https://kwansang-nb.com';
+// js/nyang-shop.js의 PRODUCTS와 반드시 같은 값을 유지해야 한다(가격 위조 방지를 위해 서버가 최종
+// 가격을 여기서 다시 결정하고, 클라이언트는 productId만 보낸다).
+const NYANG_PRODUCTS = { nyang1: { name: '냥 1개', amount: 1, price: 990 } };
+
+exports.kakaoPayReady = onRequest({ cors: true, secrets: [kakaoAdminKey] }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  let uid;
+  try { uid = (await admin.auth().verifyIdToken(idToken)).uid; }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+
+  const productId = (req.body && req.body.productId) || '';
+  const product = NYANG_PRODUCTS[productId];
+  if (!product) { res.status(400).json({ error: '존재하지 않는 상품입니다.' }); return; }
+
+  const orderRef = db.collection('kakaoPayOrders').doc();
+  try {
+    const params = new URLSearchParams({
+      cid: KAKAO_PAY_CID,
+      partner_order_id: orderRef.id,
+      partner_user_id: uid,
+      item_name: product.name,
+      quantity: '1',
+      total_amount: String(product.price),
+      tax_free_amount: '0',
+      approval_url: `${NYANG_SHOP_SITE_URL}/?kakaopay=success&orderId=${orderRef.id}`,
+      cancel_url: `${NYANG_SHOP_SITE_URL}/?kakaopay=cancel`,
+      fail_url: `${NYANG_SHOP_SITE_URL}/?kakaopay=fail`,
+    });
+    const kakaoRes = await fetch('https://kapi.kakao.com/v1/payment/ready', {
+      method: 'POST',
+      headers: { Authorization: `KakaoAK ${kakaoAdminKey.value()}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params,
+    });
+    const data = await kakaoRes.json();
+    if (!kakaoRes.ok || !data.tid) {
+      console.error('[kakaoPayReady] 결제 준비 실패', data);
+      res.status(502).json({ error: '결제 준비에 실패했어요.', detail: data });
+      return;
+    }
+    await orderRef.set({
+      uid, productId, amount: product.amount, price: product.price,
+      tid: data.tid, status: 'ready', createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    res.json({
+      ok: true, orderId: orderRef.id,
+      next_redirect_pc_url: data.next_redirect_pc_url,
+      next_redirect_mobile_web_url: data.next_redirect_mobile_web_url,
+    });
+  } catch (e) {
+    console.error('kakaoPayReady 실패', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+exports.kakaoPayApprove = onRequest({ cors: true, secrets: [kakaoAdminKey] }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  let uid;
+  try { uid = (await admin.auth().verifyIdToken(idToken)).uid; }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+
+  const orderId = (req.body && req.body.orderId) || '';
+  const pgToken = (req.body && req.body.pgToken) || '';
+  if (!orderId || !pgToken) { res.status(400).json({ error: 'orderId, pgToken이 필요합니다.' }); return; }
+
+  const orderRef = db.collection('kakaoPayOrders').doc(orderId);
+  try {
+    const orderSnap = await orderRef.get();
+    if (!orderSnap.exists) { res.status(404).json({ error: '주문을 찾을 수 없어요.' }); return; }
+    const order = orderSnap.data();
+    if (order.uid !== uid) { res.status(403).json({ error: '본인 주문만 승인할 수 있어요.' }); return; }
+    // 새로고침 등으로 승인 요청이 중복 도착해도 냥을 두 번 주지 않도록 먼저 상태를 확인한다
+    // (아래 트랜잭션 안에서 한 번 더 확인 — 동시 요청까지 막는 최종 방어선).
+    if (order.status === 'completed') {
+      const wDoc = await db.collection('wallets').doc(uid).get();
+      res.json({ ok: true, balance: wDoc.exists ? (wDoc.data().balance || 0) : 0, alreadyCompleted: true });
+      return;
+    }
+
+    const params = new URLSearchParams({
+      cid: KAKAO_PAY_CID, tid: order.tid, partner_order_id: orderId, partner_user_id: uid, pg_token: pgToken,
+    });
+    const kakaoRes = await fetch('https://kapi.kakao.com/v1/payment/approve', {
+      method: 'POST',
+      headers: { Authorization: `KakaoAK ${kakaoAdminKey.value()}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params,
+    });
+    const data = await kakaoRes.json();
+    if (!kakaoRes.ok) {
+      console.error('[kakaoPayApprove] 승인 실패', data);
+      res.status(502).json({ error: '결제 승인에 실패했어요.', detail: data });
+      return;
+    }
+
+    const walletRef = db.collection('wallets').doc(uid);
+    const ledgerRef = db.collection('nyangLedger').doc();
+    const balance = await db.runTransaction(async (tx) => {
+      const orderNow = (await tx.get(orderRef)).data();
+      if (orderNow.status === 'completed') return null; // 트랜잭션 안에서 재확인(동시 요청 최종 방어)
+      const snap = await tx.get(walletRef);
+      const current = snap.exists ? (snap.data().balance || 0) : 0;
+      const next = current + order.amount;
+      tx.set(walletRef, { balance: next, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      tx.set(ledgerRef, {
+        userId: uid, type: 'purchase', amount: order.amount, balanceAfter: next,
+        relatedId: orderId, note: order.productId + ' 카카오페이 결제', createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      tx.set(orderRef, { status: 'completed', completedAt: admin.firestore.FieldValue.serverTimestamp(), ledgerId: ledgerRef.id }, { merge: true });
+      return next;
+    });
+    if (balance == null) {
+      const wDoc = await walletRef.get();
+      res.json({ ok: true, balance: wDoc.exists ? (wDoc.data().balance || 0) : 0, alreadyCompleted: true });
+      return;
+    }
+    res.json({ ok: true, balance });
+  } catch (e) {
+    console.error('kakaoPayApprove 실패', e);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // feature별로 이 요청 하나가 최종적으로 몇 번의 analyzeCharacter 호출을 정당하게 커버하는지 —
 // 궁합보기는 나/상대방 두 사람 얼굴을 각각 판정해야 해서(js/app.js runGungham) 1회 차감으로 2번까지 허용한다.
@@ -704,24 +850,58 @@ function pickKeeperId(docs, preferredSlug) {
   return docs.slice().sort((a, b) => (a.createdAt || '') < (b.createdAt || '') ? -1 : 1)[0].id;
 }
 
+// ⚠️ 사용자 리포트(2026-09-04): "비로그인으로 만든 도감이 로그인된 도감에 머지되면서 사라진 것
+// 같다" — 예전엔 keeper가 아닌 도감을 캐릭터(관상)가 같든 다르든 무조건 purgeDogam으로 완전히
+// 지워버렸다. 캐릭터가 같으면(같은 사람이 다시 분석해서 생긴 중복일 가능성이 커) "같은 나"로 보고
+// 참여 기록을 keeper 쪽으로 합쳐서 유실 없이 정리하지만, 캐릭터가 다르면 같은 사람인지 확신할 수
+// 없으므로 자동으로 지우지 않고 그대로 남겨서(conflicts) 호출부(kakaoLogin)가 클라이언트에 알리고
+// 사용자가 직접 대표 도감을 고르게 한다(정책 §3).
 async function settleDogamForUid(uid, preferredSlug) {
   const snap = await db.collection('dogam').where('ownerUid', '==', uid).get();
-  if (snap.size <= 1) return { kept: snap.empty ? null : snap.docs[0].id, purged: 0 };
+  if (snap.size <= 1) return { kept: snap.empty ? null : snap.docs[0].id, purged: 0, merged: 0, conflicts: [] };
 
   const keeperId = pickKeeperId(
     snap.docs.map((d) => ({ id: d.id, createdAt: (d.data() || {}).createdAt || '' })),
     preferredSlug
   );
   const keeperDoc = snap.docs.find((d) => d.id === keeperId);
-  const losers = snap.docs.filter((d) => d.id !== keeperDoc.id);
+  const keeperCharacterId = (keeperDoc.data() || {}).ownerCharacterId;
+  const others = snap.docs.filter((d) => d.id !== keeperDoc.id);
 
-  // 진짜 삭제(purgeDogam)가 먼저 끝나야 한다 — losers를 지우는 동안 dogamSlug가 계속 지워지는데,
-  // 마지막에 keeper로 다시 지정해야 최종 상태가 맞는다(순서를 바꾸면 keeper 참조가 날아갈 수 있다).
-  for (const loser of losers) await purgeDogam(loser, 'login_dedup');
+  let merged = 0;
+  const conflicts = [];
+  for (const other of others) {
+    const otherData = other.data() || {};
+    if (otherData.ownerCharacterId === keeperCharacterId) {
+      const entriesSnap = await other.ref.collection('entries').get();
+      for (const d of entriesSnap.docs) {
+        const data = d.data();
+        const keeperEntryRef = keeperDoc.ref.collection('entries').doc(d.id);
+        const keeperEntrySnap = await keeperEntryRef.get();
+        if (!keeperEntrySnap.exists || (data.score || 0) > (keeperEntrySnap.data().score || 0)) {
+          await keeperEntryRef.set(data, { merge: true });
+        }
+      }
+      await purgeDogam(other, 'login_merge');
+      merged++;
+    } else {
+      conflicts.push({
+        slug: other.id,
+        ownerCharacterId: otherData.ownerCharacterId || null,
+        ownerName: otherData.ownerName || '',
+        entryCount: (await other.ref.collection('entries').get()).size,
+      });
+    }
+  }
+
+  // 진짜 삭제(purgeDogam)가 먼저 끝나야 한다 — 병합 중 dogamSlug가 계속 지워지는데, 마지막에
+  // keeper로 다시 지정해야 최종 상태가 맞는다(순서를 바꾸면 keeper 참조가 날아갈 수 있다).
   await db.collection('users').doc(uid).set({ dogamSlug: keeperDoc.id }, { merge: true });
 
-  console.warn(`[dogam] uid=${uid} 밑에 도감 ${snap.size}개 발견 — ${keeperDoc.id} 유지, ${losers.length}개 삭제`);
-  return { kept: keeperDoc.id, purged: losers.length };
+  if (merged || conflicts.length) {
+    console.warn(`[dogam] uid=${uid} 밑에 도감 ${snap.size}개 발견 — ${keeperDoc.id} 유지, 병합 ${merged}개, 대기중 충돌 ${conflicts.length}개`);
+  }
+  return { kept: keeperDoc.id, purged: merged, merged, conflicts };
 }
 
 exports.cleanupExpiredDogam = onSchedule(

@@ -688,15 +688,49 @@
   }
 
   // 1) 공유자(오너) 입장
+  // 정책 9장 — "케미 필터 칩 구간: 일단 기존 관계 라벨을 그대로 탭으로 재사용". relationLabel()이
+  // 실제로 내는 4개 라벨과 정확히 맞춰뒀다(하나라도 어긋나면 칩을 눌러도 그 라벨의 참여자가 하나도
+  // 안 걸러진다). 필터 상태는 오너/게스트 화면 어느 쪽에서 봐도 같은 하나만 둔다 — 정책이 화면별로
+  // 다른 필터를 요구하지 않고, 이번 1차 구현 범위는 "우선 재사용"이었다.
+  const RELATION_LABELS = ['귀인', '단짝', '내 사람', '호랑이 선생'];
+  let entryFilter = null; // null = 전체
+  function filterChips(entries) {
+    if (!entries || entries.length < 2) return ''; // 인원이 1명 이하면 걸러볼 의미가 없다
+    const chip = function (label, value) {
+      const active = entryFilter === value;
+      const arg = value === null ? 'null' : "'" + value + "'";
+      return '<button type="button" class="rel-chip' + (active ? ' on' : '') + '" onclick="Dogam.setEntryFilter(' + arg + ')">' + esc(label) + '</button>';
+    };
+    return '<div class="chip-row" style="margin-bottom:10px;">' + chip('전체', null) + RELATION_LABELS.map(function (l) { return chip(l, l); }).join('') + '</div>';
+  }
+  function applyEntryFilter(entries) {
+    if (!entryFilter) return entries;
+    return entries.filter(function (e) { return e.relation === entryFilter; });
+  }
+  // 칩을 눌렀을 때 — 지금 보고 있는 화면이 오너 화면인지 게스트 화면(등록 폼/병합 결과)인지에 맞춰
+  // 그 화면만 다시 그린다. 필터는 화면 종류를 안 바꾸므로 render() 전체를 다시 태울 필요는 없다.
+  function setEntryFilter(value) {
+    entryFilter = value;
+    if (myDogam && document.getElementById('dogamSection')) {
+      host().innerHTML = renderOwnerView(myDogam);
+      syncLiveBlocks();
+    } else if (guestDogam) {
+      if (justRegistered && justRegistered.slug === sharedSlugFromUrl()) renderGuestMergedResult(guestDogam, justRegistered);
+      else showGuestView(guestDogam);
+    }
+  }
+
   function renderOwnerView(dogam) {
     const entries = (dogam && dogam.entries) || [];
     const count = entries.length;
+    const filtered = applyEntryFilter(entries);
     // 익명 인증은 "로그인"이 아니다 — 기기/브라우저에 묶인 임시 신원이라 보관 안내는 계속 띄운다.
     const loggedIn = !!currentUid() && !isAnonymousUser();
 
-    const list = count
-      ? entries.map(function (e) { return entryRow(e); }).join('')
-      : '<p class="dogam-empty">아직 어떤 인연도 등록되지 않았어요.<br>친구들과 공유해서 내 인연을 등록해보세요.</p>';
+    const list = filtered.length
+      ? filtered.map(function (e) { return entryRow(e, { canDelete: true }); }).join('')
+      : (count ? '<p class="dogam-empty">이 조건에 맞는 인연이 없어요.</p>'
+               : '<p class="dogam-empty">아직 어떤 인연도 등록되지 않았어요.<br>친구들과 공유해서 내 인연을 등록해보세요.</p>');
 
     return '' +
       matchedBlock() +
@@ -705,6 +739,7 @@
           '<span class="dogam-title">인연 도감</span>' +
           '<span class="dogam-count">' + count + '명</span>' +
         '</div>' +
+        filterChips(entries) +
         '<div class="dogam-list">' + list + '</div>' +
         keepNotice(loggedIn) +
       '</div>' +
@@ -807,10 +842,15 @@
   // entryRow가 그릴 때마다 채워둔다 — Firestore에서 다시 조회하지 않고 이미 받아온 값만 재사용.
   let entryLookup = {};
 
-  function entryRow(e) {
+  function entryRow(e, opts) {
     entryLookup[e.uid] = e;
     const ch = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[e.characterId]) || null;
     const img = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(e.characterId) : '';
+    // 삭제는 오너가 자기 도감을 볼 때만 노출한다(정책 4장 "오너의 참여자 삭제 — 단방향, 상대 도감엔
+    // 영향 없음"). 게스트 화면(guestEntriesBlock)은 opts 없이 호출되므로 버튼이 안 붙는다.
+    const delBtn = (opts && opts.canDelete)
+      ? '<button type="button" class="revisit-del" title="삭제" onclick="event.stopPropagation();Dogam.deleteEntry(\'' + esc(e.uid) + '\')"><span class="material-symbols-outlined">close</span></button>'
+      : '';
     return '' +
       '<div class="dogam-row" role="button" tabindex="0" style="cursor:pointer;" onclick="Dogam.showEntryDetail(\'' + esc(e.uid) + '\')">' +
         '<img class="dogam-row-thumb" src="' + esc(img) + '" alt="' + esc(ch ? ch.name : '') + '">' +
@@ -820,7 +860,27 @@
           '<div class="dogam-row-desc">' + esc(ch ? ch.name + ' · ' + ch.headline : '') + '</div>' +
         '</div>' +
         '<div class="dogam-row-score"><b>' + (e.score == null ? '-' : e.score) + '</b><span>점</span></div>' +
+        delBtn +
       '</div>';
+  }
+
+  // 정책 4장 — "오너의 참여자 삭제 기능 추가(단방향 — 상대 도감엔 영향 없음)". firestore.rules가
+  // 이미 "entryUid 본인 또는 dogam.ownerUid인 사람"의 delete를 허용하고 있어(오늘 세션에 확인됨)
+  // 규칙 변경 없이 클라이언트에서 바로 문서를 지우면 된다 — 상대방 도감 쪽 entries는 별개 문서라
+  // 손대지 않는다.
+  async function deleteEntry(uid) {
+    if (!myDogam || !myDogam.slug) return;
+    const e = entryLookup[uid];
+    const label = e ? e.name : '이 인연';
+    if (!confirm(label + '님을 내 인연도감에서 삭제할까요?\n(상대방의 도감에는 영향이 없어요)')) return;
+    try {
+      await fbDb.collection('dogam').doc(myDogam.slug).collection('entries').doc(uid).delete();
+      myDogam.entries = (myDogam.entries || []).filter(function (x) { return x.uid !== uid; });
+      host().innerHTML = renderOwnerView(myDogam);
+      syncLiveBlocks();
+    } catch (err) {
+      alert('삭제 중 문제가 생겼어요. 잠시 후 다시 시도해줘.');
+    }
   }
 
   // 참여자 행 클릭 시 등록 당시 케미 상세를 다시 보여준다 — 새로 계산·조회하지 않고 entryRow가
@@ -858,6 +918,94 @@
     const root = document.getElementById('dogamEntryDetailRoot');
     if (root) root.remove();
     document.body.classList.remove('overlay-open');
+  }
+
+  // ⚠️ 사용자 리포트(2026-09-04): "비로그인으로 만든 도감이 로그인된 도감에 머지되면서 사라진 것
+  // 같다" — 예전 서버 로직(settleDogamForUid)은 로그인 시 계정 밑에 도감이 2개 이상 남으면 캐릭터가
+  // 같든 다르든 무조건 하나만 남기고 나머지를 완전히 지웠다. 지금은 캐릭터가 같으면 서버가 참여
+  // 기록을 합쳐서 유실 없이 정리하고(notifyDogamMerged로 안내), 캐릭터가 다르면 자동으로 아무것도
+  // 지우지 않고 그대로 둔 채 kakaoLogin 응답에 실어 보낸다 — 여기서 그 목록을 받아 사용자가 직접
+  // 대표 도감을 고르게 한다(정책 §3). 고르지 않고 닫아도 두 도감 다 그대로 남는다.
+  function conflictCardHtml(label, characterId, ownerName, entryCount, actionsHtml) {
+    const ch = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[characterId]) || null;
+    const img = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(characterId) : '';
+    return '' +
+      '<div class="dogam-row" style="cursor:default;">' +
+        '<img class="dogam-row-thumb" src="' + esc(img) + '" alt="' + esc(ch ? ch.name : '') + '">' +
+        '<div class="dogam-row-body">' +
+          '<div class="dogam-row-name">' + esc(label) + '<span class="dogam-row-tag">' + esc(ch ? ch.name : '') + '</span></div>' +
+          '<div class="dogam-row-desc">' + esc((ownerName || '') + ' · 인연 ' + entryCount + '명') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex; align-items:center; gap:8px; margin:8px 0 16px 50px;">' + actionsHtml + '</div>';
+  }
+  function showDogamConflict(conflicts) {
+    if (!conflicts || !conflicts.length || !myDogam) return;
+    closeDogamConflict();
+    const root = document.createElement('div');
+    root.id = 'dogamConflictRoot';
+    const keeperCard = conflictCardHtml('지금 대표 도감', myDogam.ownerCharacterId, myDogam.ownerName, (myDogam.entries || []).length,
+      '<span style="font-size:12px;color:var(--text-sub);">지금 쓰고 있는 도감이에요</span>');
+    const otherCards = conflicts.map(function (c) {
+      return conflictCardHtml('다른 인연도감', c.ownerCharacterId, c.ownerName, c.entryCount,
+        '<button type="button" class="submit-btn" style="padding:8px 14px;font-size:13px;width:auto;" onclick="Dogam.chooseDogamAsPrimary(\'' + esc(c.slug) + '\')">이 도감을 대표로 두기</button>' +
+        '<button type="button" class="revisit-del" title="삭제" onclick="Dogam.discardConflictDogam(\'' + esc(c.slug) + '\')"><span class="material-symbols-outlined">close</span></button>'
+      );
+    }).join('');
+    root.innerHTML = '' +
+      '<div class="overlay-backdrop" onclick="Dogam.closeDogamConflict()"></div>' +
+      '<div class="form-popup">' +
+        '<div class="popup-header">' +
+          '<span>인연도감이 두 개 있어요</span>' +
+          '<button class="overlay-close" onclick="Dogam.closeDogamConflict()"><span class="material-symbols-outlined">close</span></button>' +
+        '</div>' +
+        '<div class="popup-body">' +
+          '<p class="dogam-guide">전에 다른 곳에서 만든 인연도감을 캐릭터가 서로 달라서 자동으로 합치지 못했어요. 어느 걸 계속 쓸지 골라주세요 — 고르지 않아도 둘 다 그대로 남아있어요.</p>' +
+          keeperCard + otherCards +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(root);
+    document.body.classList.add('overlay-open');
+  }
+  function closeDogamConflict() {
+    const root = document.getElementById('dogamConflictRoot');
+    if (root) root.remove();
+    document.body.classList.remove('overlay-open');
+  }
+  async function chooseDogamAsPrimary(slug) {
+    const uid = currentUid();
+    if (!uid || !window.fbDb) return;
+    try {
+      await fbDb.collection('users').doc(uid).set({ dogamSlug: slug }, { merge: true });
+      localStorage.setItem(SLUG_KEY, slug);
+      myDogam = null; // 다음 render()가 새 대표 도감을 새로 읽도록 캐시를 비운다
+      closeDogamConflict();
+      toast('대표 도감을 바꿨어요');
+      await render();
+    } catch (e) {
+      alert('바꾸는 중 문제가 생겼어요. 잠시 후 다시 시도해줘.');
+    }
+  }
+  // deleteMyDogam()과 같은 방식(entries 전부 삭제 후 도감 문서 삭제)이지만, 이건 지금 쓰는 도감이
+  // 아니라 conflicts로 남아있던 특정 slug 하나만 지운다 — 사용자가 명시적으로 고른 경우에만
+  // 호출되므로, 지워졌다는 사실이 조용히 묻히지 않게 여기서 바로 확인하고 알린다.
+  async function discardConflictDogam(slug) {
+    if (!confirm('이 인연도감을 완전히 삭제할까요?\n등록된 인연도 함께 사라지고, 되돌릴 수 없어요.')) return;
+    try {
+      const ref = fbDb.collection('dogam').doc(slug);
+      const entriesSnap = await ref.collection('entries').get();
+      for (const d of entriesSnap.docs) await d.ref.delete();
+      await ref.delete();
+      closeDogamConflict();
+      toast('삭제했어요');
+    } catch (e) {
+      alert('삭제 중 문제가 생겼어요. 잠시 후 다시 시도해줘.');
+    }
+  }
+  // 캐릭터가 같아서 서버가 자동으로 합친 경우 — 데이터는 안 잃었지만 "도감 하나가 사라졌다"는 사실
+  // 자체는 사용자에게 조용히 묻히면 안 된다는 요청(2026-09-04)에 따라 매번 명시적으로 알린다.
+  function notifyDogamMerged(count) {
+    alert('다른 곳에서 만든 인연도감이 지금 도감으로 합쳐졌어요.\n(중복 도감 ' + count + '개, 등록됐던 인연은 모두 그대로 보존됐어요)');
   }
 
   function policyBlock(showDelete) {
@@ -1157,15 +1305,18 @@
   function guestEntriesBlock(dogam) {
     const entries = dogam.entries || [];
     const count = entries.length;
-    const list = count
-      ? entries.map(function (e) { return entryRow(e); }).join('')
-      : '<p class="dogam-empty">아직 등록된 인연이 없어요. 첫 번째로 등록해보세요!</p>';
+    const filtered = applyEntryFilter(entries);
+    const list = filtered.length
+      ? filtered.map(function (e) { return entryRow(e); }).join('')
+      : (count ? '<p class="dogam-empty">이 조건에 맞는 인연이 없어요.</p>'
+               : '<p class="dogam-empty">아직 등록된 인연이 없어요. 첫 번째로 등록해보세요!</p>');
     return '' +
       '<div class="dogam-block">' +
         '<div class="dogam-head">' +
           '<span class="dogam-title">인연 도감</span>' +
           '<span class="dogam-count">' + count + '명</span>' +
         '</div>' +
+        filterChips(entries) +
         '<div class="dogam-list">' + list + '</div>' +
       '</div>';
   }
@@ -1465,6 +1616,10 @@
     render: render, renderInto: renderIntoEl, share: share, registerEntry: registerEntry,
     createMyDogamFromInvite: createMyDogamFromInvite,
     showEntryDetail: showEntryDetail, closeEntryDetail: closeEntryDetail,
+    deleteEntry: deleteEntry, setEntryFilter: setEntryFilter,
+    showDogamConflict: showDogamConflict, closeDogamConflict: closeDogamConflict,
+    chooseDogamAsPrimary: chooseDogamAsPrimary, discardConflictDogam: discardConflictDogam,
+    notifyDogamMerged: notifyDogamMerged,
     dismissLoginModal: dismissLoginModal,
     snoozeLoginModal: snoozeLoginModal,
     loginAndKeep: loginAndKeep, goCombined: goCombined, deleteMyDogam: deleteMyDogam,
