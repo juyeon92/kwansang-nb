@@ -1753,6 +1753,17 @@ body.overlay-open { overflow: hidden; }
         <div id="gwansangRevisitBody"></div>
       </div>
 
+      <!-- 인연도감 서비스 정책.md v4 2-0/2-1 1번 — "닉네임 입력 + 사진 업로드"가 함께 필수. 게스트
+           등록 폼(#dogamGuestName)과 같은 스타일·12자 제한을 그대로 맞췄다. myName()이 이 값을
+           최우선으로 읽는다(js/inyeon-dogam.js 참고) — 도감을 만들 때 프로필 이름이나 "익명xxxx"
+           안전망 대신 여기서 직접 정한 별명이 쓰이게 하기 위함. 라벨까지 한 div로 묶어 id를 줘야
+           captureUploadNodes()의 skip 목록으로 통째로 걸러져 B의 등록 폼으로 안 옮겨간다(B는
+           #dogamGuestName이라는 자기 이름 필드가 따로 있음). -->
+      <div id="gwansangOwnerNameBlock">
+        <div class="upload-label">이름 또는 별명</div>
+        <input type="text" class="field-input" id="gwansangOwnerName" maxlength="12" placeholder="도감에 표시될 이름 또는 별명" style="margin-bottom:16px;">
+      </div>
+
       <div class="upload-label">관상 정보</div>
 
       <div class="reassure-box">
@@ -1791,7 +1802,7 @@ body.overlay-open { overflow: hidden; }
     </div>
 
     <div class="cta-dock hidden" id="gwansangCtaDock">
-      <button class="submit-btn" onclick="startAnalysis('gwansang')">내 관상 캐릭터 뽑기</button>
+      <button class="submit-btn" onclick="startGwansangOwnerAnalysis()">내 관상 캐릭터 뽑기</button>
     </div>
 
     <div class="card hidden shell-strip" id="canvasCard">
@@ -2545,10 +2556,10 @@ body.overlay-open { overflow: hidden; }
 <script src="js/character/character-db.js?v=20260830b"></script>
 <script src="js/character-api.js?v=20260830b"></script>
 <script src="js/ai-analysis.js?v=20260903"></script>
-<script src="js/app.js?v=20260903a"></script>
+<script src="js/app.js?v=20260904a"></script>
 <script src="js/profile.js?v=20260903"></script>
 <script src="js/archive.js?v=20260831b"></script>
-<script src="js/inyeon-dogam.js?v=20260903b"></script>
+<script src="js/inyeon-dogam.js?v=20260904a"></script>
 <script src="js/nyang-shop.js?v=20260903"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>
 <script src="js/pay-history.js?v=20260827c"></script>

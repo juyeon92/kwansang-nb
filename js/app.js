@@ -686,6 +686,18 @@ function hideErr(id) {
   if (el) el.classList.remove('show');
 }
 
+// 인연도감 서비스 정책.md v4(2-0/2-1 1번) — 최초 진입은 닉네임+사진 둘 다 필수. startAnalysis
+// 자체에는 이 검사를 넣지 않는다 — inyeon-dogam.js의 registerEntry()(B가 새 사진으로 재분석하는
+// 경로)도 startAnalysis('gwansang')을 그대로 호출하는데, B는 별도 이름 필드(#dogamGuestName)로
+// 이미 검증하므로 여기서 또 막으면 B의 등록이 막힌다. index.html의 "내 관상 캐릭터 뽑기" 버튼만
+// 이 함수를 거치게 해서 A(오너)의 최초 진입에만 적용한다.
+function startGwansangOwnerAnalysis() {
+  const nameEl = document.getElementById('gwansangOwnerName');
+  const name = (nameEl && nameEl.value || '').trim();
+  if (!name) { alert('이름 또는 별명을 입력해주세요.'); if (nameEl) nameEl.focus(); return; }
+  startAnalysis('gwansang');
+}
+
 // ═══ FACE ANALYSIS (Promise 기반 — await 가능) ═══
 // ═══ ANALYZE (관상 탭 버튼용) ═══
 async function startAnalysis(ctx) {

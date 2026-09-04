@@ -34,6 +34,12 @@
   // 변수로만 둔다(사용자 요청 2026-08-18): localStorage였다면 새로고침해도 계속 남아서, "방금"이 아닌
   // 옛 결과가 언제까지고 다시 보였다. 새로고침하면 이 값도 자연히 비워지는 게 맞다.
   let lastMatch = null;
+  // ⚠️ 정책 개편(인연도감 서비스 정책.md v4, 2-2 7번·8번) — B가 A의 링크에 등록하면 곧바로 B
+  // 본인 도감을 만들던 예전 동작을 없애고, 등록 직후엔 이 변수에만 결과를 담아 "1회성 병합 화면"
+  // (registerEntry 참고)을 보여준다. B가 실제로 "내 인연도감 만들기"를 눌러야 그때 도감이 생긴다.
+  // lastMatch와 같은 이유로 일부러 메모리 변수만 쓴다 — 같은 링크로 재방문(새로고침 포함)하면
+  // 자연히 비워져서 2-3의 "게스트는 항상 등록 폼" 규칙으로 돌아간다.
+  let justRegistered = null;
 
   // 화면에 그대로 노출하는 정책 문구 — 명세서를 관상 기준으로 다시 쓴 것.
   const DOGAM_POLICY = [
@@ -150,6 +156,12 @@
   // 버튼도 안 눌렀는데 만들어지는 경우)는 팝업을 띄우기 부적절해서, 그 경로의 안전망으로 uid
   // 뒷자리를 붙여 최소한 서로 구분은 되게 한다.
   function myName() {
+    // 인연도감 서비스 정책.md v4 2-0/2-1 1번 — A의 최초 진입 화면에 닉네임 입력을 새로 추가했다
+    // (index.html #gwansangOwnerName). 그 값이 있으면 최우선으로 쓴다 — Profile은 사주 프로필
+    // 시스템 것이라 인연도감(사주 없이 관상만 쓰는 기능)이 굳이 그걸 빌려 쓸 이유가 없어졌다.
+    const nameEl = document.getElementById('gwansangOwnerName');
+    const typed = (nameEl && nameEl.value || '').trim();
+    if (typed) return typed;
     const rep = window.Profile ? Profile.getRepresentative() : null;
     if (rep && rep.name) return rep.name;
     const uid = currentUid();
@@ -431,7 +443,9 @@
     if (uploadNodes) return uploadNodes;
     const sec = document.getElementById('gwansangUploadSection');
     if (!sec) return [];
-    const skip = { gwansangHero: 1, gwansangRevisitLabel: 1, gwansangRevisitCard: 1 };
+    // gwansangOwnerNameBlock(A 전용 닉네임 입력, 2026-09-04 추가)은 B의 등록 폼엔 없는 필드라
+    // 옮기지 않는다 — B는 자기 이름을 #dogamGuestName에 따로 입력한다.
+    const skip = { gwansangHero: 1, gwansangRevisitLabel: 1, gwansangRevisitCard: 1, gwansangOwnerNameBlock: 1 };
     uploadNodes = Array.prototype.filter.call(sec.children, function (n) { return !skip[n.id]; });
     return uploadNodes;
   }
@@ -459,7 +473,6 @@
   // 이미 등록했든 상관없이 code가 붙어있는 동안은 그 code의 도감이 항상 1순위로 뜬다. 자동으로
   // "내 도감"으로 넘어가는 경우는 없고, 오직 leaveSharedView()(사용자가 직접 누르는 버튼)로 URL의
   // code를 지웠을 때만 아래(B) "내 도감" 규칙으로 전환된다.
-  let lastAlreadyToastSlug = null; // 같은 슬러그로 재렌더될 때마다 "이미 등록했어요" 토스트가 반복되지 않게
 
   async function render() {
     const el = host();
@@ -509,15 +522,19 @@
           await paintOwnerView(el, guestDogam, stale);
           return;
         }
-        // A-2/A-3: 남의 도감 — 미등록이면 등록 폼, 이미 등록했으면 "이미 등록했어요" 토스트 +
-        // 등록 폼 없는 같은 화면 + "내 도감 보러가기" 버튼. 둘 다 자동으로 내 도감으로 넘어가지 않는다.
-        const already = guestDogam.entries.some(function (x) { return x.uid === currentUid(); });
-        showGuestView(guestDogam, already);
-        el.innerHTML = '';
-        if (already && lastAlreadyToastSlug !== sharedSlug) {
-          lastAlreadyToastSlug = sharedSlug;
-          toast('이미 등록했어요');
+        // A-2/A-3: 남의 도감. (v4 정책 2-3) 게스트는 등록 이력과 무관하게 항상 같은 화면을 본다 —
+        // 기기/세션으로 "이미 등록한 사람"을 구분해서 다른 화면을 보여주면, 같은 기기로 여러 명이
+        // 순서대로 등록하는 흔한 상황(모임 자리 등)에서 다음 사람이 이전 사람의 결과를 그대로 보게
+        // 되는 프라이버시 문제가 생긴다(정책 문서 2-3 근거). 예전의 "이미 등록했어요" 분기는 제거.
+        // 다만 방금 이 링크에 등록을 마친 직후라면(justRegistered) 1회성 병합 결과 화면을 보여준다
+        // (registerEntry/renderGuestMergedResult 참고) — 새로고침하면 justRegistered가 비워져
+        // 자연히 아래 showGuestView(등록 폼)로 돌아간다.
+        if (justRegistered && justRegistered.slug === sharedSlug) {
+          renderGuestMergedResult(guestDogam, justRegistered);
+        } else {
+          showGuestView(guestDogam);
         }
+        el.innerHTML = '';
         return;
       }
       // A-4: code가 무효/만료 — guestDogam이 null이라 아래 B 규칙(내 도감)으로 자연스럽게 폴백.
@@ -711,11 +728,17 @@
       '</div>';
   }
 
+  // 참여자 상세 재열람용 캐시(정책 2-3/7장) — "재방문 참여자" 분기를 없앤 대신, 목록에서 본인(또는
+  // 아무 참여자) 항목을 탭하면 등록 당시 케미 상세를 다시 볼 수 있게 한다. uid로 찾을 수 있게
+  // entryRow가 그릴 때마다 채워둔다 — Firestore에서 다시 조회하지 않고 이미 받아온 값만 재사용.
+  let entryLookup = {};
+
   function entryRow(e) {
+    entryLookup[e.uid] = e;
     const ch = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[e.characterId]) || null;
     const img = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(e.characterId) : '';
     return '' +
-      '<div class="dogam-row">' +
+      '<div class="dogam-row" role="button" tabindex="0" style="cursor:pointer;" onclick="Dogam.showEntryDetail(\'' + esc(e.uid) + '\')">' +
         '<img class="dogam-row-thumb" src="' + esc(img) + '" alt="' + esc(ch ? ch.name : '') + '">' +
         '<div class="dogam-row-body">' +
           '<div class="dogam-row-name">' + esc(e.name) +
@@ -724,6 +747,43 @@
         '</div>' +
         '<div class="dogam-row-score"><b>' + (e.score == null ? '-' : e.score) + '</b><span>점</span></div>' +
       '</div>';
+  }
+
+  // 참여자 행 클릭 시 등록 당시 케미 상세를 다시 보여준다 — 새로 계산·조회하지 않고 entryRow가
+  // 그릴 때 이미 받아온 값(entryLookup)만 그대로 재사용한다. 오버레이 마크업/클래스는 profile.js가
+  // 쓰는 것과 같은 걸 재사용해 새 CSS 없이 바로 붙는다.
+  function showEntryDetail(uid) {
+    const e = entryLookup[uid];
+    if (!e) return;
+    closeEntryDetail();
+    const root = document.createElement('div');
+    root.id = 'dogamEntryDetailRoot';
+    root.innerHTML = '' +
+      '<div class="overlay-backdrop" onclick="Dogam.closeEntryDetail()"></div>' +
+      '<div class="form-popup">' +
+        '<div class="popup-header">' +
+          '<span>' + esc(e.name) + '님과의 인연</span>' +
+          '<button class="overlay-close" onclick="Dogam.closeEntryDetail()"><span class="material-symbols-outlined">close</span></button>' +
+        '</div>' +
+        '<div class="popup-body">' +
+          '<div id="dogamEntryDetailCard"></div>' +
+          '<div class="dogam-match-row" style="margin-top:12px;">' +
+            '<div class="dogam-match-body">' +
+              '<div class="dogam-row-name">' + esc(e.name) + '님과의 궁합' +
+                '<span class="dogam-row-tag">' + esc(e.relation || '') + '</span></div>' +
+            '</div>' +
+            '<div class="dogam-match-score"><b>' + (e.score == null ? '-' : e.score) + '</b><span>점</span></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(root);
+    document.body.classList.add('overlay-open');
+    if (typeof renderCharacterCard === 'function') renderCharacterCard('dogamEntryDetailCard', { characterId: e.characterId });
+  }
+  function closeEntryDetail() {
+    const root = document.getElementById('dogamEntryDetailRoot');
+    if (root) root.remove();
+    document.body.classList.remove('overlay-open');
   }
 
   function policyBlock(showDelete) {
@@ -883,15 +943,11 @@
       '</div>';
   }
 
-  // 2) 공유받은 친구 입장
-  //    ① 나를 초대한 사람의 도감(캐릭터 카드)을 맨 위에
-  //    ② 그 아래 "내 인연 등록하기" 안에 관상 사진 등록까지 함께 묶는다 — 등록 버튼과 한 덩어리로 읽히도록.
-  // already: 이 도감에 이미 등록한 사람의 재방문인지(사용자 요청 2026-08-19) — true면 등록 폼을
-  // 통째로 숨기고, 대신 "내 도감 보러가기" 버튼을 보여준다. 자동으로 넘어가진 않는다 — code가
-  // URL에 있는 동안은 계속 이 화면(친구 도감)에 머문다.
-  function showGuestView(dogam, already) {
+  // 게스트 화면에 공통으로 필요한 DOM 정리(히어로/CTA/캔버스 숨기기) — showGuestView와
+  // renderGuestMergedResult(병합 결과 화면) 둘 다 같은 준비가 필요해 공용 함수로 뺐다.
+  function prepGuestScreen() {
     const el = guestHost();
-    if (!el) return;
+    if (!el) return null;
     stashUploadNodes();                 // innerHTML로 지워지지 않도록 원래 자리로 잠시 되돌린다
     setDisplay('gwansangHero', 'none'); // "내 얼굴 주변엔 어떤 인연이 있을까?" 히어로는 이 화면에선 방해된다
     setDisplay('gwansangRevisitLabel', 'none');
@@ -907,10 +963,20 @@
     // 기존 로직과 같은 방식으로 다뤄야 나중에 다시 열 때도 어긋나지 않는다.
     document.getElementById('canvasCard').classList.add('hidden');
     document.getElementById('gwansangResult').classList.add('hidden');
-    // ⚠️ 사용자 리포트(2026-08-19): 이미 등록한 재방문(already)은 등록 폼 자체를 안 만들어서, 그 안에
-    // 옮겨 넣었어야 할 사진 업로드 위젯(#gwansangUploadSection)이 원래 자리에 그대로 노출됐다.
-    // 등록 폼이 없는 화면에서는 이 섹션도 통째로 숨긴다.
-    setDisplay('gwansangUploadSection', already ? 'none' : '');
+    return el;
+  }
+
+  // 2) 공유받은 친구 입장 — 등록 폼
+  //    ① 나를 초대한 사람의 도감(캐릭터 카드)을 맨 위에
+  //    ② 그 아래 "내 인연 등록하기" 안에 관상 사진 등록까지 함께 묶는다 — 등록 버튼과 한 덩어리로 읽히도록.
+  // ⚠️ 정책 개편(인연도감 서비스 정책.md v4, 2-3) — 예전엔 "이미 등록한 적 있는 재방문"이면 이 폼을
+  // 통째로 숨기고 "내 도감 보러가기" 버튼만 보여줬다. 공용기기에서 여러 명이 순서대로 등록하는
+  // 상황에서 다음 사람이 이전 사람 화면을 그대로 보게 되는 문제가 있어, 등록 이력과 무관하게
+  // 항상 이 폼을 보여주는 것으로 정책이 바뀌었다(4장 "중복 등록 허용"과도 일관).
+  function showGuestView(dogam) {
+    const el = prepGuestScreen();
+    if (!el) return;
+    setDisplay('gwansangUploadSection', '');
 
     const myChar = myCharacterId();
     const myName2 = myChar && CHARACTER_DB[myChar] ? CHARACTER_DB[myChar].name : '';
@@ -919,7 +985,7 @@
     const rep = window.Profile ? Profile.getRepresentative() : null;
     const prefillName = (rep && rep.name) || '';
 
-    const registerBlock = already ? '' : ('' +
+    const registerBlock = '' +
       '<div class="dogam-block">' +
         '<div class="dogam-head"><span class="dogam-title">내 인연 등록하기</span></div>' +
         (myChar
@@ -938,15 +1004,14 @@
           '<span>이름과 관상 캐릭터 결과를 인연도감 표시·궁합 계산에 이용하는 데 동의해요. <b>(필수)</b></span></label>' +
         // 사진 업로드는 렌더 이후에 일어나므로 disabled로 막지 않는다 — 누른 시점에 검사해 안내한다.
         '<button class="submit-btn" onclick="Dogam.registerEntry()">도감에 인연 등록하기</button>' +
-      '</div>');
+      '</div>';
 
     el.innerHTML = '' +
       '<div class="dogam-block">' +
         '<div class="dogam-head"><span class="dogam-title">' + esc(dogam.ownerName) + '님의 인연도감</span></div>' +
-        '<p class="dogam-guide">' + esc(dogam.ownerName) + (already ? '님의 인연도감이에요.' : '님이 나를 인연도감에 초대했어요.') + '</p>' +
+        '<p class="dogam-guide">' + esc(dogam.ownerName) + '님이 나를 인연도감에 초대했어요.</p>' +
         '<div id="dogamOwnerCard"></div>' +
         '<div id="dogamOwnerDetail"></div>' +
-        (already ? '<button class="submit-btn" style="margin-top:16px;" onclick="Dogam.leaveSharedView()">내 도감 보러가기</button>' : '') +
       '</div>' +
       registerBlock +
       guestEntriesBlock(dogam) +
@@ -959,14 +1024,50 @@
     }
     renderOwnerBrief('dogamOwnerDetail', dogam.ownerCharacterId);
     // 사진 등록은 항상 "내 인연 등록하기" 안에 묶는다 — 등록 버튼과 한 덩어리로 읽혀야 한다.
-    // 예전에 분석한 캐릭터가 남아 있어도 마찬가지다(다른 사진으로 다시 찍을 수 있어야 하고,
-    // 업로드 영역만 카드 밖에 떨어져 있으면 흐름이 끊긴다). 이미 등록한 재방문(already)은 등록
-    // 폼 자체가 없으니 업로드 노드를 다시 꽂아둘 슬롯이 없다 — stashUploadNodes()가 이미 원래
-    // 자리(#gwansangUploadSection)로 돌려놨으니 그대로 둔다.
-    if (!already) {
-      const slot = document.getElementById('dogamUploadSlot');
-      if (slot) captureUploadNodes().forEach(function (n) { slot.appendChild(n); });
+    // 예전에 분석한 캐릭터가 남아 있어도 마찬가지다(다른 사진으로 다시 찍을 수 있어야 한다).
+    const slot = document.getElementById('dogamUploadSlot');
+    if (slot) captureUploadNodes().forEach(function (n) { slot.appendChild(n); });
+  }
+
+  // 3) 등록 직후 1회성 병합 결과 화면 (정책 2-2 8번) — 상단 A 결과 고정 + [B 캐릭터 결과 + A기준
+  // 케미 점수 + "내 인연도감 만들기" CTA] 병합 섹션 + A 도감 전체 참여자 목록. registerEntry()가
+  // justRegistered를 채운 직후에만 render()가 이 함수로 분기한다(showGuestView 대신). 새로고침하면
+  // justRegistered가 비워져 다음 render()는 자연히 showGuestView(등록 폼)로 돌아간다 — "1회성" 요구를
+  // lastMatch와 같은 방식(메모리 변수만 사용)으로 만족시킨다.
+  function renderGuestMergedResult(dogam, match) {
+    const el = prepGuestScreen();
+    if (!el) return;
+    // 업로드 섹션은 이 화면엔 필요 없다(이미 등록을 마쳤으므로) — showGuestView와 달리 숨겨둔다.
+    setDisplay('gwansangUploadSection', 'none');
+
+    el.innerHTML = '' +
+      '<div class="dogam-block">' +
+        '<div class="dogam-head"><span class="dogam-title">' + esc(dogam.ownerName) + '님의 인연도감</span></div>' +
+        '<p class="dogam-guide">' + esc(dogam.ownerName) + '님이 나를 인연도감에 초대했어요.</p>' +
+        '<div id="dogamOwnerCard"></div>' +
+        '<div id="dogamOwnerDetail"></div>' +
+      '</div>' +
+      '<div class="dogam-block dogam-matched">' +
+        '<div class="dogam-head"><span class="dogam-title">인연도감 등록 완료</span></div>' +
+        '<div id="dogamMyResultCard"></div>' +
+        '<div class="dogam-match-row">' +
+          '<div class="dogam-match-body">' +
+            '<div class="dogam-row-name">' + esc(dogam.ownerName) + '님과의 궁합' +
+              '<span class="dogam-row-tag">' + esc(match.relation || '') + '</span></div>' +
+          '</div>' +
+          '<div class="dogam-match-score"><b>' + (match.score == null ? '-' : match.score) + '</b><span>점</span></div>' +
+        '</div>' +
+        '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. 내 도감도 만들면 나만의 공유 링크가 생겨요.</p>' +
+        '<button class="submit-btn" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
+      '</div>' +
+      guestEntriesBlock(dogam) +
+      policyBlock();
+
+    if (typeof renderCharacterCard === 'function') {
+      renderCharacterCard('dogamOwnerCard', { characterId: dogam.ownerCharacterId });
+      renderCharacterCard('dogamMyResultCard', { characterId: match.characterId });
     }
+    renderOwnerBrief('dogamOwnerDetail', dogam.ownerCharacterId);
   }
 
   // 등록 폼 바로 아래에 "이 도감에 이미 몇 명이 등록했는지"를 보여준다(사용자 요청 2026-08-18:
@@ -1032,9 +1133,9 @@
     }
 
     const score = await compatScore(guestDogam.ownerCharacterId, charId);
-    const inviter = guestDogam; // 아래에서 guestDogam을 비우므로 미리 붙잡아 둔다
+    const inviter = guestDogam;
     try {
-      // ① 친구 도감에 나를 등록 — 문서 id를 내 uid로 둬서 중복 등록을 막고 본인 삭제 권한을 명확히 한다.
+      // 친구 도감에 나를 등록 — 문서 id를 내 uid로 둬서 중복 등록을 막고 본인 삭제 권한을 명확히 한다.
       await fbDb.collection('dogam').doc(inviter.slug).collection('entries').doc(uid).set({
         uid: uid, name: name, characterId: charId, score: score,
         relation: relationLabel(score),
@@ -1042,44 +1143,73 @@
       });
       console.log('[dogam] 상대 도감에 등록 완료', { slug: inviter.slug, entry: uid, score: score });
 
-      // ② 내 도감이 없으면 이때 함께 만들어진다(요청: 등록과 동시에 내 인연도감 생성).
-      //    방금 입력한 이름으로 만들어야 상대가 보는 내 이름과 어긋나지 않는다.
+      // ⚠️ 정책 개편(인연도감 서비스 정책.md v4, 2-2 7번) — 예전엔 여기서 곧바로 내 도감을 만들고
+      // 상대를 내 도감에도 등록해 "공유받은 사람"에서 "도감 주인" 화면으로 바로 전환했다. 이제 내
+      // 도감은 이 시점에 만들지 않는다 — 대신 방금 등록한 결과(A기준 케미 점수 포함)만 justRegistered에
+      // 담아 1회성 병합 결과 화면(renderGuestMergedResult)을 보여주고, "내 인연도감 만들기" CTA를
+      // 실제로 눌러야 createMyDogamFromInvite()가 그 뒤를 이어 처리한다.
+      justRegistered = {
+        slug: inviter.slug,
+        inviterUid: inviter.ownerUid, inviterName: inviter.ownerName, inviterCharacterId: inviter.ownerCharacterId,
+        name: name, characterId: charId, score: score, relation: relationLabel(score),
+      };
+      // 참여자 목록에 방금 등록한 나를 포함해 최신화한다(guestEntriesBlock이 이 목록을 그대로 씀).
+      guestDogam = await loadDogam(inviter.slug).catch(function () { return inviter; });
+      await render();
+      const gh = document.getElementById('dogamGuestSection');
+      if (gh) gh.scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+      console.error('[dogam] 등록 실패', e);
+      alert('등록 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+    }
+  }
+
+  // "내 인연도감 만들기" — renderGuestMergedResult의 CTA. 정책 2-4 10번의 "B가 처음 도감을 만드는
+  // 경우" 절차(내 도감 생성 + B기준 케미 점수로 A를 자동 등록)를 여기서 수행한다. 로그인 여부와
+  // 무관하게 익명 uid로도 동작한다(로그인 필수화는 2단계 범위 — 정책 문서 §9-2/§2-4).
+  async function createMyDogamFromInvite() {
+    if (!justRegistered) return;
+    const m = justRegistered;
+    let uid;
+    try {
+      uid = await ensureAuthUid();
+    } catch (e) {
+      console.error('[dogam] 익명 인증 실패', e);
+      alert('처리 중 오류가 발생했어요.\n' + ((e && e.message) || e));
+      return;
+    }
+    if (!uid) { alert('처리할 수 없어요. 잠시 후 다시 시도해주세요.'); return; }
+    try {
       let mine = await ensureMyDogam();
-      if (!mine) mine = await createMyDogam(name);
+      if (!mine) mine = await createMyDogam(m.name);
       if (!mine) throw new Error('내 인연도감을 만들지 못했어요.');
 
-      // ③ 인연은 양쪽에 함께 등록된다 — 방금 초대해준 사람도 내 도감에 올린다.
-      const myScore = await compatScore(charId, inviter.ownerCharacterId);
+      // 인연은 양쪽에 함께 등록된다 — 방금 초대해준 사람도 내 도감에 올린다(B기준 케미 점수).
+      const myScore = await compatScore(m.characterId, m.inviterCharacterId);
       const myRelation = relationLabel(myScore);
-      await fbDb.collection('dogam').doc(mine.slug).collection('entries').doc(inviter.ownerUid).set({
-        uid: inviter.ownerUid, name: inviter.ownerName, characterId: inviter.ownerCharacterId,
+      await fbDb.collection('dogam').doc(mine.slug).collection('entries').doc(m.inviterUid).set({
+        uid: m.inviterUid, name: m.inviterName, characterId: m.inviterCharacterId,
         score: myScore, relation: myRelation,
         createdAt: new Date().toISOString(),
       });
-      console.log('[dogam] 내 도감에 상대 등록 완료', { slug: mine.slug, entry: inviter.ownerUid, score: myScore });
+      console.log('[dogam] 내 도감에 상대 등록 완료', { slug: mine.slug, entry: m.inviterUid, score: myScore });
 
       // 등록 직후 화면에 "방금 맺은 인연"을 보여주기 위해 기억해둔다(이 페이지 세션 동안만).
-      lastMatch = {
-        uid: inviter.ownerUid, name: inviter.ownerName,
-        characterId: inviter.ownerCharacterId, score: myScore,
-        relation: myRelation,
-      };
+      lastMatch = { uid: m.inviterUid, name: m.inviterName, characterId: m.inviterCharacterId, score: myScore, relation: myRelation };
       myDogam = null; // 다음 render에서 방금 쓴 항목까지 포함해 다시 읽도록 캐시를 비운다
-      // ④ 등록이 끝나면 "공유받은 사람"이 아니라 "내 도감 주인" 화면으로 전환한다.
+      justRegistered = null;
+      // "공유받은 사람"이 아니라 "내 도감 주인" 화면으로 전환한다.
       history.replaceState(null, '', location.origin + location.pathname);
       guestDogam = null;
       const gh = document.getElementById('dogamGuestSection');
       if (gh) { stashUploadNodes(); gh.remove(); }
       setDisplay('gwansangHero', '');
-        await render();
-      // 등록 버튼을 누른 자리(폼 아래쪽)에 그대로 머물러 있으면 방금 만들어진 내 캐릭터 리포트가
-      // 화면 밖에 있어 안 보인다 — 캐릭터 카드 위치부터 다시 읽을 수 있게 스크롤한다.
+      await render();
       const card = document.getElementById('canvasCard');
       if (card) card.scrollIntoView({ behavior: 'smooth' });
-      alert('인연도감에 등록됐어요. 내 인연도감도 함께 만들어졌어요.');
     } catch (e) {
-      console.error('[dogam] 등록 실패', e);
-      alert('등록 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+      console.error('[dogam] 내 도감 생성 실패', e);
+      alert('도감을 만드는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
     }
   }
 
@@ -1207,6 +1337,8 @@
 
   window.Dogam = {
     render: render, renderInto: renderIntoEl, share: share, registerEntry: registerEntry,
+    createMyDogamFromInvite: createMyDogamFromInvite,
+    showEntryDetail: showEntryDetail, closeEntryDetail: closeEntryDetail,
     loginAndKeep: loginAndKeep, goCombined: goCombined, deleteMyDogam: deleteMyDogam,
     migrateLocalOnLogin: migrateLocalOnLogin, leaveSharedView: leaveSharedView,
     // 보관함(archive.js)이 "생성 시간"으로 안정적인 값을 쓰게 하려는 용도 — 도감 문서의 실제
