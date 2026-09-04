@@ -587,6 +587,10 @@
     // 고정됨)과 다른 캐릭터가 다른 곳(리스트 등)에서 새어 보이는 혼란까지 이어졌다(사용자 리포트).
     // 도감이 없는 사람에게만 업로드 입구를 보여준다 — 있으면 더 이상 사진을 넣을 필요가 없다.
     setDisplay('gwansangUploadSection', mine ? 'none' : '');
+    // ⚠️ 버그 수정(2026-09-04) — showGuestView()가 게스트 화면에서 이 블록을 숨겨두는데(위 참고),
+    // 같은 브라우저가 나중에(도감 없이) 자기 도감을 새로 만들려는 화면으로 돌아오면 그 숨김이 남아
+    // 닉네임 입력창이 안 보이는 반대 문제가 생긴다. 여기서 매번 도감 없음 여부에 맞춰 다시 확정한다.
+    setDisplay('gwansangOwnerNameBlock', mine ? 'none' : '');
     await paintOwnerView(el, mine, stale);
   }
 
@@ -1026,6 +1030,12 @@
     const el = prepGuestScreen();
     if (!el) return;
     setDisplay('gwansangUploadSection', '');
+    // ⚠️ 버그 수정(2026-09-04 사용자 리포트: "도감 공유하고 나서 보니 정책 안내 밑에 인연도감~이름
+    // 또는 별명 입력창이 또 나온다") — #gwansangOwnerNameBlock(A 전용 닉네임 입력, 2026-09-04 추가)은
+    // captureUploadNodes()의 skip 목록에 있어서 게스트 등록 폼으로 옮겨가진 않지만(의도대로), 정작
+    // 원래 자리(#gwansangUploadSection, 이 함수가 방금 위에서 다시 보이게 만든)에 그대로 남아있어서
+    // 화면 아래쪽에 이 필드만 혼자 노출됐다. B에게는 A의 닉네임 입력이 필요 없으니 명시적으로 숨긴다.
+    setDisplay('gwansangOwnerNameBlock', 'none');
 
     const myChar = myCharacterId();
     const myName2 = myChar && CHARACTER_DB[myChar] ? CHARACTER_DB[myChar].name : '';
