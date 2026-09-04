@@ -1461,6 +1461,25 @@
       if (!mine) mine = await createMyDogam(m.name);
       if (!mine) throw new Error('내 인연도감을 만들지 못했어요.');
 
+      // ⚠️ 사용자 리포트(2026-09-04): 로그인 게이트(위) 때문에 이 함수가 로그인 완료 후 render()에
+      // 의해 자동으로 다시 불렸을 때, 로그인한 계정이 하필 "방금 나를 초대해준 사람" 본인인 경우가
+      // 있다(같은 계정을 여러 기기에서 테스트하는 등). 이때 ensureMyDogam()이 찾아낸 "내 도감"은
+      // 사실 방금 그 초대 링크의 도감 자신이라, 아래 로직대로 "초대해준 사람을 내 도감에 등록"하면
+      // 도감 주인이 자기 자신을 자기 도감의 참여자로 등록해버린다(참여자 목록에 오너 캐릭터가
+      // 중복으로 나타남 — 실제로 이렇게 재현됐다). 등록할 게 없으므로 조용히 내 도감 화면으로만
+      // 전환한다.
+      if (mine.slug === m.slug || m.inviterUid === currentUid()) {
+        myDogam = mine;
+        justRegistered = null;
+        history.replaceState(null, '', location.origin + location.pathname);
+        guestDogam = null;
+        const selfGh = document.getElementById('dogamGuestSection');
+        if (selfGh) { stashUploadNodes(); selfGh.remove(); }
+        setDisplay('gwansangHero', '');
+        await render();
+        return;
+      }
+
       // 인연은 양쪽에 함께 등록된다 — 방금 초대해준 사람도 내 도감에 올린다(B기준 케미 점수).
       const myScore = await compatScore(m.characterId, m.inviterCharacterId);
       const myRelation = relationLabel(myScore);

@@ -953,7 +953,7 @@ exports.cleanupExpiredDogam = onSchedule(
 // 참여 기록은 collectionGroup으로 한 번에 찾는다(firestore.indexes.json에 entries.uid 인덱스 필요).
 // ═══════════════════════════════════════════════════════════════════════
 async function migrateAnonymousData(anonUid, newUid) {
-  const result = { dogam: 0, entries: 0 };
+  const result = { dogam: 0, entries: 0, selfEntryDropped: 0 };
 
   // ① 내가 주인인 도감
   const owned = await db.collection('dogam').where('ownerUid', '==', anonUid).get();
@@ -964,15 +964,27 @@ async function migrateAnonymousData(anonUid, newUid) {
   }
 
   // ② 내가 남의 도감에 남긴 참여 기록 — 문서 id가 uid라 이동(새로 쓰고 지우기)이 필요하다.
+  // ⚠️ 사용자 리포트(2026-09-04): 로그인 안 한 상태로 "다른 사람"의 도감에 참여자로 등록한 뒤,
+  // 나중에 하필 그 도감 주인과 같은 계정으로 로그인하면 — 이 이관이 그 참여 기록을 그대로
+  // newUid로 옮겨써서 "도감 주인이 자기 자신을 자기 도감의 참여자로 등록한" 상태가 됐다(오너
+  // 목록에 자기 캐릭터가 참여자로 한 번 더 나타남). 이관 대상 도감의 주인이 이미 newUid 자신이면
+  // 옮기지 않고 버린다 — 자기 자신과의 궁합 기록은 애초에 의미가 없다.
   const entries = await db.collectionGroup('entries').where('uid', '==', anonUid).get();
   for (const doc of entries.docs) {
     const data = doc.data();
     const parent = doc.ref.parent; // dogam/{slug}/entries
+    const dogamSnap = await parent.parent.get(); // dogam/{slug}
+    const dogamOwnerUid = dogamSnap.exists ? (dogamSnap.data() || {}).ownerUid : null;
+    if (dogamOwnerUid === newUid) {
+      await doc.ref.delete();
+      result.selfEntryDropped++;
+      continue;
+    }
     await parent.doc(newUid).set(Object.assign({}, data, { uid: newUid }));
     await doc.ref.delete();
     result.entries++;
   }
 
-  console.log(`[migrate] ${anonUid} → ${newUid}: 도감 ${result.dogam}건, 참여기록 ${result.entries}건 이관`);
+  console.log(`[migrate] ${anonUid} → ${newUid}: 도감 ${result.dogam}건, 참여기록 ${result.entries}건 이관, 자기참조 제거 ${result.selfEntryDropped}건`);
   return result;
 }
