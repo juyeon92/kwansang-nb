@@ -486,6 +486,15 @@
   async function render() {
     const el = host();
     if (!el) return;
+    // 정책 2-4 9번 — "내 인연도감 만들기"를 로그인 게이트로 막았을 때(createMyDogamFromInvite 참고)
+    // 남겨둔 pendingCreateAfterLogin을 여기서 소비한다. render()는 kakao-auth.js가 로그인 완료
+    // 직후에도 부르므로, 로그인이 실제로 끝난 시점을 이 자리에서 자연스럽게 감지할 수 있다. 한 번
+    // 소비하면 바로 false로 되돌려 다음 render() 호출들이 중복 실행하지 않게 한다.
+    if (pendingCreateAfterLogin && justRegistered && !!currentUid() && !isAnonymousUser()) {
+      pendingCreateAfterLogin = false;
+      await createMyDogamFromInvite();
+      return; // createMyDogamFromInvite가 끝에서 render()를 다시 불러 최종 화면을 그린다
+    }
     // ⚠️ 버그 수정(2026-09-03 사용자 리포트: "로그인 안 한 상태로 인연도감 들어갔더니 텅 빔") —
     // 아래 CharacterAPI.ensureCharacterCatalog()는 Firebase ID 토큰을 요구하는데(character-api.js),
     // 이 브라우저가 예전에 익명으로 만든 도감이 localStorage(SLUG_KEY)에 캐시돼 있으면 ensureMyDogam()이
@@ -1250,11 +1259,30 @@
     }
   }
 
+  // 정책 2-4 9번 — "내 인연도감 만들기"는 로그인이 필수. 비로그인 상태로 누르면 로그인 팝업부터
+  // 띄우고, 로그인이 실제로 끝난 뒤에 이 함수가 자동으로 이어서 실행되게 이 플래그만 남겨둔다.
+  // localStorage가 아니라 메모리 변수인 이유는 justRegistered와 같다 — 카카오 로그인은 새 창이
+  // 아니라 같은 페이지 안 오버레이(kakao-auth.js openLoginPopup)라서 페이지가 새로고침되지 않고,
+  // 그래서 로그인 완료 후에도 이 값이 그대로 살아있다.
+  let pendingCreateAfterLogin = false;
+
   // "내 인연도감 만들기" — renderGuestMergedResult의 CTA. 정책 2-4 10번의 "B가 처음 도감을 만드는
-  // 경우" 절차(내 도감 생성 + B기준 케미 점수로 A를 자동 등록)를 여기서 수행한다. 로그인 여부와
-  // 무관하게 익명 uid로도 동작한다(로그인 필수화는 2단계 범위 — 정책 문서 §9-2/§2-4).
+  // 경우" 절차(내 도감 생성 + B기준 케미 점수로 A를 자동 등록)를 여기서 수행한다.
   async function createMyDogamFromInvite() {
     if (!justRegistered) return;
+    // ⚠️ 정책 개편(인연도감 서비스 정책.md v4, 2-4 9번: "이 버튼은 로그인이 필수다") — 지금까지는
+    // 이 버튼도 익명 uid로 동작했는데, 그러면 B의 도감이 계정에 안 묶여 기기를 바꾸면 잃어버린다.
+    // 비로그인이면 로그인 팝업만 띄우고 여기서 멈춘다 — render()가 로그인 완료를 감지하면
+    // pendingCreateAfterLogin을 보고 이 함수를 자동으로 다시 불러준다(아래 render() 수정 참고).
+    if (!currentUid() || isAnonymousUser()) {
+      pendingCreateAfterLogin = true;
+      if (window.KakaoAuth && KakaoAuth.openLoginPopup) {
+        KakaoAuth.openLoginPopup('내 인연도감을 만들려면 로그인이 필요해요.<br>지금까지 등록한 내용은 그대로 이어져요.');
+      } else {
+        alert('로그인이 필요해요.');
+      }
+      return;
+    }
     const m = justRegistered;
     let uid;
     try {
