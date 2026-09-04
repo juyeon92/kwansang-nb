@@ -48,7 +48,7 @@ function eyeIconSVG(id) {
 const FOREHEAD_TYPE_DB = {
   FH_ANGULAR: { nameKo:'각진 이마', strength:'추진력이 좋고 논리적이에요.', weakness:'마무리가 약할 수 있어요.' },
   FH_M_SHAPE: { nameKo:'M자·혼합형 이마', strength:'독창적이고 집중력이 좋아요.', weakness:'생각이 부정적으로 흐를 때가 있어요.', detail:'발제(이마와 머리카락의 경계선)가 들쭉날쭉하거나 이마 라인이 파고든 편이라, 어린 시절엔 다소 분주하게 이것저것 겪었을 수 있어요. 다만 이건 스스로 길을 개척하는 부지런한 기질로도 읽혀서, 나쁘게만 볼 일은 아니에요.' },
-  FH_NARROW: { nameKo:'폭 좁은 이마', strength:'투쟁적이고 본능적인 감각이 좋아요.', weakness:'충동적으로 행동할 수 있어요.' },
+  FH_NARROW: { nameKo:'폭 좁은 이마', strength:'투쟁적이고 본능적인 감각이 좋아요.', weakness:'충동적으로 행동할 수 있어요.', detail:'전통 관상에서는 이마 폭이 얼굴을 셋으로 나눴을 때 3분의 1 정도로 적당한 걸 길상으로 봐요. 그보다 확연히 좁거나 이마 선이 크게 꺼진 듯 보이면 초년에 좋은 기회를 만나기까지 시간이 걸리고 조직 안에서 큰 자리에 오르기까지도 노력이 더 필요한 편이라고 풀이해요. 여자라면 배우자의 일이나 사업운에도 살짝 영향을 줄 수 있다고 보는 해석도 있어요 — 다만 이건 참고할 만한 전통적 풀이일 뿐, 노력과 표정·태도로 얼마든지 채워갈 수 있는 부분이에요.' },
   FH_THREE_SHAPE: { nameKo:'3자형·돌출형 이마', strength:'친화력이 좋고 중재를 잘해요.', weakness:'이간질처럼 비칠 수 있어요.' },
   FH_ROUND: { nameKo:'원형 이마', strength:'사교적이고 표현력이 좋아요.', weakness:'쉽게 흥분할 수 있어요.' },
   FH_WIDE: { nameKo:'넓은 이마', strength:'의리가 있고 조직적이에요.', weakness:'성격이 급할 수 있어요.', detail:'이마 양쪽 위, 눈썹 끝에서 위로 이어지는 일월각(부모덕·윗사람 도움을 보는 자리)까지 도톰하고 좌우가 고르면 어린 시절 부모의 그늘이 든든하고 윗사람의 이끌어줌이 있었다고 봐요.' },
@@ -72,11 +72,11 @@ const EYE_SHAPE_DB = {
   ES_CLOSE_SET: { nameKo:'눈 사이가 좁은 눈(근거리안)', comboTrait:'한 가지에 몰두하는 집중력', strength:'집중력이 뛰어나고 한 가지에 몰두하는 힘이 좋아요.', weakness:'조급해지기 쉬우니 마음의 여유를 곁들이면 좋아요.', detail:'⚠️ 이 유형도 마찬가지로 실측 데이터가 아닌 통상적인 벤치마크 기준의 초안이에요.' },
 };
 const NOSE_SHAPE_DB = {
-  NS_SMALL_SHORT: { nameKo:'작은 코·짧은 코', comboTrait:'재치 있고 순발력 있는 감각', strength:'재치 있고 순발력이 좋아요.', weakness:'즉흥적으로 행동할 수 있어요.' },
+  NS_SMALL_SHORT: { nameKo:'작은 코·짧은 코', comboTrait:'재치 있고 순발력 있는 감각', strength:'재치 있고 순발력이 좋아요.', weakness:'즉흥적으로 행동할 수 있어요.', detail:'코가 짧고 아담한 편이면 융통성과 특유의 낙천성이 돋보인다고 봐요. 자존심을 앞세우기보다 상대와 적당히 타협하며 결과를 이끌어내는 수완이 좋아서, 전통적으로는 장사나 사업 쪽 감각이 좋은 상으로 풀이해요.' },
   NS_WIDE: { nameKo:'넓은 코', comboTrait:'대외 활동력과 생활력', strength:'대외 활동력과 생활력이 좋아요.', weakness:'지배욕이 있을 수 있어요.' },
   NS_AQUILINE: { nameKo:'매부리코', comboTrait:'신중하고 처세에 능한 면', strength:'신중하고 처세술이 좋아요.', weakness:'인색해 보일 수 있어요.' },
   NS_BENT: { nameKo:'꺾인 코', comboTrait:'개성 있고 직감이 발달한 면', strength:'개성 있고 직감력이 좋아요.', weakness:'계산적으로 비칠 수 있어요.' },
-  NS_BIG: { nameKo:'큰 코', comboTrait:'활동적이고 현실적인 추진력', strength:'활동적이고 현실적이에요.', weakness:'융통성이 부족할 수 있어요.' },
+  NS_BIG: { nameKo:'큰 코', comboTrait:'활동적이고 현실적인 추진력', strength:'활동적이고 현실적이에요.', weakness:'융통성이 부족할 수 있어요.', detail:'코끝(준두)까지 크고 길게 뻗은 코는 자존심이 강하고 보수적인 성향과 연결해 풀이해요. 그때그때 빠르게 치고 빠지는 장사보다는, 한 우물을 진득하게 파는 전문 분야나 기술직에서 천천히 자기 영역을 다지는 쪽이 더 잘 맞는다고 봐요.' },
   NS_UPTURNED: { nameKo:'올라간 코', comboTrait:'사교적이고 다재다능한 매력', strength:'사교적이고 다재다능해요.', weakness:'잘난 척으로 비칠 수 있어요.' },
   NS_ALAR_THICK: { nameKo:'도톰한 콧방울', comboTrait:'알뜰하게 지키는 재물 감각', strength:'들어온 재물을 잘 지키는 알뜰한 성정이에요. 씀씀이를 헤프게 하지 않아요.', weakness:'지나치게 아끼는 데 신경 쓰다 보면 재미가 덜할 수 있어요.' },
   NS_ALAR_THIN: { nameKo:'얇은 콧방울·콧구멍이 드러나는 코', comboTrait:'통 크게 나누는 씀씀이', strength:'통이 크고 나누는 데 아낌이 없어요.', weakness:'씀씀이가 큰 편이라 지출 관리가 필요해요.' },
