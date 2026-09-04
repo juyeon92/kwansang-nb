@@ -755,17 +755,22 @@
       '</div>';
   }
 
-  // 인연도감 서비스 정책.md v4 2-1 3번/7장 — "로그인 유도 모달". 도감 생성 직후(또는 이 브라우저가
-  // 그 도감을 처음 여는 순간) 1회만 노출하고, 닫으면(로그인하러 가든 "나중에 할게요"든) 다시는
-  // 뜨지 않는다 — localStorage에 도감 slug별로 노출 여부를 기록해서 새로고침해도 다시 안 뜬다
-  // (배너와 달리 "한 번만"이 핵심이라 배너처럼 loggedIn만으로 매번 판단하면 안 된다).
+  // 인연도감 서비스 정책.md v4 2-1 3번/7장 — "로그인 유도 모달".
+  // ⚠️ 2026-09-04 사용자 요청으로 노출 규칙 변경 — 처음엔 "닫으면(로그인하러 가든 X·바깥 클릭이든
+  // "나중에 할게요"든) 다시는 안 뜬다"였는데, X·바깥 클릭처럼 그냥 닫기만 한 경우까지 영구히 숨기는 건
+  // 과했다. 이제 "나중에 할게요"를 눌렀을 때만 24시간 동안 안 뜨고(snoozeLoginModal), 그 외의 방법
+  // (X 버튼·바깥 클릭)으로 닫으면 아무 기록도 남기지 않아 다음에 이 도감을 열면 바로 다시 뜬다.
+  // 예전엔 localStorage에 "본 적 있음"만 영구 기록했는데, 지금은 "언제까지 미뤘는지" 타임스탬프를
+  // 남겨서 그 시각이 지나면 자연히 다시 노출되게 한다.
   function maybeShowLoginModal(dogam) {
     if (!dogam || !dogam.slug || !dogam.ownerCharacterId) return;
     if (!!currentUid() && !isAnonymousUser()) return; // 이미 로그인 — 유도할 필요 없음
-    const key = 'dogamLoginModalSeen:' + dogam.slug;
-    try { if (localStorage.getItem(key)) return; } catch (e) { return; }
+    const key = 'dogamLoginModalSnoozeUntil:' + dogam.slug;
+    try {
+      const until = Number(localStorage.getItem(key) || 0);
+      if (until && Date.now() < until) return; // "나중에 할게요"로 미뤄둔 24시간 안이면 스킵
+    } catch (e) { return; }
     if (document.getElementById('dogamLoginModalRoot')) return; // 이미 떠 있음(중복 방지)
-    try { localStorage.setItem(key, '1'); } catch (e) { /* 프라이빗 브라우징 등 — 못 남기면 이번만 보여주고 만다 */ }
     const root = document.createElement('div');
     root.id = 'dogamLoginModalRoot';
     root.innerHTML = '' +
@@ -778,7 +783,7 @@
         '<div class="popup-body">' +
           '<p class="dogam-guide">로그인하면 인연도감이 계정에 저장돼서, 기기를 바꾸거나 브라우저 기록을 지워도 계속 유지돼요.</p>' +
           '<button class="submit-btn" onclick="Dogam.dismissLoginModal();Dogam.loginAndKeep();">로그인·회원가입하고 보관하기</button>' +
-          '<button type="button" style="display:block;width:100%;margin-top:10px;padding:10px;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;" onclick="Dogam.dismissLoginModal()">나중에 할게요</button>' +
+          '<button type="button" style="display:block;width:100%;margin-top:10px;padding:10px;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;" onclick="Dogam.snoozeLoginModal(\'' + dogam.slug + '\')">나중에 할게요</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(root);
@@ -788,6 +793,13 @@
     const root = document.getElementById('dogamLoginModalRoot');
     if (root) root.remove();
     document.body.classList.remove('overlay-open');
+  }
+  // "나중에 할게요" 전용 — 24시간 동안만 다시 안 뜨도록 만료 시각을 남기고 닫는다.
+  function snoozeLoginModal(slug) {
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    try { localStorage.setItem('dogamLoginModalSnoozeUntil:' + slug, String(Date.now() + ONE_DAY_MS)); }
+    catch (e) { /* 프라이빗 브라우징 등 — 못 남기면 다음에 또 뜨는 것으로 그친다(안전한 쪽) */ }
+    dismissLoginModal();
   }
 
   // 참여자 상세 재열람용 캐시(정책 2-3/7장) — "재방문 참여자" 분기를 없앤 대신, 목록에서 본인(또는
@@ -1454,6 +1466,7 @@
     createMyDogamFromInvite: createMyDogamFromInvite,
     showEntryDetail: showEntryDetail, closeEntryDetail: closeEntryDetail,
     dismissLoginModal: dismissLoginModal,
+    snoozeLoginModal: snoozeLoginModal,
     loginAndKeep: loginAndKeep, goCombined: goCombined, deleteMyDogam: deleteMyDogam,
     migrateLocalOnLogin: migrateLocalOnLogin, leaveSharedView: leaveSharedView,
     // 보관함(archive.js)이 "생성 시간"으로 안정적인 값을 쓰게 하려는 용도 — 도감 문서의 실제
