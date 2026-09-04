@@ -464,6 +464,16 @@
   async function render() {
     const el = host();
     if (!el) return;
+    // ⚠️ 버그 수정(2026-09-03 사용자 리포트: "로그인 안 한 상태로 인연도감 들어갔더니 텅 빔") —
+    // 아래 CharacterAPI.ensureCharacterCatalog()는 Firebase ID 토큰을 요구하는데(character-api.js),
+    // 이 브라우저가 예전에 익명으로 만든 도감이 localStorage(SLUG_KEY)에 캐시돼 있으면 ensureMyDogam()이
+    // 로그인 없이도(공개 읽기) 그 도감을 그대로 찾아 ownerCharacterId를 채워 넣는데, 정작 지금 이
+    // 세션엔 유효한 익명 인증이 없어(로그아웃했거나 세션이 끊긴 경우) 카탈로그를 못 받아온다. 그러면
+    // populateGwansangReportFromSaved도 같은 이유로 실패해 도감 내용이 하나도 안 그려지고, 이번에
+    // 업로드 섹션까지 숨겨져(mine이 truthy라서, 아래 B분기 참고) 화면에 아무것도 안 남는다. 익명
+    // 인증은 원래 도감 등록/공유 시에만 발급했는데, 여기서도 먼저 확보해 최소 조건(로그인 아니어도
+    // 토큰은 있음)을 만들어준다 — 실패해도(오프라인 등) 무시하고 계속 진행(아래 catch가 그 몫).
+    try { await ensureAuthUid(); } catch (e) { console.warn('[dogam] 익명 인증 확보 실패', e); }
     // 2026-08-30 DB 이원화 2단계 — CHARACTER_DB가 이제 서버 카탈로그 캐시라, 아래 모든 분기(오너
     // 화면·게스트 화면 등)가 캐릭터 이름/설명을 읽기 전에 한 번은 채워져 있어야 한다. 캐시가 있으면
     // 즉시 반환되니 재호출 비용은 거의 없다. 로그인 세션이 아직 안 잡혔을 때(예: 페이지 로드 직후)
