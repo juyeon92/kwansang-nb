@@ -1029,8 +1029,11 @@ body.overlay-open { overflow: hidden; }
 /* 사용자 요청(2026-09-05, 14차 피드백) — "도감 보관·삭제 안내"(가장 먼저 만든 .dogam-policy
    용례)만 font-weight:700 기본값 그대로 남아있어서, 나중에 만든 이름/사진 유의사항 콜아웃(둘 다
    인라인으로 font-weight:400 지정)과 굵기가 안 맞았다. 기본값 자체를 400으로 낮춰 넷 다 통일하고,
-   이제 개별로 남겨뒀던 인라인 font-weight:400 중복 지정은 정리한다. */
-.dogam-policy > summary { font-size: 13px; font-weight: 400; color: var(--text-strong); cursor: pointer; }
+   이제 개별로 남겨뒀던 인라인 font-weight:400 중복 지정은 정리한다.
+   사용자 재지적(2026-09-05, 15차 피드백) — 실제 불만은 굵기가 아니라 크기였다(13px가 이 화면의
+   다른 보조 텍스트인 .dogam-policy-q/.reassure-sub/.dogam-check 등 12.5px보다 커서 상대적으로
+   두드러져 보임). 굵기 통일은 그대로 두고 크기만 12.5px로 맞춘다. */
+.dogam-policy > summary { font-size: 12.5px; font-weight: 400; color: var(--text-strong); cursor: pointer; }
 .dogam-policy-item { margin-top: 12px; }
 /* 버그 수정(2026-09-05, 13차 피드백) — 예전엔 이 셀렉터가 "b" 태그 전부를 골라서, 질문을 감싼
    <b>뿐 아니라 답변 문장 "안"에 강조용으로 쓴 인라인 <b>(예: "사진은 브라우저에서만...")까지
