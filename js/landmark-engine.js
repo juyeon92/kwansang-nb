@@ -84,9 +84,16 @@ async function loadModels(spinnerMsgId) {
 // ═══ 좌우 반전 토글 — EXIF에 안 잡히는 "픽셀 자체가 이미 뒤집힌 셀카"를 사용자가 직접 보정 ═══
 // 분석 전 상태에서만 노출되는 버튼이라 여기서 분석을 실행하지 않는다 — 플래그만 세팅해두면
 // 실제 분석(분석하기 버튼)이 시작될 때 runFaceAnalysis가 이 값을 읽어 반영한다.
+// ⚠️ 버그 수정(2026-09-05 사용자 리포트: "눌러도 미리보기에서 반전이 안 보여서 실제로 되는 게 맞는지
+// 알 수가 없다") — 분석엔 이미 정상 반영되고 있었지만(runFaceAnalysis의 mirrored 분기), 화면에
+// 보이는 썸네일(#thumbImg 등)은 그대로라 사용자가 확인할 방법이 없었다. CSS 좌우 반전(.mirrored)을
+// 썸네일에도 같이 토글해서 버튼과 미리보기가 항상 같은 상태를 보여주게 한다.
 function toggleMirror(ctx, btn) {
   state[ctx].mirrored = !state[ctx].mirrored;
   if (btn) btn.classList.toggle('on', state[ctx].mirrored);
+  const m = ctxMap[ctx];
+  const img = m && m.thumbImg && document.getElementById(m.thumbImg);
+  if (img) img.classList.toggle('mirrored', state[ctx].mirrored);
 }
 
 // ═══ FACE ANALYSIS (Promise 기반 — await 가능) ═══

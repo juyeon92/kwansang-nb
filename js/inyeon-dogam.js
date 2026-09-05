@@ -452,9 +452,11 @@
     if (uploadNodes) return uploadNodes;
     const sec = document.getElementById('gwansangUploadSection');
     if (!sec) return [];
-    // gwansangOwnerNameBlock(A 전용 닉네임 입력, 2026-09-04 추가)은 B의 등록 폼엔 없는 필드라
-    // 옮기지 않는다 — B는 자기 이름을 #dogamGuestName에 따로 입력한다.
-    const skip = { gwansangHero: 1, gwansangRevisitLabel: 1, gwansangRevisitCard: 1, gwansangOwnerNameBlock: 1 };
+    // 이름 입력(gwansangOwnerNameBlock)·동의 체크박스(gwansangOwnerAgreeBlock)는 gwansangInputCard
+    // 안에 중첩돼 있어 더 이상 sec의 직계 자식이 아니다 — 그 카드 전체가 여기서 통째로 캡처돼 B의
+    // 등록 폼(.dogam-block) 안으로 옮겨가고, 안에 있는 이 둘은 A 전용이라 showGuestView()가
+    // setDisplay(...,'none')으로 숨긴다(B는 자기 이름 #dogamGuestName·동의 #dogamAgree를 따로 씀).
+    const skip = { gwansangHero: 1, gwansangRevisitLabel: 1, gwansangRevisitCard: 1 };
     uploadNodes = Array.prototype.filter.call(sec.children, function (n) { return !skip[n.id]; });
     return uploadNodes;
   }
@@ -600,6 +602,9 @@
     // 같은 브라우저가 나중에(도감 없이) 자기 도감을 새로 만들려는 화면으로 돌아오면 그 숨김이 남아
     // 닉네임 입력창이 안 보이는 반대 문제가 생긴다. 여기서 매번 도감 없음 여부에 맞춰 다시 확정한다.
     setDisplay('gwansangOwnerNameBlock', mine ? 'none' : '');
+    // 2026-09-05 — 동의 체크박스(gwansangOwnerAgreeBlock)도 이름 입력과 같은 이유로 같은 규칙을
+    // 적용한다: 도감이 이미 있으면(더 이상 새로 만들 상황이 아니면) 숨긴다.
+    setDisplay('gwansangOwnerAgreeBlock', mine ? 'none' : '');
     await paintOwnerView(el, mine, stale);
   }
 
@@ -808,16 +813,25 @@
     if (document.getElementById('dogamLoginModalRoot')) return; // 이미 떠 있음(중복 방지)
     const root = document.createElement('div');
     root.id = 'dogamLoginModalRoot';
+    // 사용자 요청(2026-09-05, 8차 피드백) — 짧은 확인 모달인데 .form-popup 기본값(top:8vh~bottom:0,
+    // 화면의 92%를 강제로 채움)을 그대로 써서 버튼 아래로 빈 공간이 크게 남았다. 같은 패턴의 다른
+    // 로그인 팝업(js/kakao-auth.js openLoginPopup)은 이미 "small" 변형(내용 높이만큼만)을 쓰고 있어서
+    // 그걸 그대로 맞춘다. 문구도 헤더/본문 메인/서브/유의사항 콜아웃/CTA로 재구성.
     root.innerHTML = '' +
       '<div class="overlay-backdrop" onclick="Dogam.dismissLoginModal()"></div>' +
-      '<div class="form-popup">' +
+      '<div class="form-popup small">' +
         '<div class="popup-header">' +
-          '<span>이 인연도감을 계정에 보관할까요?</span>' +
+          '<span>인연도감 보관하기</span>' +
           '<button class="overlay-close" onclick="Dogam.dismissLoginModal()"><span class="material-symbols-outlined">close</span></button>' +
         '</div>' +
         '<div class="popup-body">' +
-          '<p class="dogam-guide">로그인하면 인연도감이 계정에 저장돼서, 기기를 바꾸거나 브라우저 기록을 지워도 계속 유지돼요.</p>' +
-          '<button class="submit-btn" onclick="Dogam.dismissLoginModal();Dogam.loginAndKeep();">로그인·회원가입하고 보관하기</button>' +
+          '<p class="dogam-guide" style="font-size:16px;font-weight:700;color:var(--text-title);">인연도감을 계정에 보관할까요?</p>' +
+          '<p class="dogam-guide">지금 로그인하면 접속 기기를 바꾸거나 브라우저 기록을 지워도 보관된 인연도감을 언제든지 펼치고 관리할 수 있어요.</p>' +
+          '<div class="tip-box">' +
+            '<span class="icon material-symbols-outlined">warning</span>' +
+            '<p>지금 건너뛰면 이 인연도감은 현재 접속 기기에만 연결돼서, 사라질 수 있어요</p>' +
+          '</div>' +
+          '<button class="submit-btn" onclick="Dogam.dismissLoginModal();Dogam.loginAndKeep();">로그인하고 보관하기</button>' +
           '<button type="button" style="display:block;width:100%;margin-top:10px;padding:10px;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;" onclick="Dogam.snoozeLoginModal(\'' + dogam.slug + '\')">나중에 할게요</button>' +
         '</div>' +
       '</div>';
@@ -1196,11 +1210,14 @@
     if (!el) return;
     setDisplay('gwansangUploadSection', '');
     // ⚠️ 버그 수정(2026-09-04 사용자 리포트: "도감 공유하고 나서 보니 정책 안내 밑에 인연도감~이름
-    // 또는 별명 입력창이 또 나온다") — #gwansangOwnerNameBlock(A 전용 닉네임 입력, 2026-09-04 추가)은
-    // captureUploadNodes()의 skip 목록에 있어서 게스트 등록 폼으로 옮겨가진 않지만(의도대로), 정작
-    // 원래 자리(#gwansangUploadSection, 이 함수가 방금 위에서 다시 보이게 만든)에 그대로 남아있어서
-    // 화면 아래쪽에 이 필드만 혼자 노출됐다. B에게는 A의 닉네임 입력이 필요 없으니 명시적으로 숨긴다.
+    // 또는 별명 입력창이 또 나온다") — #gwansangOwnerNameBlock(A 전용 닉네임 입력)과 #gwansangOwnerAgreeBlock
+    // (A 전용 동의 체크박스, 2026-09-05 추가)은 gwansangInputCard 안에 중첩돼 있어 captureUploadNodes()가
+    // 카드째로 캡처할 때 같이 딸려 나온다(둘 다 top-level이 아니라 skip 목록으로는 못 막음) — B에게는
+    // 둘 다 필요 없으니(자기 이름은 #dogamGuestName, 자기 동의는 #dogamAgree로 따로 있음) 여기서
+    // 명시적으로 숨긴다. 안 그러면 #gwansangUploadSection이 이 함수 바로 위에서 다시 보이게 되면서
+    // 이 두 블록도 원래 자리에 남아 화면 아래쪽에 혼자 노출된다.
     setDisplay('gwansangOwnerNameBlock', 'none');
+    setDisplay('gwansangOwnerAgreeBlock', 'none');
 
     const myChar = myCharacterId();
     const myName2 = myChar && CHARACTER_DB[myChar] ? CHARACTER_DB[myChar].name : '';
@@ -1215,17 +1232,25 @@
         (myChar
           ? '<p class="dogam-guide">내 관상 캐릭터 <b>' + esc(myName2) + '</b>으로 등록해요.</p>'
           : '<p class="dogam-guide">사진을 올리고 등록하면 관상 분석까지 한번에 진행돼요.</p>') +
+        // 2026-09-05(2차 피드백) — A(오너) 화면(index.html #gwansangInputCard)과 순서·구성을 동일하게
+        // 맞췄다: 이름(입력+유의사항 콜아웃) → 관상 정보(dogamUploadSlot, A의 사진 영역을 그대로 캡처) →
+        // 동의 체크박스 순서. 문구도 A 쪽과 완전히 동일하게 맞춘다(하나만 고치고 다른 쪽을 깜빡하면
+        // 문구가 갈라지니 수정할 땐 두 곳 다 같이 봐야 한다 — 정책 문서 2-0 "A/B 항상 동기화" 참고).
+        '<label class="field-label" style="display:block;margin:16px 0 8px;">이름</label>' +
+        '<input type="text" class="field-input" id="dogamGuestName" maxlength="12" placeholder="이름" value="' + esc(prefillName) + '" style="margin-bottom:8px;">' +
+        '<details class="dogam-policy" style="margin-top:0;margin-bottom:12px;">' +
+          '<summary style="font-weight:400;">💡실명 대신 별명으로 권장드려요</summary>' +
+          '<p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">개인정보 보호를 위해 실명 대신 별명을 권해요. 입력한 이름은 이 도감에 표시되고, 도감을 여는 다른 사람에게도 보여요. 전화번호·주소 등 다른 개인정보는 입력하지 마세요.</p>' +
+        '</details>' +
         '<div id="dogamUploadSlot"></div>' +
-        '<label class="field-label" style="display:block;margin:16px 0 8px;">이름 또는 별명</label>' +
-        '<input type="text" class="field-input" id="dogamGuestName" maxlength="12" placeholder="이름 또는 별명" value="' + esc(prefillName) + '">' +
-        '<p class="dogam-notice">' +
-          '개인정보 보호를 위해 <b>실명 대신 별명</b>을 권해요. 입력한 이름은 이 도감에 표시되고, ' +
-          '도감을 여는 다른 사람에게도 보여요. 전화번호·주소 등 다른 개인정보는 입력하지 마세요.<br>' +
-          '<b>사진은 브라우저에서만 분석하고 서버에 저장하지 않아요.</b> 생년월일은 받지 않아요 — 관상만으로 계산해요.<br>' +
-          '등록한 기록은 이 기기에서 언제든 직접 삭제할 수 있고, 도감 주인도 삭제할 수 있어요.' +
-        '</p>' +
         '<label class="dogam-check"><input type="checkbox" id="dogamAgree">' +
-          '<span>이름과 관상 캐릭터 결과를 인연도감 표시·궁합 계산에 이용하는 데 동의해요. <b>(필수)</b></span></label>' +
+          '<span>입력한 이름과 사진을 인연도감 생성/관리에 이용하는 데 동의해요. <b>(필수)</b></span></label>' +
+        // 사진 저장 안내는 이제 A와 같은 안심 콜아웃(dogamUploadSlot에 캡처돼 들어오는 .dogam-policy)이
+        // 대신한다 — 여기서 같은 내용을 또 말하면 중복이라 뺐다. "관상 정보는 도감이 삭제되면..."
+        // (A 전용, 도감 전체 삭제 안내)과는 의미가 달라서(이건 B 본인 엔트리 삭제 안내) 별도 문장으로
+        // 남긴다. 2026-09-05(3차 피드백) — A의 CTA 버튼이 기본 노출로 바뀌면서 짝이던 이 안내도
+        // 기본 노출로 통일(더 이상 사진 업로드 여부로 숨기지 않음, A/B 동기화).
+        '<p class="dogam-notice" id="dogamDeleteNoticeGuest">등록한 기록은 이 기기에서 언제든 직접 삭제할 수 있고, 도감 주인도 삭제할 수 있어요.</p>' +
         // 사진 업로드는 렌더 이후에 일어나므로 disabled로 막지 않는다 — 누른 시점에 검사해 안내한다.
         '<button class="submit-btn" id="dogamRegisterBtn" onclick="Dogam.registerEntry()">도감에 인연 등록하기</button>' +
       '</div>';
@@ -1347,17 +1372,23 @@
       return;
     }
     if (!uid) { stop(); alert('등록을 처리할 수 없어요. 잠시 후 다시 시도해주세요.'); return; }
+    // 2026-09-05(10차 피드백) — 화면 순서(이름 → 관상 정보/사진 → 동의) 그대로 위에서부터 검증한다
+    // (A의 startGwansangOwnerAnalysis와 동일한 순서, 정책 2-0 "A/B 항상 동기화"). 예전엔 사진 확인이
+    // 동의 확인보다 뒤에 있어서 "사진 안 넣었는데 동의 체크 알림이 먼저 뜨는" 순서 역전이 있었다.
     const nameEl = document.getElementById('dogamGuestName');
     const name = (nameEl && nameEl.value || '').trim();
-    if (!name) { stop(); alert('이름 또는 별명을 입력해주세요.'); return; }
-    const agree = document.getElementById('dogamAgree');
-    if (!agree || !agree.checked) { stop(); alert('필수 동의 항목에 체크해주세요.'); return; }
-    setSpinner(m.spinner, '관상 캐릭터를 확인하는 중...');
+    if (!name) { stop(); alert('이름을 입력해주세요.'); return; }
 
     // 초대받은 사람에게는 "내 관상 캐릭터 뽑기" 버튼을 띄우지 않는다 — 이 버튼 하나로 분석까지 끝낸다.
     // 아래 render 과정에서 폼이 다시 그려지므로, 입력값은 이 시점에 이미 name에 담아뒀다.
     let charId = myCharacterId();
     const hasPhoto = (typeof state !== 'undefined' && state.gwansang && state.gwansang.file);
+    if (!hasPhoto && !charId) { stop(); alert('사진을 선택해주세요.'); return; }
+
+    const agree = document.getElementById('dogamAgree');
+    if (!agree || !agree.checked) { stop(); alert('필수 동의 항목에 체크해주세요.'); return; }
+    setSpinner(m.spinner, '관상 캐릭터를 확인하는 중...');
+
     // ⚠️ 버그 리포트(2026-08-18): 이 브라우저로 이미 한 번 등록해본 적이 있으면(캐릭터가 캐시돼 있으면)
     // 새 사진을 올려도 무시하고 예전 캐릭터로 그대로 등록됐다 — "다른 사진으로 다시 찍을 수 있어야
     // 한다"는 업로드 UI의 의도(showGuestView 주석)와 어긋난다. 새 사진이 올라와 있으면 캐릭터가
@@ -1375,10 +1406,6 @@
       // 분석은 끝났지만 궁합 점수 계산·서버 등록이 아직 남아있으니 스피너를 다시 켠다
       // (startAnalysis가 끝나면서 이미 꺼뒀기 때문에 여기서 다시 안 켜면 이후 구간이 무반응처럼 보인다).
       setSpinner(m.spinner, '인연도감에 등록하는 중...');
-    } else if (!charId) {
-      stop();
-      alert('먼저 사진을 올려주세요.');
-      return;
     }
 
     const score = await compatScore(guestDogam.ownerCharacterId, charId);
