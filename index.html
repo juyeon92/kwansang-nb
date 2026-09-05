@@ -201,6 +201,22 @@ body {
 .char-detail-head { text-align: center; margin-bottom: 16px; }
 .char-detail-role { display: inline-block; background: #eef2f8; border: 1px solid #26375a; border-radius: 999px; padding: 3px 14px; font-size: 11px; font-weight: 700; color: #26375a; letter-spacing: 0.5px; }
 .char-detail-headline { font-size: 15px; font-weight: 800; color: #1c2942; line-height: 1.55; margin-top: 10px; }
+/* 사용자 요청(2026-09-05, 14차 피드백) — 인연도감 결과 화면 전용: 헤드라인은 항상 보이고, 그 옆
+   토글 버튼으로 나머지(6가지 힘~궁합)만 접고 편다. js/ai-analysis.js wireGwansangCharDetailToggle()이
+   렌더 직후 DOM을 이 구조로 후처리한다 — 통합분석 등 다른 탭의 .char-detail-headline은 이 클래스가
+   안 붙으므로 영향 없다.
+   사용자 지적(2026-09-05, 19차 피드백) — 목업(Option 2)에서는 문구+화살표가 가운데로 나란히 붙고
+   화살표엔 동그라미 배경이 없었는데, 실제 구현은 예전(단일 카드 시절) 스타일 그대로(양끝 정렬 +
+   원형 배지 버튼)라 목업과 달랐다. 목업 그대로 가운데 정렬 + 배경 없는 화살표로 맞춘다. */
+.char-detail-headline-row { display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+.char-detail-toggle {
+  flex-shrink: 0; background: none; border: none; padding: 0; color: #26375a; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.char-detail-toggle .material-symbols-outlined { font-size: 18px; transition: transform .2s; }
+.char-detail-toggle.open .material-symbols-outlined { transform: rotate(180deg); }
+.char-detail-collapse { margin-top: 16px; }
+.char-detail-collapse.hidden { display: none; }
 .char-detail-origin { font-size: 12.5px; line-height: 1.85; color: #33455f; background: #eef2f8; border: 1px dashed rgba(38,55,90,0.4); border-radius: 12px; padding: 12px 14px; }
 .char-detail-sec { margin-top: 20px; }
 .char-detail-sec-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 800; color: #1c2942; margin-bottom: 4px; }
@@ -305,6 +321,42 @@ body {
 #cmbCharacterCard .char-card-badge { background: var(--mint-10); border-color: var(--jade); }
 #cmbCharacterCard .char-card-ribbon { background: var(--jade); color: #fff; }
 #cmbCharacterCard .char-card-img-wrap { border-color: var(--mint-border); }
+/* 사용자 요청(2026-09-05, 13차 피드백) — 인연도감(A) 결과 화면의 캐릭터 카드: "관상 기반 유형" 배지는
+   빼고, 일러스트를 168px 기본값보다 작게. #gwansangCharacterCard로만 스코프해서 관상보기 탭 전용
+   #cmbCharacterCard 등 다른 곳은 그대로 둔다(위 #cmbCharacterCard 스코프 패턴과 동일).
+   사용자 지적(2026-09-05, 17차 피드백) — #dogamOwnerCard(B 화면에 고정 노출되는 "A의 결과" 카드,
+   showGuestView·renderGuestMergedResult 둘 다 여기 렌더링)도 renderCharacterCard()로 같은 마크업을
+   그리는데 id가 달라 이 스코프를 못 받고 있었다. 정책(§2-3) 상 "A 본인 화면과 동일 카드"로 명시된
+   요소라 빠뜨리면 안 된다 — 두 id를 같은 규칙에 함께 묶는다. 이후 이 카드 스타일을 바꿀 땐 항상 두
+   id 모두 확인할 것(정책 문서 2-3 "⚠️ 표준 규칙" 참고). */
+#gwansangCharacterCard .char-card-badge, #dogamOwnerCard .char-card-badge { display: none; }
+#gwansangCharacterCard .char-card-img-wrap, #dogamOwnerCard .char-card-img-wrap { width: 120px; height: 120px; }
+/* 사용자 요청(2026-09-05, 18차 피드백, 목업 Option 2 채택) — 캐릭터 카드 리본이 카드 위 이름과
+   같은 단어로 끝나 겹쳐 보이고, 진한 통짜 바라 영역도 무거워 보인다는 지적. 얇은 알약 칩으로
+   줄인다(끝 이름은 js/ai-analysis.js wireGwansangCharCardChip()이 텍스트에서 잘라낸다). */
+#gwansangCharacterCard .char-card-ribbon, #dogamOwnerCard .char-card-ribbon {
+  display: inline-flex; align-items: center; background: rgba(255,255,255,0.65);
+  border: 1px solid rgba(38,55,90,0.35); color: #26375a; font-size: 11.5px; font-weight: 700;
+  padding: 5px 14px; border-radius: 999px; line-height: 1.4;
+}
+/* 카드(일러스트) 바로 아래 상세 카드가 늘 붙어 나오므로(정책 §2-3), 둘을 별개의 박스 두 개가 아니라
+   하나로 이어지는 서랍처럼 붙인다 — 사이 여백·둥근 모서리를 없애 맞닿는 면만 평평하게 만든다.
+   #canvasCard(A 전용 래퍼)의 기본 .card margin-bottom(16px)도 여기서만 0으로 줄인다. */
+#canvasCard.shell-strip { margin-bottom: 0; }
+#gwansangCharacterCard .char-card, #dogamOwnerCard .char-card {
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: none; margin-bottom: 0;
+}
+/* 사용자 피드백(2026-09-05, 19차) — 목업 아티팩트에서 본 밝은 흰색 서랍 느낌과 달리, 실제로는 이
+   섹션이 원래 쓰던 한지·금박 톤(크림~골드 그라데이션, 굵은 금색 테두리)을 그대로 물려받아서 위
+   민트 톤 일러스트 카드와 이어붙였을 때 오히려 더 무겁고 예스러워 보였다. 목업의 흰 배경 + 얇은
+   남색 테두리 + 옅은 그림자 조합으로 다시 맞춘다(일러스트 카드의 굵은 남색 테두리와 같은 색조를
+   옅게 이어받아 "하나의 표면"처럼 보이게). #cmbCharacterDetail이 이미 같은 방식(전용 배경색으로
+   덮어쓰기)을 쓰고 있어 같은 패턴이다. */
+#gwansangCharacterDetail .char-detail, #dogamOwnerDetail .char-detail {
+  background: #ffffff; border: 1px solid rgba(38,55,90,0.18); border-top: none;
+  border-top-left-radius: 0; border-top-right-radius: 0; margin-top: 0;
+  box-shadow: 0 4px 10px rgba(38,55,90,0.06);
+}
 #cmbCharacterBasis .zone-basis {
   border: 1px solid var(--border); border-top: none; border-radius: 0; margin-bottom: 0;
 }
@@ -415,6 +467,14 @@ body {
 .hero-subcopy { font-size: 13px; line-height: 1.65; text-align: left; white-space: normal; }
 .hero-note { font-size: 11.5px; color: var(--text-caption); line-height: 1.6; margin-top: 14px; }
 
+/* 사용자 요청(2026-09-05, 3차 피드백) — 이름+관상 정보 입력을 하나의 카드(배경+테두리)로 묶었던
+   걸 다시 풀었다. #gwansangInputCard는 이제 순서·캡처 단위를 위한 순수 구조용 div일 뿐, 시각적으로는
+   테두리 없는 개별 섹션들의 나열로 보인다(필드 순서: 이름 → 관상 정보 → 동의는 그대로 유지). */
+/* 사용자 요청(2026-09-05): 인연도감 화면의 영역별 헤드 문구("관상 정보"/"이름")가 다른 탭과 같은
+   16px를 그대로 쓰다 보니 유독 커 보인다는 피드백 — 이 화면(#gwansangUploadSection)에만 스코프를
+   좁혀 줄인다. 통합분석·궁합보기 탭은 같은 .upload-label 클래스를 그대로 쓰므로 건드리지 않는다. */
+#gwansangUploadSection .upload-label { font-size: 13px; }
+
 .upload-label { font-size: 16px; font-weight: 700; color: var(--text-title); margin-bottom: 16px; }
 .reassure-box { background: var(--bg-soft); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
 .reassure-head { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
@@ -474,10 +534,24 @@ body {
 .thumb-area { display: none; align-items: center; gap: 16px; padding: 16px; background: var(--card2); border: 1px solid var(--border); border-radius: var(--r-drop); margin-bottom: 0; }
 .thumb-area.show { display: flex; }
 .thumb-img { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; border: 2px solid var(--border-gray); }
+/* 버그 수정(2026-09-05) — 좌우 반전 버튼(toggleMirror, js/landmark-engine.js)이 분석엔 이미 반영되고
+   있었지만 미리보기 사진은 그대로였다. 모든 탭(관상보기/통합분석/궁합보기)이 이 클래스를 공유하므로
+   여기서 한 번만 고치면 전부 같이 고쳐진다. */
+.thumb-img.mirrored { transform: scaleX(-1); }
 .thumb-info { flex: 1; }
 .thumb-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
 .thumb-sub { font-size: 11px; color: var(--text-sub); }
 .thumb-btns { display: flex; flex-direction: column; gap: 8px; }
+
+/* 사용자 요청(2026-09-05, 4차·6차 피드백) — 인연도감 화면에서만 썸네일을 [사진] / [버튼들] 두
+   그룹으로 가운데 정렬해 나란히 배치(세로 공간을 덜 차지하게, 캡션 없이 사진+버튼만). .thumb-area/
+   .thumb-img는 통합분석·궁합보기 탭도 같이 쓰는 공용 클래스라, #gwansangUploadSection 스코프로만
+   덮어써서 다른 탭에는 영향이 없게 한다. #dogamGuestSection도 똑같이 스코프에 넣는 이유 — 이 썸네일
+   영역은 captureUploadNodes()가 B의 등록 폼(#dogamGuestSection 안)으로 그대로 옮겨서 재사용하므로,
+   정책 문서 2-0 "A/B 항상 동기화" 규칙에 따라 두 곳 다 같은 모양이어야 한다. */
+#gwansangUploadSection .thumb-img, #dogamGuestSection .thumb-img { width: 100px; height: 100px; }
+#gwansangUploadSection .thumb-area, #dogamGuestSection .thumb-area { justify-content: center; }
+#gwansangUploadSection .thumb-btns, #dogamGuestSection .thumb-btns { flex-direction: column; flex: none; }
 .analyze-btn {
   padding: 10px 18px; border-radius: var(--r-btn); border: none;
   background: var(--mint); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
@@ -985,9 +1059,20 @@ body.overlay-open { overflow: hidden; }
 .dogam-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-strong); margin-bottom: 12px; cursor: pointer; }
 .dogam-check input { margin-top: 2px; flex-shrink: 0; }
 .dogam-policy { margin-top: 12px; background: var(--card2); border-radius: var(--r-input); padding: 12px 14px; }
-.dogam-policy > summary { font-size: 13px; font-weight: 700; color: var(--text-strong); cursor: pointer; }
+/* 사용자 요청(2026-09-05, 14차 피드백) — "도감 보관·삭제 안내"(가장 먼저 만든 .dogam-policy
+   용례)만 font-weight:700 기본값 그대로 남아있어서, 나중에 만든 이름/사진 유의사항 콜아웃(둘 다
+   인라인으로 font-weight:400 지정)과 굵기가 안 맞았다. 기본값 자체를 400으로 낮춰 넷 다 통일하고,
+   이제 개별로 남겨뒀던 인라인 font-weight:400 중복 지정은 정리한다.
+   사용자 재지적(2026-09-05, 15차 피드백) — 실제 불만은 굵기가 아니라 크기였다(13px가 이 화면의
+   다른 보조 텍스트인 .dogam-policy-q/.reassure-sub/.dogam-check 등 12.5px보다 커서 상대적으로
+   두드러져 보임). 굵기 통일은 그대로 두고 크기만 12.5px로 맞춘다. */
+.dogam-policy > summary { font-size: 12.5px; font-weight: 400; color: var(--text-strong); cursor: pointer; }
 .dogam-policy-item { margin-top: 12px; }
-.dogam-policy-item b { display: block; font-size: 12.5px; color: var(--text-strong); margin-bottom: 3px; }
+/* 버그 수정(2026-09-05, 13차 피드백) — 예전엔 이 셀렉터가 "b" 태그 전부를 골라서, 질문을 감싼
+   <b>뿐 아니라 답변 문장 "안"에 강조용으로 쓴 인라인 <b>(예: "사진은 브라우저에서만...")까지
+   display:block이 적용돼 문장 중간에서 줄이 깨졌다. 질문에만 쓰는 별도 클래스로 좁힌다 — 답변 속
+   <b>는 이제 원래 인라인 굵은 글씨로만 동작한다. */
+.dogam-policy-item b.dogam-policy-q { display: block; font-size: 12.5px; color: var(--text-strong); margin-bottom: 3px; }
 .dogam-policy-item p { font-size: 12px; line-height: 1.7; color: var(--text-sub2); }
 .dogam-actions { margin-top: 16px; }
 /* 공유 버튼 — 마이페이지 "변경"(.mypage-rep-change)과 같은 아웃라인 디자인.
@@ -1003,6 +1088,7 @@ body.overlay-open { overflow: hidden; }
 .dogam-share-btn .material-symbols-outlined { font-size: 17px; }
 /* 비로그인 후킹 — 인연 목록 바로 아래, 같은 카드 안. 안심 안내(.reassure-box)와 같은 톤을 쓴다 */
 .dogam-keep { margin: 14px 0 0; }
+.dogam-keep .reassure-head .label { font-size: 13px; }
 .dogam-keep .reassure-sub { font-size: 12.5px; }
 .dogam-keep .submit-btn { margin-top: 12px; font-size: 14px; padding: 13px; }
 .dogam-link-btn {
@@ -1155,16 +1241,10 @@ body.overlay-open { overflow: hidden; }
   font-size: 12.5px; color: var(--text-sub2); margin-top: 2px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* 인연도감(관상보기)에서는 "사진 업로드 완료" 미리보기 영역을 쓰지 않는다.
-   DOM은 남겨둔다 — app.js의 loadThumb/resetUpload가 이 요소들을 직접 참조하므로 지우면 업로드가 깨진다.
-   업로드 박스는 원래대로 숨겨야 한다. 계속 띄워두면 사진을 올려도 화면이 그대로라 업로드가 안 된 것처럼 보인다.
-   대신 큰 미리보기 자리에 한 줄 확인 문구만 남겨 상태 변화가 보이게 한다. */
-#thumbArea { display: none !important; }
-#gwansangUploadSection:has(#thumbArea.show)::after {
-  content: '사진이 준비됐어요 — 아래 버튼을 눌러 분석해보세요.';
-  display: block; margin-top: 4px; padding: 16px; border-radius: var(--r-input);
-  background: var(--mint-10); color: var(--jade); font-size: 13px; font-weight: 700; text-align: center;
-}
+/* 2026-09-05(4차 피드백) — 예전엔 여기서 #thumbArea를 통째로 숨기고 CSS ::after로 "사진이
+   준비됐어요..." 텍스트만 흉내 냈다(어떤 사진을 골랐는지 안 보이는 "인지 이슈"의 원인이었다).
+   이제 실제 미리보기(블러 처리된 사진, #gwansangUploadSection .thumb-img 등 위쪽 스코프 규칙)를
+   보여주므로 이 트릭은 제거한다. */
 
 .revisit-arrow { font-size: 22px; color: var(--text-sub); flex-shrink: 0; }
 /* 도감 삭제 — 보관함에서 기록을 지워도 이 카드가 남던 문제 때문에, 카드 자체에 삭제 수단을 둔다 */
@@ -1744,7 +1824,6 @@ body.overlay-open { overflow: hidden; }
           <div class="char-card-img-wrap no-mask"><img src="images/Logo.png" alt="인연도감"></div>
           <div class="char-card-ribbon hero-subcopy">내 인연도감을 만들고 링크를 친구들과 공유해보세요. 내 주변에 누가 나랑 찰떡궁합인지, 상극인지 확인할 수 있어요.</div>
         </div>
-        <div class="hero-note">관상 정보는 도감이 삭제되면 함께 사라져요. 언제든 지울 수 있어요.</div>
       </div>
 
       <!-- 타이틀은 카드 밖으로 빼서 아래 "관상 정보"(.upload-label)와 같은 계위·스타일로 맞춘다 -->
@@ -1753,65 +1832,112 @@ body.overlay-open { overflow: hidden; }
         <div id="gwansangRevisitBody"></div>
       </div>
 
-      <!-- 인연도감 서비스 정책.md v4 2-0/2-1 1번 — "닉네임 입력 + 사진 업로드"가 함께 필수. 게스트
-           등록 폼(#dogamGuestName)과 같은 스타일·12자 제한을 그대로 맞췄다. myName()이 이 값을
-           최우선으로 읽는다(js/inyeon-dogam.js 참고) — 도감을 만들 때 프로필 이름이나 "익명xxxx"
-           안전망 대신 여기서 직접 정한 별명이 쓰이게 하기 위함. 라벨까지 한 div로 묶어 id를 줘야
-           captureUploadNodes()의 skip 목록으로 통째로 걸러져 B의 등록 폼으로 안 옮겨간다(B는
-           #dogamGuestName이라는 자기 이름 필드가 따로 있음). -->
-      <div id="gwansangOwnerNameBlock">
-        <div class="upload-label">이름 또는 별명</div>
-        <input type="text" class="field-input" id="gwansangOwnerName" maxlength="12" placeholder="도감에 표시될 이름 또는 별명" style="margin-bottom:16px;">
-      </div>
-
-      <div class="upload-label">관상 정보</div>
-
-      <div class="reassure-box">
-        <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
-        <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
-      </div>
-
-      <div class="upload-area" id="uploadArea"
-           onclick="document.getElementById('fileInput').click()"
-           ondrop="handleDrop('gwansang', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-        <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
-        <strong>사진을 클릭하거나 드래그하여 업로드</strong>
-      </div>
-      <div class="tip-box">
-        <span class="icon material-symbols-outlined">warning</span>
-        <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
-      </div>
-      <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile('gwansang', event)">
-
-      <div class="thumb-area" id="thumbArea">
-        <img id="thumbImg" class="thumb-img" src="" alt="업로드된 사진">
-        <div class="thumb-info">
-          <div class="thumb-name" id="thumbName">사진 업로드 완료</div>
-          <div class="thumb-sub" id="thumbSub">관상 분석 준비됨</div>
+      <!-- #gwansangInputCard: 시각적 테두리는 없는 순수 구조용 래퍼(2026-09-05, 3차 피드백 — 카드
+           배경·테두리를 다시 뺐다). 존재 이유는 여전히 유효하다 — 이 div 하나가 gwansangUploadSection의
+           top-level 자식이라, captureUploadNodes()가 이 통째를 캡처해 B의 등록 폼(.dogam-block) 안으로
+           옮긴다. 안에 있는 이름 입력(gwansangOwnerNameBlock)·동의 체크박스(gwansangOwnerAgreeBlock)는
+           A 전용이라 showGuestView()가 따로 숨긴다(아래 참고, js/inyeon-dogam.js). -->
+      <div id="gwansangInputCard">
+        <!-- 순서: 이름 → 관상 정보 → 동의(정책 문서 2-0 "A/B 항상 동기화" 규칙, B 등록 폼과 동일하게 유지). -->
+        <div id="gwansangOwnerNameBlock">
+          <div class="upload-label">이름</div>
+          <input type="text" class="field-input" id="gwansangOwnerName" maxlength="12" placeholder="도감에 표시될 이름" style="margin-bottom:8px;">
+          <details class="dogam-policy" style="margin-top:0;margin-bottom:12px;">
+            <summary>💡실명 대신 별명으로 권장드려요</summary>
+            <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">개인정보 보호를 위해 실명 대신 별명을 권해요. 입력한 이름은 이 도감에 표시되고, 도감을 여는 다른 사람에게도 보여요. 전화번호·주소 등 다른 개인정보는 입력하지 마세요.</p>
+          </details>
         </div>
-        <div class="thumb-btns" id="gwansangThumbBtns">
-          <button class="reupload-btn" onclick="toggleMirror('gwansang', this)" title="비대칭 판정이 반대로 나오는 것 같으면 눌러보세요"><span class="material-symbols-outlined" style="font-size:14px;">flip</span> 좌우 반전</button>
+
+        <div class="upload-label">관상 정보</div>
+
+        <div class="upload-area" id="uploadArea"
+             onclick="document.getElementById('fileInput').click()"
+             ondrop="handleDrop('gwansang', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+          <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
+          <!-- 사용자 요청(2026-09-05, 7차 피드백) — "클릭하거나 드래그"는 PC 기준 문구라 모바일에서
+               어색하다("드래그"는 모바일에 없는 동작). 기기 구분 없이 통하는 문구로 교체. 이 영역
+               자체가 A·B 공용 DOM(captureUploadNodes가 그대로 캡처)이라 이 한 줄만 고치면 A/B 둘 다
+               같이 바뀐다(정책 2-0 "A/B 항상 동기화" 규칙과도 자연히 맞음). -->
+          <strong>관상을 살펴볼 사진 넣기</strong>
+          <div class="tip-box">
+            <span class="icon material-symbols-outlined">warning</span>
+            <p>목선까지 보이는 정면사진을 올려주세요.<br>(얼굴 60% 이상)</p>
+          </div>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile('gwansang', event)">
+
+        <!-- 사용자 요청(2026-09-05, 4차·6차 피드백) — 예전엔 썸네일이 80x80으로 작고 옆에 "사진
+             업로드 완료"라는 텍스트만 있어서, 실제로 어떤 사진을 골랐는지 인지가 잘 안 됐다("인지
+             이슈"). 처음엔 블러+캡션("사진이 준비됐어요")으로 갔는데, 통합분석 탭은 사진을 그대로
+             보여주고 캡션도 없어 굳이 인연도감만 다르게 할 필요가 없다는 피드백으로 블러·캡션 둘 다
+             뺐다 — 사진과 버튼 두 그룹만 가운데 정렬로 나란히 배치한다. 재선택 버튼(다시 선택하기)도
+             새로 추가 — 예전엔 한 번 고르면 되돌릴 방법이 없었다. -->
+        <div class="thumb-area" id="thumbArea">
+          <img id="thumbImg" class="thumb-img" src="" alt="선택한 사진">
+          <div class="thumb-btns" id="gwansangThumbBtns">
+            <button type="button" class="reupload-btn" onclick="document.getElementById('fileInput').click()">다시 선택하기</button>
+            <button class="reupload-btn" onclick="toggleMirror('gwansang', this)" title="비대칭 판정이 반대로 나오는 것 같으면 눌러보세요"><span class="material-symbols-outlined" style="font-size:14px;">flip</span> 좌우 반전</button>
+          </div>
+        </div>
+
+        <!-- 사용자 요청(2026-09-05, 6차 피드백) — 에러 문구(얼굴 인식 실패 등)가 "사진 등록 영역"과
+             한 덩어리로 읽히도록 사진 영역 바로 아래로 옮겼다. 예전 위치(안심 콜아웃 뒤, 동의
+             체크박스 바로 앞)는 여백이 없어 떴을 때 동의 체크박스와 붙어 보였다 — 여기서도 같은
+             8px 패턴으로 위아래 간격을 직접 지정해 항상(에러가 있든 없든) 아래 콜아웃과의 간격이
+             일정하게 유지되게 한다. -->
+        <div class="err-msg" id="gwansangErr" style="margin-top:8px;margin-bottom:8px;"></div>
+
+        <!-- 사용자 요청(2026-09-05, 2차 피드백) — "안심하세요" 고정 박스(.reassure-box) 대신 이름
+             유의사항과 완전히 같은 스타일(.dogam-policy 접이식)로 통일. 문구도 "브라우저에서만 분석"
+             같은 기술 설명 대신 사용자가 실제로 궁금해할 점(AI 학습에 쓰이는지, 저장되는지)을 답하는
+             방식으로 다시 썼다. margin-top:8px — 위 이름 입력·유의사항 간격(input mb 8px)과 같은
+             간격을 사진 등록 영역 아래에도 맞춘다(예전엔 여백 없이 바로 붙어 있었다는 피드백). -->
+        <details class="dogam-policy" style="margin-top:8px;margin-bottom:12px;">
+          <summary>🔒사진은 저장되지 않으니 안심하세요</summary>
+          <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
+        </details>
+
+        <div class="spinner" id="gwansangSpinner">
+          <div class="spin-ring"></div>
+          <p style="color:var(--text2);font-size:13px;" id="spinnerMsg">얼굴 분석 중...</p>
+        </div>
+
+        <!-- 동의 체크박스 — B의 등록 폼(dogamAgree)과 완전히 같은 문구. 인연도감 서비스 정책.md
+             v4 2-0/2-1 1번 및 8장 참고. A 전용이라 gwansangOwnerAgreeBlock으로 감쌌다 — B는 자기
+             것(dogamAgree)을 따로 쓰므로, 캡처(gwansangInputCard 전체가 통째로 옮겨감) 이후
+             showGuestView()가 이 블록을 setDisplay(...,'none')으로 숨긴다(js/inyeon-dogam.js 참고). -->
+        <div id="gwansangOwnerAgreeBlock">
+          <label class="dogam-check"><input type="checkbox" id="gwansangOwnerAgree">
+            <span>입력한 이름과 사진을 인연도감 생성/관리에 이용하는 데 동의해요. <b>(필수)</b></span>
+          </label>
         </div>
       </div>
-
-      <div class="spinner" id="gwansangSpinner">
-        <div class="spin-ring"></div>
-        <p style="color:var(--text2);font-size:13px;" id="spinnerMsg">얼굴 분석 중...</p>
-      </div>
-      <div class="err-msg" id="gwansangErr"></div>
     </div>
 
-    <div class="cta-dock hidden" id="gwansangCtaDock">
-      <button class="submit-btn" onclick="startGwansangOwnerAnalysis()">내 관상 캐릭터 뽑기</button>
+    <!-- 사용자 요청(2026-09-05, 3차 피드백) — 사진을 올려야만 뜨던 걸 기본 노출로 바꿨다. 사진 없이
+         눌러도 startAnalysis()가 이미 "사진을 먼저 업로드해주세요" 안내를 하므로 안전하다(js/app.js).
+         updateCtaDock()은 이제 ctx==='gwansang'일 때 이 요소를 건드리지 않는다 — 분석 완료 시
+         markAnalyzed('gwansang')만 명시적으로 숨긴다(결과 화면 전환). -->
+    <div class="cta-dock" id="gwansangCtaDock">
+      <button class="submit-btn" onclick="startGwansangOwnerAnalysis()">인연도감 만들기</button>
+    </div>
+
+    <!-- 사용자 요청(2026-09-05, 5차 피드백) — 예전엔 "관상 분석중~"이 사진 미리보기 안쪽의 작은
+         텍스트로만 떴는데, 통합분석(#cmbAnalyzing)처럼 화면 전체를 대신하는 큰 로딩 카드로 바꿔달라는
+         요청. .cmb-analyzing 클래스를 그대로 재사용(새 CSS 불필요). js/app.js의
+         showGwansangAnalyzing()/setGwansangAnalyzingMsg()/hideGwansangAnalyzing()이 제어한다. -->
+    <div class="cmb-analyzing hidden" id="gwansangAnalyzing">
+      <div class="spin-ring"></div>
+      <div class="cmb-analyzing-title">냥반이 인연도감을 만들고 있어요</div>
+      <div class="cmb-analyzing-msg" id="gwansangAnalyzingMsg">관상을 분석하는 중이에요</div>
+      <p class="cmb-analyzing-note">관상 분석까지 마치면<br>완성된 인연도감을 보여드릴게요.</p>
     </div>
 
     <div class="card hidden shell-strip" id="canvasCard">
-      <!-- 뒤로가기 — 사용자 요청 2026-08-16: "이미 만드신 도감 클릭 > 내 캐릭터 리포트 확인 여기에
-           뒤로가기 버튼이 없어". resetUpload는 이미 있던 "다른 관상 분석하기"(맨 아래) 버튼과 같은
-           함수라 로직 재사용, 리포트 진입 직후 맨 위에서 바로 누를 수 있게 위치만 새로 추가한다. -->
-      <button type="button" class="report-back-btn" id="gwansangBackBtn" onclick="resetUpload('gwansang'); window.scrollTo(0,0);">
-        <span class="material-symbols-outlined">arrow_back</span>인연도감 메인으로
-      </button>
+      <!-- 사용자 요청(2026-09-05, 14차 피드백) — "인연도감 다시 생성하기"(deleteMyDogam) 버튼을
+           여기 따로 뒀었는데, 아래 "도감 보관·삭제 안내" 아코디언 안에 이미 같은 동작("내 인연도감
+           삭제하기")이 있어서 완전히 겹친다는 지적으로 제거했다. #gwansangBackBtn을 참조하던
+           setDisplay 호출들(showGuestView 등)은 존재하지 않는 id를 조용히 무시하므로 안전하다. -->
       <!-- 실제 얼굴 분석용 캔버스는 그대로 유지(내부적으로 계속 사용) — 화면에는 안 보이게만 숨긴다 -->
       <div style="text-align:center;display:none;"><div class="canvas-wrap"><canvas id="gwansangCanvas"></canvas></div></div>
       <div id="gwansangCharacterCard"></div>
@@ -1819,7 +1945,13 @@ body.overlay-open { overflow: hidden; }
     <div class="card hidden shell-strip" id="gwansangResult">
       <!-- 16캐릭터 상세 설명 — character-db.js의 확정 콘텐츠를 위 일러스트 카드와 같은 톤으로 펼쳐서 보여준다.
            사용자 요청 2026-08-15: "부위별 생김새 위에다가 각 상마다의 설명이 나와야 할 것 같다".
-           이제 리포트 카드의 첫 화면 = 캐릭터 설명이고, 기존 관상 리포트는 전부 아래 아코디언으로 내려갔다. -->
+           2026-09-05(14차 피드백) — "캐릭터 상세 설명 보기"라는 별도 토글 문구 대신, 헤드라인
+           문장("분위기와 매력으로...")은 항상 보이고 그 옆에 열고/닫는 버튼을 둬서 나머지(6가지 힘,
+           조선시대의 나 등)만 접히게 해달라는 요청. renderCharacterDetail()은 통합분석도 같이 쓰는
+           공용 함수라 그 함수 자체나 마크업은 안 건드리고, 렌더링이 끝난 뒤 js/ai-analysis.js의
+           wireGwansangCharDetailToggle()이 결과 DOM을 후처리해서 헤드라인 뒤 형제 요소들만
+           접이식 wrapper로 모으고 토글 버튼을 붙인다(populateGwansangReportFromSaved·
+           requestPersonalAiRuleBased 두 호출 지점에서 각각 실행). -->
       <div id="gwansangCharacterDetail"></div>
 
       <!-- 기존 리포트 전체(리포트 타이틀·관상 형상 ~ Daily 개운 루틴)를 이 아코디언 하나에 접어둔다.

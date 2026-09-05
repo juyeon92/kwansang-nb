@@ -2848,6 +2848,99 @@ function renderCharacterDetail(elId, characterResult, opts) {
     </div>`;
 }
 
+// 사용자 요청(2026-09-05, 14차 피드백) — 인연도감 캐릭터 상세 전용 후처리: 헤드라인
+// ("분위기와 매력으로 사람을 끌어당기는 예인상" 등)은 항상 보이게 남기고, 그 뒤에 오는 형제
+// 요소(6가지 힘 바·조선시대의 나·지금의 나·강점/그림자·상황별·궁합 섹션)만 접이식 wrapper로 모아
+// 기본 닫힘 상태로 만든다. renderCharacterDetail() 자체(통합분석 등 다른 탭도 같이 씀)는 안 건드리고
+// 결과 DOM만 후처리하므로, 그 함수를 호출하는 곳마다 렌더링 직후 이 함수를 불러야 한다. 이미 처리된
+// 경우 data-toggle-wired로 중복 실행을 막는다(재렌더 시 헤드라인이 통째로 다시 그려지므로 실제로는
+// 항상 새 DOM이라 이 가드가 실질적으로 필요하진 않지만, 방어적으로 남겨둔다).
+// 2026-09-05(17차 피드백) — A 본인 화면(#gwansangCharacterDetail)에서 B 화면에 고정 노출되는
+// "A의 결과" 카드(#dogamOwnerDetail, js/inyeon-dogam.js showGuestView·renderGuestMergedResult)로
+// 재사용하면서 elId를 인자로 받게 일반화했다(정책 문서 2-3 "⚠️ 표준 규칙" 참고 — 두 화면은 항상
+// 동일해야 한다).
+// 2026-09-05(18차 피드백, 목업 Option 2 채택) — 위 캐릭터 카드의 리본과 이 헤드라인이 똑같은 문장을
+// 반복해서 겹쳐 보인다는 지적으로, 이 헤드라인 텍스트 자체를 "{이름}, 어떤 사람일까요?"로 바꾼다(원래
+// character.headline 그대로 쓰던 걸 대체). 캐릭터 이름은 renderCharacterDetail이 안 넘겨주므로
+// cardElId로 지정한 카드 쪽 .char-card-name에서 읽어온다 — 두 렌더 결과물을 나중에 이어붙이는 구조라
+// 어쩔 수 없이 DOM에서 다시 읽는다.
+function wireGwansangCharDetailToggle(elId, cardElId) {
+  const root = document.querySelector('#' + elId + ' .char-detail');
+  if (!root) return;
+  const headline = root.querySelector(':scope > .char-detail-headline');
+  if (!headline || headline.dataset.toggleWired) return;
+  headline.dataset.toggleWired = '1';
+
+  const nameEl = cardElId && document.querySelector('#' + cardElId + ' .char-card-name');
+  if (nameEl) headline.textContent = nameEl.textContent.trim() + ', 어떤 사람일까요?';
+
+  const rest = [];
+  let node = headline.nextElementSibling;
+  while (node) { const next = node.nextElementSibling; rest.push(node); node = next; }
+  if (!rest.length) return; // 헤드라인뿐이면 접을 것도 없다
+
+  const wrap = document.createElement('div');
+  wrap.className = 'char-detail-collapse hidden';
+  rest.forEach(function (n) { wrap.appendChild(n); });
+  root.appendChild(wrap);
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = 'char-detail-toggle';
+  toggleBtn.setAttribute('aria-label', '캐릭터 상세 설명 열고 닫기');
+  toggleBtn.innerHTML = '<span class="material-symbols-outlined">expand_more</span>';
+  const toggle = function () {
+    const nowHidden = wrap.classList.toggle('hidden');
+    toggleBtn.classList.toggle('open', !nowHidden);
+  };
+  // 목업(Option 2)처럼 좁은 화살표만이 아니라 문구를 포함한 줄 전체를 눌러도 열리게 한다(터치 영역
+  // 확보). toggleBtn은 headline의 자식이라 버튼을 눌러도 이 handler로 버블링되므로 따로 안 붙인다.
+  headline.onclick = toggle;
+  headline.classList.add('char-detail-headline-row');
+  headline.appendChild(toggleBtn);
+}
+
+// 2026-09-05(20차 피드백, 목업 Option 2 최종 채택) — 처음엔 character.headline 끝의 캐릭터 이름만
+// 기계적으로 잘라 썼는데("분위기와 매력으로 사람을 끌어당기는"), 사용자가 목업에서 본 더 짧고 리드미컬한
+// "✦ {핵심 두세 단어}로 {동작}는 타입" 태그 스타일을 마음에 들어해서 16개 전부 손으로 다듬어 이 맵으로
+// 바꿨다. character.headline/character-db.js 원본 필드는 건드리지 않고(통합분석 등 다른 화면은 원본
+// headline을 그대로 씀), 이 칩 표시에만 쓰는 별도 문구다. 맵에 없는 characterId가 들어오면(신규 캐릭터
+// 추가 등) 예전처럼 headline 끝 이름만 잘라내는 방식으로 안전하게 대체한다.
+const GWANSANG_CARD_TAG = {
+  JAESANG: '사람·판을 함께 읽는 타입',
+  JANGGUN: '결정하면 끝까지 밀어붙이는 타입',
+  GUNWANG: '사람을 모아 방향을 만드는 타입',
+  SURYEONG: '책임질 일에는 끝까지 서는 타입',
+  GAEHYEOKGA: '당연한 판을 뒤집는 타입',
+  CHAEKSA: '한발 먼저 읽고 움직이는 타입',
+  SASIN: '사람 사이 수를 읽는 타입',
+  SEONBI: '자기 기준으로 신뢰받는 타입',
+  HAKJA: '익숙한 데서 새 답을 찾는 타입',
+  SANGDANJU: '사람·기회를 움직이는 타입',
+  MUGWAN: '묵묵히 버티고 완수하는 타입',
+  GAECHEOKJA: '먼저 길을 만들어보는 타입',
+  UIWON: '사람 마음을 살펴 얻는 타입',
+  YEIN: '분위기·매력으로 끌어당기는 타입',
+  JANGIN: '감각을 실력으로 만드는 타입',
+  GUNJA: '치우치지 않고 균형 잡는 타입',
+};
+function wireGwansangCharCardChip(elId, characterId) {
+  const root = document.getElementById(elId);
+  if (!root) return;
+  const nameEl = root.querySelector('.char-card-name');
+  const ribbon = root.querySelector('.char-card-ribbon');
+  if (!nameEl || !ribbon || ribbon.dataset.chipWired) return;
+  ribbon.dataset.chipWired = '1';
+  const tag = characterId && GWANSANG_CARD_TAG[characterId];
+  if (tag) { ribbon.textContent = '✦ ' + tag; return; }
+  // 맵에 없는 경우의 안전장치 — headline 끝의 캐릭터 이름만 잘라낸다.
+  const name = nameEl.textContent.trim();
+  const text = ribbon.textContent.trim();
+  if (name && text.endsWith(name)) {
+    ribbon.textContent = text.slice(0, text.length - name.length).trim();
+  }
+}
+
 // ═══ 인연도감 "재방문 시 기존 도감 카드" (정책명세서 §3) ═══
 // 이 프로젝트엔 서버·계정이 없어서 명세서가 말하는 "친구 N명 등록" 진행 상황은 실제로 추적할 수 없다.
 // 대신 이 브라우저에 남은 마지막 결과만 localStorage로 가볍게 기억해뒀다가 "다시 보기"로 보여준다 —
@@ -2943,7 +3036,9 @@ async function populateGwansangReportFromSaved(characterId) {
     basisLabel: restored.basisLabel || null,
   };
   renderCharacterCard('gwansangCharacterCard', fake);
+  wireGwansangCharCardChip('gwansangCharacterCard', characterId);
   renderCharacterDetail('gwansangCharacterDetail', fake);
+  wireGwansangCharDetailToggle('gwansangCharacterDetail', 'gwansangCharacterCard');
   document.getElementById('canvasCard').classList.remove('hidden');
   document.getElementById('gwansangResult').classList.remove('hidden');
   markAnalyzed('gwansang');
@@ -3008,7 +3103,9 @@ async function requestPersonalAiRuleBased(ctx, cfg, lm) {
   // 그 아래 리포트 안에는 같은 캐릭터의 상세 설명을 펼친다(사용자 요청 2026-08-15).
   if (ctx === 'gwansang') {
     renderCharacterCard('gwansangCharacterCard', characterResult);
+    wireGwansangCharCardChip('gwansangCharacterCard', characterResult.characterId);
     renderCharacterDetail('gwansangCharacterDetail', characterResult);
+    wireGwansangCharDetailToggle('gwansangCharacterDetail', 'gwansangCharacterCard');
     saveLastCharacterToStorage(characterResult);
   }
 

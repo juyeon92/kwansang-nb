@@ -274,7 +274,7 @@ function setGgGender(who, g) {
 
 // ═══ UPLOAD / THUMBNAIL LOGIC ═══
 const ctxMap = {
-  gwansang: { uploadArea: 'uploadArea', thumbArea: 'thumbArea', thumbImg: 'thumbImg', thumbSub: 'thumbSub', spinner: 'gwansangSpinner', err: 'gwansangErr' },
+  gwansang: { uploadArea: 'uploadArea', thumbArea: 'thumbArea', thumbImg: 'thumbImg', spinner: 'gwansangSpinner', err: 'gwansangErr' },
   combined: { uploadArea: 'cmbUploadArea', thumbArea: 'cmbThumbArea', thumbImg: 'cmbThumbImg', thumbSub: 'cmbThumbSub', spinner: 'cmbSpinner', err: 'cmbErr' },
   gunghamA: { uploadArea: 'ggUploadA', thumbArea: 'ggThumbA', thumbImg: 'ggImgA', spinner: null, err: 'ggErr' },
   gunghamB: { uploadArea: 'ggUploadB', thumbArea: 'ggThumbB', thumbImg: 'ggImgB', spinner: null, err: 'ggErr' },
@@ -297,6 +297,11 @@ const ctaDockMap = { gwansang: 'gwansangCtaDock', combined: 'cmbCtaDock', gungha
 function updateCtaDock(ctx) {
   const id = ctaDockMap[ctx];
   if (!id) return;
+  // 2026-09-05(3차 피드백) — 인연도감(gwansang)은 더 이상 "사진 업로드 여부"로 CTA를 가리지 않는다.
+  // 버튼은 처음부터 기본 노출(index.html #gwansangCtaDock)이고, 사진 없이 눌러도 startAnalysis()가
+  // 이미 안내하므로 안전하다. 분석이 끝나 결과 화면으로 넘어갈 때만 markAnalyzed('gwansang')이
+  // 명시적으로 숨긴다. 다른 탭(통합분석·궁합보기)은 기존처럼 업로드 여부로 계속 게이트한다.
+  if (ctx === 'gwansang') return;
   const show = (ctx === 'gunghamA' || ctx === 'gunghamB')
     ? !!(state.gunghamA.file && state.gunghamB.file)
     : ctx === 'combined'
@@ -336,14 +341,37 @@ function loadThumb(ctx, file) {
   state[ctx].file = file;
   state[ctx].cleanImg = null; // 사진을 바꾸면 이전 사진의 AI 전송용 원본은 즉시 버린다
   const m = ctxMap[ctx];
+  // 버그 수정(2026-09-05) — 좌우 반전 미리보기를 새로 붙이면서 드러난 문제: 반전 상태가 사진이
+  // 바뀌어도 초기화되지 않아, 이전 사진에서 반전해뒀다가 새 사진(또는 "다시 선택하기")을 고르면
+  // 새 사진이 이유 없이 뒤집힌 채로 나타났다. 새 사진을 불러올 때마다 항상 원상태로 리셋한다.
+  state[ctx].mirrored = false;
+  const thumbAreaEl = document.getElementById(m.thumbArea);
+  if (thumbAreaEl) thumbAreaEl.querySelectorAll('.reupload-btn.on').forEach(b => b.classList.remove('on'));
   const reader = new FileReader();
   reader.onload = (e) => {
-    document.getElementById(m.thumbImg).src = e.target.result;
+    const img = document.getElementById(m.thumbImg);
+    img.src = e.target.result;
+    img.classList.remove('mirrored');
     if (m.thumbSub) document.getElementById(m.thumbSub).textContent = state[ctx].relation ? state[ctx].relation + ' · ' + file.name : file.name;
   };
   reader.readAsDataURL(file);
-  document.getElementById(m.uploadArea).style.display = 'none';
+  // 2026-09-05(4차 피드백) — 업로드 영역(크고 키가 큼)이 작은 썸네일로 바뀌면서 문서 전체 높이가
+  // 줄어드는데, 스크롤이 그 줄어든 높이보다 아래에 있으면 브라우저가 스크롤 위치를 강제로 끌어올려
+  // "화면이 갑자기 훅 내려간(사실은 스크롤이 위로 당겨진)" 것처럼 보였다(사용자 리포트). 레이아웃이
+  // 바뀌기 직전 업로드 영역의 화면상 위치를 기억해뒀다가, 바뀐 뒤 같은 자리에 오도록 스크롤을
+  // 보정한다 — 인연도감(gwansang)에서만 적용, 다른 탭은 이번 리포트 대상이 아니라 손대지 않는다.
+  // "다시 선택하기"로 이미 썸네일이 떠 있는 상태에서 재선택한 경우엔 uploadEl이 이미 display:none이라
+  // getBoundingClientRect()가 0을 반환한다 — 이때 보정하면 오히려 새 점프가 생기므로, 실제로 지금
+  // 보이고 있을 때(최초 선택)만 보정한다.
+  const uploadEl = document.getElementById(m.uploadArea);
+  const wasUploadAreaVisible = uploadEl.style.display !== 'none';
+  const beforeTop = (ctx === 'gwansang' && wasUploadAreaVisible) ? uploadEl.getBoundingClientRect().top : null;
+  uploadEl.style.display = 'none';
   document.getElementById(m.thumbArea).classList.add('show');
+  if (beforeTop !== null) {
+    const afterTop = document.getElementById(m.thumbArea).getBoundingClientRect().top;
+    window.scrollBy(0, afterTop - beforeTop);
+  }
   const qBlock = sajuQBlockMap[ctx] && document.getElementById(sajuQBlockMap[ctx]);
   if (qBlock) qBlock.classList.remove('hidden');
   updateCtaDock(ctx);
@@ -363,6 +391,11 @@ function resetUpload(ctx) {
   if (ctx === 'gwansang') {
     document.getElementById('canvasCard').classList.add('hidden');
     document.getElementById('gwansangResult').classList.add('hidden');
+    // markAnalyzed()가 숨겼던 CTA 버튼을 다시 노출 — 기본 노출 상태라(2026-09-05), 업로드 화면으로
+    // 되돌아오면 같이 되돌아와야 한다(updateCtaDock은 더 이상 gwansang을 건드리지 않으므로 여기서
+    // 직접 처리해야 한다).
+    const dock2 = document.getElementById('gwansangCtaDock');
+    if (dock2) dock2.classList.remove('hidden');
     // 리포트를 닫고 메인으로 돌아온 상태 — 새로고침해도 리포트를 다시 열지 않는다.
     try { localStorage.removeItem(GWANSANG_REPORT_OPEN_KEY); } catch (e) {}
     // ⚠️ 버그 수정(2026-09-01 사용자 리포트: "인연도감 메인으로 돌아가서 다른 사람 사진 넣으면
@@ -692,24 +725,78 @@ function hideErr(id) {
 // 이미 검증하므로 여기서 또 막으면 B의 등록이 막힌다. index.html의 "내 관상 캐릭터 뽑기" 버튼만
 // 이 함수를 거치게 해서 A(오너)의 최초 진입에만 적용한다.
 function startGwansangOwnerAnalysis() {
+  // 2026-09-05(10차 피드백) — 화면에 보이는 순서(이름 → 관상 정보/사진 → 동의) 그대로 위에서부터
+  // 하나씩 검증해야 한다는 지적. 예전엔 이름 다음 바로 동의를 확인하고, 사진 확인은 startAnalysis
+  // 안에서야 뒤늦게 걸려서 "사진 안 넣었는데 동의 체크 알림"이 먼저 뜨는 순서 역전이 있었다.
   const nameEl = document.getElementById('gwansangOwnerName');
   const name = (nameEl && nameEl.value || '').trim();
-  if (!name) { alert('이름 또는 별명을 입력해주세요.'); if (nameEl) nameEl.focus(); return; }
+  if (!name) { alert('이름을 입력해주세요.'); if (nameEl) nameEl.focus(); return; }
+  if (!state.gwansang.file) { alert('사진을 선택해주세요.'); return; }
+  // 2026-09-05 — B(게스트) 등록(registerEntry)은 처음부터 dogamAgree 체크를 필수로 요구했는데, 정작
+  // 같은 성격의 데이터(이름·캐릭터 결과가 인연도감에 표시·궁합 계산에 쓰임)를 제공하는 A는 체크
+  // 없이 진행되고 있었다 — 개인정보처리방침 제2조에 "이름 또는 별명"이 이미 수집 항목으로 명시돼
+  // 있어 A도 B와 동일하게 동의를 받는 게 맞다는 판단(사용자 확인 후 추가).
+  const agreeEl = document.getElementById('gwansangOwnerAgree');
+  if (!agreeEl || !agreeEl.checked) { alert('필수 동의 항목에 체크해주세요.'); if (agreeEl) agreeEl.focus(); return; }
   startAnalysis('gwansang');
+}
+
+// 2026-09-05(5차 피드백) — 인연도감의 "관상 분석중~"이 사진 미리보기 안 작은 텍스트로만 떠서 눈에
+// 잘 안 띈다는 요청 — 통합분석(#cmbAnalyzing)과 같은 방식으로 화면을 대신하는 큰 로딩 카드로 바꾼다.
+// showCmbAnalyzing/hideCmbAnalyzing과 완전히 같은 패턴, 대상 id만 gwansang용.
+function showGwansangAnalyzing(msg) {
+  const box = document.getElementById('gwansangAnalyzing');
+  if (box) box.classList.remove('hidden');
+  setGwansangAnalyzingMsg(msg);
+}
+function setGwansangAnalyzingMsg(msg) {
+  const el = document.getElementById('gwansangAnalyzingMsg');
+  if (el && msg) el.textContent = msg;
+}
+function hideGwansangAnalyzing() {
+  const box = document.getElementById('gwansangAnalyzing');
+  if (box) box.classList.add('hidden');
 }
 
 // ═══ FACE ANALYSIS (Promise 기반 — await 가능) ═══
 // ═══ ANALYZE (관상 탭 버튼용) ═══
 async function startAnalysis(ctx) {
-  if (!state[ctx].file) { alert('사진을 먼저 업로드해주세요.'); return; }
+  // gwansang은 startGwansangOwnerAnalysis()가 이미 이 검사를 먼저 하므로 보통 여기까지 안 오지만,
+  // B(registerEntry)처럼 이 함수를 직접 부르는 경로도 있어 안전망은 남겨둔다. 문구만 A/B 공용으로
+  // 통일(2026-09-05, 10차 피드백) — 다른 탭(통합분석 등)은 기존 문구 그대로 둔다.
+  if (!state[ctx].file) { alert(ctx === 'gwansang' ? '사진을 선택해주세요.' : '사진을 먼저 업로드해주세요.'); return; }
   const m = ctxMap[ctx];
   hideErr(m.err);
 
+  // 2026-09-05 — 큰 로딩 카드(#gwansangAnalyzing)는 A(오너)의 단독 플로우에서만 쓴다. B(게스트)는
+  // registerEntry()가 이미 자기 것(작은 인라인 스피너, m.spinner)으로 "등록 준비 중→관상 확인 중→
+  // 등록 중"까지 3단계를 이어서 안내하고 있어서, 여기서 또 다른 화면을 얹으면 두 로딩 표시가 겹치거나
+  // B의 등록 폼(#dogamGuestSection) 뒤에 어색하게 깔린다(이 큰 카드는 오너 화면 순서를 기준으로 배치돼
+  // 있어 게스트 폼을 덮지 못함). dogamGuestSection의 존재 여부로 두 컨텍스트를 구분한다.
+  const isGuestFlow = ctx === 'gwansang' && !!document.getElementById('dogamGuestSection');
+  if (ctx === 'gwansang' && !isGuestFlow) {
+    markAnalyzed('gwansang'); // 업로드 영역·CTA를 먼저 접고
+    showGwansangAnalyzing('관상을 분석하는 중이에요');
+  }
+
   const lm = await runFaceAnalysis(ctx);
-  if (!lm) return;
+  if (!lm) {
+    if (ctx === 'gwansang' && !isGuestFlow) {
+      hideGwansangAnalyzing();
+      const sec = document.getElementById('gwansangUploadSection');
+      if (sec) sec.classList.remove('hidden');
+      const dock = document.getElementById('gwansangCtaDock');
+      if (dock) dock.classList.remove('hidden');
+    }
+    return;
+  }
 
   if (ctx === 'gwansang') {
-    document.getElementById('canvasCard').classList.remove('hidden');
+    // 예전엔 여기서 canvasCard를 바로 열어(분석 중에도 얼굴 캔버스가 먼저 보임) 로딩 카드와 결과가
+    // 뒤섞여 보였다. 통합분석처럼 "완성된 뒤 한 번에" 공개하기 위해 오너 플로우에서는 맨 끝으로
+    // 미룬다(게스트 플로우는 기존 동작 유지 — canvasCard는 B에게 어차피 안 보이는 뒷단 요소라
+    // 순서를 안 바꿔도 무해하다).
+    if (isGuestFlow) document.getElementById('canvasCard').classList.remove('hidden');
     const rel = state.gwansang.relation;
     document.getElementById('gwansangResultTitle').textContent = `🔮 AI 관상 개운 리포트 (${rel})`;
     renderPersonalReportV2(lm, { headline:'gwansangHeadline', cards:'gwansangCards', summary:'gwansangSummary', result:'gwansangResult' }, null);
@@ -719,7 +806,7 @@ async function startAnalysis(ctx) {
     // 룰베이스로만 도는데, 여기서 이어서 부르던 requestDeepReport(장문 해설)는 여전히 Gemini API를
     // 쳐서 503 등 API 장애가 그대로 사용자에게 "AI 리포트 생성 실패" 문구로 노출되는 문제가 있었다.
     // 장문 해설은 고정 템플릿 하네스(별도 전달 예정)로 교체될 때까지 이 탭에서는 아예 호출하지 않는다.
-    setSpinner(m.spinner, '관상 분석중~');
+    if (isGuestFlow) setSpinner(m.spinner, '관상 분석중~'); else setGwansangAnalyzingMsg('캐릭터를 확인하는 중이에요');
     // ⚠️ 버그 수정(2026-09-03 사용자 리포트: "비로그인으로 인연도감 만들려고 얼굴 넣으면 분석중만
     // 뜨고 안 끝남") — requestPersonalAi가 안에서 부르는 CharacterAPI(character-api.js)는 캐릭터
     // 판정 데이터를 Cloud Functions에서 받아오는데 Firebase ID 토큰이 필수다(2026-08-30 DB 이원화).
@@ -735,13 +822,26 @@ async function startAnalysis(ctx) {
       await requestPersonalAi('gwansang');
     } catch (e) {
       console.error('[startAnalysis] 관상 분석 실패', e);
-      hideSpinner(m.spinner);
+      if (isGuestFlow) {
+        hideSpinner(m.spinner);
+      } else {
+        hideGwansangAnalyzing();
+        const sec = document.getElementById('gwansangUploadSection');
+        if (sec) sec.classList.remove('hidden');
+        const dock = document.getElementById('gwansangCtaDock');
+        if (dock) dock.classList.remove('hidden');
+      }
       showErr(m.err, '분석 중 오류가 발생했어요. 다시 시도해주세요.');
       return;
     }
-    hideSpinner(m.spinner);
+    if (isGuestFlow) {
+      hideSpinner(m.spinner);
+    } else {
+      hideGwansangAnalyzing();
+      document.getElementById('canvasCard').classList.remove('hidden');
+    }
     document.getElementById('gwansangResult').classList.remove('hidden');
-    markAnalyzed('gwansang');
+    if (!isGuestFlow) markAnalyzed('gwansang'); // 게스트 플로우는 이미 위에서 스킵했으므로 여기서도 건드리지 않는다
     try { localStorage.setItem(GWANSANG_REPORT_OPEN_KEY, '1'); } catch (e) {} // 새로고침해도 이 화면에 머무르도록
     // 2026-08-31 정책(사용자 확정: "원본은 하나여야 해") — 인연도감은 더 이상 보관함에 스냅샷을 찍지
     // 않는다(보관함이 Dogam.ensureMyDogam()으로 실물을 직접 보여준다, archive.js 참고). 여기서는
