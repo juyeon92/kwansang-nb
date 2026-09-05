@@ -41,29 +41,23 @@
   let justRegistered = null;
 
   // 화면에 그대로 노출하는 정책 문구 — 명세서를 관상 기준으로 다시 쓴 것.
-  // 사용자 요청(2026-09-05, 14차 피드백) — 이 FAQ가 A(오너) 결과 화면과 B(게스트) 등록 화면 양쪽에
-  // 똑같이 다 노출되고 있었는데, 문항별로 실제 타겟이 다르다는 지적. audience로 분리한다:
-  // 'owner' = A 자신의 도감 관리 관심사(보관 기간·삭제), 'guest' = B가 등록하기 전/직후 궁금할
-  // 내용(뭘 저장하는지·이름 노출 범위·등록하면 서로 연결되는지). policyBlock(showDelete, loggedIn,
-  // audience)가 이 태그로 걸러서 보여준다.
+  // 사용자 요청(2026-09-05, 16차 피드백) — "어떤 정보를 저장하나요?"/"이름은 누구에게 보이나요?"는
+  // B 등록 폼에 이미 있는 콜아웃(💡실명 권장, 🔒사진 미저장)과 내용이 겹쳐서 통째로 뺐고,
+  // "등록하면 서로의 도감에 올라가나요?"는 FAQ 밖으로 빼서 registerBlock의 안내 문구(showGuestView
+  // 참고)에 합쳤다. 그 결과 이 FAQ는 이제 A(오너) 전용(보관 기간·삭제)만 남아 B 화면에는 이 아코디언
+  // 자체를 렌더링하지 않는다(policyBlock 호출부 showGuestView/renderGuestMergedResult 참고).
   const DOGAM_POLICY = [
-    { q: '어떤 정보를 저장하나요?', audience: 'guest',
-      a: '이름(별명)과 관상 캐릭터 결과, 궁합 점수만 저장해요. <b>사진은 브라우저에서만 분석하고 서버로 보내지 않으며 저장하지도 않아요.</b> 생년월일은 받지 않아요 — 인연도감은 관상만으로 계산해요.' },
     // 보관 기간은 로그인 여부에 따라 실제 규칙이 달라서(비로그인=기기 연결 도감만 30일 만료, 로그인=
     // 계정 연결 도감은 무기한) 답변 자체를 loggedIn별로 분기한다 — 로그인한 A에게 "30일 후 삭제"라고
     // 그대로 보여주면 사실과 다른 내용이 된다.
-    { q: '얼마나 보관하나요?', audience: 'owner',
+    { q: '얼마나 보관하나요?',
       a: function (loggedIn) {
         return loggedIn
           ? '계정에 로그인해서 보관 중인 도감은 <b>기간 제한 없이</b> 계속 보관돼요.'
           : '마지막으로 도감을 연 날부터 <b>' + RETENTION_DAYS + '일</b>간 보관해요. 그 사이에 다시 열면 기간이 다시 늘어나요. ' + RETENTION_DAYS + '일 동안 한 번도 열지 않으면 도감과 참여 기록이 함께 삭제돼요. 로그인하면 이 기간 제한 없이 계속 보관돼요.';
       } },
-    { q: '삭제하고 싶어요', audience: 'owner',
+    { q: '삭제하고 싶어요',
       a: '친구는 자기가 등록한 기기에서 자기 기록을 지울 수 있어요. 도감 주인은 언제든 참여 기록을 지우거나 도감 전체를 삭제할 수 있고, 삭제하면 참여 기록도 함께 사라져요. <b>삭제한 내용은 되돌릴 수 없어요.</b>' },
-    { q: '이름은 누구에게 보이나요?', audience: 'guest',
-      a: '도감에 등록한 이름은 도감을 여는 사람 모두에게 보여요. 실명 대신 <b>별명</b>을 권해요.' },
-    { q: '등록하면 서로의 도감에 올라가나요?', audience: 'guest',
-      a: '네. 인연은 <b>양쪽에 함께 등록돼요</b> — 친구가 내 도감에 올라오는 동시에, 나도 그 친구의 도감에 올라가요. 그래서 서로의 인연 도감에서 상대의 캐릭터와 매칭 점수를 볼 수 있어요. 원하지 않으면 언제든 내 기록을 삭제할 수 있어요.' },
   ];
 
   function esc(s) {
@@ -679,8 +673,10 @@
   // ⚠️ 사용자 리포트(2026-09-02): 보관함에서 인연도감을 열면 캐릭터 카드/설명이 안 보였다 — 관상 탭의
   // #gwansangCharacterCard·#gwansangCharacterDetail은 관상 탭 고유 DOM이라 이 화면(#arcReportBody)엔
   // 애초에 존재하지 않아서, paintOwnerView가 하는 "캐릭터 복원"이 여기선 채울 대상 자체가 없었다.
-  // 친구 초대 화면에서 도감 주인의 캐릭터를 보여줄 때 쓰는 renderCharacterCard+renderOwnerBrief
-  // 조합(showGuestView 참고)을 그대로 재사용해, 이 화면 안에 컨테이너를 새로 만들어 채운다.
+  // renderCharacterCard+renderOwnerBrief 조합(축약판 — showGuestView는 2026-09-05(17차 피드백)부터
+  // renderCharacterDetail 전체판으로 바뀌었지만, 여긴 "A 링크 진입" 흐름이 아니라 보관함 전용 화면이라
+  // 이 규칙 대상이 아니다, 정책 문서 2-3 참고)을 그대로 재사용해, 이 화면 안에 컨테이너를 새로 만들어
+  // 채운다.
   async function renderIntoEl(el) {
     if (!el) return;
     try { await CharacterAPI.ensureCharacterCatalog(); } catch (e) { console.warn('[dogam] 캐릭터 카탈로그를 아직 못 받아왔어요', e); }
@@ -754,7 +750,7 @@
         '<div class="dogam-list">' + list + '</div>' +
         keepNotice(loggedIn) +
       '</div>' +
-      policyBlock(!!dogam, loggedIn, 'owner') +
+      policyBlock(!!dogam, loggedIn) +
       actionButtons(dogam, loggedIn);
   }
 
@@ -1041,14 +1037,13 @@
     alert('다른 곳에서 만든 인연도감이 지금 도감으로 합쳐졌어요.\n(중복 도감 ' + count + '개, 등록됐던 인연은 모두 그대로 보존됐어요)');
   }
 
-  // audience: 'owner'(A 결과 화면 — 보관 기간·삭제 관심사) | 'guest'(B 등록 화면 — 저장 항목·이름
-  // 노출 범위·상호 등록 여부 관심사). loggedIn은 'owner' 화면에서만 의미가 있고(보관 기간 답변 분기),
-  // 'guest' 화면에서는 무시된다.
-  function policyBlock(showDelete, loggedIn, audience) {
+  // A(오너) 결과 화면 전용 — DOGAM_POLICY가 이제 오너 항목(보관 기간·삭제)만 담고 있어서 B(게스트)
+  // 화면에서는 이 아코디언 자체를 호출하지 않는다(showGuestView/renderGuestMergedResult 참고).
+  function policyBlock(showDelete, loggedIn) {
     return '' +
       '<details class="dogam-policy">' +
         '<summary>도감 보관·삭제 안내</summary>' +
-        DOGAM_POLICY.filter(function (p) { return p.audience === audience; }).map(function (p) {
+        DOGAM_POLICY.map(function (p) {
           const answer = typeof p.a === 'function' ? p.a(!!loggedIn) : p.a;
           return '<div class="dogam-policy-item"><b class="dogam-policy-q">' + esc(p.q) + '</b><p>' + answer + '</p></div>';
         }).join('') +
@@ -1277,7 +1272,9 @@
         // (A 전용, 도감 전체 삭제 안내)과는 의미가 달라서(이건 B 본인 엔트리 삭제 안내) 별도 문장으로
         // 남긴다. 2026-09-05(3차 피드백) — A의 CTA 버튼이 기본 노출로 바뀌면서 짝이던 이 안내도
         // 기본 노출로 통일(더 이상 사진 업로드 여부로 숨기지 않음, A/B 동기화).
-        '<p class="dogam-notice" id="dogamDeleteNoticeGuest">등록한 기록은 이 기기에서 언제든 직접 삭제할 수 있고, 도감 주인도 삭제할 수 있어요.</p>' +
+        // 2026-09-05(16차 피드백) — "등록하면 서로의 도감에 올라가나요?" FAQ 항목을 빼면서(위
+        // DOGAM_POLICY 참고), 그 내용을 등록 직전에 꼭 알아야 할 정보로 보고 이 안내문 앞에 합쳤다.
+        '<p class="dogam-notice" id="dogamDeleteNoticeGuest">등록하면 서로의 도감에 함께 올라가요 — 나도 상대 도감에, 상대도 내 도감에 올라가요. 등록한 기록은 이 기기에서 언제든 직접 삭제할 수 있고, 도감 주인도 삭제할 수 있어요.</p>' +
         // 사진 업로드는 렌더 이후에 일어나므로 disabled로 막지 않는다 — 누른 시점에 검사해 안내한다.
         '<button class="submit-btn" id="dogamRegisterBtn" onclick="Dogam.registerEntry()">도감에 인연 등록하기</button>' +
       '</div>';
@@ -1290,15 +1287,20 @@
         '<div id="dogamOwnerDetail"></div>' +
       '</div>' +
       registerBlock +
-      guestEntriesBlock(dogam) +
-      policyBlock(false, false, 'guest');
+      guestEntriesBlock(dogam);
 
-    // 초대한 사람의 캐릭터는 일러스트 카드 + "이런 점이 강해요"까지만 보여준다.
-    // (renderCharacterDetail은 궁합·조심할 점·상황별까지 전부 펼쳐서 등록 폼이 한참 아래로 밀린다)
+    // 2026-09-05(17차 피드백) — "A의 결과" 카드는 A 본인 화면과 항상 동일해야 한다는 정책(§2-3
+    // 표준 규칙)에 따라, 예전엔 여기서만 축약해 보여주던 renderOwnerBrief 대신 A와 완전히 같은
+    // renderCharacterDetail()+토글을 그대로 쓴다(등록 폼이 아래로 밀리는 건 감수 — 이 영역은 계속
+    // 손볼 예정이라 두 화면을 따로 유지하는 비용이 더 크다는 판단).
     if (typeof renderCharacterCard === 'function') {
       renderCharacterCard('dogamOwnerCard', { characterId: dogam.ownerCharacterId });
+      wireGwansangCharCardChip('dogamOwnerCard', dogam.ownerCharacterId);
     }
-    renderOwnerBrief('dogamOwnerDetail', dogam.ownerCharacterId);
+    if (typeof renderCharacterDetail === 'function') {
+      renderCharacterDetail('dogamOwnerDetail', { characterId: dogam.ownerCharacterId });
+      wireGwansangCharDetailToggle('dogamOwnerDetail', 'dogamOwnerCard');
+    }
     // 사진 등록은 항상 "내 인연 등록하기" 안에 묶는다 — 등록 버튼과 한 덩어리로 읽혀야 한다.
     // 예전에 분석한 캐릭터가 남아 있어도 마찬가지다(다른 사진으로 다시 찍을 수 있어야 한다).
     const slot = document.getElementById('dogamUploadSlot');
@@ -1336,14 +1338,18 @@
         '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. 내 도감도 만들면 나만의 공유 링크가 생겨요.</p>' +
         '<button class="submit-btn" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
       '</div>' +
-      guestEntriesBlock(dogam) +
-      policyBlock(false, false, 'guest');
+      guestEntriesBlock(dogam);
 
     if (typeof renderCharacterCard === 'function') {
       renderCharacterCard('dogamOwnerCard', { characterId: dogam.ownerCharacterId });
+      wireGwansangCharCardChip('dogamOwnerCard', dogam.ownerCharacterId);
       renderCharacterCard('dogamMyResultCard', { characterId: match.characterId });
     }
-    renderOwnerBrief('dogamOwnerDetail', dogam.ownerCharacterId);
+    // showGuestView와 동일하게 A와 완전히 같은 상세 카드를 쓴다(정책 §2-3 표준 규칙 참고).
+    if (typeof renderCharacterDetail === 'function') {
+      renderCharacterDetail('dogamOwnerDetail', { characterId: dogam.ownerCharacterId });
+      wireGwansangCharDetailToggle('dogamOwnerDetail', 'dogamOwnerCard');
+    }
   }
 
   // 등록 폼 바로 아래에 "이 도감에 이미 몇 명이 등록했는지"를 보여준다(사용자 요청 2026-08-18:

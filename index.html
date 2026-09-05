@@ -204,11 +204,13 @@ body {
 /* 사용자 요청(2026-09-05, 14차 피드백) — 인연도감 결과 화면 전용: 헤드라인은 항상 보이고, 그 옆
    토글 버튼으로 나머지(6가지 힘~궁합)만 접고 편다. js/ai-analysis.js wireGwansangCharDetailToggle()이
    렌더 직후 DOM을 이 구조로 후처리한다 — 통합분석 등 다른 탭의 .char-detail-headline은 이 클래스가
-   안 붙으므로 영향 없다. */
-.char-detail-headline-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+   안 붙으므로 영향 없다.
+   사용자 지적(2026-09-05, 19차 피드백) — 목업(Option 2)에서는 문구+화살표가 가운데로 나란히 붙고
+   화살표엔 동그라미 배경이 없었는데, 실제 구현은 예전(단일 카드 시절) 스타일 그대로(양끝 정렬 +
+   원형 배지 버튼)라 목업과 달랐다. 목업 그대로 가운데 정렬 + 배경 없는 화살표로 맞춘다. */
+.char-detail-headline-row { display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
 .char-detail-toggle {
-  flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.6);
-  border: 1px solid rgba(38,55,90,0.3); color: #26375a; cursor: pointer;
+  flex-shrink: 0; background: none; border: none; padding: 0; color: #26375a; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
 .char-detail-toggle .material-symbols-outlined { font-size: 18px; transition: transform .2s; }
@@ -321,9 +323,40 @@ body {
 #cmbCharacterCard .char-card-img-wrap { border-color: var(--mint-border); }
 /* 사용자 요청(2026-09-05, 13차 피드백) — 인연도감(A) 결과 화면의 캐릭터 카드: "관상 기반 유형" 배지는
    빼고, 일러스트를 168px 기본값보다 작게. #gwansangCharacterCard로만 스코프해서 관상보기 탭 전용
-   #cmbCharacterCard 등 다른 곳은 그대로 둔다(위 #cmbCharacterCard 스코프 패턴과 동일). */
-#gwansangCharacterCard .char-card-badge { display: none; }
-#gwansangCharacterCard .char-card-img-wrap { width: 120px; height: 120px; }
+   #cmbCharacterCard 등 다른 곳은 그대로 둔다(위 #cmbCharacterCard 스코프 패턴과 동일).
+   사용자 지적(2026-09-05, 17차 피드백) — #dogamOwnerCard(B 화면에 고정 노출되는 "A의 결과" 카드,
+   showGuestView·renderGuestMergedResult 둘 다 여기 렌더링)도 renderCharacterCard()로 같은 마크업을
+   그리는데 id가 달라 이 스코프를 못 받고 있었다. 정책(§2-3) 상 "A 본인 화면과 동일 카드"로 명시된
+   요소라 빠뜨리면 안 된다 — 두 id를 같은 규칙에 함께 묶는다. 이후 이 카드 스타일을 바꿀 땐 항상 두
+   id 모두 확인할 것(정책 문서 2-3 "⚠️ 표준 규칙" 참고). */
+#gwansangCharacterCard .char-card-badge, #dogamOwnerCard .char-card-badge { display: none; }
+#gwansangCharacterCard .char-card-img-wrap, #dogamOwnerCard .char-card-img-wrap { width: 120px; height: 120px; }
+/* 사용자 요청(2026-09-05, 18차 피드백, 목업 Option 2 채택) — 캐릭터 카드 리본이 카드 위 이름과
+   같은 단어로 끝나 겹쳐 보이고, 진한 통짜 바라 영역도 무거워 보인다는 지적. 얇은 알약 칩으로
+   줄인다(끝 이름은 js/ai-analysis.js wireGwansangCharCardChip()이 텍스트에서 잘라낸다). */
+#gwansangCharacterCard .char-card-ribbon, #dogamOwnerCard .char-card-ribbon {
+  display: inline-flex; align-items: center; background: rgba(255,255,255,0.65);
+  border: 1px solid rgba(38,55,90,0.35); color: #26375a; font-size: 11.5px; font-weight: 700;
+  padding: 5px 14px; border-radius: 999px; line-height: 1.4;
+}
+/* 카드(일러스트) 바로 아래 상세 카드가 늘 붙어 나오므로(정책 §2-3), 둘을 별개의 박스 두 개가 아니라
+   하나로 이어지는 서랍처럼 붙인다 — 사이 여백·둥근 모서리를 없애 맞닿는 면만 평평하게 만든다.
+   #canvasCard(A 전용 래퍼)의 기본 .card margin-bottom(16px)도 여기서만 0으로 줄인다. */
+#canvasCard.shell-strip { margin-bottom: 0; }
+#gwansangCharacterCard .char-card, #dogamOwnerCard .char-card {
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: none; margin-bottom: 0;
+}
+/* 사용자 피드백(2026-09-05, 19차) — 목업 아티팩트에서 본 밝은 흰색 서랍 느낌과 달리, 실제로는 이
+   섹션이 원래 쓰던 한지·금박 톤(크림~골드 그라데이션, 굵은 금색 테두리)을 그대로 물려받아서 위
+   민트 톤 일러스트 카드와 이어붙였을 때 오히려 더 무겁고 예스러워 보였다. 목업의 흰 배경 + 얇은
+   남색 테두리 + 옅은 그림자 조합으로 다시 맞춘다(일러스트 카드의 굵은 남색 테두리와 같은 색조를
+   옅게 이어받아 "하나의 표면"처럼 보이게). #cmbCharacterDetail이 이미 같은 방식(전용 배경색으로
+   덮어쓰기)을 쓰고 있어 같은 패턴이다. */
+#gwansangCharacterDetail .char-detail, #dogamOwnerDetail .char-detail {
+  background: #ffffff; border: 1px solid rgba(38,55,90,0.18); border-top: none;
+  border-top-left-radius: 0; border-top-right-radius: 0; margin-top: 0;
+  box-shadow: 0 4px 10px rgba(38,55,90,0.06);
+}
 #cmbCharacterBasis .zone-basis {
   border: 1px solid var(--border); border-top: none; border-radius: 0; margin-bottom: 0;
 }

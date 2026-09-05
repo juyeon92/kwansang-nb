@@ -5,8 +5,8 @@
 const CHARACTER_DB = {
   JAESANG: {
     id: 'JAESANG', name: '재상상', traits: ['lead', 'strategy'],
-    headline: '사람과 판을 함께 읽는 재상상', modernRole: '전략형 리더',
-    historical_role: '조선시대였다면 왕을 가까이서 보좌하며 나라 전체의 판을 함께 설계하던 재상',
+    headline: '사람과 판을 함께 읽는 재상상', modernRole: '전략형 리더 — 전체 판을 먼저 보고 나서 움직여요.',
+    historical_role: '조선시대였다면 왕을 가까이서 보좌하며 나라 전체의 판을 함께 설계하던 재상이었을 거예요.',
     strengths: [
       '전체 판을 먼저 보고 나서 움직여요',
       '사람들이 서로 다른 말을 할 때 그 안에서 진짜 방향을 골라내요',
@@ -27,8 +27,8 @@ const CHARACTER_DB = {
   },
   JANGGUN: {
     id: 'JANGGUN', name: '장군상', traits: ['lead', 'drive'],
-    headline: '결정하면 끝까지 밀어붙이는 장군상', modernRole: '추진형 리더',
-    historical_role: '조선시대였다면 전장에서 직접 병사들을 이끌고 그 자리에서 결단을 내리던 장군',
+    headline: '결정하면 끝까지 밀어붙이는 장군상', modernRole: '추진형 리더 — 방향을 정하면 주저 없이 바로 움직여요.',
+    historical_role: '조선시대였다면 전장에서 직접 병사들을 이끌고 그 자리에서 결단을 내리던 장군이었을 거예요.',
     strengths: [
       '방향을 정하면 주저 없이 바로 움직여요',
       '위기 상황일수록 오히려 침착하게 지휘해요',
@@ -49,8 +49,8 @@ const CHARACTER_DB = {
   },
   GUNWANG: {
     id: 'GUNWANG', name: '군왕상', traits: ['lead', 'social'],
-    headline: '사람을 모아 방향을 만드는 군왕상', modernRole: '사람을 모으는 리더',
-    historical_role: '조선시대였다면 다양한 사람들을 하나로 모아 나라의 방향을 이끌던 군왕',
+    headline: '사람을 모아 방향을 만드는 군왕상', modernRole: '사람을 모으는 리더 — 사람들이 자연스럽게 곁에 모이게 만드는 존재감이 있어요.',
+    historical_role: '조선시대였다면 다양한 사람들을 하나로 모아 나라의 방향을 이끌던 군왕이었을 거예요.',
     strengths: [
       '사람들이 자연스럽게 곁에 모이게 만드는 존재감이 있어요',
       '서로 다른 의견을 가진 사람들도 하나의 방향으로 묶어내요',
@@ -71,8 +71,8 @@ const CHARACTER_DB = {
   },
   SURYEONG: {
     id: 'SURYEONG', name: '수령상', traits: ['lead', 'stability'],
-    headline: '책임질 일에는 끝까지 서는 수령상', modernRole: '책임형 리더',
-    historical_role: '조선시대였다면 맡은 고을을 끝까지 책임지고 다스리던 수령',
+    headline: '책임질 일에는 끝까지 서는 수령상', modernRole: '책임형 리더 — 한번 맡은 일은 끝까지 책임지고 마무리해요.',
+    historical_role: '조선시대였다면 맡은 고을을 끝까지 책임지고 다스리던 수령이었을 거예요.',
     strengths: [
       '한번 맡은 일은 끝까지 책임지고 마무리해요',
       '위기 상황에서도 자리를 지키며 사람들을 안심시켜요',
@@ -93,8 +93,8 @@ const CHARACTER_DB = {
   },
   GAEHYEOKGA: {
     id: 'GAEHYEOKGA', name: '개혁가상', traits: ['lead', 'sense'],
-    headline: '남들이 당연하게 보는 판을 뒤집는 개혁가상', modernRole: '혁신형 리더',
-    historical_role: '조선시대였다면 낡은 관습에 얽매이지 않고 새로운 방식을 밀어붙이던 개혁적 인물',
+    headline: '남들이 당연하게 보는 판을 뒤집는 개혁가상', modernRole: '혁신형 리더 — 남들이 당연하게 여기는 방식에 의문을 갖고 다른 길을 찾아요.',
+    historical_role: '조선시대였다면 낡은 관습에 얽매이지 않고 새로운 방식을 밀어붙이던 개혁적 인물이었을 거예요.',
     strengths: [
       '남들이 당연하게 여기는 방식에 의문을 갖고 다른 길을 찾아요',
       '새로운 방향을 확신하면 주저 없이 사람들 앞에서 밀어붙여요',
@@ -115,8 +115,8 @@ const CHARACTER_DB = {
   },
   CHAEKSA: {
     id: 'CHAEKSA', name: '책사상', traits: ['strategy', 'drive'],
-    headline: '한발 먼저 읽고 때가 오면 움직이는 책사상', modernRole: '전략 실행가',
-    historical_role: '조선시대였다면 계책을 세우고 때가 오면 스스로 움직여 일을 처리하던 책사',
+    headline: '한발 먼저 읽고 때가 오면 움직이는 책사상', modernRole: '전략 실행가 — 상황을 미리 읽고 남들보다 한발 앞서 준비해둬요.',
+    historical_role: '조선시대였다면 계책을 세우고 때가 오면 스스로 움직여 일을 처리하던 책사였을 거예요.',
     strengths: [
       '상황을 미리 읽고 남들보다 한발 앞서 준비해둬요',
       '문제의 핵심을 빠르게 짚어서 헛손질을 줄여요',
@@ -137,8 +137,8 @@ const CHARACTER_DB = {
   },
   SASIN: {
     id: 'SASIN', name: '사신상', traits: ['strategy', 'social'],
-    headline: '사람 사이의 수를 읽는 사신상', modernRole: '협상가·조정자',
-    historical_role: '조선시대였다면 다른 나라나 세력 사이를 오가며 말과 협상으로 관계를 조율하던 사신',
+    headline: '사람 사이의 수를 읽는 사신상', modernRole: '협상가·조정자 — 서로 다른 입장 사이에서 접점을 정확히 찾아내요.',
+    historical_role: '조선시대였다면 다른 나라나 세력 사이를 오가며 말과 협상으로 관계를 조율하던 사신이었을 거예요.',
     strengths: [
       '서로 다른 입장 사이에서 접점을 정확히 찾아내요',
       '상대가 진짜 원하는 게 뭔지 대화 속에서 빠르게 캐치해요',
@@ -159,8 +159,8 @@ const CHARACTER_DB = {
   },
   SEONBI: {
     id: 'SEONBI', name: '선비상', traits: ['strategy', 'stability'],
-    headline: '자기 기준으로 오래 신뢰받는 선비상', modernRole: '원칙형 전문가',
-    historical_role: '조선시대였다면 벼슬보다 자기 기준과 학문을 지키며 살아가던 선비',
+    headline: '자기 기준으로 오래 신뢰받는 선비상', modernRole: '원칙형 전문가 — 한번 옳다고 판단한 기준은 상황이 바뀌어도 잘 흔들리지 않아요.',
+    historical_role: '조선시대였다면 벼슬보다 자기 기준과 학문을 지키며 살아가던 선비였을 거예요.',
     strengths: [
       '한번 옳다고 판단한 기준은 상황이 바뀌어도 잘 흔들리지 않아요',
       '유행이나 주변 분위기에 쉽게 휩쓸리지 않고 자기 판단을 지켜요',
@@ -181,8 +181,8 @@ const CHARACTER_DB = {
   },
   HAKJA: {
     id: 'HAKJA', name: '학자상', traits: ['strategy', 'sense'],
-    headline: '익숙한 것에서도 새로운 답을 찾는 학자상', modernRole: '연구·아이디어형',
-    historical_role: '조선시대였다면 벼슬보다 책과 연구에 몰두하며 남들과 다른 답을 찾던 학자',
+    headline: '익숙한 것에서도 새로운 답을 찾는 학자상', modernRole: '연구·아이디어형 — 익숙한 것에서도 남들이 못 본 새로운 연결을 찾아내요.',
+    historical_role: '조선시대였다면 벼슬보다 책과 연구에 몰두하며 남들과 다른 답을 찾던 학자였을 거예요.',
     strengths: [
       '익숙한 것에서도 남들이 못 본 새로운 연결을 찾아내요',
       '궁금한 게 생기면 끝까지 파고들어요',
@@ -203,8 +203,8 @@ const CHARACTER_DB = {
   },
   SANGDANJU: {
     id: 'SANGDANJU', name: '상단주상', traits: ['drive', 'social'],
-    headline: '사람과 기회를 움직이는 상단주상', modernRole: '사업·영업형',
-    historical_role: '조선시대였다면 장터를 오가며 사람과 물건, 기회를 빠르게 연결하던 상단의 우두머리',
+    headline: '사람과 기회를 움직이는 상단주상', modernRole: '사업·영업형 — 사람과 기회가 있는 곳이면 망설이지 않고 먼저 다가가요.',
+    historical_role: '조선시대였다면 장터를 오가며 사람과 물건, 기회를 빠르게 연결하던 상단의 우두머리였을 거예요.',
     strengths: [
       '사람과 기회가 있는 곳이면 망설이지 않고 먼저 다가가요',
       '관계를 맺는 속도가 빨라서 새로운 인연을 만드는 데 거침이 없어요',
@@ -225,8 +225,8 @@ const CHARACTER_DB = {
   },
   MUGWAN: {
     id: 'MUGWAN', name: '무관상', traits: ['drive', 'stability'],
-    headline: '묵묵히 버티고 결국 완수하는 무관상', modernRole: '끈기 있는 실행가',
-    historical_role: '조선시대였다면 화려한 자리보다 궂은일을 묵묵히 맡아 끝까지 해내던 무관',
+    headline: '묵묵히 버티고 결국 완수하는 무관상', modernRole: '끈기 있는 실행가 — 남들이 지치는 지점에서도 묵묵히 계속 해내요.',
+    historical_role: '조선시대였다면 화려한 자리보다 궂은일을 묵묵히 맡아 끝까지 해내던 무관이었을 거예요.',
     strengths: [
       '남들이 지치는 지점에서도 묵묵히 계속 해내요',
       '화려한 성과보다 꾸준한 반복으로 실력을 쌓아요',
@@ -247,8 +247,8 @@ const CHARACTER_DB = {
   },
   GAECHEOKJA: {
     id: 'GAECHEOKJA', name: '개척자상', traits: ['drive', 'sense'],
-    headline: '없는 길도 먼저 만들어 보는 개척자상', modernRole: '빠른 혁신가',
-    historical_role: '조선시대였다면 아무도 안 가본 새로운 땅이나 방식에 제일 먼저 발을 들이던 개척자',
+    headline: '없는 길도 먼저 만들어 보는 개척자상', modernRole: '빠른 혁신가 — 새로운 것 앞에서 망설임 없이 먼저 시도해봐요.',
+    historical_role: '조선시대였다면 아무도 안 가본 새로운 땅이나 방식에 제일 먼저 발을 들이던 개척자였을 거예요.',
     strengths: [
       '새로운 것 앞에서 망설임 없이 먼저 시도해봐요',
       '정답이 없는 상황에서도 일단 부딪혀보며 길을 찾아요',
@@ -269,8 +269,8 @@ const CHARACTER_DB = {
   },
   UIWON: {
     id: 'UIWON', name: '의원상', traits: ['social', 'stability'],
-    headline: '사람을 살피며 마음을 얻는 의원상', modernRole: '돌봄·신뢰형',
-    historical_role: '조선시대였다면 마을 사람들의 아픔을 직접 살피며 오랜 시간 신뢰를 쌓아가던 의원',
+    headline: '사람을 살피며 마음을 얻는 의원상', modernRole: '돌봄·신뢰형 — 사람의 상태 변화를 세심하게 먼저 알아차려요.',
+    historical_role: '조선시대였다면 마을 사람들의 아픔을 직접 살피며 오랜 시간 신뢰를 쌓아가던 의원이었을 거예요.',
     strengths: [
       '사람의 상태 변화를 세심하게 먼저 알아차려요',
       '한번 곁을 내준 사람은 오래, 한결같이 챙겨요',
@@ -291,8 +291,8 @@ const CHARACTER_DB = {
   },
   YEIN: {
     id: 'YEIN', name: '예인상', traits: ['social', 'sense'],
-    headline: '분위기와 매력으로 사람을 끌어당기는 예인상', modernRole: '표현·매력형',
-    historical_role: '조선시대였다면 노래와 춤, 예술로 사람의 마음을 사로잡던 예인',
+    headline: '분위기와 매력으로 사람을 끌어당기는 예인상', modernRole: '표현·매력형 — 분위기를 감각적으로 읽고 그 자리를 화사하게 만들어요.',
+    historical_role: '조선시대였다면 노래와 춤, 예술로 사람의 마음을 사로잡던 예인이었을 거예요.',
     strengths: [
       '분위기를 감각적으로 읽고 그 자리를 화사하게 만들어요',
       '표현이 풍부해서 사람들의 마음을 쉽게 끌어당겨요',
@@ -313,8 +313,8 @@ const CHARACTER_DB = {
   },
   JANGIN: {
     id: 'JANGIN', name: '장인상', traits: ['stability', 'sense'],
-    headline: '감각을 오래 다듬어 실력으로 만드는 장인상', modernRole: '섬세한 전문가',
-    historical_role: '조선시대였다면 한 가지 기술을 평생 갈고닦아 최고의 경지에 이르던 장인',
+    headline: '감각을 오래 다듬어 실력으로 만드는 장인상', modernRole: '섬세한 전문가 — 하나의 기술이나 영역을 오래, 깊게 파고들어요.',
+    historical_role: '조선시대였다면 한 가지 기술을 평생 갈고닦아 최고의 경지에 이르던 장인이었을 거예요.',
     strengths: [
       '하나의 기술이나 영역을 오래, 깊게 파고들어요',
       '디테일 하나하나를 놓치지 않고 다듬어요',
@@ -335,8 +335,8 @@ const CHARACTER_DB = {
   },
   GUNJA: {
     id: 'GUNJA', name: '군자상', traits: [],
-    headline: '한쪽에 치우치지 않고 균형을 잡는 군자상', modernRole: '올라운더',
-    historical_role: '조선시대였다면 한쪽에 치우치지 않는 균형 잡힌 처신으로 존경받던 군자',
+    headline: '한쪽에 치우치지 않고 균형을 잡는 군자상', modernRole: '올라운더 — 상황에 따라 유연하게 접근 방식을 바꿔요.',
+    historical_role: '조선시대였다면 한쪽에 치우치지 않는 균형 잡힌 처신으로 존경받던 군자였을 거예요.',
     strengths: [
       '상황에 따라 유연하게 접근 방식을 바꿔요',
       '한쪽으로 치우치지 않아서 균형 잡힌 판단을 내려요',
