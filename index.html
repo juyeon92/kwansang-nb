@@ -201,6 +201,20 @@ body {
 .char-detail-head { text-align: center; margin-bottom: 16px; }
 .char-detail-role { display: inline-block; background: #eef2f8; border: 1px solid #26375a; border-radius: 999px; padding: 3px 14px; font-size: 11px; font-weight: 700; color: #26375a; letter-spacing: 0.5px; }
 .char-detail-headline { font-size: 15px; font-weight: 800; color: #1c2942; line-height: 1.55; margin-top: 10px; }
+/* 사용자 요청(2026-09-05, 14차 피드백) — 인연도감 결과 화면 전용: 헤드라인은 항상 보이고, 그 옆
+   토글 버튼으로 나머지(6가지 힘~궁합)만 접고 편다. js/ai-analysis.js wireGwansangCharDetailToggle()이
+   렌더 직후 DOM을 이 구조로 후처리한다 — 통합분석 등 다른 탭의 .char-detail-headline은 이 클래스가
+   안 붙으므로 영향 없다. */
+.char-detail-headline-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.char-detail-toggle {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.6);
+  border: 1px solid rgba(38,55,90,0.3); color: #26375a; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.char-detail-toggle .material-symbols-outlined { font-size: 18px; transition: transform .2s; }
+.char-detail-toggle.open .material-symbols-outlined { transform: rotate(180deg); }
+.char-detail-collapse { margin-top: 16px; }
+.char-detail-collapse.hidden { display: none; }
 .char-detail-origin { font-size: 12.5px; line-height: 1.85; color: #33455f; background: #eef2f8; border: 1px dashed rgba(38,55,90,0.4); border-radius: 12px; padding: 12px 14px; }
 .char-detail-sec { margin-top: 20px; }
 .char-detail-sec-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 800; color: #1c2942; margin-bottom: 4px; }
@@ -305,6 +319,11 @@ body {
 #cmbCharacterCard .char-card-badge { background: var(--mint-10); border-color: var(--jade); }
 #cmbCharacterCard .char-card-ribbon { background: var(--jade); color: #fff; }
 #cmbCharacterCard .char-card-img-wrap { border-color: var(--mint-border); }
+/* 사용자 요청(2026-09-05, 13차 피드백) — 인연도감(A) 결과 화면의 캐릭터 카드: "관상 기반 유형" 배지는
+   빼고, 일러스트를 168px 기본값보다 작게. #gwansangCharacterCard로만 스코프해서 관상보기 탭 전용
+   #cmbCharacterCard 등 다른 곳은 그대로 둔다(위 #cmbCharacterCard 스코프 패턴과 동일). */
+#gwansangCharacterCard .char-card-badge { display: none; }
+#gwansangCharacterCard .char-card-img-wrap { width: 120px; height: 120px; }
 #cmbCharacterBasis .zone-basis {
   border: 1px solid var(--border); border-top: none; border-radius: 0; margin-bottom: 0;
 }
@@ -1007,9 +1026,17 @@ body.overlay-open { overflow: hidden; }
 .dogam-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-strong); margin-bottom: 12px; cursor: pointer; }
 .dogam-check input { margin-top: 2px; flex-shrink: 0; }
 .dogam-policy { margin-top: 12px; background: var(--card2); border-radius: var(--r-input); padding: 12px 14px; }
-.dogam-policy > summary { font-size: 13px; font-weight: 700; color: var(--text-strong); cursor: pointer; }
+/* 사용자 요청(2026-09-05, 14차 피드백) — "도감 보관·삭제 안내"(가장 먼저 만든 .dogam-policy
+   용례)만 font-weight:700 기본값 그대로 남아있어서, 나중에 만든 이름/사진 유의사항 콜아웃(둘 다
+   인라인으로 font-weight:400 지정)과 굵기가 안 맞았다. 기본값 자체를 400으로 낮춰 넷 다 통일하고,
+   이제 개별로 남겨뒀던 인라인 font-weight:400 중복 지정은 정리한다. */
+.dogam-policy > summary { font-size: 13px; font-weight: 400; color: var(--text-strong); cursor: pointer; }
 .dogam-policy-item { margin-top: 12px; }
-.dogam-policy-item b { display: block; font-size: 12.5px; color: var(--text-strong); margin-bottom: 3px; }
+/* 버그 수정(2026-09-05, 13차 피드백) — 예전엔 이 셀렉터가 "b" 태그 전부를 골라서, 질문을 감싼
+   <b>뿐 아니라 답변 문장 "안"에 강조용으로 쓴 인라인 <b>(예: "사진은 브라우저에서만...")까지
+   display:block이 적용돼 문장 중간에서 줄이 깨졌다. 질문에만 쓰는 별도 클래스로 좁힌다 — 답변 속
+   <b>는 이제 원래 인라인 굵은 글씨로만 동작한다. */
+.dogam-policy-item b.dogam-policy-q { display: block; font-size: 12.5px; color: var(--text-strong); margin-bottom: 3px; }
 .dogam-policy-item p { font-size: 12px; line-height: 1.7; color: var(--text-sub2); }
 .dogam-actions { margin-top: 16px; }
 /* 공유 버튼 — 마이페이지 "변경"(.mypage-rep-change)과 같은 아웃라인 디자인.
@@ -1025,6 +1052,7 @@ body.overlay-open { overflow: hidden; }
 .dogam-share-btn .material-symbols-outlined { font-size: 17px; }
 /* 비로그인 후킹 — 인연 목록 바로 아래, 같은 카드 안. 안심 안내(.reassure-box)와 같은 톤을 쓴다 */
 .dogam-keep { margin: 14px 0 0; }
+.dogam-keep .reassure-head .label { font-size: 13px; }
 .dogam-keep .reassure-sub { font-size: 12.5px; }
 .dogam-keep .submit-btn { margin-top: 12px; font-size: 14px; padding: 13px; }
 .dogam-link-btn {
@@ -1779,7 +1807,7 @@ body.overlay-open { overflow: hidden; }
           <div class="upload-label">이름</div>
           <input type="text" class="field-input" id="gwansangOwnerName" maxlength="12" placeholder="도감에 표시될 이름" style="margin-bottom:8px;">
           <details class="dogam-policy" style="margin-top:0;margin-bottom:12px;">
-            <summary style="font-weight:400;">💡실명 대신 별명으로 권장드려요</summary>
+            <summary>💡실명 대신 별명으로 권장드려요</summary>
             <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">개인정보 보호를 위해 실명 대신 별명을 권해요. 입력한 이름은 이 도감에 표시되고, 도감을 여는 다른 사람에게도 보여요. 전화번호·주소 등 다른 개인정보는 입력하지 마세요.</p>
           </details>
         </div>
@@ -1829,7 +1857,7 @@ body.overlay-open { overflow: hidden; }
              방식으로 다시 썼다. margin-top:8px — 위 이름 입력·유의사항 간격(input mb 8px)과 같은
              간격을 사진 등록 영역 아래에도 맞춘다(예전엔 여백 없이 바로 붙어 있었다는 피드백). -->
         <details class="dogam-policy" style="margin-top:8px;margin-bottom:12px;">
-          <summary style="font-weight:400;">🔒사진은 저장되지 않으니 안심하세요</summary>
+          <summary>🔒사진은 저장되지 않으니 안심하세요</summary>
           <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
         </details>
 
@@ -1870,12 +1898,10 @@ body.overlay-open { overflow: hidden; }
     </div>
 
     <div class="card hidden shell-strip" id="canvasCard">
-      <!-- 뒤로가기 — 사용자 요청 2026-08-16: "이미 만드신 도감 클릭 > 내 캐릭터 리포트 확인 여기에
-           뒤로가기 버튼이 없어". resetUpload는 이미 있던 "다른 관상 분석하기"(맨 아래) 버튼과 같은
-           함수라 로직 재사용, 리포트 진입 직후 맨 위에서 바로 누를 수 있게 위치만 새로 추가한다. -->
-      <button type="button" class="report-back-btn" id="gwansangBackBtn" onclick="resetUpload('gwansang'); window.scrollTo(0,0);">
-        <span class="material-symbols-outlined">arrow_back</span>인연도감 메인으로
-      </button>
+      <!-- 사용자 요청(2026-09-05, 14차 피드백) — "인연도감 다시 생성하기"(deleteMyDogam) 버튼을
+           여기 따로 뒀었는데, 아래 "도감 보관·삭제 안내" 아코디언 안에 이미 같은 동작("내 인연도감
+           삭제하기")이 있어서 완전히 겹친다는 지적으로 제거했다. #gwansangBackBtn을 참조하던
+           setDisplay 호출들(showGuestView 등)은 존재하지 않는 id를 조용히 무시하므로 안전하다. -->
       <!-- 실제 얼굴 분석용 캔버스는 그대로 유지(내부적으로 계속 사용) — 화면에는 안 보이게만 숨긴다 -->
       <div style="text-align:center;display:none;"><div class="canvas-wrap"><canvas id="gwansangCanvas"></canvas></div></div>
       <div id="gwansangCharacterCard"></div>
@@ -1883,7 +1909,13 @@ body.overlay-open { overflow: hidden; }
     <div class="card hidden shell-strip" id="gwansangResult">
       <!-- 16캐릭터 상세 설명 — character-db.js의 확정 콘텐츠를 위 일러스트 카드와 같은 톤으로 펼쳐서 보여준다.
            사용자 요청 2026-08-15: "부위별 생김새 위에다가 각 상마다의 설명이 나와야 할 것 같다".
-           이제 리포트 카드의 첫 화면 = 캐릭터 설명이고, 기존 관상 리포트는 전부 아래 아코디언으로 내려갔다. -->
+           2026-09-05(14차 피드백) — "캐릭터 상세 설명 보기"라는 별도 토글 문구 대신, 헤드라인
+           문장("분위기와 매력으로...")은 항상 보이고 그 옆에 열고/닫는 버튼을 둬서 나머지(6가지 힘,
+           조선시대의 나 등)만 접히게 해달라는 요청. renderCharacterDetail()은 통합분석도 같이 쓰는
+           공용 함수라 그 함수 자체나 마크업은 안 건드리고, 렌더링이 끝난 뒤 js/ai-analysis.js의
+           wireGwansangCharDetailToggle()이 결과 DOM을 후처리해서 헤드라인 뒤 형제 요소들만
+           접이식 wrapper로 모으고 토글 버튼을 붙인다(populateGwansangReportFromSaved·
+           requestPersonalAiRuleBased 두 호출 지점에서 각각 실행). -->
       <div id="gwansangCharacterDetail"></div>
 
       <!-- 기존 리포트 전체(리포트 타이틀·관상 형상 ~ Daily 개운 루틴)를 이 아코디언 하나에 접어둔다.

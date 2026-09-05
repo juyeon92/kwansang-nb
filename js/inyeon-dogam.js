@@ -29,7 +29,6 @@
   const RETENTION_DAYS = 30; // 보관 기간 — 정책 문구(DOGAM_POLICY)와 expiresAt 계산이 모두 이 값을 따른다
   const SLUG_KEY = 'dogamMySlug';        // 내 도감 slug (로그인 전에도 기억해두기 위한 로컬 사본)
   const PARAM = 'dogam';                 // 공유 링크 쿼리 파라미터 (?dogam=<slug>)
-  let enteredViaShare = false;           // 공유 링크로 들어온 세션인지 — 뒤로 갈 화면이 없으므로 뒤로가기를 숨긴다
   // 방금 맺은 인연(초대해준 사람) — 등록 직후 매칭 결과를 보여주기 위해 기억해둔다. 일부러 메모리
   // 변수로만 둔다(사용자 요청 2026-08-18): localStorage였다면 새로고침해도 계속 남아서, "방금"이 아닌
   // 옛 결과가 언제까지고 다시 보였다. 새로고침하면 이 값도 자연히 비워지는 게 맞다.
@@ -42,16 +41,28 @@
   let justRegistered = null;
 
   // 화면에 그대로 노출하는 정책 문구 — 명세서를 관상 기준으로 다시 쓴 것.
+  // 사용자 요청(2026-09-05, 14차 피드백) — 이 FAQ가 A(오너) 결과 화면과 B(게스트) 등록 화면 양쪽에
+  // 똑같이 다 노출되고 있었는데, 문항별로 실제 타겟이 다르다는 지적. audience로 분리한다:
+  // 'owner' = A 자신의 도감 관리 관심사(보관 기간·삭제), 'guest' = B가 등록하기 전/직후 궁금할
+  // 내용(뭘 저장하는지·이름 노출 범위·등록하면 서로 연결되는지). policyBlock(showDelete, loggedIn,
+  // audience)가 이 태그로 걸러서 보여준다.
   const DOGAM_POLICY = [
-    { q: '어떤 정보를 저장하나요?',
+    { q: '어떤 정보를 저장하나요?', audience: 'guest',
       a: '이름(별명)과 관상 캐릭터 결과, 궁합 점수만 저장해요. <b>사진은 브라우저에서만 분석하고 서버로 보내지 않으며 저장하지도 않아요.</b> 생년월일은 받지 않아요 — 인연도감은 관상만으로 계산해요.' },
-    { q: '얼마나 보관하나요?',
-      a: '마지막으로 도감을 연 날부터 <b>' + RETENTION_DAYS + '일</b>간 보관해요. 그 사이에 다시 열면 기간이 다시 늘어나요. ' + RETENTION_DAYS + '일 동안 한 번도 열지 않으면 도감과 참여 기록이 함께 삭제돼요.' },
-    { q: '삭제하고 싶어요',
+    // 보관 기간은 로그인 여부에 따라 실제 규칙이 달라서(비로그인=기기 연결 도감만 30일 만료, 로그인=
+    // 계정 연결 도감은 무기한) 답변 자체를 loggedIn별로 분기한다 — 로그인한 A에게 "30일 후 삭제"라고
+    // 그대로 보여주면 사실과 다른 내용이 된다.
+    { q: '얼마나 보관하나요?', audience: 'owner',
+      a: function (loggedIn) {
+        return loggedIn
+          ? '계정에 로그인해서 보관 중인 도감은 <b>기간 제한 없이</b> 계속 보관돼요.'
+          : '마지막으로 도감을 연 날부터 <b>' + RETENTION_DAYS + '일</b>간 보관해요. 그 사이에 다시 열면 기간이 다시 늘어나요. ' + RETENTION_DAYS + '일 동안 한 번도 열지 않으면 도감과 참여 기록이 함께 삭제돼요. 로그인하면 이 기간 제한 없이 계속 보관돼요.';
+      } },
+    { q: '삭제하고 싶어요', audience: 'owner',
       a: '친구는 자기가 등록한 기기에서 자기 기록을 지울 수 있어요. 도감 주인은 언제든 참여 기록을 지우거나 도감 전체를 삭제할 수 있고, 삭제하면 참여 기록도 함께 사라져요. <b>삭제한 내용은 되돌릴 수 없어요.</b>' },
-    { q: '이름은 누구에게 보이나요?',
+    { q: '이름은 누구에게 보이나요?', audience: 'guest',
       a: '도감에 등록한 이름은 도감을 여는 사람 모두에게 보여요. 실명 대신 <b>별명</b>을 권해요.' },
-    { q: '등록하면 서로의 도감에 올라가나요?',
+    { q: '등록하면 서로의 도감에 올라가나요?', audience: 'guest',
       a: '네. 인연은 <b>양쪽에 함께 등록돼요</b> — 친구가 내 도감에 올라오는 동시에, 나도 그 친구의 도감에 올라가요. 그래서 서로의 인연 도감에서 상대의 캐릭터와 매칭 점수를 볼 수 있어요. 원하지 않으면 언제든 내 기록을 삭제할 수 있어요.' },
   ];
 
@@ -518,7 +529,6 @@
     const sharedSlug = sharedSlugFromUrl();
 
     if (sharedSlug) {
-      enteredViaShare = true;
       guestDogam = await loadDogam(sharedSlug).catch(function (e) { console.error('[dogam] 공유 도감 조회 실패', e); return null; });
       if (stale()) return;
 
@@ -538,7 +548,6 @@
           // A-1은 항상 "이미 있는 내 도감"이라 업로드 입구를 다시 보일 필요가 없다(아래 B 분기와
           // 같은 2026-09-01 원칙 — 도감이 있으면 사진을 더 넣을 필요가 없다).
           setDisplay('gwansangUploadSection', 'none');
-          setDisplay('gwansangBackBtn', 'none');
           await paintOwnerView(el, guestDogam, stale);
           return;
         }
@@ -565,9 +574,6 @@
     if (gh) { stashUploadNodes(); gh.remove(); }
     setDisplay('gwansangHero', '');
     setDisplay('gwansangCtaDock', '');
-    // "인연도감 메인으로"는 돌아갈 이전 화면이 있을 때만 의미가 있다. 공유 링크로 바로 들어온
-    // 세션에는 그 화면 자체가 없었으므로 숨긴다.
-    setDisplay('gwansangBackBtn', enteredViaShare ? 'none' : '');
     // ⚠️ ensureMyDogam이 "확인했는데 없음"(null)과 "확인 자체가 실패함"(throw)을 구분해서 던지므로,
     // 여기서도 실패는 그냥 null로 뭉개면 안 된다 — 뭉개면 조회 한 번 실패했을 뿐인데 "도감이 없다"로
     // 오해해서 아래 자동 생성 분기가 새 도감을 만들어버리고, 원래 도감(과 친구 기록)이 미아가 된다.
@@ -741,14 +747,14 @@
       matchedBlock() +
       '<div class="dogam-block">' +
         '<div class="dogam-head">' +
-          '<span class="dogam-title">인연 도감</span>' +
+          '<span class="dogam-title">' + esc(dogam.ownerName) + '님의 인연 도감</span>' +
           '<span class="dogam-count">' + count + '명</span>' +
         '</div>' +
         filterChips(entries) +
         '<div class="dogam-list">' + list + '</div>' +
         keepNotice(loggedIn) +
       '</div>' +
-      policyBlock(!!dogam) +
+      policyBlock(!!dogam, loggedIn, 'owner') +
       actionButtons(dogam, loggedIn);
   }
 
@@ -784,14 +790,16 @@
   // 달리 "한 번만"이 아니다 — 그래서 별도 노출 이력 관리 없이 loggedIn 여부만으로 매번 판단한다.
   function keepNotice(loggedIn) {
     if (loggedIn) return '';
+    // 사용자 요청(2026-09-05, 13차 피드백) — 라벨에 이모지(🔖)가 들어가서 앞에 따로 있던 material
+    // "info" 아이콘은 중복이라 뺐다(이 세션에서 이미 써온 패턴 — 💡/🔒 콜아웃도 별도 아이콘 없이
+    // 이모지만 텍스트에 포함).
     return '' +
       '<div class="reassure-box dogam-keep">' +
         '<div class="reassure-head">' +
-          '<span class="icon material-symbols-outlined">info</span>' +
-          '<span class="label">회원가입 전이에요</span>' +
+          '<span class="label">인연도감을 소장하세요!</span>' +
         '</div>' +
-        '<p class="reassure-sub">지금 도감은 이 기기·브라우저에만 연결돼 있어요. 기기를 바꾸거나 브라우저 기록을 지우면 방장 권한과 보관함 연결을 잃을 수 있어요.</p>' +
-        '<button class="submit-btn" onclick="Dogam.loginAndKeep()">로그인하고 내 인연도감 유지하기</button>' +
+        '<p class="reassure-sub">이 인연도감은 현재 기기·브라우저에만 연결되어 있어, 연결이 끊기면 사라질 수 있어요. 지금 로그인해서 소중한 인연도감을 보관함에 넣어주세요!</p>' +
+        '<button class="submit-btn" onclick="Dogam.loginAndKeep()">로그인하고 내 인연도감 보관하기</button>' +
       '</div>';
   }
 
@@ -825,14 +833,29 @@
           '<button class="overlay-close" onclick="Dogam.dismissLoginModal()"><span class="material-symbols-outlined">close</span></button>' +
         '</div>' +
         '<div class="popup-body">' +
-          '<p class="dogam-guide" style="font-size:16px;font-weight:700;color:var(--text-title);">인연도감을 계정에 보관할까요?</p>' +
-          '<p class="dogam-guide">지금 로그인하면 접속 기기를 바꾸거나 브라우저 기록을 지워도 보관된 인연도감을 언제든지 펼치고 관리할 수 있어요.</p>' +
-          '<div class="tip-box">' +
-            '<span class="icon material-symbols-outlined">warning</span>' +
-            '<p>지금 건너뛰면 이 인연도감은 현재 접속 기기에만 연결돼서, 사라질 수 있어요</p>' +
+          // 사용자 요청(2026-09-05, 11차 피드백) — .popup-body의 공용 gap:20px가 모든 자식에
+          // 똑같이 적용되다 보니 "읽는 내용"과 "누르는 버튼"이 시각적으로 구분이 안 됐다(간격이
+          // 전부 동일해서). 두 그룹(안내 텍스트 묶음 / 버튼 묶음)으로 나눠 각 묶음 안은 좁게(8px),
+          // 묶음 사이(안내→버튼)는 .popup-body의 기존 20px 그대로 둬서 상대적으로 훨씬 넓어 보이게
+          // 한다. 버튼끼리도 이제 이 그룹의 gap:8px로 붙고, "나중에 할게요"에 따로 있던
+          // margin-top:10px는 gap과 이중으로 겹쳐 오히려 버튼 사이가 제일 넓어 보이던 원인이라 뺐다.
+          // 사용자 리포트(2026-09-05, 12차 피드백) — 지난 수정이 실패한 진짜 원인: .dogam-guide가
+          // 이미 margin-bottom:10px, .tip-box가 이미 margin-top:12px를 갖고 있어서, 여기 gap:8px와
+          // 겹쳐(8+10+12=30px) 오히려 콜아웃 "앞" 간격이 콜아웃 "뒤"(그룹 사이 20px) 간격보다 커지는
+          // 역전이 있었다. 이번엔 실측(getBoundingClientRect)으로 재확인했다 — 각 요소의 기존 margin을
+          // 전부 0으로 죽이고 gap:8px 하나로만 통일해야 그룹 사이 20px가 확실히 더 크게 유지된다.
+          '<div style="display:flex;flex-direction:column;gap:8px;">' +
+            '<p class="dogam-guide" style="margin-bottom:0;font-size:16px;font-weight:700;color:var(--text-title);">인연도감을 계정에 보관할까요?</p>' +
+            '<p class="dogam-guide" style="margin-bottom:0;">지금 로그인하면 접속 기기를 바꾸거나 브라우저 기록을 지워도 보관된 인연도감을 언제든지 펼치고 관리할 수 있어요.</p>' +
+            '<div class="tip-box" style="margin-top:0;">' +
+              '<span class="icon material-symbols-outlined">warning</span>' +
+              '<p>지금 건너뛰면 이 인연도감은 현재 접속 기기에만 연결돼서, 사라질 수 있어요</p>' +
+            '</div>' +
           '</div>' +
-          '<button class="submit-btn" onclick="Dogam.dismissLoginModal();Dogam.loginAndKeep();">로그인하고 보관하기</button>' +
-          '<button type="button" style="display:block;width:100%;margin-top:10px;padding:10px;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;" onclick="Dogam.snoozeLoginModal(\'' + dogam.slug + '\')">나중에 할게요</button>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;">' +
+            '<button class="submit-btn" style="margin-top:0;" onclick="Dogam.dismissLoginModal();Dogam.loginAndKeep();">로그인하고 보관하기</button>' +
+            '<button type="button" style="display:block;width:100%;padding:10px;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;" onclick="Dogam.snoozeLoginModal(\'' + dogam.slug + '\')">나중에 할게요</button>' +
+          '</div>' +
         '</div>' +
       '</div>';
     document.body.appendChild(root);
@@ -1018,12 +1041,16 @@
     alert('다른 곳에서 만든 인연도감이 지금 도감으로 합쳐졌어요.\n(중복 도감 ' + count + '개, 등록됐던 인연은 모두 그대로 보존됐어요)');
   }
 
-  function policyBlock(showDelete) {
+  // audience: 'owner'(A 결과 화면 — 보관 기간·삭제 관심사) | 'guest'(B 등록 화면 — 저장 항목·이름
+  // 노출 범위·상호 등록 여부 관심사). loggedIn은 'owner' 화면에서만 의미가 있고(보관 기간 답변 분기),
+  // 'guest' 화면에서는 무시된다.
+  function policyBlock(showDelete, loggedIn, audience) {
     return '' +
       '<details class="dogam-policy">' +
         '<summary>도감 보관·삭제 안내</summary>' +
-        DOGAM_POLICY.map(function (p) {
-          return '<div class="dogam-policy-item"><b>' + esc(p.q) + '</b><p>' + p.a + '</p></div>';
+        DOGAM_POLICY.filter(function (p) { return p.audience === audience; }).map(function (p) {
+          const answer = typeof p.a === 'function' ? p.a(!!loggedIn) : p.a;
+          return '<div class="dogam-policy-item"><b class="dogam-policy-q">' + esc(p.q) + '</b><p>' + answer + '</p></div>';
         }).join('') +
         // 안내문에 "도감 전체를 삭제할 수 있어요"라고 써놓고 실제 삭제 수단이 없으면 고지와 실제가 어긋난다.
         (showDelete ? '<button class="dogam-delete-btn" onclick="Dogam.deleteMyDogam()">내 인연도감 삭제하기</button>' : '') +
@@ -1239,7 +1266,7 @@
         '<label class="field-label" style="display:block;margin:16px 0 8px;">이름</label>' +
         '<input type="text" class="field-input" id="dogamGuestName" maxlength="12" placeholder="이름" value="' + esc(prefillName) + '" style="margin-bottom:8px;">' +
         '<details class="dogam-policy" style="margin-top:0;margin-bottom:12px;">' +
-          '<summary style="font-weight:400;">💡실명 대신 별명으로 권장드려요</summary>' +
+          '<summary>💡실명 대신 별명으로 권장드려요</summary>' +
           '<p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">개인정보 보호를 위해 실명 대신 별명을 권해요. 입력한 이름은 이 도감에 표시되고, 도감을 여는 다른 사람에게도 보여요. 전화번호·주소 등 다른 개인정보는 입력하지 마세요.</p>' +
         '</details>' +
         '<div id="dogamUploadSlot"></div>' +
@@ -1264,7 +1291,7 @@
       '</div>' +
       registerBlock +
       guestEntriesBlock(dogam) +
-      policyBlock();
+      policyBlock(false, false, 'guest');
 
     // 초대한 사람의 캐릭터는 일러스트 카드 + "이런 점이 강해요"까지만 보여준다.
     // (renderCharacterDetail은 궁합·조심할 점·상황별까지 전부 펼쳐서 등록 폼이 한참 아래로 밀린다)
@@ -1310,7 +1337,7 @@
         '<button class="submit-btn" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
       '</div>' +
       guestEntriesBlock(dogam) +
-      policyBlock();
+      policyBlock(false, false, 'guest');
 
     if (typeof renderCharacterCard === 'function') {
       renderCharacterCard('dogamOwnerCard', { characterId: dogam.ownerCharacterId });

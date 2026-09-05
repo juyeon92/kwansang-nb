@@ -2848,6 +2848,44 @@ function renderCharacterDetail(elId, characterResult, opts) {
     </div>`;
 }
 
+// 사용자 요청(2026-09-05, 14차 피드백) — 인연도감(#gwansangCharacterDetail) 전용 후처리: 헤드라인
+// ("분위기와 매력으로 사람을 끌어당기는 예인상" 등)은 항상 보이게 남기고, 그 뒤에 오는 형제
+// 요소(6가지 힘 바·조선시대의 나·지금의 나·강점/그림자·상황별·궁합 섹션)만 접이식 wrapper로 모아
+// 기본 닫힘 상태로 만든다. renderCharacterDetail() 자체(통합분석 등 다른 탭도 같이 씀)는 안 건드리고
+// 결과 DOM만 후처리하므로, 그 함수를 호출하는 두 곳(populateGwansangReportFromSaved,
+// requestPersonalAiRuleBased) 각각에서 렌더링 직후 이 함수를 불러야 한다. 이미 처리된 경우
+// data-toggle-wired로 중복 실행을 막는다(재렌더 시 헤드라인이 통째로 다시 그려지므로 실제로는 항상
+// 새 DOM이라 이 가드가 실질적으로 필요하진 않지만, 방어적으로 남겨둔다).
+function wireGwansangCharDetailToggle() {
+  const root = document.querySelector('#gwansangCharacterDetail .char-detail');
+  if (!root) return;
+  const headline = root.querySelector(':scope > .char-detail-headline');
+  if (!headline || headline.dataset.toggleWired) return;
+  headline.dataset.toggleWired = '1';
+
+  const rest = [];
+  let node = headline.nextElementSibling;
+  while (node) { const next = node.nextElementSibling; rest.push(node); node = next; }
+  if (!rest.length) return; // 헤드라인뿐이면 접을 것도 없다
+
+  const wrap = document.createElement('div');
+  wrap.className = 'char-detail-collapse hidden';
+  rest.forEach(function (n) { wrap.appendChild(n); });
+  root.appendChild(wrap);
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = 'char-detail-toggle';
+  toggleBtn.setAttribute('aria-label', '캐릭터 상세 설명 열고 닫기');
+  toggleBtn.innerHTML = '<span class="material-symbols-outlined">expand_more</span>';
+  toggleBtn.onclick = function () {
+    const nowHidden = wrap.classList.toggle('hidden');
+    toggleBtn.classList.toggle('open', !nowHidden);
+  };
+  headline.classList.add('char-detail-headline-row');
+  headline.appendChild(toggleBtn);
+}
+
 // ═══ 인연도감 "재방문 시 기존 도감 카드" (정책명세서 §3) ═══
 // 이 프로젝트엔 서버·계정이 없어서 명세서가 말하는 "친구 N명 등록" 진행 상황은 실제로 추적할 수 없다.
 // 대신 이 브라우저에 남은 마지막 결과만 localStorage로 가볍게 기억해뒀다가 "다시 보기"로 보여준다 —
@@ -2944,6 +2982,7 @@ async function populateGwansangReportFromSaved(characterId) {
   };
   renderCharacterCard('gwansangCharacterCard', fake);
   renderCharacterDetail('gwansangCharacterDetail', fake);
+  wireGwansangCharDetailToggle();
   document.getElementById('canvasCard').classList.remove('hidden');
   document.getElementById('gwansangResult').classList.remove('hidden');
   markAnalyzed('gwansang');
@@ -3009,6 +3048,7 @@ async function requestPersonalAiRuleBased(ctx, cfg, lm) {
   if (ctx === 'gwansang') {
     renderCharacterCard('gwansangCharacterCard', characterResult);
     renderCharacterDetail('gwansangCharacterDetail', characterResult);
+    wireGwansangCharDetailToggle();
     saveLastCharacterToStorage(characterResult);
   }
 
