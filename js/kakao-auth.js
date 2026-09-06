@@ -20,6 +20,17 @@
   // 그걸 "로그인 안 함"과 구분하지 못해 실제로는 로그인된 사용자에게도 팝업을 띄웠다. 이 플래그로
   // "아직 확인 전"과 "확인했는데 로그아웃 상태"를 구분한다 — app.js의 switchTab()이 참조한다.
   let authResolved = false;
+  // ⚠️ 사용자 리포트(2026-09-05: "로그인하고 새로고침하면 자꾸 로그인이 풀린다") — 근본 원인.
+  // Firebase Auth는 새로고침 직후 persist된 세션(카카오 로그인 포함)을 IndexedDB에서 비동기로
+  // 복원하는데, 그동안 fbAuth.currentUser는 계속 null이다. 이 틈에 다른 코드(예: 인연도감
+  // ensureAuthUid())가 "로그인 안 한 상태"로 오판해 signInAnonymously()를 먼저 불러버리면, 막
+  // 복원되려던 진짜 카카오 세션이 방금 만든 새 익명 세션으로 덮어써진다 — 실제로 새로고침마다
+  // 서로 다른 익명 uid가 찍히는 걸로 확인됨(원래 있던 세션이 매번 복원되기도 전에 대체당한 것).
+  // authResolved 플래그만으로는 "아직 확인 전"과 "확인 끝"을 동기적으로 구분할 수만 있고, 비동기로
+  // "기다리게" 할 수는 없어서 Promise로 한 번 더 감싼다 — ensureAuthUid()가 이걸 await해서
+  // onAuthStateChanged가 최초로 한 번 불릴 때까지 signInAnonymously()를 미룬다.
+  let resolveAuthReady;
+  const authReadyPromise = new Promise(function (resolve) { resolveAuthReady = resolve; });
   const NICKNAME_KEY_PREFIX = 'kakaoAuthNickname:';
   const ACCOUNT_KEY_PREFIX = 'kakaoAuthAccount:'; // 마이페이지에 보여줄 카카오 계정(이메일 등)
   // 이메일은 따로 보관한다 — account는 이메일이 없을 때 닉네임으로 채워지는 자리라, 둘을 한 칸에 두면
@@ -52,6 +63,7 @@
     // 최초 호출(페이지 로드 시 세션 복원 여부)과 이후 모든 로그인/로그아웃 변화를 여기 한 곳에서 처리한다.
     fbAuth.onAuthStateChanged(function (user) {
       authResolved = true;
+      resolveAuthReady();
       console.log('[kakao-auth] onAuthStateChanged', user ? { uid: user.uid, anonymous: !!user.isAnonymous } : null);
       // ⚠️ 버그 수정(2026-08-20 사용자 리포트: 기기마다 보관함 내용이 다르게 보임 — 근본 원인).
       // 아래 Dogam.render()는 paintOwnerView의 자가복구 저장(Archive.save('gwansang'))을 유발하는데,
@@ -800,5 +812,6 @@
     _adminSearch: adminSearch, _adminGrant: adminGrant,
     getUser: function () { return currentUser; },
     isAuthResolved: function () { return authResolved; },
+    whenAuthResolved: function () { return authReadyPromise; },
   };
 })();

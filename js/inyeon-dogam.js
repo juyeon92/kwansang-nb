@@ -71,6 +71,15 @@
   // 용도(후킹)이지 등록 조건이 아니다. 다만 Firestore에 글을 쓰려면 신원이 있어야 보안 규칙으로
   // 어뷰징을 막을 수 있어서, 로그인하지 않은 사람에게는 Firebase 익명 인증으로 uid만 발급한다.
   async function ensureAuthUid() {
+    // ⚠️ 사용자 리포트(2026-09-05: "로그인하고 새로고침하면 로그인이 풀린다") — Firebase Auth가
+    // 새로고침 직후 persist된 세션(카카오 로그인 포함)을 비동기로 복원하는 동안 currentUid()는
+    // 계속 null이다. 그 틈에 여기서 바로 signInAnonymously()를 불러버리면, 막 복원되려던 진짜
+    // 세션이 방금 만든 새 익명 세션으로 덮어써진다(실제로 새로고침마다 다른 익명 uid가 찍히는
+    // 것으로 확인됨 — 인연도감 탭이 마지막 탭이면 restoreLastTab()이 페이지 로드 직후 곧바로
+    // Dogam.render()를 부르는데, 그 시점엔 아직 onAuthStateChanged가 한 번도 안 불렸다). 그래서
+    // onAuthStateChanged가 최초로 한 번 불릴 때까지(=복원 시도가 끝날 때까지) 기다린 뒤에만
+    // "정말 로그인 세션이 없다"고 판단해 익명 인증을 발급한다.
+    if (window.KakaoAuth && KakaoAuth.whenAuthResolved) await KakaoAuth.whenAuthResolved();
     const uid = currentUid();
     if (uid) return uid;
     if (!window.fbAuth || !fbAuth.signInAnonymously) return null;
