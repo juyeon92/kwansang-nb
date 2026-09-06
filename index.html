@@ -217,6 +217,10 @@ body {
 .char-detail-toggle.open .material-symbols-outlined { transform: rotate(180deg); }
 .char-detail-collapse { margin-top: 16px; }
 .char-detail-collapse.hidden { display: none; }
+/* 사용자 요청(2026-09-05) — 펼친 내용 맨 아래 접기 컨트롤. 위 헤드라인과 같은 가운데 정렬 행
+   스타일(.char-detail-headline-row)을 재사용하고, 위 내용과는 구분되도록 옅은 구분선만 얹는다. */
+.char-detail-collapse-foot { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(38,55,90,0.15); }
+.char-detail-collapse-foot-label { font-size: 13px; font-weight: 700; color: #26375a; }
 .char-detail-origin { font-size: 12.5px; line-height: 1.85; color: #33455f; background: #eef2f8; border: 1px dashed rgba(38,55,90,0.4); border-radius: 12px; padding: 12px 14px; }
 .char-detail-sec { margin-top: 20px; }
 .char-detail-sec-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 800; color: #1c2942; margin-bottom: 4px; }
@@ -1810,7 +1814,7 @@ body.overlay-open { overflow: hidden; }
 
   <!-- ===== 관상 패널 ===== -->
   <div class="panel" id="panel-gwansang">
-    <div class="arc-page-head"><h2>인연도감</h2></div>
+    <div class="arc-page-head" id="gwansangPageHead"><h2>인연도감</h2></div>
     <div class="upload-section" id="gwansangUploadSection">
       <!-- 인연도감 첫 진입 화면(인연도감_정책및개발명세서.md "화면 구성") — 아무것도 입력 안 한 상태에서만
            보이고, markAnalyzed()가 이 섹션 전체(#gwansangUploadSection)를 숨기면 같이 사라진다.
@@ -2692,11 +2696,11 @@ body.overlay-open { overflow: hidden; }
 <script src="js/character/trait-labels.js?v=20260830a"></script>
 <script src="js/character/character-db.js?v=20260830b"></script>
 <script src="js/character-api.js?v=20260830b"></script>
-<script src="js/ai-analysis.js?v=20260903"></script>
+<script src="js/ai-analysis.js?v=20260905"></script>
 <script src="js/app.js?v=20260904a"></script>
 <script src="js/profile.js?v=20260903"></script>
 <script src="js/archive.js?v=20260905"></script>
-<script src="js/inyeon-dogam.js?v=20260905b"></script>
+<script src="js/inyeon-dogam.js?v=20260905c"></script>
 <script src="js/nyang-shop.js?v=20260904"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>
 <script src="js/pay-history.js?v=20260827c"></script>

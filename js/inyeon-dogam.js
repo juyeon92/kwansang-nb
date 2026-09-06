@@ -548,6 +548,7 @@
           if (gh) { stashUploadNodes(); gh.remove(); }
           setDisplay('gwansangHero', '');
           setDisplay('gwansangCtaDock', '');
+          setDisplay('gwansangPageHead', ''); // 게스트 화면(아래 A-2/A-3)에서 숨겼을 수 있으니 복원
           // A-1은 항상 "이미 있는 내 도감"이라 업로드 입구를 다시 보일 필요가 없다(아래 B 분기와
           // 같은 2026-09-01 원칙 — 도감이 있으면 사진을 더 넣을 필요가 없다).
           setDisplay('gwansangUploadSection', 'none');
@@ -561,6 +562,11 @@
         // 다만 방금 이 링크에 등록을 마친 직후라면(justRegistered) 1회성 병합 결과 화면을 보여준다
         // (registerEntry/renderGuestMergedResult 참고) — 새로고침하면 justRegistered가 비워져
         // 자연히 아래 showGuestView(등록 폼)로 돌아간다.
+        // 사용자 리포트(2026-09-05) — guestHost()가 #dogamGuestSection을 탭 맨 앞(panel.firstChild)에
+        // 꽂아서, 원래 맨 위에 있던 탭 고정 타이틀("인연도감")이 게스트 도감 내용 바로 아래로 밀려나
+        // 어색하게 보였다. 게스트 화면엔 "OO님의 인연도감"이라는 제목이 이미 있어 중복이기도 하니,
+        // 이 화면에서는 탭 타이틀 자체를 숨긴다(A-1/B 분기에서 다시 보여줌).
+        setDisplay('gwansangPageHead', 'none');
         if (justRegistered && justRegistered.slug === sharedSlug) {
           renderGuestMergedResult(guestDogam, justRegistered);
         } else {
@@ -577,6 +583,7 @@
     if (gh) { stashUploadNodes(); gh.remove(); }
     setDisplay('gwansangHero', '');
     setDisplay('gwansangCtaDock', '');
+    setDisplay('gwansangPageHead', ''); // 게스트 화면(위 A-2/A-3)에서 숨겼을 수 있으니 복원
     // ⚠️ ensureMyDogam이 "확인했는데 없음"(null)과 "확인 자체가 실패함"(throw)을 구분해서 던지므로,
     // 여기서도 실패는 그냥 null로 뭉개면 안 된다 — 뭉개면 조회 한 번 실패했을 뿐인데 "도감이 없다"로
     // 오해해서 아래 자동 생성 분기가 새 도감을 만들어버리고, 원래 도감(과 친구 기록)이 미아가 된다.

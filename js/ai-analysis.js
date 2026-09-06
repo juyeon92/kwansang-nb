@@ -2882,6 +2882,17 @@ function wireGwansangCharDetailToggle(elId, cardElId) {
   const wrap = document.createElement('div');
   wrap.className = 'char-detail-collapse hidden';
   rest.forEach(function (n) { wrap.appendChild(n); });
+
+  // 사용자 요청(2026-09-05) — 펼친 내용(예: "다른 관상과의 궁합")을 다 읽은 뒤 다시 접으려면 맨 위
+  // 헤드라인까지 스크롤해 올라가야 했다. 펼쳐진 내용 맨 아래에도 같은 접기 컨트롤을 하나 더 둬서,
+  // 읽던 자리에서 바로 닫을 수 있게 한다 — 펼쳐져 있을 때만 보이는 위치라 화살표는 항상 "위로"
+  // 상태(.open)로 고정해둔다.
+  const footRow = document.createElement('div');
+  footRow.className = 'char-detail-headline-row char-detail-collapse-foot';
+  footRow.innerHTML = '<span class="char-detail-collapse-foot-label">접기</span>' +
+    '<button type="button" class="char-detail-toggle open" aria-label="캐릭터 상세 설명 접기">' +
+      '<span class="material-symbols-outlined">expand_more</span></button>';
+  wrap.appendChild(footRow);
   root.appendChild(wrap);
 
   const toggleBtn = document.createElement('button');
@@ -2892,12 +2903,16 @@ function wireGwansangCharDetailToggle(elId, cardElId) {
   const toggle = function () {
     const nowHidden = wrap.classList.toggle('hidden');
     toggleBtn.classList.toggle('open', !nowHidden);
+    // 아래 접기 버튼으로 닫았을 때는 헤드라인이 화면 밖으로 밀려나 있을 수 있어, 접힌 뒤 헤드라인이
+    // 보이는 자리로 다시 스크롤해준다(안 그러면 방금 있던 내용이 사라진 빈자리만 보게 된다).
+    if (nowHidden) headline.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
   // 목업(Option 2)처럼 좁은 화살표만이 아니라 문구를 포함한 줄 전체를 눌러도 열리게 한다(터치 영역
   // 확보). toggleBtn은 headline의 자식이라 버튼을 눌러도 이 handler로 버블링되므로 따로 안 붙인다.
   headline.onclick = toggle;
   headline.classList.add('char-detail-headline-row');
   headline.appendChild(toggleBtn);
+  footRow.onclick = toggle;
 }
 
 // 2026-09-05(20차 피드백, 목업 Option 2 최종 채택) — 처음엔 character.headline 끝의 캐릭터 이름만
