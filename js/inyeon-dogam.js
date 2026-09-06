@@ -960,32 +960,46 @@
   // 고르면 그 즉시 나머지는 완전히 삭제한다. 캐릭터가 같은 도감은 여기까지 오지 않는다(서버가
   // settleDogamForUid에서 이미 자동 병합 — notifyDogamMerged로 안내). 캐릭터가 다른 경우에만
   // kakaoLogin 응답의 dogamConflicts에 실려 여기로 온다.
-  let conflictCandidates = null; // 지금 화면에 떠 있는 선택지의 slug 전체 — 하나를 고르면 나머지를 지우는 데 쓴다
+  let conflictCandidates = null; // 지금 화면에 떠 있는 선택지 전체({slug, ownerCharacterId, ownerName, entryCount}[])
+  let selectedConflictSlug = null; // 라디오처럼 하나만 체크되는 현재 선택
+  // 사용자 요청(2026-09-05) — 후보마다 버튼을 따로 두지 않고, 프로필 전환 화면(Profile.openSwitcher)의
+  // 체크 리스트(.profile-row/.profile-row-check, 선택된 행에만 mint색 check_circle 아이콘)를 그대로
+  // 재사용해서 "행 전체 클릭 = 선택"으로 바꾸고, 확인 버튼(.submit-btn, "분석하기"류와 같은 primary
+  // 버튼)을 목록 맨 아래 하나만 둔다.
   function conflictCardHtml(c) {
     const ch = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[c.ownerCharacterId]) || null;
     const img = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(c.ownerCharacterId) : '';
+    const selected = selectedConflictSlug === c.slug;
     return '' +
-      '<div class="dogam-row" style="cursor:default;">' +
+      '<div class="profile-row' + (selected ? ' is-selected' : '') + '" onclick="Dogam.selectConflictCandidate(\'' + esc(c.slug) + '\')">' +
+        '<span class="profile-row-check">' + (selected ? '<span class="material-symbols-outlined" style="font-size:16px;color:var(--mint);">check_circle</span>' : '') + '</span>' +
         '<img class="dogam-row-thumb" src="' + esc(img) + '" alt="' + esc(ch ? ch.name : '') + '">' +
-        '<div class="dogam-row-body">' +
-          '<div class="dogam-row-name">' + esc(c.ownerName || '') + '<span class="dogam-row-tag">' + esc(ch ? ch.name : '') + '</span></div>' +
-          '<div class="dogam-row-desc">' + esc('인연 ' + c.entryCount + '명') + '</div>' +
+        '<div class="profile-row-body">' +
+          '<div class="profile-row-top">' +
+            '<span class="profile-row-name">' + esc(c.ownerName || '') + '</span>' +
+            '<span class="profile-row-badge">' + esc(ch ? ch.name : '') + '</span>' +
+          '</div>' +
+          '<div class="profile-row-sub">인연 ' + c.entryCount + '명</div>' +
         '</div>' +
-      '</div>' +
-      '<div style="margin:8px 0 16px 50px;">' +
-        '<button type="button" class="submit-btn" style="padding:8px 14px;font-size:13px;width:auto;" onclick="Dogam.chooseDogam(\'' + esc(c.slug) + '\')">이 도감으로 계속 쓰기</button>' +
       '</div>';
   }
   // ⚠️ 이 화면은 의도적으로 닫을 수 없다(overlay-close 버튼도, backdrop onclick도 없음) — 정책
   // 문서가 "반드시 하나 고를 때까지 모달 유지"로 확정했기 때문. 골라야만 다음으로 넘어간다.
   function showDogamConflict(conflicts) {
     if (!conflicts || !conflicts.length || !myDogam) return;
-    closeDogamConflict();
-    const candidates = [{ slug: myDogam.slug, ownerCharacterId: myDogam.ownerCharacterId, ownerName: myDogam.ownerName, entryCount: (myDogam.entries || []).length }]
+    conflictCandidates = [{ slug: myDogam.slug, ownerCharacterId: myDogam.ownerCharacterId, ownerName: myDogam.ownerName, entryCount: (myDogam.entries || []).length }]
       .concat(conflicts.map(function (c) { return { slug: c.slug, ownerCharacterId: c.ownerCharacterId, ownerName: c.ownerName, entryCount: c.entryCount }; }));
-    conflictCandidates = candidates.map(function (c) { return c.slug; });
-    const root = document.createElement('div');
-    root.id = 'dogamConflictRoot';
+    selectedConflictSlug = myDogam.slug; // 기본값: 지금 쓰던 도감을 미리 체크해둔다
+    renderDogamConflictModal();
+  }
+  function renderDogamConflictModal() {
+    let root = document.getElementById('dogamConflictRoot');
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'dogamConflictRoot';
+      document.body.appendChild(root);
+      document.body.classList.add('overlay-open');
+    }
     root.innerHTML = '' +
       '<div class="overlay-backdrop"></div>' +
       '<div class="form-popup">' +
@@ -994,16 +1008,23 @@
         '</div>' +
         '<div class="popup-body">' +
           '<p class="dogam-guide">다른 기기·브라우저에서 이미 만든 인연도감이 있어요. 계정에는 인연도감을 하나만 둘 수 있어서, 계속 쓸 도감을 하나 골라주세요. 고르지 않은 도감은 완전히 삭제되고 되돌릴 수 없어요.</p>' +
-          candidates.map(conflictCardHtml).join('') +
+          '<div class="profile-row-list" style="max-height:none;padding:0;">' + conflictCandidates.map(conflictCardHtml).join('') + '</div>' +
+          '<button type="button" class="submit-btn" style="margin-top:16px;" onclick="Dogam.confirmDogamChoice()">이 도감으로 계속 쓰기</button>' +
         '</div>' +
       '</div>';
-    document.body.appendChild(root);
-    document.body.classList.add('overlay-open');
+  }
+  function selectConflictCandidate(slug) {
+    selectedConflictSlug = slug;
+    renderDogamConflictModal();
   }
   function closeDogamConflict() {
     const root = document.getElementById('dogamConflictRoot');
     if (root) root.remove();
     document.body.classList.remove('overlay-open');
+  }
+  function confirmDogamChoice() {
+    if (!selectedConflictSlug) return;
+    return chooseDogam(selectedConflictSlug);
   }
   // 고른 도감만 남기고 나머지는 이 자리에서 바로 지운다 — deleteMyDogam()과 같은 순서(entries
   // 전부 삭제 후 도감 문서 삭제)를 후보 전체에 반복 적용한다. 확인창을 따로 두지 않는 이유는
@@ -1012,7 +1033,7 @@
   async function chooseDogam(chosenSlug) {
     const uid = currentUid();
     if (!uid || !window.fbDb || !conflictCandidates) return;
-    const others = conflictCandidates.filter(function (s) { return s !== chosenSlug; });
+    const others = conflictCandidates.map(function (c) { return c.slug; }).filter(function (s) { return s !== chosenSlug; });
     try {
       await fbDb.collection('users').doc(uid).set({ dogamSlug: chosenSlug }, { merge: true });
       localStorage.setItem(SLUG_KEY, chosenSlug);
@@ -1023,6 +1044,7 @@
         await ref.delete();
       }
       conflictCandidates = null;
+      selectedConflictSlug = null;
       myDogam = null; // 다음 render()가 방금 고른 도감을 새로 읽도록 캐시를 비운다
       closeDogamConflict();
       toast('선택한 인연도감으로 정리했어요');
@@ -1694,6 +1716,7 @@
     deleteEntry: deleteEntry, setEntryFilter: setEntryFilter,
     showDogamConflict: showDogamConflict, closeDogamConflict: closeDogamConflict,
     chooseDogam: chooseDogam,
+    selectConflictCandidate: selectConflictCandidate, confirmDogamChoice: confirmDogamChoice,
     notifyDogamMerged: notifyDogamMerged,
     dismissLoginModal: dismissLoginModal,
     snoozeLoginModal: snoozeLoginModal,
