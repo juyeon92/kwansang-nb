@@ -2882,17 +2882,6 @@ function wireGwansangCharDetailToggle(elId, cardElId) {
   const wrap = document.createElement('div');
   wrap.className = 'char-detail-collapse hidden';
   rest.forEach(function (n) { wrap.appendChild(n); });
-
-  // 사용자 요청(2026-09-05) — 펼친 내용(예: "다른 관상과의 궁합")을 다 읽은 뒤 다시 접으려면 맨 위
-  // 헤드라인까지 스크롤해 올라가야 했다. 펼쳐진 내용 맨 아래에도 같은 접기 컨트롤을 하나 더 둬서,
-  // 읽던 자리에서 바로 닫을 수 있게 한다 — 펼쳐져 있을 때만 보이는 위치라 화살표는 항상 "위로"
-  // 상태(.open)로 고정해둔다.
-  const footRow = document.createElement('div');
-  footRow.className = 'char-detail-headline-row char-detail-collapse-foot';
-  footRow.innerHTML = '<span class="char-detail-collapse-foot-label">접기</span>' +
-    '<button type="button" class="char-detail-toggle open" aria-label="캐릭터 상세 설명 접기">' +
-      '<span class="material-symbols-outlined">expand_more</span></button>';
-  wrap.appendChild(footRow);
   root.appendChild(wrap);
 
   const toggleBtn = document.createElement('button');
@@ -2900,11 +2889,15 @@ function wireGwansangCharDetailToggle(elId, cardElId) {
   toggleBtn.className = 'char-detail-toggle';
   toggleBtn.setAttribute('aria-label', '캐릭터 상세 설명 열고 닫기');
   toggleBtn.innerHTML = '<span class="material-symbols-outlined">expand_more</span>';
+  // 사용자 요청(2026-09-05) — 새 버튼을 추가하는 게 아니라, 펼쳤을 때 이 헤드라인(닫기 트리거) 자체가
+  // 펼친 내용("다른 관상과의 궁합" 등) 아래로 내려가 있어야 다 읽은 자리에서 바로 닫기 편하다는 요청.
+  // DOM을 옮기면 위치가 바뀔 때마다 레이아웃이 튀고 이벤트도 다시 신경 써야 해서, 대신 root를 펼쳤을
+  // 때만 flex column으로 바꾸고 order로 순서만 시각적으로 뒤집는다(.char-detail.detail-open) — 접으면
+  // 자동으로 원래 자리(맨 위)로 돌아온다.
   const toggle = function () {
     const nowHidden = wrap.classList.toggle('hidden');
     toggleBtn.classList.toggle('open', !nowHidden);
-    // 아래 접기 버튼으로 닫았을 때는 헤드라인이 화면 밖으로 밀려나 있을 수 있어, 접힌 뒤 헤드라인이
-    // 보이는 자리로 다시 스크롤해준다(안 그러면 방금 있던 내용이 사라진 빈자리만 보게 된다).
+    root.classList.toggle('detail-open', !nowHidden);
     if (nowHidden) headline.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
   // 목업(Option 2)처럼 좁은 화살표만이 아니라 문구를 포함한 줄 전체를 눌러도 열리게 한다(터치 영역
@@ -2912,7 +2905,6 @@ function wireGwansangCharDetailToggle(elId, cardElId) {
   headline.onclick = toggle;
   headline.classList.add('char-detail-headline-row');
   headline.appendChild(toggleBtn);
-  footRow.onclick = toggle;
 }
 
 // 2026-09-05(20차 피드백, 목업 Option 2 최종 채택) — 처음엔 character.headline 끝의 캐릭터 이름만
