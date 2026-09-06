@@ -720,13 +720,11 @@
     // 인연도감은 스냅샷이 없다(2026-08-31 정책) — Dogam.renderInto()가 실물을 통째로 그린다.
     // loadReportHtml/loadIndex 조회 자체를 건너뛴다.
     if (viewingId === GWANSANG_VIEW_ID) {
-      h.innerHTML =
-        '<div class="arc-page-head">' +
-          '<button class="arc-back" aria-label="목록으로" onclick="Archive.backToList()">' +
-            '<span class="material-symbols-outlined">arrow_back</span></button>' +
-          '<h2>인연도감</h2>' +
-        '</div>' +
-        '<div class="arc-report" id="arcReportBody"></div>';
+      // 사용자 요청(2026-09-05) — 인연도감 상세는 Dogam.renderInto()가 그리는 실물 안에 이미
+      // "OO님의 인연도감" 제목이 있어서, 이 위에 "인연도감"이라는 페이지 제목이 한 번 더 겹쳐
+      // 보였다. 뒤로가기는 하단 네비(.bottom-nav)의 "보관함" 탭으로 대신할 수 있어 페이지 헤더
+      // 자체를 없앤다.
+      h.innerHTML = '<div class="arc-report" id="arcReportBody"></div>';
       const liveBody = document.getElementById('arcReportBody');
       if (liveBody && window.Dogam && Dogam.renderInto) await Dogam.renderInto(liveBody);
       return;
