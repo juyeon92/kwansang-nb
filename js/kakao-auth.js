@@ -354,7 +354,13 @@
       const cred = await fbAuth.signInWithCustomToken(data.customToken);
       console.log('[kakao-auth] Firebase 로그인 성공', cred.user.uid);
     } catch (e) {
+      // ⚠️ 사용자 리포트(2026-09-05: "로그인하고 새로고침하면 자꾸 로그인이 풀린다") — 카카오
+      // 인증 자체는 성공해서 renderLoggedIn()이 이미 화면을 "로그인됨"처럼 바꿔둔 뒤인데, 정작
+      // 이 함수(Firebase 쪽 실제 로그인)가 실패하면 콘솔에만 에러가 남고 화면엔 아무 표시가 없어서
+      // 사용자는 "로그인이 됐다"고 믿은 채 넘어갔다가 새로고침 후에야(fbAuth.currentUser가 애초에
+      // 없었으므로) 로그아웃 상태를 보고 당황했다. 이제 실패를 조용히 넘기지 않고 바로 알린다.
       console.error('[kakao-auth] Firebase 로그인 실패', e);
+      alert('로그인 처리 중 문제가 생겼어요.\n' + ((e && e.message) || e) + '\n새로고침 후 다시 시도해주세요.');
     }
   }
 
