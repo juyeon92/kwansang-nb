@@ -1202,7 +1202,21 @@ body.overlay-open { overflow: hidden; }
    무엇이든 항상 보인다(.panel은 active가 아니면 display:none이라 그 안에 넣으면 그 탭에서만 보인다).
    body의 padding-bottom(하단 네비+CTA독 몫)이 이미 화면 전체에 잡혀 있어 별도 여백 보정 없이도
    하단 네비에 가리지 않는다. */
-.biz-footer { padding: 12px 0 4px; text-align: center; font-size: 11px; color: var(--text-sub2); }
+.biz-footer { padding: 12px 0 4px; text-align: center; font-size: 11px; line-height: 1.7; color: var(--text-sub2); }
+/* 사용자 요청(2026-09-07) — 사업자정보는 업로드 화면(1뎁스)에서만 보이고, "분석하기"를 눌러
+   분석중/리포트/리포트 상세로 들어가면 숨긴다(인연도감·통합분석·궁합보기 공통). 이 상태들은
+   app.js/ai-analysis.js/inyeon-dogam.js 여러 지점에서 hidden 클래스를 토글하므로, 그 호출부를
+   전부 찾아 손대는 대신 :has()로 "이 컨테이너들 중 하나라도 hidden이 아니면 숨긴다"만 선언한다. */
+.wrap:has(#cmbAnalyzing:not(.hidden)) .biz-footer,
+.wrap:has(#cmbResult:not(.hidden)) .biz-footer,
+.wrap:has(#cmbSavedReport:not(.hidden)) .biz-footer,
+.wrap:has(#gwansangAnalyzing:not(.hidden)) .biz-footer,
+.wrap:has(#gwansangResult:not(.hidden)) .biz-footer,
+.wrap:has(#ggAnalyzing:not(.hidden)) .biz-footer,
+.wrap:has(#ggResult:not(.hidden)) .biz-footer,
+.wrap:has(#ggSavedReport:not(.hidden)) .biz-footer {
+  display: none;
+}
 .legal-page { padding-top: 8px; }
 /* ══ 이용약관/개인정보처리방침(.legal-doc) — legal/*.html 내용을 그대로 인라인으로 옮겨왔다(사용자
    요청 2026-08-25: iframe으로 넣었더니 "다른 화면들은 iframe 외부에 스크롤이 있는데" — 다른 탭과
@@ -2678,9 +2692,14 @@ body.overlay-open { overflow: hidden; }
   <!-- 결제내역(js/pay-history.js) — 사용자 본인의 냥 지급·사용·구매 내역 -->
   <div class="panel" id="panel-payhistory"></div>
 
-  <!-- 사업자정보 표시 — 전자상거래법상 통신판매업자 표시 의무 최소 항목(상호·대표자·사업자등록번호)만
-       우선 넣어둔다. 통신판매업신고번호·주소·연락처는 발급/확정되는 대로 이어서 채운다. -->
-  <div class="biz-footer">관상냥반 · 대표 최주연 · 사업자등록번호 521-32-01773</div>
+  <!-- 사업자정보 표시 — 전자상거래법상 통신판매업자 표시 의무 항목(상호·대표자·사업자등록번호·
+       통신판매업신고번호)까지 채워짐. 주소·연락처는 발급/확정되는 대로 이어서 채운다. -->
+  <div class="biz-footer">
+    <div>상호 : 관상냥반</div>
+    <div>대표 : 최주연</div>
+    <div>사업자등록번호 : 521-32-01773</div>
+    <div>통신판매업신고 번호 : 제2026-서울강동-1452호</div>
+  </div>
 
 </div><!-- /wrap -->
 
