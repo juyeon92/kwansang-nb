@@ -335,13 +335,16 @@ const CHARACTER_DB = {
   },
 };
 
+// 2026-09-07 — 캐릭터 유형 개명(인연도감 캐릭터 유형 개명안.md)에 맞춰 이미지 파일명도 새 이름
+// 기준으로 리네임. id(키)는 궁합 매트릭스·Firestore 저장 데이터와 맞물려 있어 그대로 두고, 경로
+// 값(파일명)만 바꿨다 — 이름이 안 바뀐 5개(JANGGUN/SEONBI/HAKJA/UIWON/JANGIN)는 파일명도 그대로.
 const CHARACTER_ILLUSTRATION_FALLBACK = 'images/UIWON.png';
 const CHARACTER_ILLUSTRATION = {
-  JAESANG: 'images/JAESANG.png', JANGGUN: 'images/JANGGUN.png', GUNWANG: 'images/GUNWANG.png',
-  SURYEONG: 'images/SURYEONG.png', GAEHYEOKGA: 'images/GAEHYEOKGA.png', CHAEKSA: 'images/CHAEKSA.png',
-  SASIN: 'images/SASIN.png', SEONBI: 'images/SEONBI.png', HAKJA: 'images/HAKJA.png',
-  SANGDANJU: 'images/SANGDANJU.png', MUGWAN: 'images/MUGWAN.png', GAECHEOKJA: 'images/GAECHEOKJA.png',
-  UIWON: 'images/UIWON.png', YEIN: 'images/YEIN.png', JANGIN: 'images/JANGIN.png',
+  JAESANG: 'images/JANGWONGEUPJE.png', JANGGUN: 'images/JANGGUN.png', GUNWANG: 'images/IMGEUMNIM.png',
+  SURYEONG: 'images/SATO.png', GAEHYEOKGA: 'images/AMHAENGEOSA.png', CHAEKSA: 'images/JEONLYAKGA.png',
+  SASIN: 'images/JUNGMAEJAENGI.png', SEONBI: 'images/SEONBI.png', HAKJA: 'images/HAKJA.png',
+  SANGDANJU: 'images/BOTTARIJANGSU.png', MUGWAN: 'images/SUMUNJANG.png', GAECHEOKJA: 'images/SEONBONGJANG.png',
+  UIWON: 'images/UIWON.png', YEIN: 'images/GWANGDAE.png', JANGIN: 'images/JANGIN.png',
 };
 function getCharacterIllustration(characterId) {
   return CHARACTER_ILLUSTRATION[characterId] || CHARACTER_ILLUSTRATION_FALLBACK;

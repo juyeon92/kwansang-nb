@@ -119,17 +119,20 @@
   async function compatScore(idA, idB) {
     return await CharacterAPI.getScore(idA, idB);
   }
-  // ⚠️ 사용자 리포트(2026-08-18): 예전엔 캐릭터별로 미리 정해둔 "특별 5명"(good 2·spark 1·
-  // clash 2)에 들었는지만 보고 나머지 10명은 점수(5~99)와 무관하게 전부 "내 사람"으로 뭉뚱그렸다
-  // — 그래서 69점·69점·28점이 나란히 다 "내 사람"으로 보이는 문제가 있었다. compatScore()가 이미
-  // good/spark/clash 보정(+18/+8/-15)을 점수에 반영해두므로, 레이블도 그 최종 점수 하나로만
-  // 4단계로 나눈다(사용자 지정 구간).
-  function relationLabel(score) {
-    if (score == null) return '';
-    if (score >= 80) return '귀인';
-    if (score >= 60) return '단짝';
-    if (score >= 40) return '내 사람';
-    return '호랑이 선생';
+  // 2026-09-07 — 관계 라벨 개편(인연도감 관계 라벨 개편안.md). 점수 하나로 4단계를 가르던 예전
+  // 방식(사용자 리포트 2026-08-18로 도입) 대신, compatibleTypes/sparkTypes/frictionTypes 태그와
+  // "태그 없음"일 때의 특성 겹침 여부를 함께 봐서 5단계로 가른다 — 문서의 판별 순서를 그대로 따름.
+  // A 도감에서 B를 볼 때의 A 시점 라벨이라 idA/idB 순서가 중요하다(반대로 부르면 다른 라벨이 나올 수 있음).
+  function relationLabel(idA, idB) {
+    if (typeof CHARACTER_DB === 'undefined') return '';
+    const a = CHARACTER_DB[idA];
+    const b = CHARACTER_DB[idB];
+    if (!a || !b) return '';
+    if (a.compatibleTypes && a.compatibleTypes.includes(idB)) return '찰떡';
+    if (a.sparkTypes && a.sparkTypes.includes(idB)) return '횡재';
+    if (a.frictionTypes && a.frictionTypes.includes(idB)) return '불협화음';
+    const shared = (a.traits || []).filter(function (t) { return (b.traits || []).includes(t); }).length;
+    return shared >= 1 ? '벗' : '물음표';
   }
 
   // ── 저장소 ───────────────────────────────────────────────────────────
@@ -712,10 +715,11 @@
 
   // 1) 공유자(오너) 입장
   // 정책 9장 — "케미 필터 칩 구간: 일단 기존 관계 라벨을 그대로 탭으로 재사용". relationLabel()이
-  // 실제로 내는 4개 라벨과 정확히 맞춰뒀다(하나라도 어긋나면 칩을 눌러도 그 라벨의 참여자가 하나도
+  // 실제로 내는 라벨과 정확히 맞춰뒀다(하나라도 어긋나면 칩을 눌러도 그 라벨의 참여자가 하나도
   // 안 걸러진다). 필터 상태는 오너/게스트 화면 어느 쪽에서 봐도 같은 하나만 둔다 — 정책이 화면별로
   // 다른 필터를 요구하지 않고, 이번 1차 구현 범위는 "우선 재사용"이었다.
-  const RELATION_LABELS = ['귀인', '단짝', '내 사람', '호랑이 선생'];
+  // 2026-09-07 — 관계 라벨 개편으로 4개 → 5개(찰떡/횡재/벗/물음표/불협화음).
+  const RELATION_LABELS = ['찰떡', '횡재', '벗', '물음표', '불협화음'];
   let entryFilter = null; // null = 전체
   function filterChips(entries) {
     if (!entries || entries.length < 2) return ''; // 인원이 1명 이하면 걸러볼 의미가 없다
@@ -1485,7 +1489,7 @@
       // 친구 도감에 나를 등록 — 문서 id를 내 uid로 둬서 중복 등록을 막고 본인 삭제 권한을 명확히 한다.
       await fbDb.collection('dogam').doc(inviter.slug).collection('entries').doc(uid).set({
         uid: uid, name: name, characterId: charId, score: score,
-        relation: relationLabel(score),
+        relation: relationLabel(guestDogam.ownerCharacterId, charId),
         createdAt: new Date().toISOString(),
       });
       console.log('[dogam] 상대 도감에 등록 완료', { slug: inviter.slug, entry: uid, score: score });
@@ -1498,7 +1502,7 @@
       justRegistered = {
         slug: inviter.slug,
         inviterUid: inviter.ownerUid, inviterName: inviter.ownerName, inviterCharacterId: inviter.ownerCharacterId,
-        name: name, characterId: charId, score: score, relation: relationLabel(score),
+        name: name, characterId: charId, score: score, relation: relationLabel(guestDogam.ownerCharacterId, charId),
       };
       // 참여자 목록에 방금 등록한 나를 포함해 최신화한다(guestEntriesBlock이 이 목록을 그대로 씀).
       guestDogam = await loadDogam(inviter.slug).catch(function () { return inviter; });
@@ -1576,7 +1580,7 @@
 
       // 인연은 양쪽에 함께 등록된다 — 방금 초대해준 사람도 내 도감에 올린다(B기준 케미 점수).
       const myScore = await compatScore(m.characterId, m.inviterCharacterId);
-      const myRelation = relationLabel(myScore);
+      const myRelation = relationLabel(m.characterId, m.inviterCharacterId);
       await fbDb.collection('dogam').doc(mine.slug).collection('entries').doc(m.inviterUid).set({
         uid: m.inviterUid, name: m.inviterName, characterId: m.inviterCharacterId,
         score: myScore, relation: myRelation,
