@@ -197,6 +197,23 @@
     if (document.querySelector('.form-popup.fullpage')) openMyPage();
   }
 
+  // ⚠️ 2026-09-07 카카오페이 가맹점 심사용 임시 로그인 — 이 앱은 카카오 로그인만 지원해서(ID/PW 계정
+  // 시스템 없음) 심사 가이드가 요구하는 "테스트 계정" 로그인이 원래 불가능하다. URL에 ?review=kakaopay가
+  // 있을 때만 로그인 팝업에 이메일/비밀번호 입력폼이 하나 더 뜨고, 심사용 계정으로 로그인할 수 있다.
+  // 계정 정보를 코드에 하드코딩하지 않는다 — git 히스토리에 비밀번호가 영구히 남는 걸 피하기 위해,
+  // 심사팀에게 회신 메일로 안내한 이메일/비밀번호를 여기서 직접 입력받는다.
+  // 심사 끝나면 이 블록과 아래 폼, Firebase의 심사용 계정·이메일/비밀번호 로그인 방식을 모두 제거할 것.
+  const REVIEW_MODE = new URLSearchParams(location.search).get('review') === 'kakaopay';
+  function reviewLogin() {
+    if (!window.fbAuth) return;
+    const email = document.getElementById('reviewLoginEmail').value.trim();
+    const password = document.getElementById('reviewLoginPassword').value;
+    if (!email || !password) return;
+    fbAuth.signInWithEmailAndPassword(email, password)
+      .then(function () { closePopup(); })
+      .catch(function (e) { alert('심사용 로그인 실패: ' + e.message); });
+  }
+
   function login() {
     if (!window.Kakao) { alert('카카오 SDK 로딩에 실패했습니다. 새로고침 후 다시 시도해주세요.'); return; }
     Kakao.Auth.login({
@@ -561,6 +578,15 @@
           '<p class="login-popup-lead">' + lead + '</p>' +
           '<button class="kakao-login-big-btn" onclick="KakaoAuth.loginFromPopup()">' +
             '<span class="kakao-mark material-symbols-outlined">chat_bubble</span>카카오 로그인하기</button>' +
+          (REVIEW_MODE ?
+            '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;">' +
+              '<input id="reviewLoginEmail" type="email" placeholder="심사용 이메일" ' +
+                'style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:8px;border:1px solid #ddd;border-radius:6px;">' +
+              '<input id="reviewLoginPassword" type="password" placeholder="심사용 비밀번호" ' +
+                'style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:8px;border:1px solid #ddd;border-radius:6px;">' +
+              '<button class="kakao-login-big-btn" style="background:#eee;color:#333;" onclick="KakaoAuth.reviewLogin()">심사용 계정으로 로그인</button>' +
+            '</div>'
+            : '') +
         '</div>' +
       '</div>';
     document.body.classList.add('overlay-open');
@@ -802,7 +828,7 @@
 
   window.KakaoAuth = {
     login: login, logout: logout, withdraw: withdraw,
-    openLoginPopup: openLoginPopup, loginFromPopup: loginFromPopup,
+    openLoginPopup: openLoginPopup, loginFromPopup: loginFromPopup, reviewLogin: reviewLogin,
     openMyPage: openMyPage, changeProfile: changeProfile, closePopup: closePopup,
     // showConfirm은 원래 이 파일 안에서만 쓰던 헬퍼인데, 냥 차감 전 확인 다이얼로그(profile.js)에서도
     // 같은 디자인을 써야 해서 외부로 연다 — 브라우저 기본 confirm()을 쓰면 앱 톤과 따로 놀기 때문.
