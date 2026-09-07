@@ -595,7 +595,7 @@
   function loginFromPopup() { closePopup(); login(); }
 
   // 문의하기(사용자 요청 2026-09-07) — 카카오톡 ID 안내 대신 이메일로 바로 연결한다.
-  const INQUIRY_EMAIL = 'kwansang.nb.app@gmail.com';
+  const INQUIRY_EMAIL = 'kwansang.nb@gmail.com';
   function openInquiryMail() {
     location.href = 'mailto:' + INQUIRY_EMAIL;
   }
