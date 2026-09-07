@@ -11,7 +11,7 @@
 //     그 baseline도 서버 전용 상수가 됐으므로 여기서 미리 계산해 함께 내려준다.
 const {
   TRAITS, FACE_CATEGORY_WEIGHT, CONFIDENCE_FULL, CONFIDENCE_PARTIAL, CONFIDENCE_PARTIAL_RATIO,
-  SAJU_WEIGHT, FUSION_WEIGHT, GUNJA_STDEV_MAX, GUNJA_RANGE_MAX,
+  SAJU_WEIGHT, FUSION_WEIGHT,
   SAJU_MODIFIER_CAP_PER_ITEM, SAJU_MODIFIER_CAP_TOTAL, TIEBREAK_PRIORITY, TIEBREAK_EPSILON,
   FACE_TRAIT_BASELINE, SAJU_TRAIT_BASELINE, T_SCORE_CENTER, T_SCORE_SPREAD,
 } = require('./trait-config');
@@ -204,13 +204,6 @@ function combineFinalTraitScore(faceResult, sajuResult, hasHour) {
 
 function determineCharacter(traitScores, faceEvidenceByCategory) {
   const sorted = TRAITS.map(t => ({ t, score: traitScores[t] })).sort((a, b) => b.score - a.score);
-  const mean = sorted.reduce((s, x) => s + x.score, 0) / sorted.length;
-  const stdev = Math.sqrt(sorted.reduce((s, x) => s + (x.score - mean) ** 2, 0) / sorted.length);
-  const range = sorted[0].score - sorted[sorted.length - 1].score;
-
-  if (stdev <= GUNJA_STDEV_MAX && range <= GUNJA_RANGE_MAX) {
-    return { characterId: 'GUNJA', primaryTrait: sorted[0].t, secondaryTrait: sorted[1].t, balanced: true, sorted };
-  }
 
   let primary = sorted[0], secondaryCandidateA = sorted[1], secondaryCandidateB = sorted[2];
   let secondary = secondaryCandidateA;
@@ -228,7 +221,7 @@ function determineCharacter(traitScores, faceEvidenceByCategory) {
 
   const key = traitPairKey(primary.t, secondary.t);
   const characterId = TRAIT_PAIR_TO_CHARACTER[key] || null;
-  return { characterId, primaryTrait: primary.t, secondaryTrait: secondary.t, balanced: false, sorted };
+  return { characterId, primaryTrait: primary.t, secondaryTrait: secondary.t, sorted };
 }
 
 function computeResultConfidence(sorted, evidenceCount, avgFeatureConfidence) {

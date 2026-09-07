@@ -2724,12 +2724,8 @@ function characterBasisTitle(characterResult, gwansangId) {
 // 구체적인 DB 근거 라벨(용안·귀인성 등)은 여전히 노출하지 않고, TRAIT_FACE_PHRASE/TRAIT_SAJU_PHRASE로
 // 풀어쓴 문장만 쓴다 — 결정론 원칙(고정 템플릿, AI 미사용)은 그대로 유지.
 function characterBasisSummary(characterResult, character) {
-  const { primaryTrait, secondaryTrait, balanced } = characterResult;
+  const { primaryTrait, secondaryTrait } = characterResult;
   const confidenceLine = characterConfidenceLine(characterResult);
-  if (balanced) {
-    return `${confidenceLine}<br>` +
-      `얼굴과 사주 어느 한쪽으로 치우치지 않고 여섯 가지 힘이 고르게 나타났어요. 그래서 균형형인 <b>${character.name}</b>이 됐어요.`;
-  }
   const fusionLine = `${TRAIT_FACE_LINK[primaryTrait]} ${TRAIT_FACE_PHRASE[secondaryTrait]}이 느껴지는 관상과, ` +
     `${TRAIT_SAJU_LINK[primaryTrait]} ${TRAIT_SAJU_PHRASE[secondaryTrait]}의 사주가 만나 <b>${character.name}</b>이 되었어요!`;
   return `${confidenceLine}<br>${fusionLine}`;
@@ -2914,22 +2910,21 @@ function wireGwansangCharDetailToggle(elId, cardElId) {
 // headline을 그대로 씀), 이 칩 표시에만 쓰는 별도 문구다. 맵에 없는 characterId가 들어오면(신규 캐릭터
 // 추가 등) 예전처럼 headline 끝 이름만 잘라내는 방식으로 안전하게 대체한다.
 const GWANSANG_CARD_TAG = {
-  JAESANG: '사람·판을 함께 읽는 타입',
+  JAESANG: '판을 짜고 사람을 움직이는 타입',
   JANGGUN: '결정하면 끝까지 밀어붙이는 타입',
   GUNWANG: '사람을 모아 방향을 만드는 타입',
   SURYEONG: '책임질 일에는 끝까지 서는 타입',
-  GAEHYEOKGA: '당연한 판을 뒤집는 타입',
-  CHAEKSA: '한발 먼저 읽고 움직이는 타입',
-  SASIN: '사람 사이 수를 읽는 타입',
-  SEONBI: '자기 기준으로 신뢰받는 타입',
+  GAEHYEOKGA: '낡은 질서를 파헤쳐 뒤집는 타입',
+  CHAEKSA: '판을 읽고 망설임 없이 움직이는 타입',
+  SASIN: '마음과 마음 사이를 잇는 타입',
+  SEONBI: '한번 세운 기준을 지키는 타입',
   HAKJA: '익숙한 데서 새 답을 찾는 타입',
-  SANGDANJU: '사람·기회를 움직이는 타입',
+  SANGDANJU: '봇짐 메고 어디든 뛰어드는 타입',
   MUGWAN: '묵묵히 버티고 완수하는 타입',
-  GAECHEOKJA: '먼저 길을 만들어보는 타입',
+  GAECHEOKJA: '없는 길도 먼저 뚫는 타입',
   UIWON: '사람 마음을 살펴 얻는 타입',
-  YEIN: '분위기·매력으로 끌어당기는 타입',
+  YEIN: '분위기로 좌중을 들었다 놨다 하는 타입',
   JANGIN: '감각을 실력으로 만드는 타입',
-  GUNJA: '치우치지 않고 균형 잡는 타입',
 };
 function wireGwansangCharCardChip(elId, characterId) {
   const root = document.getElementById(elId);

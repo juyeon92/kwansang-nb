@@ -43,7 +43,7 @@ Object.keys(CHARACTER_TRAITS).forEach(id => {
   const recomputed = buildRepresentativeVector(CHARACTER_TRAITS[id]);
   TRAITS.forEach(t => { if (recomputed[t] !== CHARACTER_VECTOR[id][t]) vecMatch = false; });
 });
-check('CHARACTER_VECTOR 16개 전부 buildRepresentativeVector() 재계산과 일치', vecMatch);
+check('CHARACTER_VECTOR 15개 전부 buildRepresentativeVector() 재계산과 일치', vecMatch);
 
 // ── 검증3: COMPATIBILITY_DB가 classifyCompatibility() 재계산과 일치(재현성) ──
 let compatMatch = true;
@@ -55,17 +55,17 @@ Object.keys(CHARACTER_TRAITS).forEach(id => {
     && JSON.stringify(live.clash.sort())===JSON.stringify(stored.clash.slice().sort());
   if (!same) { compatMatch = false; console.log('  불일치:', id, live, stored); }
 });
-check('COMPATIBILITY_DB 16개 전부 classifyCompatibility() 재계산과 일치(재현성 확인)', compatMatch);
+check('COMPATIBILITY_DB 15개 전부 classifyCompatibility() 재계산과 일치(재현성 확인)', compatMatch);
 
-// ── 검증4: 구조적 불변식 — 군자상 제외 15개는 서로 기질을 0개 또는 1개만 공유(2개=버그) ──
-const ids15 = Object.keys(CHARACTER_TRAITS).filter(id => id !== 'GUNJA');
+// ── 검증4: 구조적 불변식 — 15개는 서로 기질을 0개 또는 1개만 공유(2개=버그) ──
+const ids15 = Object.keys(CHARACTER_TRAITS);
 let sharedInvariant = true;
 ids15.forEach(a => ids15.forEach(b => {
   if (a === b) return;
   const s = sharedTraitCount(CHARACTER_TRAITS[a], CHARACTER_TRAITS[b]);
   if (s !== 0 && s !== 1) { sharedInvariant = false; console.log('  위반:', a, b, 'shared=', s); }
 }));
-check('15개(군자상 제외) 간 기질 공유 개수가 항상 0 또는 1 (2 나오면 로직 버그)', sharedInvariant);
+check('15개 간 기질 공유 개수가 항상 0 또는 1 (2 나오면 로직 버그)', sharedInvariant);
 
 // ── 검증5: 각 캐릭터마다 정확히 good 2 / spark 1 / clash 2 (총 5개, 중복 없음) ──
 let slotShape = true;
@@ -77,7 +77,7 @@ Object.keys(CHARACTER_TRAITS).forEach(id => {
     slotShape = false; console.log('  형식 위반:', id, r);
   }
 });
-check('16개 전부 good 2 / spark 1 / clash 2, 중복·자기참조 없음', slotShape);
+check('15개 전부 good 2 / spark 1 / clash 2, 중복·자기참조 없음', slotShape);
 
 // ── 검증6: 상호 모순 없음 (A→B good인데 B→A clash, 또는 그 반대) ──
 const allIds = Object.keys(CHARACTER_TRAITS);
@@ -94,8 +94,8 @@ allIds.forEach(a => allIds.forEach(b => {
 }));
 check(`상호 모순(A는 good인데 B는 clash, 또는 반대) 0건 — 실제 ${conflicts}건`, conflicts === 0);
 
-// ── 검증7: 문서 §30의 유일한 실제 예시와 일치 (장군상 × 책사상 = good) ──
-check('§30 문서 예시 "장군상×책사상" good 관계 유지', COMPATIBILITY_DB.CHAEKSA.good.includes('JANGGUN'));
+// ── 검증7: 문서 §30의 유일한 실제 예시와 일치 (장군상 × 전략가상 = good) ──
+check('§30 문서 예시 "장군상×전략가상" good 관계 유지', COMPATIBILITY_DB.CHAEKSA.good.includes('JANGGUN'));
 
 console.log('');
 console.log(failCount === 0 ? `✅ 전체 통과 (7/7) — 계산 과정 감사 가능·재현성 확인됨` : `❌ ${failCount}개 항목 실패 — 확인 필요`);

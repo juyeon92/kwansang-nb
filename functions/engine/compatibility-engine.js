@@ -19,7 +19,6 @@ const CHARACTER_TRAITS = {
   SASIN: ['strategy', 'social'], SEONBI: ['strategy', 'stability'], HAKJA: ['strategy', 'sense'],
   SANGDANJU: ['drive', 'social'], MUGWAN: ['drive', 'stability'], GAECHEOKJA: ['drive', 'sense'],
   UIWON: ['social', 'stability'], YEIN: ['social', 'sense'], JANGIN: ['stability', 'sense'],
-  GUNJA: [],
 };
 
 const CHARACTER_VECTOR = {
@@ -38,7 +37,6 @@ const CHARACTER_VECTOR = {
   UIWON: { lead: 29, strategy: 27, drive: 25, social: 90, stability: 75, sense: 30 },
   YEIN: { lead: 24, strategy: 29, drive: 23, social: 90, stability: 27, sense: 75 },
   JANGIN: { lead: 29, strategy: 36, drive: 26, social: 37, stability: 90, sense: 75 },
-  GUNJA: { lead: 60, strategy: 60, drive: 60, social: 60, stability: 60, sense: 60 },
 };
 
 function buildRepresentativeVector(pair) {
@@ -70,18 +68,7 @@ function classifyCompatibility(characterId) {
   const ids = Object.keys(CHARACTER_TRAITS);
   const pair = CHARACTER_TRAITS[characterId];
 
-  if (characterId === 'GUNJA') {
-    const ranked = ids.filter(o => o !== 'GUNJA')
-      .map(o => ({ id: o, sim: cosineSimilarity(CHARACTER_VECTOR.GUNJA, CHARACTER_VECTOR[o]) }))
-      .sort((a, b) => b.sim - a.sim);
-    return {
-      good: ranked.slice(0, 2).map(o => o.id),
-      spark: [ranked[Math.floor(ranked.length / 2)].id],
-      clash: ranked.slice(-2).map(o => o.id),
-    };
-  }
-
-  const others = ids.filter(o => o !== characterId && o !== 'GUNJA').map(o => ({
+  const others = ids.filter(o => o !== characterId).map(o => ({
     id: o,
     sim: cosineSimilarity(CHARACTER_VECTOR[characterId], CHARACTER_VECTOR[o]),
     shared: sharedTraitCount(pair, CHARACTER_TRAITS[o]),
@@ -112,7 +99,6 @@ const COMPATIBILITY_DB = {
   UIWON: { good: ["SEONBI","MUGWAN"], spark: ["GAEHYEOKGA"], clash: ["YEIN","CHAEKSA"] },
   YEIN: { good: ["GAEHYEOKGA","GAECHEOKJA"], spark: ["SEONBI"], clash: ["UIWON","JANGGUN"] },
   JANGIN: { good: ["GAEHYEOKGA","GAECHEOKJA"], spark: ["SASIN"], clash: ["UIWON","JANGGUN"] },
-  GUNJA: { good: ["GAEHYEOKGA","GUNWANG"], spark: ["GAECHEOKJA"], clash: ["JANGGUN","YEIN"] },
 };
 
 // js/inyeon-dogam.js의 compatScore()를 서버로 그대로 옮긴 것 — 두 캐릭터의 벡터 코사인 유사도를

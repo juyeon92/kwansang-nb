@@ -1,12 +1,12 @@
-// ═══ 16개 관상 캐릭터 DB (서버 전용, 2026-08-30 DB 이원화 2단계) ═══
+// ═══ 15개 관상 캐릭터 DB (서버 전용, 2026-08-30 DB 이원화 2단계, 2026-09-07 GUNJA(무특성) 제거로 16→15) ═══
 // js/character/character-db.js를 서버로 이전한 것 — 캐릭터 이름·설명·강점/약점 등 카피 콘텐츠가
 // 브라우저 소스에 그대로 노출되던 문제를 막는다. getCharacterCatalog 함수(functions/index.js)를
-// 통해 로그인 세션으로만 전체 16종을 받아온다(카탈로그 크기가 작아 매번 전수 조회해도 무방).
+// 통해 로그인 세션으로만 전체 15종을 받아온다(카탈로그 크기가 작아 매번 전수 조회해도 무방).
 const CHARACTER_DB = {
   JAESANG: {
-    id: 'JAESANG', name: '재상상', traits: ['lead', 'strategy'],
-    headline: '사람과 판을 함께 읽는 재상상', modernRole: '전략형 리더 — 전체 판을 먼저 보고 나서 움직여요.',
-    historical_role: '조선시대였다면 왕을 가까이서 보좌하며 나라 전체의 판을 함께 설계하던 재상이었을 거예요.',
+    id: 'JAESANG', name: '장원급제상', traits: ['lead', 'strategy'],
+    headline: '판을 짜고 사람을 움직이는 장원급제상', modernRole: '전략형 리더 — 전체 판을 먼저 보고 나서 움직여요.',
+    historical_role: '조선시대였다면 과거에서 장원급제한 뒤, 그 실력을 인정받아 왕을 가까이서 보좌하는 재상 자리까지 올랐을 사람이에요.',
     strengths: [
       '전체 판을 먼저 보고 나서 움직여요',
       '사람들이 서로 다른 말을 할 때 그 안에서 진짜 방향을 골라내요',
@@ -48,9 +48,9 @@ const CHARACTER_DB = {
     frictionTypes: ['JAESANG', 'YEIN'],
   },
   GUNWANG: {
-    id: 'GUNWANG', name: '군왕상', traits: ['lead', 'social'],
-    headline: '사람을 모아 방향을 만드는 군왕상', modernRole: '사람을 모으는 리더 — 사람들이 자연스럽게 곁에 모이게 만드는 존재감이 있어요.',
-    historical_role: '조선시대였다면 다양한 사람들을 하나로 모아 나라의 방향을 이끌던 군왕이었을 거예요.',
+    id: 'GUNWANG', name: '임금님상', traits: ['lead', 'social'],
+    headline: '사람을 모아 방향을 만드는 임금님상', modernRole: '사람을 모으는 리더 — 사람들이 자연스럽게 곁에 모이게 만드는 존재감이 있어요.',
+    historical_role: '조선시대였다면 다양한 사람들을 하나로 모아 나라의 방향을 이끌던 임금님이었을 거예요.',
     strengths: [
       '사람들이 자연스럽게 곁에 모이게 만드는 존재감이 있어요',
       '서로 다른 의견을 가진 사람들도 하나의 방향으로 묶어내요',
@@ -70,9 +70,9 @@ const CHARACTER_DB = {
     frictionTypes: ['GAEHYEOKGA', 'HAKJA'],
   },
   SURYEONG: {
-    id: 'SURYEONG', name: '수령상', traits: ['lead', 'stability'],
-    headline: '책임질 일에는 끝까지 서는 수령상', modernRole: '책임형 리더 — 한번 맡은 일은 끝까지 책임지고 마무리해요.',
-    historical_role: '조선시대였다면 맡은 고을을 끝까지 책임지고 다스리던 수령이었을 거예요.',
+    id: 'SURYEONG', name: '사또상', traits: ['lead', 'stability'],
+    headline: '책임질 일에는 끝까지 서는 사또상', modernRole: '책임형 리더 — 한번 맡은 일은 끝까지 책임지고 마무리해요.',
+    historical_role: '조선시대였다면 맡은 고을을 끝까지 책임지고 다스리던 사또였을 거예요.',
     strengths: [
       '한번 맡은 일은 끝까지 책임지고 마무리해요',
       '위기 상황에서도 자리를 지키며 사람들을 안심시켜요',
@@ -92,9 +92,9 @@ const CHARACTER_DB = {
     frictionTypes: ['JANGGUN', 'YEIN'],
   },
   GAEHYEOKGA: {
-    id: 'GAEHYEOKGA', name: '개혁가상', traits: ['lead', 'sense'],
-    headline: '남들이 당연하게 보는 판을 뒤집는 개혁가상', modernRole: '혁신형 리더 — 남들이 당연하게 여기는 방식에 의문을 갖고 다른 길을 찾아요.',
-    historical_role: '조선시대였다면 낡은 관습에 얽매이지 않고 새로운 방식을 밀어붙이던 개혁적 인물이었을 거예요.',
+    id: 'GAEHYEOKGA', name: '암행어사상', traits: ['lead', 'sense'],
+    headline: '낡은 질서를 파헤쳐 뒤집는 암행어사상', modernRole: '혁신형 리더 — 남들이 당연하게 여기는 방식에 의문을 갖고 다른 길을 찾아요.',
+    historical_role: '조선시대였다면 몰래 지방을 돌아보다 부당한 걸 발견하면 그 자리에서 정체를 밝히고 판을 뒤집던 암행어사였을 거예요.',
     strengths: [
       '남들이 당연하게 여기는 방식에 의문을 갖고 다른 길을 찾아요',
       '새로운 방향을 확신하면 주저 없이 사람들 앞에서 밀어붙여요',
@@ -114,9 +114,9 @@ const CHARACTER_DB = {
     frictionTypes: ['JAESANG', 'UIWON'],
   },
   CHAEKSA: {
-    id: 'CHAEKSA', name: '책사상', traits: ['strategy', 'drive'],
-    headline: '한발 먼저 읽고 때가 오면 움직이는 책사상', modernRole: '전략 실행가 — 상황을 미리 읽고 남들보다 한발 앞서 준비해둬요.',
-    historical_role: '조선시대였다면 계책을 세우고 때가 오면 스스로 움직여 일을 처리하던 책사였을 거예요.',
+    id: 'CHAEKSA', name: '전략가상', traits: ['strategy', 'drive'],
+    headline: '판을 미리 읽고 망설임 없이 움직이는 전략가상', modernRole: '전략 실행가 — 상황을 미리 읽고 남들보다 한발 앞서 준비해둬요.',
+    historical_role: '조선시대였다면 장기판 앞에서 여러 수를 미리 읽어두었다가, 확신이 서는 순간 주저 없이 실행에 옮기던 전략가였을 거예요.',
     strengths: [
       '상황을 미리 읽고 남들보다 한발 앞서 준비해둬요',
       '문제의 핵심을 빠르게 짚어서 헛손질을 줄여요',
@@ -136,9 +136,9 @@ const CHARACTER_DB = {
     frictionTypes: ['JAESANG', 'YEIN'],
   },
   SASIN: {
-    id: 'SASIN', name: '사신상', traits: ['strategy', 'social'],
-    headline: '사람 사이의 수를 읽는 사신상', modernRole: '협상가·조정자 — 서로 다른 입장 사이에서 접점을 정확히 찾아내요.',
-    historical_role: '조선시대였다면 다른 나라나 세력 사이를 오가며 말과 협상으로 관계를 조율하던 사신이었을 거예요.',
+    id: 'SASIN', name: '중매쟁이상', traits: ['strategy', 'social'],
+    headline: '마음과 마음 사이를 잇는 중매쟁이상', modernRole: '협상가·조정자 — 서로 다른 입장 사이에서 접점을 정확히 찾아내요.',
+    historical_role: '조선시대였다면 마을 곳곳을 다니며 서로 다른 두 사람 사이의 접점을 귀신같이 찾아내 인연을 맺어주던 중매쟁이였을 거예요.',
     strengths: [
       '서로 다른 입장 사이에서 접점을 정확히 찾아내요',
       '상대가 진짜 원하는 게 뭔지 대화 속에서 빠르게 캐치해요',
@@ -159,7 +159,7 @@ const CHARACTER_DB = {
   },
   SEONBI: {
     id: 'SEONBI', name: '선비상', traits: ['strategy', 'stability'],
-    headline: '자기 기준으로 오래 신뢰받는 선비상', modernRole: '원칙형 전문가 — 한번 옳다고 판단한 기준은 상황이 바뀌어도 잘 흔들리지 않아요.',
+    headline: '한번 세운 기준은 흔들림 없이 지키는 선비상', modernRole: '원칙형 전문가 — 한번 옳다고 판단한 기준은 상황이 바뀌어도 잘 흔들리지 않아요.',
     historical_role: '조선시대였다면 벼슬보다 자기 기준과 학문을 지키며 살아가던 선비였을 거예요.',
     strengths: [
       '한번 옳다고 판단한 기준은 상황이 바뀌어도 잘 흔들리지 않아요',
@@ -202,9 +202,9 @@ const CHARACTER_DB = {
     frictionTypes: ['SASIN', 'MUGWAN'],
   },
   SANGDANJU: {
-    id: 'SANGDANJU', name: '상단주상', traits: ['drive', 'social'],
-    headline: '사람과 기회를 움직이는 상단주상', modernRole: '사업·영업형 — 사람과 기회가 있는 곳이면 망설이지 않고 먼저 다가가요.',
-    historical_role: '조선시대였다면 장터를 오가며 사람과 물건, 기회를 빠르게 연결하던 상단의 우두머리였을 거예요.',
+    id: 'SANGDANJU', name: '보따리장수상', traits: ['drive', 'social'],
+    headline: '봇짐 하나 메고 어디든 뛰어드는 보따리장수상', modernRole: '사업·영업형 — 사람과 기회가 있는 곳이면 망설이지 않고 먼저 다가가요.',
+    historical_role: '조선시대였다면 보따리 하나 메고 이 장터 저 장터를 누비며 사람과 물건, 기회를 누구보다 빠르게 연결하던 보따리장수였을 거예요.',
     strengths: [
       '사람과 기회가 있는 곳이면 망설이지 않고 먼저 다가가요',
       '관계를 맺는 속도가 빨라서 새로운 인연을 만드는 데 거침이 없어요',
@@ -224,9 +224,9 @@ const CHARACTER_DB = {
     frictionTypes: ['GAECHEOKJA', 'HAKJA'],
   },
   MUGWAN: {
-    id: 'MUGWAN', name: '무관상', traits: ['drive', 'stability'],
-    headline: '묵묵히 버티고 결국 완수하는 무관상', modernRole: '끈기 있는 실행가 — 남들이 지치는 지점에서도 묵묵히 계속 해내요.',
-    historical_role: '조선시대였다면 화려한 자리보다 궂은일을 묵묵히 맡아 끝까지 해내던 무관이었을 거예요.',
+    id: 'MUGWAN', name: '수문장상', traits: ['drive', 'stability'],
+    headline: '묵묵히 버티고 결국 완수하는 수문장상', modernRole: '끈기 있는 실행가 — 남들이 지치는 지점에서도 묵묵히 계속 해내요.',
+    historical_role: '조선시대였다면 궁궐 문 앞에서 밤이 깊어도, 날이 궂어도 자리를 뜨지 않고 끝까지 지키던 수문장이었을 거예요.',
     strengths: [
       '남들이 지치는 지점에서도 묵묵히 계속 해내요',
       '화려한 성과보다 꾸준한 반복으로 실력을 쌓아요',
@@ -236,9 +236,9 @@ const CHARACTER_DB = {
       '힘들어도 티를 안 내고 버티는 편이라, 주변에서 도움이 필요한 걸 알아채기 어려워요',
       '하던 방식을 끝까지 밀고 나가려는 편이라, 방법을 바꿔야 할 때도 그냥 버티기만 할 때가 있어요',
     ],
-    work: '마감이 몇 번이나 밀려도 결국 자리를 지키고 끝을 보는 쪽은 무관상이에요. 남들이 지쳐서 손을 놓는 지점에서도 한 걸음씩 더 나아가며 실력을 쌓아가요. 힘든 기색을 잘 드러내지 않다 보니 동료들은 정작 도움이 필요한 순간을 놓치기 쉬운데, 가끔은 힘들다는 말을 먼저 꺼내는 게 스스로를 지키는 방법이에요.',
-    relationship: '이삿짐을 나르거나 늦은 밤 전화를 받아주는 건 늘 무관상 쪽이에요. 말을 앞세우기보다 필요한 순간에 손을 보태는 식으로 마음을 표현해요. 상대는 그 정성을 당연하게 여기기 쉬운데, 정작 무관상 자신이 지쳐 있을 때는 잘 알아채지 못할 때가 있어요. 가까운 사이일수록 힘든 부분을 먼저 얘기해보는 연습이 관계를 더 편하게 만들어줘요.',
-    love: '관계가 뜨겁게 타오르기보다는 조용히 오래가는 쪽에 가까워요. 상대가 힘든 시기를 지날 때 자리를 비우지 않고 곁을 지켜주는 사람이에요. 다만 서운한 일이 생겨도 말없이 넘기려는 편이라 상대는 무관상의 진짜 마음을 눈치채기 어려울 때가 있어요. 사소한 감정도 가끔은 표현해보면 관계가 한층 편해져요.',
+    work: '마감이 몇 번이나 밀려도 결국 자리를 지키고 끝을 보는 쪽은 수문장상이에요. 남들이 지쳐서 손을 놓는 지점에서도 한 걸음씩 더 나아가며 실력을 쌓아가요. 힘든 기색을 잘 드러내지 않다 보니 동료들은 정작 도움이 필요한 순간을 놓치기 쉬운데, 가끔은 힘들다는 말을 먼저 꺼내는 게 스스로를 지키는 방법이에요.',
+    relationship: '이삿짐을 나르거나 늦은 밤 전화를 받아주는 건 늘 수문장상 쪽이에요. 말을 앞세우기보다 필요한 순간에 손을 보태는 식으로 마음을 표현해요. 상대는 그 정성을 당연하게 여기기 쉬운데, 정작 수문장상 자신이 지쳐 있을 때는 잘 알아채지 못할 때가 있어요. 가까운 사이일수록 힘든 부분을 먼저 얘기해보는 연습이 관계를 더 편하게 만들어줘요.',
+    love: '관계가 뜨겁게 타오르기보다는 조용히 오래가는 쪽에 가까워요. 상대가 힘든 시기를 지날 때 자리를 비우지 않고 곁을 지켜주는 사람이에요. 다만 서운한 일이 생겨도 말없이 넘기려는 편이라 상대는 수문장상의 진짜 마음을 눈치채기 어려울 때가 있어요. 사소한 감정도 가끔은 표현해보면 관계가 한층 편해져요.',
     money: '유행하는 투자에 휩쓸리기보다 매달 정해둔 만큼 통장에 넣는 쪽을 택해요. 눈에 보이는 변화가 없어도 시간이 지나면 그 차이가 분명히 드러나요. 방식을 바꿔야 하는 시점에도 하던 대로 계속 밀고 나가는 편이라 손해를 키울 때가 있는데, 한 번씩 지금 방법이 여전히 맞는지 점검해보면 도움이 돼요.',
     growth: '무너진 자리에서도 소리 없이 다시 일어서는 편이에요. 시간이 걸리더라도 결국 제자리를 찾아가는 뚝심이 있어요. 그런데 버티는 방식이 통하지 않는 순간에도 똑같은 방법을 반복할 때가 있어서, 버티는 대신 방법을 바꿔보는 것도 회복의 한 갈래라는 걸 기억하면 좋아요.',
     compatibleTypes: ['JANGIN', 'UIWON'],
@@ -246,9 +246,9 @@ const CHARACTER_DB = {
     frictionTypes: ['SANGDANJU', 'YEIN'],
   },
   GAECHEOKJA: {
-    id: 'GAECHEOKJA', name: '개척자상', traits: ['drive', 'sense'],
-    headline: '없는 길도 먼저 만들어 보는 개척자상', modernRole: '빠른 혁신가 — 새로운 것 앞에서 망설임 없이 먼저 시도해봐요.',
-    historical_role: '조선시대였다면 아무도 안 가본 새로운 땅이나 방식에 제일 먼저 발을 들이던 개척자였을 거예요.',
+    id: 'GAECHEOKJA', name: '선봉장상', traits: ['drive', 'sense'],
+    headline: '없는 길도 먼저 뚫고 나가는 선봉장상', modernRole: '빠른 혁신가 — 새로운 것 앞에서 망설임 없이 먼저 시도해봐요.',
+    historical_role: '조선시대였다면 전투가 시작되면 누구보다 먼저 앞장서서 적진으로 뛰어들던 선봉장이었을 거예요.',
     strengths: [
       '새로운 것 앞에서 망설임 없이 먼저 시도해봐요',
       '정답이 없는 상황에서도 일단 부딪혀보며 길을 찾아요',
@@ -290,9 +290,9 @@ const CHARACTER_DB = {
     frictionTypes: ['YEIN', 'CHAEKSA'],
   },
   YEIN: {
-    id: 'YEIN', name: '예인상', traits: ['social', 'sense'],
-    headline: '분위기와 매력으로 사람을 끌어당기는 예인상', modernRole: '표현·매력형 — 분위기를 감각적으로 읽고 그 자리를 화사하게 만들어요.',
-    historical_role: '조선시대였다면 노래와 춤, 예술로 사람의 마음을 사로잡던 예인이었을 거예요.',
+    id: 'YEIN', name: '광대상', traits: ['social', 'sense'],
+    headline: '분위기 하나로 좌중을 들었다 놨다 하는 광대상', modernRole: '표현·매력형 — 분위기를 감각적으로 읽고 그 자리를 화사하게 만들어요.',
+    historical_role: '조선시대였다면 마당 한가운데서 소리와 몸짓으로 사람들의 마음을 단숨에 사로잡던 광대였을 거예요.',
     strengths: [
       '분위기를 감각적으로 읽고 그 자리를 화사하게 만들어요',
       '표현이 풍부해서 사람들의 마음을 쉽게 끌어당겨요',
@@ -333,28 +333,6 @@ const CHARACTER_DB = {
     sparkTypes: ['SASIN'],
     frictionTypes: ['UIWON', 'JANGGUN'],
   },
-  GUNJA: {
-    id: 'GUNJA', name: '군자상', traits: [],
-    headline: '한쪽에 치우치지 않고 균형을 잡는 군자상', modernRole: '올라운더 — 상황에 따라 유연하게 접근 방식을 바꿔요.',
-    historical_role: '조선시대였다면 한쪽에 치우치지 않는 균형 잡힌 처신으로 존경받던 군자였을 거예요.',
-    strengths: [
-      '상황에 따라 유연하게 접근 방식을 바꿔요',
-      '한쪽으로 치우치지 않아서 균형 잡힌 판단을 내려요',
-      '다양한 성향의 사람들과 두루 잘 어울려요',
-    ],
-    shadow: [
-      '뚜렷하게 강한 색이 없다 보니, 정작 자기가 뭘 제일 원하는지 스스로도 헷갈릴 때가 있어요',
-      '여러 방식이 다 가능해 보여서, 오히려 결정을 내리는 데 시간이 걸릴 때가 있어요',
-    ],
-    work: '회의 테이블에 앉으면 그날 필요한 역할로 자연스레 스며드는 편이에요. 발제가 필요하면 발제를, 정리가 필요하면 정리를 맡아서 티 나지 않게 채워 넣어요. 동료들은 종종 "저 사람 원래 뭐 하는 사람이지"라고 묻기도 하는데, 상황마다 다르게 움직이는 게 바로 이 사람의 몫이라는 걸 스스로 알아두면 마음이 편해져요.',
-    relationship: '모임에 가면 이쪽저쪽 이야기를 이어주는 역할을 은근히 맡게 되는 편이에요. 어색한 침묵이 흐를 때 화제를 슬쩍 돌리거나, 대립하는 의견 사이에서 다리를 놓아주기도 해요. 친구들은 "저 사람이 있으면 모임이 안 깨진다"고 하지만, 정작 본인이 뭘 좋아하는지는 잘 안 드러나니 가끔은 자기 얘기를 먼저 꺼내보는 것도 좋아요.',
-    love: '데이트 코스를 정할 때 딱히 고집하는 게 없어서 상대가 고른 곳으로 자연스레 따라가는 편이에요. 영화든 밥집이든 상대의 선택에 무리 없이 스며들다 보니 함께 있기 편한 사람으로 통해요. 다만 그러다 보면 정작 본인이 뭘 좋아하는지 상대가 끝까지 모를 수도 있는데, 가끔은 "나는 이게 좋아"라고 먼저 말해보는 것도 관계를 더 풍부하게 만들어줘요.',
-    money: '가계부를 쓸 때 무작정 아끼기보다 쓸 곳과 모을 곳을 상황 따라 갈라보는 편이에요. 목돈이 필요한 달엔 지갑을 조이고, 여유가 있는 달엔 적당히 풀어주는 식으로 흘러가요. 다만 매번 그 판단을 새로 하다 보니 결정에 시간이 걸릴 때가 있는데, 몇 가지 기준을 미리 정해두면 고민하는 시간을 줄일 수 있어요.',
-    growth: '지치는 시기가 오면 산책이든 운동이든 대화든 손에 잡히는 대로 이것저것 시도해보는 편이에요. 한 가지 방법에 매달리지 않아서 결국 자기한테 맞는 걸 건져내는 경우가 많아요. 다만 여러 걸 동시에 벌이다 보면 정작 하나에 깊이 들어가지 못할 때가 있는데, 그날 가장 효과가 있었던 방법 하나만 며칠 밀어붙여보는 것도 도움이 돼요.',
-    compatibleTypes: ['GAEHYEOKGA', 'GUNWANG'],
-    sparkTypes: ['GAECHEOKJA'],
-    frictionTypes: ['JANGGUN', 'YEIN'],
-  },
 };
 
 const CHARACTER_ILLUSTRATION_FALLBACK = 'images/UIWON.png';
@@ -363,7 +341,7 @@ const CHARACTER_ILLUSTRATION = {
   SURYEONG: 'images/SURYEONG.png', GAEHYEOKGA: 'images/GAEHYEOKGA.png', CHAEKSA: 'images/CHAEKSA.png',
   SASIN: 'images/SASIN.png', SEONBI: 'images/SEONBI.png', HAKJA: 'images/HAKJA.png',
   SANGDANJU: 'images/SANGDANJU.png', MUGWAN: 'images/MUGWAN.png', GAECHEOKJA: 'images/GAECHEOKJA.png',
-  UIWON: 'images/UIWON.png', YEIN: 'images/YEIN.png', JANGIN: 'images/JANGIN.png', GUNJA: 'images/GUNJA.png',
+  UIWON: 'images/UIWON.png', YEIN: 'images/YEIN.png', JANGIN: 'images/JANGIN.png',
 };
 function getCharacterIllustration(characterId) {
   return CHARACTER_ILLUSTRATION[characterId] || CHARACTER_ILLUSTRATION_FALLBACK;
