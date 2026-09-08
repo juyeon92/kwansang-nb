@@ -799,9 +799,13 @@ async function startAnalysis(ctx) {
     if (isGuestFlow) document.getElementById('canvasCard').classList.remove('hidden');
     const rel = state.gwansang.relation;
     document.getElementById('gwansangResultTitle').textContent = `🔮 AI 관상 개운 리포트 (${rel})`;
-    renderPersonalReportV2(lm, { headline:'gwansangHeadline', cards:'gwansangCards', summary:'gwansangSummary', result:'gwansangResult' }, null);
-    renderExtendedAnalysis(lm, { asymmetry:'gwansangAsymmetry', faceOhaeng:'gwansangFaceOhaeng', tier3:'gwansangTier3', foreheadNotice:'gwansangForeheadNotice' });
-    renderSnapshotHighlights(getGwansangRatios(lm), 'gwansangSnapshot');
+    // ANALYSIS_LOGIC_SERVER_MIGRATION.md 2026-09-08 확장 — getGwansangRatios/judgePartStatus 등을
+    // 클라이언트에서 없애기 위해, 렌더링에 필요한 값은 서버(classifyGwansang) 응답을 먼저 받아 그대로
+    // 표시만 한다.
+    const gwansangBundle = await CharacterAPI.classifyGwansang(lm);
+    renderPersonalReportV2(gwansangBundle, { headline:'gwansangHeadline', cards:'gwansangCards', summary:'gwansangSummary', result:'gwansangResult' }, null);
+    renderExtendedAnalysis(gwansangBundle, { asymmetry:'gwansangAsymmetry', faceOhaeng:'gwansangFaceOhaeng', tier3:'gwansangTier3', foreheadNotice:'gwansangForeheadNotice' });
+    renderSnapshotHighlights(gwansangBundle.partDetails, 'gwansangSnapshot');
     // 관상보기 탭은 Gemini를 아예 호출하지 않는다(사용자 요청) — 분류(requestPersonalAi)는 이미
     // 룰베이스로만 도는데, 여기서 이어서 부르던 requestDeepReport(장문 해설)는 여전히 Gemini API를
     // 쳐서 503 등 API 장애가 그대로 사용자에게 "AI 리포트 생성 실패" 문구로 노출되는 문제가 있었다.
@@ -944,30 +948,20 @@ const PART_CONTENT = {
   },
 };
 
-// 랜드마크 비율 → 부위별 강점/보완 판정 (판단기준 정립 인터뷰로 11개 부위 확정 — read/AI_관상_사진분석_판단기준_설계.md §6)
-// 절대 기준(모집단 대비 "넓다/좁다")은 실측 분포 데이터가 없어 검증할 수 없으므로 채택하지 않음.
-// 대신 "이 사람 자신의 부위들 중 상대적으로 어디가 더 발달했는가"로 판단 — 부위별 레벨(0~100)을 구해
-// 본인 안에서 순위를 매기고 상위 절반을 강점, 나머지를 보완으로 분류. 이렇게 하면 사람마다 반드시
-// 강점·보완이 섞여 나오고, 외부 레퍼런스 사진이나 모집단 통계 없이도 사진별로 결과가 달라진다.
-const PART_KEY_TO_MEASURE = { forehead:'gwanR', eyebrow:'browGapR', midbrow:'mgW', undereye:'waJ', nosebridge:'sanR', nosetip:'junduR', philtrum:'injR', mouth:'mouthR', smilelines:'beomR', jaw:'jigakR', cheekbone:'cheekR' };
-function judgePartStatus(r) {
-  const levels = Object.entries(PART_KEY_TO_MEASURE).map(([key, measure]) => [key, gwansangLevel(measure, r[measure])]);
-  const strongCount = Math.ceil(levels.length / 2);
-  const strongKeys = new Set([...levels].sort((a, b) => b[1] - a[1]).slice(0, strongCount).map(([key]) => key));
-  const status = {};
-  levels.forEach(([key]) => { status[key] = strongKeys.has(key) ? 'strength' : 'complement'; });
-  return status;
-}
-// judgePartStatus와 같은 레벨 계산을 재사용하되, 정렬된 순위 그대로 반환 — "가장 발달한 부위 Top" 같은
-// 스냅샷 하이라이트에 쓰기 위함(버그 리포트 6번 항목: 1페이지 핵심 요약 카드).
-function getPartLevelsSorted(r) {
-  return Object.entries(PART_KEY_TO_MEASURE).map(([key, measure]) => [key, gwansangLevel(measure, r[measure])]).sort((a, b) => b[1] - a[1]);
+// 부위별 강점/보완 판정(판단기준 — read/AI_관상_사진분석_판단기준_설계.md §6)은 서버
+// (functions/engine/gwansang-classify.js judgePartStatus)로 이관됐다 — classifyGwansang 응답의
+// partStatusMap/partDetails를 그대로 쓴다(ANALYSIS_LOGIC_SERVER_MIGRATION.md 2026-09-08 확장).
+// "가장 발달한 부위 Top" 스냅샷 하이라이트(버그 리포트 6번 항목)를 위해 정렬만 여기서 한다.
+// partDetails: gwansangBundle.partDetails({key: {rawValue, level, status}}) — level은 서버가 이미
+// 계산해준 값이라, 여기서는 순서만 매긴다(임계값·원본 수치 계산 자체는 하지 않음).
+function getPartLevelsSorted(partDetails) {
+  return Object.entries(partDetails).map(([key, d]) => [key, d.level]).sort((a, b) => b[1] - a[1]);
 }
 // 1페이지 핵심 스냅샷 — 전체 리포트를 다 안 봐도 "가장 발달한 부위 2개 + 채워볼 포인트 1개"만 바로 보이게.
-function renderSnapshotHighlights(r, elId) {
+function renderSnapshotHighlights(partDetails, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
-  const sorted = getPartLevelsSorted(r);
+  const sorted = getPartLevelsSorted(partDetails);
   const top2 = sorted.slice(0, 2).map(([key]) => PART_DEF.find(p => p.key === key));
   const bottom = PART_DEF.find(p => p.key === sorted[sorted.length - 1][0]);
   el.innerHTML = `
@@ -1075,8 +1069,8 @@ const PERSONALITY_TYPE = {
   cheekbone:  { title:'🚀 추진력 만렙 타입', tagline:'일단 저지르는 행동파',
     text:(p2)=>`광대가 시원하게 발달해서 대외활동력과 추진력이 좋은 타입이에요. 생각보다 행동이 먼저 나가는, 일단 저지르고 보는 실행력이 강점이에요${p2?`, ${p2}까지 더해져서 그 추진력이 훨씬 힘 있게 발휘돼요`:''}. 광대 위쪽에 살짝 블러셔를 얹어 생기 있고 활동적인 인상을 살려보세요.` },
 };
-function buildTypeCard(r) {
-  const sorted = getPartLevelsSorted(r);
+function buildTypeCard(partDetails) {
+  const sorted = getPartLevelsSorted(partDetails);
   const topKey = sorted[0][0], secondKey = sorted[1] ? sorted[1][0] : null;
   const type = PERSONALITY_TYPE[topKey];
   if (!type) return null;
@@ -1085,7 +1079,7 @@ function buildTypeCard(r) {
 }
 
 // 종합 운세 리포트 — 관상 8부위 + 사주 오행을 엮은 여러 문단 (신년운세 톤, 한자 노출 없음)
-function buildFullNarrative(dStem, ohaeng, statusMap, r) {
+function buildFullNarrative(dStem, ohaeng, statusMap, partDetails) {
   const oh = dStem >= 0 ? CG_OH[dStem] : '토';
   const sortedOh = Object.entries(ohaeng).sort((a,b) => b[1] - a[1]);
   const second = sortedOh.find(([k]) => k !== oh);
@@ -1115,26 +1109,30 @@ function buildFullNarrative(dStem, ohaeng, statusMap, r) {
 
   const closingP = `종합적으로 보면, ${OHAENG_VIBE[oh].line}을 바탕으로 ${strongParts[0] ? strongParts[0].label : '전체적인 인상'}에서 그 힘이 잘 드러나는 사람이에요. 지금 강점은 그대로 밀고 나가고, 채워볼 포인트는 하루 5분 루틴으로 천천히 다져가면 전체적인 기운이 훨씬 안정적으로 자리 잡을 거예요.`;
 
-  const typeCardP = r ? buildTypeCard(r) : null;
+  const typeCardP = partDetails ? buildTypeCard(partDetails) : null;
   return typeCardP ? [typeCardP, natureP, strongP, compP, synergyP, closingP] : [natureP, strongP, compP, synergyP, closingP];
 }
 
 // 사진이 없는 경우엔 사주만으로 짧게, 있으면 관상까지 더한 종합 운세로
-function buildPersonNarrative(lm, pillars, ohaeng) {
+// gwansangBundle: 사진이 있으면 CharacterAPI.classifyGwansang(lm)의 응답, 없으면 null.
+function buildPersonNarrative(gwansangBundle, pillars, ohaeng) {
   const dStem = pillars && pillars[2] ? pillars[2].stem : -1;
-  if (lm) {
-    const r = getGwansangRatios(lm);
-    const statusMap = judgePartStatus(r);
-    return { paragraphs: buildFullNarrative(dStem, ohaeng, statusMap, r), statusMap };
+  if (gwansangBundle) {
+    const statusMap = gwansangBundle.partStatusMap;
+    return { paragraphs: buildFullNarrative(dStem, ohaeng, statusMap, gwansangBundle.partDetails), statusMap };
   }
   const oh = dStem >= 0 ? CG_OH[dStem] : '토';
   return { paragraphs: [OHAENG_DETAIL[oh], '사진을 추가하면 관상까지 더해진 훨씬 상세한 리포트를 볼 수 있어요.'], statusMap: null };
 }
 
 // 개인 리포트 렌더링 — 관상 탭 · 통합분석 탭 공용 (지침서 예시① 구조)
-function renderPersonalReportV2(lm, ids, pillars, ohaeng) {
-  const r = getGwansangRatios(lm);
-  const statusMap = judgePartStatus(r);
+// gwansangBundle: CharacterAPI.classifyGwansang(lm)의 응답(partStatusMap/partDetails 등) — 원본
+// 랜드마크가 아니라 서버가 이미 계산해준 값을 받아 화면에 표시만 한다(ANALYSIS_LOGIC_SERVER_
+// MIGRATION.md 2026-09-08 확장 — getGwansangRatios/judgePartStatus/gwansangLevel을 클라이언트에서
+// 제거하기 위함).
+function renderPersonalReportV2(gwansangBundle, ids, pillars, ohaeng) {
+  const statusMap = gwansangBundle.partStatusMap;
+  const partDetails = gwansangBundle.partDetails;
   const dStem = pillars && pillars[2] ? pillars[2].stem : -1;
 
   if (ids.headline) {
@@ -1145,9 +1143,7 @@ function renderPersonalReportV2(lm, ids, pillars, ohaeng) {
     const st = statusMap[p.key];
     const c = PART_CONTENT[p.key][st];
     const badge = st === 'strength' ? { label:'탁월한 강점', cls:'strength' } : { label:'채워볼 포인트', cls:'complement' };
-    const measureKey = PART_KEY_TO_MEASURE[p.key];
-    const rawValue = r[measureKey];
-    const level = gwansangLevel(measureKey, rawValue);
+    const { rawValue, level } = partDetails[p.key];
     const rankNote = st === 'strength' ? '본인 11개 부위 중 상대적으로 발달한 편' : '본인 11개 부위 중 상대적으로 채워볼 편';
     return `<div class="part-card" data-part-key="${p.key}">
       <div class="part-head"><span class="part-icon">${p.icon}</span><span class="part-name">${p.label}</span><span class="status-badge ${badge.cls}">${badge.label}</span></div>
@@ -2558,7 +2554,10 @@ async function buildCombinedReport(dateVal, preloadedLm) {
     setCmbAnalyzingMsg('얼굴을 살펴보는 중이에요');
     lm = preloadedLm || await runFaceAnalysis('combined');
     if (lm) {
-      const ext = renderExtendedAnalysis(lm, {});
+      // ANALYSIS_LOGIC_SERVER_MIGRATION.md 2026-09-08 확장 — 렌더링에 필요한 값은 서버가 이미 계산해
+      // 보내준다.
+      const gwansangBundle = await CharacterAPI.classifyGwansang(lm);
+      const ext = renderExtendedAnalysis(gwansangBundle, {});
       renderOhaengCompareTable(ohaeng, ext.faceOh, 'cmbOhaengFaceHead', 'cmbOhaengSajuHead', 'cmbOhaengCompareTable');
       renderLifeline('cmbLifelineNow', 'cmbLifeline', daeun, pillars[2].stem, ext.samjeong, calcAge(dateVal));
       // AI가 실패해도 사주·관상 로컬 분석 결과는 이미 완성돼 있다 — 예외로 함수가 중단되면 아래
@@ -2675,27 +2674,30 @@ async function runGungham() {
     if (state.gunghamB.file) tasks.push(runFaceAnalysis('gunghamB', 'gunghamCanvasB').then(lm => { lmB = lm; }));
     if (tasks.length > 0) await Promise.all(tasks);
 
-    // ②-1 두 사람 사진이 모두 있으면 관상 궁합(db/MATCHING.csv 기반)을 사주 궁합과 블렌드해 재계산
+    // ②-1 관상 캐릭터 판정 — 개인별 관상 형상(눈모양·동물상) 카드·골든타임은 통합분석 탭에 이미 있어
+    // 여기서는 그리지 않는다(2026-08-20 재편). 궁합보기 Zone1(관상 궁합)이 16캐릭터 이름(무관상·책사상
+    // 등)을 인용할 수 있도록 캐릭터 판정만 확정해둔다 — 통합분석 탭과 같은 룰베이스 엔진
+    // (classifyAndBuildCharacter)을 그대로 재사용. 이때 함께 받는 gwansangBundle(서버가 계산한
+    // partDetails/faceShape3/samjeong 등)을 아래 ②-2·③·④가 lm을 다시 보내지 않고 그대로 재사용한다
+    // (ANALYSIS_LOGIC_SERVER_MIGRATION.md 2026-09-08 확장).
+    let gwansangBundleA = null, gwansangBundleB = null;
+    if (lmA) gwansangBundleA = (await classifyAndBuildCharacter('gunghamA', CTX_CONFIG.gunghamA(), lmA)).gwansangBundle;
+    if (lmB) gwansangBundleB = (await classifyAndBuildCharacter('gunghamB', CTX_CONFIG.gunghamB(), lmB)).gwansangBundle;
+
+    // ②-2 두 사람 사진이 모두 있으면 관상 궁합(db/MATCHING.csv 기반)을 사주 궁합과 블렌드해 재계산
     if (lmA && lmB) {
       setGgAnalyzingMsg('관상 궁합을 계산하는 중이에요');
-      const gwansangCompat = calcGwansangCompat(lmA, lmB);
+      const gwansangCompat = await CharacterAPI.gwansangCompat(lmA, lmB);
       const blended = calcCompatScore(pillarsA, pillarsB, ohA, ohB, rel, gwansangCompat);
       renderCompatScore(blended);
       const gVals = Object.values(gwansangCompat);
       heroScores = { total: blended.score, saju: sajuOnlyCompat.score, gwansang: Math.round(gVals.reduce((s, v) => s + v, 0) / gVals.length) };
     }
 
-    // ②-2 관상 캐릭터 판정 — 개인별 관상 형상(눈모양·동물상) 카드·골든타임은 통합분석 탭에 이미 있어
-    // 여기서는 그리지 않는다(2026-08-20 재편). 궁합보기 Zone1(관상 궁합)이 16캐릭터 이름(무관상·책사상
-    // 등)을 인용할 수 있도록 캐릭터 판정만 확정해둔다 — 통합분석 탭과 같은 룰베이스 엔진
-    // (classifyAndBuildCharacter)을 그대로 재사용.
-    if (lmA) await classifyAndBuildCharacter('gunghamA', CTX_CONFIG.gunghamA(), lmA);
-    if (lmB) await classifyAndBuildCharacter('gunghamB', CTX_CONFIG.gunghamB(), lmB);
-
     // ③ 나 / 상대방 각각의 관상 X 사주 상태맵 — 화면에 개인 서술로 그리진 않지만, statusMap은
     // buildRoleChemi(역할분담 케미)와 아래 캐시(AI 프롬프트 근거)가 그대로 참조한다.
-    const narrativeA = buildPersonNarrative(lmA, pillarsA, ohA);
-    const narrativeB = buildPersonNarrative(lmB, pillarsB, ohB);
+    const narrativeA = buildPersonNarrative(gwansangBundleA, pillarsA, ohA);
+    const narrativeB = buildPersonNarrative(gwansangBundleB, pillarsB, ohB);
 
     const sajuInsightA = collectSajuInsightSummary(pillarsA);
     const sajuInsightB = collectSajuInsightSummary(pillarsB);
@@ -2721,10 +2723,10 @@ async function runGungham() {
 
     // ④ 지침서 예시② 구조의 4섹션 비교 리포트 (STEP3에 해당, 관상 없어도 사주만으로 생성)
     const chemi = buildRoleChemi(pillarsA[2].stem, narrativeA.statusMap, pillarsB[2].stem, narrativeB.statusMap);
-    const faceCombo = buildFaceComboChemi(lmA, lmB, ggGenderA, ggGenderB, rel, nameA, nameB);
-    const faceOhaengCompare = buildFaceOhaengCompare(lmA, lmB);
-    const moneyChemi = buildMoneyChemi(lmA, lmB, ggGenderA, ggGenderB, rel);
-    const lifeStage = buildLifeStageChemi(lmA, lmB, nameA, nameB);
+    const faceCombo = buildFaceComboChemi(gwansangBundleA, gwansangBundleB, ggGenderA, ggGenderB, rel, nameA, nameB);
+    const faceOhaengCompare = buildFaceOhaengCompare(gwansangBundleA, gwansangBundleB);
+    const moneyChemi = buildMoneyChemi(gwansangBundleA, gwansangBundleB, ggGenderA, ggGenderB, rel);
+    const lifeStage = buildLifeStageChemi(gwansangBundleA, gwansangBundleB, nameA, nameB);
     const energy = buildEnergyChemi(ohA, ohB);
     const yongsinChemi = buildYongsinChemi(pillarsA, pillarsB, ohA, ohB);
     const moments = buildMoments(ohA, ohB, narrativeA.statusMap, narrativeB.statusMap);
@@ -2793,8 +2795,10 @@ function getSewoonRelation(dStem) {
   return { yearOh, text: `올해는 ${yearOh} 기운이 나를 다잡아주는 해라, 책임감 있게 도전해보기 좋은 시기예요.` };
 }
 // 좌우 비대칭 + 관상오행 렌더링 — 관상 탭·통합분석 탭 공용 (나이가 없어도 항상 표시 가능한 부분만)
-function renderExtendedAnalysis(lm, ids) {
-  const asym = calcAsymmetry(lm);
+// gwansangBundle: CharacterAPI.classifyGwansang(lm)의 응답 — asym/faceOh/tier3/foreheadReliable/
+// samjeong 전부 서버가 계산해 보내준 값이다(2026-09-08 확장).
+function renderExtendedAnalysis(gwansangBundle, ids) {
+  const asym = gwansangBundle.asymmetry;
   const asymEl = document.getElementById(ids.asymmetry);
   if (asymEl) {
     const leftCount = asym.filter(a => a.leftHigher).length;
@@ -2809,12 +2813,11 @@ function renderExtendedAnalysis(lm, ids) {
     }).join('');
     asymEl.innerHTML = detail + `<div class="part-tip"${detail ? ' style="margin-top:6px;"' : ''}>✨ ${conclusion}</div>`;
   }
-  const faceOh = calcFaceOhaeng(lm);
+  const faceOh = gwansangBundle.faceOhaeng;
   if (ids.faceOhaeng) renderFaceOhaengBars(faceOh, ids.faceOhaeng);
 
-  const ratios = getGwansangRatios(lm);
   if (ids.tier3) {
-    const tier3 = classifyGwansang3Tier(ratios);
+    const tier3 = gwansangBundle.tier3;
     const el = document.getElementById(ids.tier3);
     if (el) {
       el.innerHTML = Object.entries(tier3).map(([part, t]) =>
@@ -2825,7 +2828,7 @@ function renderExtendedAnalysis(lm, ids) {
   if (ids.foreheadNotice) {
     const el = document.getElementById(ids.foreheadNotice);
     if (el) {
-      if (!isForeheadReliable(ratios.gwanR)) {
+      if (!gwansangBundle.foreheadReliable) {
         el.textContent = '⚠ 앞머리 등으로 이마 측정이 제한되어 눈·코 중심 관상으로 대체 분석했어요.';
         el.classList.remove('hidden'); el.classList.add('show');
       } else {
@@ -2833,7 +2836,7 @@ function renderExtendedAnalysis(lm, ids) {
       }
     }
   }
-  return { asym, faceOh, samjeong: calcSamjeongRatio(lm), ratios };
+  return { asym, faceOh, samjeong: gwansangBundle.samjeong };
 }
 
 // ── 커플 케미 콘텐츠 엔진 (지침서 예시② 구조, CONTENT_SPEC.md §5 — db/MATCHING·SAJU_LINK 재사용) ──
@@ -2898,16 +2901,15 @@ function describeSizeCombo(levelA, levelB, genderA, genderB, rel, opts) {
 }
 
 // 궁합보기 Zone1 상단용 — 두 사람의 관상오행(목화토금수 %)을 나란히 비교할 수 있도록 묶어서 반환.
-function buildFaceOhaengCompare(lmA, lmB) {
-  if (!lmA || !lmB) return null;
-  return { a: calcFaceOhaeng(lmA), b: calcFaceOhaeng(lmB) };
+function buildFaceOhaengCompare(bundleA, bundleB) {
+  if (!bundleA || !bundleB) return null;
+  return { a: bundleA.faceOhaeng, b: bundleB.faceOhaeng };
 }
 // 재물관상 케미(궁합 리포트 구성.md 4-2) — 재백궁(콧볼, junduR)만으로 "돈을 대하는 방식이 맞물리는가"를 본다.
 // 히어로의 "금전 궁합" %(calcGwansangCompat)와 같은 원료(junduR)를 문장으로 풀어낸 상세 근거 카드.
-function buildMoneyChemi(lmA, lmB, genderA, genderB, rel) {
-  if (!lmA || !lmB) return null;
-  const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
-  const levelA = gwansangLevel('junduR', rA.junduR), levelB = gwansangLevel('junduR', rB.junduR);
+function buildMoneyChemi(bundleA, bundleB, genderA, genderB, rel) {
+  if (!bundleA || !bundleB) return null;
+  const levelA = bundleA.partDetails.nosetip.level, levelB = bundleB.partDetails.nosetip.level;
   const text = describeSizeCombo(levelA, levelB, genderA, genderB, rel, {
     bothBig: '둘 다 콧볼이 도톰한 편이에요. 씀씀이도 크고 돈 버는 것에도 자신 있어 하는 타입이라, 같이 있으면 통 크게 쓰는 지출이 늘어나기 쉬워요. 큰 지출만 미리 상의하는 규칙을 하나 정해두면 좋아요.',
     bothSmall: '둘 다 콧볼이 아담한 편이에요. 알뜰하게 모으는 성향이 비슷해서 재정 마찰은 적지만, 필요한 순간에도 서로 지갑 열기를 미루기 쉬워요. 가끔은 의식적으로 함께 소비해보는 것도 좋아요.',
@@ -2938,9 +2940,9 @@ const LIFESTAGE_COMBO_TEXT = {
   jungjeong_hajeong: (nA, nB) => `${nA}${eunNeun(nA)} 중년에, ${nB}${eunNeun(nB)} 말년에 힘을 받는 상이에요 — 한 사람이 한창 앞서갈 때 다른 한 사람이 그 뒤를 든든하게 받쳐주다가, 시간이 갈수록 함께 안정을 찾아가는 조합이에요.`,
   sangjeong_hajeong: (nA, nB) => `${nA}${eunNeun(nA)} 일찍 기반을 다지는 힘이 강하고, ${nB}${eunNeun(nB)} 시간이 쌓일수록 진가를 발휘하는 상이에요 — 전성기가 한 번에 겹치진 않지만, 한쪽이 쉬어갈 때 다른 한쪽이 앞장서 주는, 인생 전체로 보면 균형 잡힌 조합이에요.`,
 };
-function buildLifeStageChemi(lmA, lmB, nameA, nameB) {
-  if (!lmA || !lmB) return null;
-  const a = calcSamjeongRatio(lmA), b = calcSamjeongRatio(lmB);
+function buildLifeStageChemi(bundleA, bundleB, nameA, nameB) {
+  if (!bundleA || !bundleB) return null;
+  const a = bundleA.samjeong, b = bundleB.samjeong;
   const domA = Object.entries(a).sort((x, y) => y[1] - x[1])[0][0];
   const domB = Object.entries(b).sort((x, y) => y[1] - x[1])[0][0];
   const nA = nameA || '나', nB = nameB || '상대방';
@@ -3121,16 +3123,18 @@ function resolveSizeAxis(category, levelA, levelB, genderA, genderB, rel, nameA,
 }
 // nameA/nameB — 실제 이름+"님"(없으면 "나"/"상대방", 사용자 요청 2026-08-19 정책). 호출부(궁합보기
 // 리포트 조립 함수)가 이미 계산해둔 nameA/nameB를 그대로 넘겨받는다.
-function buildFaceComboChemi(lmA, lmB, genderA, genderB, rel, nameA, nameB) {
-  if (!lmA || !lmB) return null;
-  const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
-  const shapeA = classifyFaceShape3(rA), shapeB = classifyFaceShape3(rB);
-  const eyeLevelA = gwansangLevel('waJ', rA.waJ), eyeLevelB = gwansangLevel('waJ', rB.waJ);
-  const noseLevelA = gwansangLevel('junduR', rA.junduR), noseLevelB = gwansangLevel('junduR', rB.junduR);
-  const mouthLevelA = gwansangLevel('mouthR', rA.mouthR), mouthLevelB = gwansangLevel('mouthR', rB.mouthR);
-  const cheekLevelA = gwansangLevel('cheekR', rA.cheekR), cheekLevelB = gwansangLevel('cheekR', rB.cheekR);
-  const chinLevelA = gwansangLevel('jigakR', rA.jigakR), chinLevelB = gwansangLevel('jigakR', rB.jigakR);
-  const idsA = classifyAllFeaturesRuleBased(lmA).ids, idsB = classifyAllFeaturesRuleBased(lmB).ids;
+// bundleA/bundleB: CharacterAPI.classifyGwansang(lmA/lmB)의 응답 — 원본 랜드마크가 아니라 서버가
+// 이미 계산한 level/faceShape3/featureIds를 그대로 쓴다(ANALYSIS_LOGIC_SERVER_MIGRATION.md
+// 2026-09-08 확장).
+function buildFaceComboChemi(bundleA, bundleB, genderA, genderB, rel, nameA, nameB) {
+  if (!bundleA || !bundleB) return null;
+  const shapeA = bundleA.faceShape3, shapeB = bundleB.faceShape3;
+  const eyeLevelA = bundleA.partDetails.undereye.level, eyeLevelB = bundleB.partDetails.undereye.level;
+  const noseLevelA = bundleA.partDetails.nosetip.level, noseLevelB = bundleB.partDetails.nosetip.level;
+  const mouthLevelA = bundleA.partDetails.mouth.level, mouthLevelB = bundleB.partDetails.mouth.level;
+  const cheekLevelA = bundleA.partDetails.cheekbone.level, cheekLevelB = bundleB.partDetails.cheekbone.level;
+  const chinLevelA = bundleA.partDetails.jaw.level, chinLevelB = bundleB.partDetails.jaw.level;
+  const idsA = bundleA.featureIds, idsB = bundleB.featureIds;
 
   const eyeSize = resolveSizeAxis('eye', eyeLevelA, eyeLevelB, genderA, genderB, rel, nameA, nameB);
   const noseSize = resolveSizeAxis('nose', noseLevelA, noseLevelB, genderA, genderB, rel, nameA, nameB);
@@ -3335,55 +3339,10 @@ function ohBalanceScore(ohA, ohB) {
   return Math.max(30, Math.round(100 - totalDiff * 8));
 }
 
-// ── 관상학적 궁합 스코어링 (db/MATCHING.csv 설계를 실제 점수 공식으로 구현) ──
-// MediaPipe 마이그레이션으로 landmark-engine.js의 비율 계산식(분모가 interocularDist 등으로 통일)이
-// 바뀌면서 값의 스케일도 바뀌었다. 아래 range는 scratchpad 검증 사진 실측값을 anchor로 재조정한
-// 것이며, 여전히 "초안"이다(문서 §0 원칙과 동일하게 실측 데이터가 쌓이면 추후 보정 필요).
-// ⚠️ 2026-08-27 junduR 재보정 — 궁합보기 "코 조합" 카드가 실제로는 매번 "작은 코"로만 나온다는
-// 사용자 리포트로 32장을 실측해보니 junduR 레벨(gwansangLevel)이 6~28(평균 17.7)에 몰려 있는데
-// "크다" 기준이 60이라 사실상 도달 불가능했다 — landmark-engine.js의 NOSE_SIGNATURES 재보정과
-// 같은 문제지만, 이 파일의 gwansangLevel/gwansangFeatureCompat는 그 테이블을 전혀 안 쓰고 이
-// GWANSANG_FEATURE_RANGE를 따로 참조해서 그때 안 고쳐졌다(코 조합 텍스트뿐 아니라 "재물 궁합"
-// 점수 계산에도 junduR가 쓰여 같이 낮게 쏠려 있었다). 실측 p10/중앙/p90(0.60/0.66/0.72, 이미
-// FACE_SIGNATURES 재보정 주석과 동일한 값)을 25/50/75%에 맞춰 [0.54, 0.78]로 다시 잡았다. waJ·
-// mouthR·jigakR은 같은 32장으로 확인했을 때 60/40 양쪽 다 실제로 나와서 건드리지 않았다.
-const GWANSANG_FEATURE_RANGE = { waJ:[0.05,0.20], mgW:[0.4,1.7], beomR:[0.25,0.75], junduR:[0.54,0.78], jigakR:[0.4,1.0], gwanR:[0.10,0.55], injR:[0.25,0.65], sanR:[0.05,0.20], browGapR:[1.0,4.0], mouthR:[0.5,1.3], cheekR:[1.8,3.0] };
-
-// 부위별 실측값을 해당 부위의 FACE_FEATURE.csv 범위 안에서 0~100으로 정규화한 "상대적 위치"
-function gwansangLevel(key, v) {
-  const [min, max] = GWANSANG_FEATURE_RANGE[key];
-  return Math.max(0, Math.min(100, Math.round((v - min) / (max - min) * 100)));
-}
-
-// 같은 부위를 가진 두 사람의 궁합 = "둘 다 발달했는지(수준)" + "값이 서로 비슷한지(유사도)"를 절반씩 반영
-function gwansangFeatureCompat(key, vA, vB) {
-  const [min, max] = GWANSANG_FEATURE_RANGE[key];
-  const range = max - min;
-  const avgLevel = (gwansangLevel(key, vA) + gwansangLevel(key, vB)) / 2;
-  const similarity = Math.max(30, Math.min(100, Math.round(100 - (Math.abs(vA - vB) / range) * 120)));
-  return Math.round(avgLevel * 0.5 + similarity * 0.5);
-}
-
-// MATCHING.csv의 8개 관계차원 ↔ 부위쌍 매핑을 그대로 구현 (db/README.md 매핑표 참고)
-// 생활 궁합은 README에 명시된 대로 얼굴 부위쌍이 없어(순수 오행 유사도) 제외
-function calcGwansangCompat(lmA, lmB) {
-  const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
-  const emo    = gwansangFeatureCompat('waJ', rA.waJ, rB.waJ);                                                                        // MATCH_0001 와잠
-  const comm   = Math.round((gwansangFeatureCompat('beomR', rA.beomR, rB.beomR) + gwansangFeatureCompat('mgW', rA.mgW, rB.mgW)) / 2); // MATCH_0003+0004 법령+명궁
-  const love   = Math.round((gwansangFeatureCompat('waJ', rA.waJ, rB.waJ) + gwansangFeatureCompat('injR', rA.injR, rB.injR)) / 2);     // MATCH_0007 와잠+인중
-  const money  = gwansangFeatureCompat('junduR', rA.junduR, rB.junduR);                                                               // MATCH_0005 준두
-  const jaw    = gwansangFeatureCompat('jigakR', rA.jigakR, rB.jigakR);                                                               // MATCH_0006 지각
-  const growth = gwansangFeatureCompat('gwanR', rA.gwanR, rB.gwanR);                                                                  // MATCH_0008 관록궁
-  return {
-    '정서적 궁합': emo,
-    '대화·소통 궁합': comm,
-    '연애 궁합': love,
-    '금전 궁합': money,
-    '갈등 궁합': jaw,
-    '성장 궁합': growth,
-    '장기적인 관계 궁합': jaw, // MATCH_0006 지각 유사도 — 갈등해결과 공유(README 명시)
-  };
-}
+// 관상학적 궁합 스코어링(db/MATCHING.csv 설계, gwansangFeatureCompat/calcGwansangCompat)은
+// GWANSANG_FEATURE_RANGE 임계값 테이블과 함께 서버(functions/engine/gwansang-classify.js,
+// gwansangCompat 엔드포인트)로 이관됐다(ANALYSIS_LOGIC_SERVER_MIGRATION.md 2026-09-08 확장) —
+// CharacterAPI.gwansangCompat(lmA, lmB) 호출로 대체.
 
 function calcCompatScore(pillarsA, pillarsB, ohA, ohB, rel, gwansangCompat) {
   // 오행 궁합표 (상생/상극)

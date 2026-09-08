@@ -621,8 +621,10 @@ async function requestDeepReport(ctx) {
           // 넘기면, 두 도메인 모두에서 높은 기질(같은 점)·서로 엇갈리는 기질(다른 점)을 AI가 숫자로
           // 직접 비교해서 짚을 수 있다 — 새로 추정하지 않고 그대로 인용만 하면 되게.
           sajuTraitScores: zone1Character.sajuTraitScores,
-          faceOhaeng: calcFaceOhaeng(lm),
-          samjeong: calcSamjeongRatio(lm),
+          // classifyAndBuildCharacter가 이미 받아둔 gwansangBundle을 재사용 — lm을 다시 서버로
+          // 보내지 않는다(ANALYSIS_LOGIC_SERVER_MIGRATION.md 2026-09-08 확장).
+          faceOhaeng: state[ctx].gwansangBundle.faceOhaeng,
+          samjeong: state[ctx].gwansangBundle.samjeong,
           daeunList: state[ctx].daeun || null,
           // "대운x삼정 타임라인" 위젯(renderLifeline)이 계산하는 것과 완전히 같은 방식으로 미리
           // 12운성·뜻을 계산해서 넘긴다 — AI가 원국 자체 십이운성([사주 신살·귀인 목록])과 헷갈리거나
@@ -881,12 +883,13 @@ function fillGunghapAiFallback() {
 
 // AI 보완(부위별 코멘트 + 관상 형상 분류) — 사용자 조작 없이 로컬 분석 뒤에 자동으로만 실행됨(재시도 버튼 없음).
 // 키가 없거나 API 호출이 실패하면 조용히 스킵 — 로컬 결과만 있는 상태로 남을 뿐, 에러 UI를 사용자에게 노출하지 않음.
-// Gemini가 없거나 실패하면 랜드마크만으로 눈모양·동물형상을 약식 추정한다(landmark-engine.js의 룰베이스 분류기).
+// Gemini가 없거나 실패하면 서버 룰베이스 분류(classifyGwansang)로 눈모양·동물형상을 약식 추정한다.
 // 정밀도는 떨어지지만, 키가 없다는 이유로 이 카드 자체가 통째로 안 보이는 것보다는 낫다는 판단.
-function renderArchetypesFallback(archetypeId, lm, fallbackReason, genderVal, personLabel) {
-  const eyeId = classifyEyeArchetypeRuleBased(lm);
-  const faceId = classifyFaceArchetypeRuleBased(lm);
-  renderArchetypes(archetypeId, eyeId, faceId, true, null, fallbackReason, genderVal, null, personLabel);
+// ANALYSIS_LOGIC_SERVER_MIGRATION.md 2026-09-08 확장 — landmark-engine.js의 룰베이스 분류기를
+// 클라이언트에서 제거하면서 async로 바뀜(호출부는 이미 async 안에서 부른다).
+async function renderArchetypesFallback(archetypeId, lm, fallbackReason, genderVal, personLabel) {
+  const { featureIds } = await CharacterAPI.classifyGwansang(lm);
+  renderArchetypes(archetypeId, featureIds.eye_archetype_id, featureIds.face_archetype_id, true, null, fallbackReason, genderVal, null, personLabel);
 }
 
 // 컨텍스트별 설정 — 궁합 탭의 두 사람(gunghamA/B)도 관상 탭·통합분석 탭과 동일하게 관상 형상(눈모양·
@@ -1548,9 +1551,13 @@ async function classifyAndBuildCharacter(ctx, cfg, lm) {
   // ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 1번" — 판정 임계값·시그니처 테이블이 정적
   // 파일로 노출되지 않도록, 이 세 단계(classifyAllFeaturesRuleBased→getGwansangRatios→judgePartStatus)를
   // 서버(functions/engine/gwansang-classify.js, classifyGwansang 엔드포인트) 호출로 대체한다.
-  const { featureIds: ids, confidences, partStatusMap } = await CharacterAPI.classifyGwansang(lm);
+  const gwansangBundle = await CharacterAPI.classifyGwansang(lm);
+  const { featureIds: ids, confidences, partStatusMap } = gwansangBundle;
   state[ctx].archetypeAnalysis = extractArchetypeAnalysis(ids);
   state[ctx].ruleBasedConfidences = confidences;
+  // renderPersonalReportV2·renderExtendedAnalysis·buildPersonNarrative 등이 lm을 다시 서버에 보내지
+  // 않고 이 응답을 그대로 재사용할 수 있게 저장해둔다(ANALYSIS_LOGIC_SERVER_MIGRATION.md 2026-09-08 확장).
+  state[ctx].gwansangBundle = gwansangBundle;
 
   // 2026-08-30 DB 이원화 2단계 — EYE_ARCHETYPE_DB 등은 이제 빈 캐시라, renderArchetypes가 실제
   // 콘텐츠를 읽으려면 그 전에 서버 카탈로그를 받아 채워둬야 한다(archetype-db.js 주석 참고).
@@ -1581,7 +1588,7 @@ async function classifyAndBuildCharacter(ctx, cfg, lm) {
   // (getOrRequestPersonalAiData가 이 플래그를 보고 archetypeAnalysis 갱신을 건너뛴다)
   state[ctx].archetypeIsRuleBased = true;
   if (characterResult) console.log(`[16캐릭터] ${ctx}:`, characterResult);
-  return { ids, confidences, characterResult };
+  return { ids, confidences, characterResult, gwansangBundle };
 }
 
 async function requestPersonalAiRuleBased(ctx, cfg, lm) {
@@ -1632,7 +1639,7 @@ async function requestPersonalAi(ctx) {
   // Gemini가 없으면 기존 룰베이스 fallback 유지.
   if (!isGeminiConfigured()) {
     if (ruleBased) return; // 통합분석은 이미 룰베이스로 그렸다
-    renderArchetypesFallback(
+    await renderArchetypesFallback(
       cfg.archetypeId,
       lm,
       null,
@@ -1693,7 +1700,7 @@ async function requestPersonalAi(ctx) {
         cfg.personLabel
       );
     } else {
-      renderArchetypesFallback(
+      await renderArchetypesFallback(
         cfg.archetypeId,
         lm,
         null,
@@ -1709,7 +1716,7 @@ async function requestPersonalAi(ctx) {
     );
 
     if (ruleBased) return; // 분류는 이미 룰베이스로 확보돼 있어 fallback 문구가 필요 없다
-    renderArchetypesFallback(
+    await renderArchetypesFallback(
       cfg.archetypeId,
       lm,
       e.message,

@@ -36,13 +36,22 @@ const CharacterAPI = (function () {
     }
   }
 
-  // 랜드마크(lm, MediaPipe 478점 배열) → 관상 판정. js/landmark-engine.js가 로컬로 하던
-  // classifyAllFeaturesRuleBased/getGwansangRatios/judgePartStatus 세 단계를 서버 한 번 호출로 대체한다
-  // (ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 1번"). 반환 모양은 그 세 단계를 조립한 것과
-  // 동일(featureIds/confidences/partStatusMap) — analyzeCharacter가 그대로 이어받을 수 있다.
+  // 랜드마크(lm, MediaPipe 478점 배열) → 관상 판정 + 렌더링에 필요한 모든 부가 계산.
+  // js/landmark-engine.js·js/app.js가 로컬로 하던 classifyAllFeaturesRuleBased/getGwansangRatios/
+  // judgePartStatus/gwansangLevel/classifyGwansang3Tier/calcAsymmetry/calcFaceOhaeng/
+  // calcSamjeongRatio/classifyFaceShape3를 서버 한 번 호출로 대체한다(ANALYSIS_LOGIC_SERVER_
+  // MIGRATION.md "아직 남은 작업 1번" + 2026-09-08 확장). 서버 응답을 그대로 반환 — 필드 목록은
+  // functions/engine/gwansang-classify.js classifyGwansangBundle 참고.
   async function classifyGwansang(lm) {
     const data = await postJson(CLASSIFY_GWANSANG_FUNCTION_URL, { lm });
-    return { featureIds: data.featureIds, confidences: data.confidences, partStatusMap: data.partStatusMap };
+    const { ok, ...bundle } = data;
+    return bundle;
+  }
+
+  // 궁합보기 2인 관상 궁합 — js/app.js calcGwansangCompat(lmA, lmB)을 서버 호출로 대체.
+  async function gwansangCompat(lmA, lmB) {
+    const data = await postJson(GWANSANG_COMPAT_FUNCTION_URL, { lmA, lmB });
+    return data.compat;
   }
 
   // characterId 하나의 good/spark/clash 관계만 필요할 때
@@ -112,5 +121,5 @@ const CharacterAPI = (function () {
     return characterCatalogPromise;
   }
 
-  return { analyzeCharacter, classifyGwansang, getRelation, getScore, ensureArchetypeCatalog, ensureCharacterCatalog };
+  return { analyzeCharacter, classifyGwansang, gwansangCompat, getRelation, getScore, ensureArchetypeCatalog, ensureCharacterCatalog };
 })();

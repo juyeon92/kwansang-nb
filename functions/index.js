@@ -10,7 +10,7 @@ const { classifyCompatibility, compatScore } = require('./engine/compatibility-e
 const archetypeDb = require('./engine/archetype-db');
 const characterDb = require('./engine/character-db');
 const { computeSajuBundle } = require('./engine/saju-calc');
-const { classifyGwansangBundle } = require('./engine/gwansang-classify');
+const { classifyGwansangBundle, calcGwansangCompat } = require('./engine/gwansang-classify');
 const { generateDeepReport, generateAiEnhancement, generateGunghapReport } = require('./engine/prompt-builders');
 
 admin.initializeApp();
@@ -435,6 +435,33 @@ exports.classifyGwansang = onRequest({ cors: true }, async (req, res) => {
     res.json({ ok: true, ...result });
   } catch (e) {
     console.error('classifyGwansang 실패', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ═══ 궁합보기 — 2인 관상 궁합 (2026-09-08, ANALYSIS_LOGIC_SERVER_MIGRATION.md 확장) ═══
+// js/app.js의 calcGwansangCompat(두 사람의 관상 실측값을 비교하는 db/MATCHING.csv 기반 궁합 점수)이
+// GWANSANG_FEATURE_RANGE 임계값 테이블과 함께 정적 스크립트로 노출되던 문제를 막기 위해 서버로 옮겼다.
+// 두 사람의 랜드마크(lmA, lmB)만 받아 카테고리별 궁합 점수 객체를 그대로 반환한다.
+exports.gwansangCompat = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  try { await admin.auth().verifyIdToken(idToken); }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+
+  const { lmA, lmB } = req.body || {};
+  if (!Array.isArray(lmA) || lmA.length < 478 || !Array.isArray(lmB) || lmB.length < 478) {
+    res.status(400).json({ error: 'lmA/lmB(랜드마크 478점 배열)가 필요합니다.' });
+    return;
+  }
+
+  try {
+    const compat = calcGwansangCompat(lmA, lmB);
+    res.json({ ok: true, compat });
+  } catch (e) {
+    console.error('gwansangCompat 실패', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });

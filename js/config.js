@@ -47,6 +47,7 @@ const GET_COMPATIBILITY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfun
 // 서버(functions/engine/gwansang-classify.js)로 옮긴 판정 엔드포인트. 랜드마크 좌표(lm)만 보내고
 // featureIds/confidences/partStatusMap을 받는다 — 그 다음 analyzeCharacter로 이어지는 흐름은 그대로.
 const CLASSIFY_GWANSANG_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/classifyGwansang';
+const GWANSANG_COMPAT_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/gwansangCompat';
 
 // ═══ 사주 계산 함수 URL (ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 2번", 2026-09-08 배포) ═══
 // js/app.js의 computePillars/computeOhaeng/computeDaeun 등(십성·십이운성·신살·귀인·공망·대운 판정
