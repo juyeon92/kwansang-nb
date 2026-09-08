@@ -809,7 +809,11 @@
       matchedBlock() +
       '<div class="dogam-block">' +
         '<div class="dogam-head">' +
-          '<span class="dogam-title">' + esc(dogam.ownerName) + '님의 인연 도감</span>' +
+          // ⚠️ 버그 수정(2026-09-08 — 콘솔에서 직접 확인: "Cannot read properties of null
+          // (reading 'ownerName')") — dogam이 null인 경우(아직 도감을 안 만든 방문자) 가드 없이
+          // dogam.ownerName을 읽어서 render() 전체가 예외로 죽었다. #dogamSection의 innerHTML이
+          // 아예 안 채워지고 조용히(Promise reject만) 넘어가, 인연도감 탭이 빈 화면으로 남았다.
+          '<span class="dogam-title">' + (dogam ? esc(dogam.ownerName) + '님의 ' : '') + '인연 도감</span>' +
           '<span class="dogam-count">' + count + '명</span>' +
         '</div>' +
         filterChips(entries) +
