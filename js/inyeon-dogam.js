@@ -29,9 +29,10 @@
   const RETENTION_DAYS = 30; // 보관 기간 — 정책 문구(DOGAM_POLICY)와 expiresAt 계산이 모두 이 값을 따른다
   const SLUG_KEY = 'dogamMySlug';        // 내 도감 slug (로그인 전에도 기억해두기 위한 로컬 사본)
   const PARAM = 'dogam';                 // 공유 링크 쿼리 파라미터 (?dogam=<slug>)
-  // 방금 맺은 인연(초대해준 사람) — 등록 직후 매칭 결과를 보여주기 위해 기억해둔다. 일부러 메모리
-  // 변수로만 둔다(사용자 요청 2026-08-18): localStorage였다면 새로고침해도 계속 남아서, "방금"이 아닌
-  // 옛 결과가 언제까지고 다시 보였다. 새로고침하면 이 값도 자연히 비워지는 게 맞다.
+  // 방금 맺은 인연(초대해준 사람)의 uid — 명부에서 그 사람 항목을 하이라이트+뱃지로 짚어주기 위해
+  // 기억해둔다(renderOwnerView 참고. 별도 카드가 아니라 명부 항목 자체를 표시하는 이유는 entryRow
+  // 위쪽 주석). 일부러 메모리 변수로만 둔다(사용자 요청 2026-08-18): localStorage였다면 새로고침해도
+  // 계속 남아서, "방금"이 아닌 옛 결과가 언제까지고 다시 표시됐다. 새로고침하면 비워지는 게 맞다.
   let lastMatch = null;
   // ⚠️ 정책 개편(인연도감 서비스 정책.md v4, 2-2 7번·8번) — B가 A의 링크에 등록하면 곧바로 B
   // 본인 도감을 만들던 예전 동작을 없애고, 등록 직후엔 이 변수에만 결과를 담아 "1회성 병합 화면"
@@ -39,6 +40,16 @@
   // lastMatch와 같은 이유로 일부러 메모리 변수만 쓴다 — 같은 링크로 재방문(새로고침 포함)하면
   // 자연히 비워져서 2-3의 "게스트는 항상 등록 폼" 규칙으로 돌아간다.
   let justRegistered = null;
+  // 오너가 화면을 이미 열어둔 채로 누가 방금 등록하면(새로고침 없이) 명부에서 그 사람 항목을
+  // 하이라이트하기 위한 값 — watchEntries()의 실시간 구독이 채운다. lastMatch와 합쳐 하나로 안 쓰는
+  // 이유는 나중에 문구를 분기해야 할 수도 있어서가 아니라(지금은 뱃지 문구가 똑같음) 두 트리거가
+  // 서로 다른 시점(도감 생성 vs 실시간 구독)에서 채워지는 값이라 분리해두는 쪽이 각 흐름을 더 쉽게
+  // 추적할 수 있어서다.
+  let liveJustMatched = null;
+  // 정책 문서 5-5 — 이 기기가 이미 이 도감에 등록한 적이 있으면 재방문 시 등록 폼 대신 내 결과 화면을
+  // 다시 보여준다(아래 render()의 게스트 분기 참고). 그 화면에 있는 "내 정보가 아니에요" 버튼을 누르면
+  // 이 값을 켜서 그 도감에 한해서만 등록 폼으로 돌아갈 수 있게 한다 — 새로고침하면 자연히 풀린다.
+  let forceGuestRegisterForm = false;
 
   // 화면에 그대로 노출하는 정책 문구 — 명세서를 관상 기준으로 다시 쓴 것.
   // 사용자 요청(2026-09-05, 16차 피드백) — "어떤 정보를 저장하나요?"/"이름은 누구에게 보이나요?"는
@@ -170,6 +181,7 @@
     if (!window.fbDb || !slug || watchedSlug === slug) return;
     stopWatchingEntries();
     watchedSlug = slug;
+    let isFirstSnapshot = true; // 최초 구독 시점엔 기존 항목도 전부 'added'로 오므로 그건 알림 대상에서 뺀다
     entriesUnsub = fbDb.collection('dogam').doc(slug).collection('entries')
       .onSnapshot(function (snap) {
         if (!myDogam || myDogam.slug !== slug) return; // 그 사이 도감이 바뀌었거나 사라짐 — 무시
@@ -177,6 +189,19 @@
         snap.forEach(function (d) { entries.push(d.data()); });
         entries.sort(function (a, b) { return (b.score || 0) - (a.score || 0); }); // 점수 높은 순
         myDogam.entries = entries;
+
+        // 화면을 이미 열어둔 채로 누가 방금 등록하면, 리다이렉트·새로고침 없이 "방금 맺은 인연"을
+        // 오너에게도 보여준다(정책 문서 5-3). 최초 구독 시점의 스냅샷은 건너뛰고, 그 이후에 새로
+        // 추가된 항목만 반영 — 여러 명이 동시에 등록했으면 가장 마지막 항목만 보여준다.
+        if (!isFirstSnapshot) {
+          const added = snap.docChanges().filter(function (c) { return c.type === 'added'; });
+          if (added.length) {
+            const d = added[added.length - 1].doc.data();
+            liveJustMatched = { uid: d.uid, name: d.name, characterId: d.characterId, score: d.score, relation: d.relation };
+          }
+        }
+        isFirstSnapshot = false;
+
         const el = host();
         if (el) el.innerHTML = renderOwnerView(myDogam);
         syncLiveBlocks();
@@ -616,11 +641,7 @@
         // 어색하게 보였다. 게스트 화면엔 "OO님의 인연도감"이라는 제목이 이미 있어 중복이기도 하니,
         // 이 화면에서는 탭 타이틀 자체를 숨긴다(A-1/B 분기에서 다시 보여줌).
         setDisplay('gwansangPageHead', 'none');
-        if (justRegistered && justRegistered.slug === sharedSlug) {
-          renderGuestMergedResult(guestDogam, justRegistered);
-        } else {
-          showGuestView(guestDogam);
-        }
+        renderGuestScreen(guestDogam);
         el.innerHTML = '';
         return;
       }
@@ -788,9 +809,41 @@
       host().innerHTML = renderOwnerView(myDogam);
       syncLiveBlocks();
     } else if (guestDogam) {
-      if (justRegistered && justRegistered.slug === sharedSlugFromUrl()) renderGuestMergedResult(guestDogam, justRegistered);
-      else showGuestView(guestDogam);
+      renderGuestScreen(guestDogam);
     }
+  }
+
+  // A-2/A-3(남의 도감) 게스트 화면 분기 — render()와 setEntryFilter()가 공유한다.
+  // 1) justRegistered: 방금 이 링크에 등록을 마친 직후(1회성) → 병합 결과 화면
+  // 2) 그 외: 이 기기(uid)가 이 도감에 이미 등록한 적이 있으면(정책 문서 5-5, 2026-09-09) 재방문이어도
+  //    등록 폼 대신 내 결과 화면을 다시 보여준다 — entries 문서 id가 uid라(registerEntry 참고) 별도
+  //    저장소 없이 "본인 항목" 여부를 확인할 수 있다. forceGuestRegisterForm이면(내 정보가 아니에요
+  //    버튼) 이 판단을 건너뛰고 등록 폼을 보여준다.
+  // 3) 그 외: 처음 보는 방문자 → 등록 폼(정책 문서 2-3 — 등록 이력과 무관하게 항상 동일한 폼)
+  function renderGuestScreen(dogam) {
+    if (justRegistered && justRegistered.slug === dogam.slug) {
+      renderGuestMergedResult(dogam, justRegistered);
+      return;
+    }
+    const myUid = currentUid();
+    const myEntry = !forceGuestRegisterForm && myUid
+      ? (dogam.entries || []).find(function (e) { return e.uid === myUid; })
+      : null;
+    if (myEntry) {
+      renderGuestMergedResult(dogam, {
+        slug: dogam.slug, name: myEntry.name, characterId: myEntry.characterId,
+        score: myEntry.score, relation: myEntry.relation,
+      }, { isRevisit: true });
+    } else {
+      showGuestView(dogam);
+    }
+  }
+
+  // 위 renderGuestScreen()의 "내 정보가 아니에요" 탈출구 — 이 도감에 한해 등록 폼으로 강제 전환한다.
+  // 새로고침하거나 다른 도감으로 이동하면 자연히 풀린다(메모리 변수, forceGuestRegisterForm 선언부 참고).
+  function showRegisterFormForOther() {
+    forceGuestRegisterForm = true;
+    render();
   }
 
   function renderOwnerView(dogam) {
@@ -800,13 +853,21 @@
     // 익명 인증은 "로그인"이 아니다 — 기기/브라우저에 묶인 임시 신원이라 보관 안내는 계속 띄운다.
     const loggedIn = !!currentUid() && !isAnonymousUser();
 
+    // "방금 맺은 인연" 표시 — lastMatch(내가 방금 도감을 만들며 상대를 자동 등록 — 서로 등록됨)나
+    // liveJustMatched(누군가 내 도감에 방금 등록 — 실시간 구독)가 있으면, 그 사람의 명부 항목 자체를
+    // 하이라이트+뱃지로 짚어준다. 별도 카드로 안 따로 만드는 이유: 명부 항목이 이미 이름·캐릭터·점수를
+    // 다 보여주는데 그 내용을 그대로 반복하는 카드를 하나 더 두면 같은 정보가 중복된다(인연도감 UI
+    // 리디자인 시안의 "방금 맺은 인연" 뱃지 방식과 통일 — reg-row.just-registered 참고).
+    const justMatched = lastMatch || liveJustMatched;
+    const justMatchedUid = justMatched ? justMatched.uid : null;
+
     const list = filtered.length
-      ? filtered.map(function (e) { return entryRow(e, { canDelete: true }); }).join('')
+      ? filtered.map(function (e) { return entryRow(e, { canDelete: true, justMatched: !!justMatchedUid && e.uid === justMatchedUid }); }).join('')
       : (count ? '<p class="dogam-empty">이 조건에 맞는 인연이 없어요.</p>'
                : '<p class="dogam-empty">아직 어떤 인연도 등록되지 않았어요.<br>친구들과 공유해서 내 인연을 등록해보세요.</p>');
 
     return '' +
-      matchedBlock() +
+      shareButtonBlock() +
       '<div class="dogam-block">' +
         '<div class="dogam-head">' +
           // ⚠️ 버그 수정(2026-09-08 — 콘솔에서 직접 확인: "Cannot read properties of null
@@ -821,30 +882,7 @@
         keepNotice(loggedIn) +
       '</div>' +
       policyBlock(!!dogam, loggedIn) +
-      actionButtons(dogam, loggedIn);
-  }
-
-  // 등록 직후 — 나를 초대해준 사람과의 매칭 결과. 내 캐릭터 리포트 바로 아래에 붙어
-  // "누구와 어떻게 맺어졌는지"를 먼저 보여주고, 그 다음에 인연 도감이 이어진다.
-  function matchedBlock() {
-    const m = lastMatch;
-    if (!m || !m.characterId) return '';
-    const ch = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[m.characterId]) || null;
-    const img = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(m.characterId) : '';
-    return '' +
-      '<div class="dogam-block dogam-matched">' +
-        '<div class="dogam-head"><span class="dogam-title">방금 맺은 인연</span></div>' +
-        '<p class="dogam-guide">' + esc(m.name) + '님과 서로의 인연도감에 등록됐어요.</p>' +
-        '<div class="dogam-match-row">' +
-          '<img class="dogam-match-thumb" src="' + esc(img) + '" alt="' + esc(ch ? ch.name : '') + '">' +
-          '<div class="dogam-match-body">' +
-            '<div class="dogam-row-name">' + esc(m.name) +
-              '<span class="dogam-row-tag">' + esc(m.relation || '') + '</span></div>' +
-            '<div class="dogam-row-desc">' + esc(ch ? ch.name + ' · ' + ch.headline : '') + '</div>' +
-          '</div>' +
-          '<div class="dogam-match-score"><b>' + (m.score == null ? '-' : m.score) + '</b><span>매칭</span></div>' +
-        '</div>' +
-      '</div>';
+      combinedAnalysisCta();
   }
 
   // 비로그인은 익명 신원이라 이 기기/브라우저에만 묶인다 — 기록을 지우거나 기기를 바꾸면 도감을 잃는다.
@@ -954,8 +992,13 @@
     const delBtn = (opts && opts.canDelete)
       ? '<button type="button" class="revisit-del" title="삭제" onclick="event.stopPropagation();Dogam.deleteEntry(\'' + esc(e.uid) + '\')"><span class="material-symbols-outlined">close</span></button>'
       : '';
+    // "방금 맺은 인연" 뱃지 — 별도 카드 대신 이 항목 자체에 표시한다(renderOwnerView 참고). 인연도감
+    // UI 리디자인 시안의 reg-row.just-registered와 같은 방식(하이라이트 배경 + 기울어진 뱃지)이다.
+    const justMatched = !!(opts && opts.justMatched);
+    const tag = justMatched ? '<span class="dogam-row-matched-tag">방금 맺은 인연</span>' : '';
     return '' +
-      '<div class="dogam-row" role="button" tabindex="0" style="cursor:pointer;" onclick="Dogam.showEntryDetail(\'' + esc(e.uid) + '\')">' +
+      '<div class="dogam-row' + (justMatched ? ' dogam-row-matched' : '') + '" role="button" tabindex="0" style="cursor:pointer;" onclick="Dogam.showEntryDetail(\'' + esc(e.uid) + '\')">' +
+        tag +
         '<img class="dogam-row-thumb" src="' + esc(img) + '" alt="' + esc(ch ? ch.name : '') + '">' +
         '<div class="dogam-row-body">' +
           '<div class="dogam-row-name">' + esc(e.name) +
@@ -1231,6 +1274,8 @@
     localStorage.removeItem(INYEON_LAST_CHARACTER_KEY);
     myDogam = null;
     lastMatch = null;
+    liveJustMatched = null;
+    stopWatchingEntries();
   }
 
   // 이 기기에 남은 도감 흔적 정리 — 도감을 지웠는데 "이미 만드신 도감이 있어요" 카드가 남으면
@@ -1238,6 +1283,8 @@
   function forgetLocalDogam() {
     localStorage.removeItem(SLUG_KEY);
     lastMatch = null;
+    liveJustMatched = null;
+    stopWatchingEntries();
     localStorage.removeItem(inyeonCharacterKey());
     // ⚠️ 진짜 원인(2026-09-01, 콘솔로 확인): 위 removeItem은 "이 계정 전용" 캐릭터 캐시만 지운다.
     // migrateLocalOnLogin()이 로그인/새로고침(세션 복원)마다 매번 실행되면서 "계정 전용 캐시가
@@ -1251,23 +1298,24 @@
     if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
   }
 
-  // 요청받은 버튼 분기: ① 비로그인이면 로그인 유도 ② 친구에게 공유 ③ 통합분석 이동
-  // 로그인은 "도감을 계정에 묶어 오래 보관"하는 후킹일 뿐이라, 비로그인이어도 공유는 막지 않는다.
-  function actionButtons(dogam, loggedIn) {
-    // 공유 버튼은 마이페이지 "변경" 버튼(.mypage-rep-change)과 같은 그레이 라인 디자인.
-    const shareBtn = '<button class="dogam-share-btn" onclick="Dogam.share()">' +
-      '<span class="material-symbols-outlined">link</span>친구에게 공유하기</button>';
-    const primary = shareBtn;
-    // 노출스펙 §4 A안 — "더 자세히"가 아니라 "지금 건 반쪽이었다"로 후킹한다.
-    // 사주를 더하면 Face 100% → 70/30으로 실제로 재계산돼 캐릭터가 바뀔 수 있으므로 빈말이 아니다.
-    // 배치도 스펙대로 맨 아래, 공유 버튼 다음(공유가 1순위).
+  // 공유 버튼 — 인연도감 서비스 정책.md 7장: 오너 화면에서 캐릭터 결과 바로 아래(인연도감 영역보다
+  // 위)에 위치해야 한다(2026-09-09 확정). 그래서 renderOwnerView()의 다른 블록들보다 먼저, 맨 위에서
+  // 단독으로 렌더한다 — 공유 버튼은 마이페이지 "변경" 버튼(.mypage-rep-change)과 같은 그레이 라인 디자인.
+  function shareButtonBlock() {
+    return '<div class="dogam-actions">' +
+      '<button class="dogam-share-btn" onclick="Dogam.share()">' +
+        '<span class="material-symbols-outlined">link</span>친구에게 공유하기</button>' +
+    '</div>';
+  }
+
+  // 통합분석 유도 CTA — 로그인은 "도감을 계정에 묶어 오래 보관"하는 후킹일 뿐이라, 비로그인이어도
+  // 노출은 막지 않는다. 노출스펙 §4 A안 — "더 자세히"가 아니라 "지금 건 반쪽이었다"로 후킹한다.
+  // 사주를 더하면 Face 100% → 70/30으로 실제로 재계산돼 캐릭터가 바뀔 수 있으므로 빈말이 아니다.
+  function combinedAnalysisCta() {
     const charId = myCharacterId();
     const charName = (charId && typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[charId])
       ? CHARACTER_DB[charId].name : '지금 이 캐릭터';
     return '' +
-      '<div class="dogam-actions">' +
-        primary +
-      '</div>' +
       '<div class="dogam-cta">' +
         '<div class="dogam-cta-head">' +
           '<span class="dogam-cta-thumb"><img src="images/Logo.png" alt=""></span>' +
@@ -1427,11 +1475,15 @@
   // justRegistered를 채운 직후에만 render()가 이 함수로 분기한다(showGuestView 대신). 새로고침하면
   // justRegistered가 비워져 다음 render()는 자연히 showGuestView(등록 폼)로 돌아간다 — "1회성" 요구를
   // lastMatch와 같은 방식(메모리 변수만 사용)으로 만족시킨다.
-  function renderGuestMergedResult(dogam, match) {
+  function renderGuestMergedResult(dogam, match, opts) {
     const el = prepGuestScreen();
     if (!el) return;
     // 업로드 섹션은 이 화면엔 필요 없다(이미 등록을 마쳤으므로) — showGuestView와 달리 숨겨둔다.
     setDisplay('gwansangUploadSection', 'none');
+    // 정책 문서 5-5(2026-09-09) — 방금 등록 직후(justRegistered)가 아니라 재방문으로 이 화면이 뜬
+    // 경우(renderGuestScreen 참고)엔 "등록 완료" 대신 "내 인연 등록 정보"로, "내 정보가 아니에요"
+    // 탈출구도 함께 보여준다 — 같은 기기를 다른 사람이 이어 쓰는 경우를 위한 장치.
+    const isRevisit = !!(opts && opts.isRevisit);
 
     el.innerHTML = '' +
       '<div class="dogam-block">' +
@@ -1441,7 +1493,7 @@
         '<div id="dogamOwnerDetail"></div>' +
       '</div>' +
       '<div class="dogam-block dogam-matched" id="dogamMergedResultBlock">' +
-        '<div class="dogam-head"><span class="dogam-title">인연도감 등록 완료</span></div>' +
+        '<div class="dogam-head"><span class="dogam-title">' + (isRevisit ? '내 인연 등록 정보' : '인연도감 등록 완료') + '</span></div>' +
         '<div id="dogamMyResultCard"></div>' +
         '<div class="dogam-match-row">' +
           '<div class="dogam-match-body">' +
@@ -1452,6 +1504,7 @@
         '</div>' +
         '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. 내 도감도 만들면 나만의 공유 링크가 생겨요.</p>' +
         '<button class="submit-btn" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
+        (isRevisit ? '<button type="button" class="dogam-link-btn" onclick="Dogam.showRegisterFormForOther()">내 정보가 아니에요 · 새로 등록하기</button>' : '') +
       '</div>' +
       guestEntriesBlock(dogam);
 
@@ -1577,6 +1630,7 @@
         inviterUid: inviter.ownerUid, inviterName: inviter.ownerName, inviterCharacterId: inviter.ownerCharacterId,
         name: name, characterId: charId, score: score, relation: relationLabel(guestDogam.ownerCharacterId, charId),
       };
+      forceGuestRegisterForm = false; // "내 정보가 아니에요"로 열어둔 폼이었다면, 새 등록이 끝났으니 원래대로.
       // 참여자 목록에 방금 등록한 나를 포함해 최신화한다(guestEntriesBlock이 이 목록을 그대로 씀).
       guestDogam = await loadDogam(inviter.slug).catch(function () { return inviter; });
       hideSpinner(m.spinner); // render()가 이 폼 자체를 병합 결과 화면으로 갈아치우기 직전에 꺼둔다
@@ -1805,6 +1859,7 @@
   window.Dogam = {
     render: render, renderInto: renderIntoEl, share: share, registerEntry: registerEntry,
     createMyDogamFromInvite: createMyDogamFromInvite,
+    showRegisterFormForOther: showRegisterFormForOther,
     showEntryDetail: showEntryDetail, closeEntryDetail: closeEntryDetail,
     deleteEntry: deleteEntry, setEntryFilter: setEntryFilter,
     showDogamConflict: showDogamConflict, closeDogamConflict: closeDogamConflict,

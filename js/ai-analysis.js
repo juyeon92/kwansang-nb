@@ -2802,7 +2802,7 @@ function renderCharacterDetail(elId, characterResult, opts) {
             </div>`;
           }).join('')}
         </div>
-        ${top2.length === 2 ? `<div class="char-trait-caption">이 두 가지가 만나 ${character.name}이 돼요</div>` : ''}
+        ${top2.length === 2 ? `<div class="char-trait-caption">${TRAIT_FACE_LINK[top2[0]]} ${TRAIT_FACE_PHRASE[top2[1]]}이 느껴지는 관상으로, <b>${character.name}</b>이 됐어요</div>` : ''}
       </div>` : '';
 
   el.innerHTML = `
@@ -2860,7 +2860,10 @@ function renderCharacterDetail(elId, characterResult, opts) {
 // character.headline 그대로 쓰던 걸 대체). 캐릭터 이름은 renderCharacterDetail이 안 넘겨주므로
 // cardElId로 지정한 카드 쪽 .char-card-name에서 읽어온다 — 두 렌더 결과물을 나중에 이어붙이는 구조라
 // 어쩔 수 없이 DOM에서 다시 읽는다.
-function wireGwansangCharDetailToggle(elId, cardElId) {
+// 정책 문서 5장 — A 결과 화면(오너 본인)은 상세 설명이 기본으로 펼쳐진 상태, B 화면(게스트뷰·결과
+// 화면 모두)은 기본으로 닫힌 상태여야 한다. elId가 A 전용 DOM(gwansangCharacterDetail)이면 호출부가
+// defaultOpen=true를 넘긴다 — B 화면이 쓰는 dogamOwnerDetail 쪽은 안 넘기므로 그대로 기본 닫힘 유지.
+function wireGwansangCharDetailToggle(elId, cardElId, defaultOpen) {
   const root = document.querySelector('#' + elId + ' .char-detail');
   if (!root) return;
   const headline = root.querySelector(':scope > .char-detail-headline');
@@ -2876,15 +2879,16 @@ function wireGwansangCharDetailToggle(elId, cardElId) {
   if (!rest.length) return; // 헤드라인뿐이면 접을 것도 없다
 
   const wrap = document.createElement('div');
-  wrap.className = 'char-detail-collapse hidden';
+  wrap.className = defaultOpen ? 'char-detail-collapse' : 'char-detail-collapse hidden';
   rest.forEach(function (n) { wrap.appendChild(n); });
   root.appendChild(wrap);
 
   const toggleBtn = document.createElement('button');
   toggleBtn.type = 'button';
-  toggleBtn.className = 'char-detail-toggle';
+  toggleBtn.className = defaultOpen ? 'char-detail-toggle open' : 'char-detail-toggle';
   toggleBtn.setAttribute('aria-label', '캐릭터 상세 설명 열고 닫기');
   toggleBtn.innerHTML = '<span class="material-symbols-outlined">expand_more</span>';
+  if (defaultOpen) root.classList.add('detail-open');
   // 사용자 요청(2026-09-05) — 새 버튼을 추가하는 게 아니라, 펼쳤을 때 이 헤드라인(닫기 트리거) 자체가
   // 펼친 내용("다른 관상과의 궁합" 등) 아래로 내려가 있어야 다 읽은 자리에서 바로 닫기 편하다는 요청.
   // DOM을 옮기면 위치가 바뀔 때마다 레이아웃이 튀고 이벤트도 다시 신경 써야 해서, 대신 root를 펼쳤을
@@ -3040,7 +3044,7 @@ async function populateGwansangReportFromSaved(characterId) {
   renderCharacterCard('gwansangCharacterCard', fake);
   wireGwansangCharCardChip('gwansangCharacterCard', characterId);
   renderCharacterDetail('gwansangCharacterDetail', fake);
-  wireGwansangCharDetailToggle('gwansangCharacterDetail', 'gwansangCharacterCard');
+  wireGwansangCharDetailToggle('gwansangCharacterDetail', 'gwansangCharacterCard', true);
   document.getElementById('canvasCard').classList.remove('hidden');
   document.getElementById('gwansangResult').classList.remove('hidden');
   markAnalyzed('gwansang');
@@ -3108,7 +3112,7 @@ async function requestPersonalAiRuleBased(ctx, cfg, lm) {
     renderCharacterCard('gwansangCharacterCard', characterResult);
     wireGwansangCharCardChip('gwansangCharacterCard', characterResult.characterId);
     renderCharacterDetail('gwansangCharacterDetail', characterResult);
-    wireGwansangCharDetailToggle('gwansangCharacterDetail', 'gwansangCharacterCard');
+    wireGwansangCharDetailToggle('gwansangCharacterDetail', 'gwansangCharacterCard', true);
     saveLastCharacterToStorage(characterResult);
   }
 

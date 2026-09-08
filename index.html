@@ -861,6 +861,17 @@ body.overlay-open { overflow: hidden; }
 .dogam-row-score { text-align: right; flex-shrink: 0; }
 .dogam-row-score b { font-size: 17px; font-weight: 800; color: var(--jade); }
 .dogam-row-score span { font-size: 11px; color: var(--text-sub); margin-left: 1px; }
+/* "방금 맺은 인연" — 별도 카드 대신 해당 명부 항목 자체를 하이라이트+뱃지로 표시(entryRow 참고).
+   인연도감 UI 리디자인 시안의 reg-row.just-registered와 같은 방식. */
+.dogam-row.dogam-row-matched { position: relative; background: var(--mint-10); border-radius: var(--r-input); margin: 2px -8px; padding: 10px 8px; }
+.dogam-row.dogam-row-matched + .dogam-row,
+.dogam-row + .dogam-row.dogam-row-matched { border-top: none; }
+.dogam-row-matched-tag {
+  position: absolute; top: -8px; left: 6px; z-index: 1;
+  font-size: 10px; font-weight: 700; color: #fff; background: var(--mint);
+  padding: 3px 9px; border-radius: 4px; white-space: nowrap; transform: rotate(-6deg);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
 
 .dogam-guide { font-size: 13px; color: var(--text-sub2); margin: 8px 0; }
 .dogam-matched { background: var(--mint-soft); border-color: var(--mint-border); }
