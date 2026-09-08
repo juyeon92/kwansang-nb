@@ -70,6 +70,10 @@
   // 인연 등록에는 로그인을 요구하지 않는다 — 로그인은 "내 도감을 계정에 묶어 오래 보관"하는
   // 용도(후킹)이지 등록 조건이 아니다. 다만 Firestore에 글을 쓰려면 신원이 있어야 보안 규칙으로
   // 어뷰징을 막을 수 있어서, 로그인하지 않은 사람에게는 Firebase 익명 인증으로 uid만 발급한다.
+  // 동시에 여러 곳에서(예: 페이지 로드 직후 render()를 트리거하는 여러 경로) 이 함수를 부르면 서로
+  // 결과를 보기 전에 각자 signInAnonymously()를 불러버리는 문제가 실제로 있었다 — 그 진행 중인
+  // 발급을 여기 담아 공유한다(아래 authUidPromise).
+  let authUidPromise = null;
   async function ensureAuthUid() {
     // ⚠️ 사용자 리포트(2026-09-05: "로그인하고 새로고침하면 로그인이 풀린다") — Firebase Auth가
     // 새로고침 직후 persist된 세션(카카오 로그인 포함)을 비동기로 복원하는 동안 currentUid()는
@@ -83,9 +87,22 @@
     const uid = currentUid();
     if (uid) return uid;
     if (!window.fbAuth || !fbAuth.signInAnonymously) return null;
-    console.log('[dogam] 익명 인증으로 uid 발급');
-    const cred = await fbAuth.signInAnonymously();
-    return cred && cred.user ? cred.user.uid : null;
+    // ⚠️ 버그 수정(2026-09-08 사용자 리포트: "탭 하나 여는 것만으로 인연도감이 여러 개 생긴다") —
+    // 콘솔로 직접 확인: 페이지 로드 직후 render()를 부르는 경로가 여럿이라(restoreLastTab,
+    // switchTab, onAuthStateChanged의 Dogam.render() 등) ensureAuthUid()가 거의 동시에 여러 번
+    // 호출됐다. 위의 whenAuthResolved()는 전부 같은 시점에 풀리는 하나의 Promise라 "동시 호출"
+    // 자체를 막지 못했고, 각 호출이 서로의 결과를 못 본 채 독립적으로 signInAnonymously()를
+    // 불러 익명 uid가 한 페이지 로드에서 3번 연속 발급되는 게 실제로 재현됐다(매번 다른 uid로
+    // onAuthStateChanged가 다시 불리고, 그때마다 새 uid로 Dogam.render()가 돌면서 도감이 중복
+    // 생성될 수 있었다). 이미 발급이 진행 중이면 새로 부르지 않고 그 Promise를 그대로 공유해서,
+    // 동시 호출 전부가 "단 한 번의" 익명 로그인만 기다리게 한다.
+    if (!authUidPromise) {
+      console.log('[dogam] 익명 인증으로 uid 발급');
+      authUidPromise = fbAuth.signInAnonymously()
+        .then(function (cred) { return cred && cred.user ? cred.user.uid : null; })
+        .finally(function () { authUidPromise = null; });
+    }
+    return await authUidPromise;
   }
   function isAnonymousUser() {
     return !!(window.fbAuth && fbAuth.currentUser && fbAuth.currentUser.isAnonymous);
