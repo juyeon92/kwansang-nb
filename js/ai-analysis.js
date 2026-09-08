@@ -3060,7 +3060,10 @@ renderGwansangRevisitCard();
 // 로 옮겼다. 이 함수는 이제 feature 분류까지는 그대로 로컬에서 하고, 판정만 CharacterAPI.analyzeCharacter로
 // 서버에 물어본 뒤 기다린다 — 그래서 async가 됐고, 호출부는 전부 await로 바꿔야 한다.
 async function classifyAndBuildCharacter(ctx, cfg, lm) {
-  const { ids, confidences } = classifyAllFeaturesRuleBased(lm);
+  // ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 1번" — 판정 임계값·시그니처 테이블이 정적
+  // 파일로 노출되지 않도록, 이 세 단계(classifyAllFeaturesRuleBased→getGwansangRatios→judgePartStatus)를
+  // 서버(functions/engine/gwansang-classify.js, classifyGwansang 엔드포인트) 호출로 대체한다.
+  const { featureIds: ids, confidences, partStatusMap } = await CharacterAPI.classifyGwansang(lm);
   state[ctx].archetypeAnalysis = extractArchetypeAnalysis(ids);
   state[ctx].ruleBasedConfidences = confidences;
 
@@ -3069,8 +3072,6 @@ async function classifyAndBuildCharacter(ctx, cfg, lm) {
   await CharacterAPI.ensureArchetypeCatalog();
   renderArchetypes(cfg.archetypeId, ids.eye_archetype_id, ids.face_archetype_id, 'rule', cfg.hideShapeDetails ? null : ids, null, cfg.genderVal, cfg.shapeDetailId, cfg.personLabel);
 
-  const ratios = getGwansangRatios(lm);
-  const partStatusMap = judgePartStatus(ratios);
   // §2-A 비교 카드("관상만 봤을 때 → 관상+사주 유형")용 얼굴 단독 판정(faceOnlyCharacterId)은
   // 서버(analyzeCharacter)가 같은 원칙(사주가 섞였을 때만 얼굴만 다시 판정)으로 계산해 함께 내려준다.
   const characterResult = await CharacterAPI.analyzeCharacter({

@@ -42,6 +42,12 @@ const NYANG_ADMIN_HISTORY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudf
 const ANALYZE_CHARACTER_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/analyzeCharacter';
 const GET_COMPATIBILITY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/getCompatibility';
 
+// ═══ 관상 판정 함수 URL (ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 1번", 2026-09-08 배포) ═══
+// js/landmark-engine.js의 classify*·시그니처/임계값 테이블이 정적 파일로 그대로 노출되던 걸 막기 위해
+// 서버(functions/engine/gwansang-classify.js)로 옮긴 판정 엔드포인트. 랜드마크 좌표(lm)만 보내고
+// featureIds/confidences/partStatusMap을 받는다 — 그 다음 analyzeCharacter로 이어지는 흐름은 그대로.
+const CLASSIFY_GWANSANG_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/classifyGwansang';
+
 // ═══ 카카오페이 결제 함수 URL (2026-09-03) ═══
 // firebase deploy 후 아래 2개를 실제 함수 URL로 채워야 냥샵의 "구매하기" 버튼이 실제 카카오페이
 // 결제창으로 연결된다. 비어 있으면 js/nyang-shop.js가 예전처럼 "준비 중" 안내만 보여준다.
