@@ -8,10 +8,12 @@
 > 항목은 이 설계서 작성 시점(9/7) 이전인 2026-08-30 커밋에서 이미 서버로 이관되어 있었다
 > (`functions/engine/*.js` + `analyzeCharacter`/`getCompatibility`/`getArchetypeCatalog`/
 > `getCharacterCatalog` 엔드포인트). 이 문서와 무관하게 독립적으로 이미 진행 중이던 작업이다.
-> **아직 남은 작업**은 아래 3개다 — 우선순위 순:
-> 1. `js/landmark-engine.js`의 판정 로직(classify*, scoreAgainstSignature, 시그니처/임계값 테이블) — 서버 `analyzeCharacter`는 이미 판정된 `featureIds`/`confidences`를 입력으로만 받고, 판정 자체는 여전히 클라이언트가 한다.
-> 2. `js/app.js`의 사주 계산 엔진(1181행~, 십이운성·십성·지장간·신살·귀인 등 1,000줄 이상) — 서버는 이미 계산된 `pillars`/`ohaengCounts`/`sinsalList`/`gwiinList`를 입력으로만 받고, 계산 자체는 여전히 클라이언트가 한다.
-> 3. `geminiProxy`와 `js/ai-analysis.js`의 AI 시스템 프롬프트 3종(`buildDeepReportSystemInstruction`, `buildGunghapSystemInstruction`, `buildAiEnhancementSystemInstruction`) — `geminiProxy`는 여전히 클라이언트가 보낸 systemInstruction을 검증 없이 그대로 Gemini에 전달하는 "얇은 프록시"라, 프롬프트 원문이 그대로 브라우저에 노출된다.
+> **업데이트 (2026-09-08, 계속)**: 아래 3개 전부 서버 코드 준비 + 로컬 검증까지 끝났다(배포·클라이언트
+> 연결은 아직) — 진행 상황 섹션(아래) 참고.
+> 1. ✅ `js/landmark-engine.js`의 판정 로직 → `functions/engine/gwansang-classify.js` + `classifyGwansang` 엔드포인트.
+> 2. ✅ `js/app.js`의 사주 계산 엔진 → `functions/engine/saju-calc.js` + `computeSaju` 엔드포인트.
+> 3. ✅ AI 프롬프트 3종 + Gemini 호출 → `functions/engine/prompt-builders.js` + `generateDeepReport`/
+>    `generateAiEnhancement`/`generateGunghapReport` 엔드포인트(`geminiProxy`는 대조 검증 끝날 때까지 유지).
 >
 > 아래 본문(1~7)은 작성 당시 전체 스코프 기준으로 쓴 원문이다 — 이미 끝난 부분도 포함해 그대로
 > 남겨둔다(무엇이 왜 필요했는지 맥락 보존 목적). **실제 작업은 위 "아직 남은 작업" 3개 기준으로
@@ -99,6 +101,55 @@
 3. 남은 마지막 영역(AI 프롬프트 3종 + `geminiProxy`)은 그다음 — `computeSaju`/`classifyGwansang`이
    반환하는 값들을 그대로 재료 삼아 서버가 프롬프트를 조립하도록 바꾸는 작업이라, 이 두 단계가
    먼저 끝나 있어야 자연스럽게 이어진다.
+
+### ✅ 3단계 — AI 프롬프트 3종 + Gemini 호출 순수 이관 (서버 코드 준비 완료, 아직 미배포·미연결)
+
+- `js/ai-analysis.js` 전체(3270줄)를 그대로 `functions/engine/prompt-builders.js`로 옮겼다.
+  render*/wire*/save* 등 DOM 조작 함수·카드 HTML 빌더는 Node에서 호출되지 않는 죽은 코드로 남겨뒀다
+  (saju-calc.js·gwansang-classify.js와 같은 방식) — 모듈 스코프(함수 밖)에서 즉시 실행되던
+  `renderGwansangRevisitCard();` 한 줄만 `typeof document !== 'undefined'` 가드로 무력화했다.
+- **딱 4곳만 실제로 로직에 손을 댔다** — 전부 "2026-08-30 DB 이원화" 때 생긴 클라이언트 캐시 패턴
+  (`await CharacterAPI.ensureXXXCatalog()`)을 서버가 이미 `require()`로 갖고 있는 것으로 대체한
+  것뿐, 프롬프트 문구나 순서는 전혀 안 바꿨다:
+  - `buildAiEnhancementSystemInstruction`: 캐시 재요청 줄 제거
+  - `buildGunghapRelationBlock`: `CharacterAPI.getRelation()` → `classifyCompatibility()` 직접 호출
+  - `buildDeepReportUserPrompt`: 캐시 재요청 줄 2곳 제거
+- 새 파일 `functions/engine/part-content-db.js` 추가 — `js/app.js`의 `PART_DEF`/`PART_CONTENT`(관상
+  부위별 해석 문구)를 복제(원본은 클라이언트에도 유지 — archetype-db.js처럼 클라이언트 원본을
+  비우는 건 별도 작업).
+- 새 함수 `callGeminiDirect`(prompt-builders.js) 추가 — `geminiProxy`의 키 순환·재시도 로직을 그대로
+  가져오고, 클라이언트의 옛 `callGeminiAPI`가 하던 "응답에서 text 뽑아 JSON.parse" 단계까지 합쳐서
+  최종 파싱된 리포트 객체를 바로 반환한다.
+- 새 진입점 3개 추가 — `generateDeepReport`(통합분석/사주보기 딥리포트), `generateAiEnhancement`
+  (관상 부위별 보완 + 눈모양·동물형상 재확인), `generateGunghapReport`(궁합 커플 해석). 클라이언트가
+  지금까지 `build*SystemInstruction`/`build*UserPrompt`/`build*Schema`로 직접 조립해 `geminiProxy`에
+  보내던 것과 같은 재료(ratios/statusMap/pillars/ohaeng/sajuInsight/characterResult/cache 등)를
+  입력으로 받고, 최종 리포트만 반환한다.
+- 새 Cloud Function 3개(`functions/index.js`) 추가 — `generateDeepReport`/`generateAiEnhancement`/
+  `generateGunghapReport`. 인증(idToken) 확인 후 `geminiApiKeys` 시크릿에서 키를 뽑아 위 함수들에
+  `apiKeys`로 넘긴다. **`geminiProxy`는 아직 그대로 둔다** — 대조 검증 끝나기 전까지는 폐기하지 않는다.
+- **검증**: 다른 두 모듈보다 의존성이 훨씬 얽혀 있어서(이미 서버로 간 캐릭터/원형 DB, 사주 계산
+  엔진, 트레이트 설정 등을 전부 참조) 자동 대조 스크립트로 "이 파일이 참조하는 이름 중 다른
+  `functions/engine/*.js`에는 있는데 여기 없는 것"을 전수 검사했다 — 그 결과로 saju-calc.js·
+  gwansang-classify.js에 원래 없던 export 몇 개(천간/지지 한글 테이블, 해석 문구 테이블,
+  `get12Unseong`, `calcSinkangSinyak` 등)를 추가로 내보내야 했다. 그 다음 로컬 Node에서 더미
+  데이터로 `generateDeepReport`/`generateAiEnhancement`/`generateGunghapReport` 3개 전부 시스템
+  프롬프트 조립 → 사용자 프롬프트 조립 → 스키마 조립까지 크래시 없이 실행되는 것을 확인했다
+  (Gemini 실제 호출 직전, "API 키가 없다" 에러에서 의도대로 멈춤 — 실제 키가 없는 로컬 환경이라
+  정상적인 멈춤 지점).
+
+**아직 안 한 것 (다음 단계)**:
+1. 배포 후 실제 요청으로 "클라이언트가 지금 받는 리포트 vs 새 엔드포인트가 돌려주는 리포트"가
+   완전히 같은지 대조 검증 — 프롬프트·스키마·이미지가 전부 실제 Gemini 호출로 이어지는 부분이라
+   로컬 테스트만으론 부족하고, 실제 배포·여러 케이스 비교가 필요하다.
+2. 검증 끝나면 `js/app.js`/`js/ai-analysis.js`의 호출부를 새 엔드포인트 fetch로 교체하고,
+   `build*SystemInstruction`/`build*UserPrompt`/`build*Schema`/`callGeminiAPI`를 클라이언트에서 삭제.
+3. `geminiProxy` 폐기(또는 접근 제한) — 4.4 참고.
+4. 인연도감 개인정보 고지 문구를 4.1에서 정한 대로 수정.
+
+이로써 설계서 2번 표의 4개 영역(캐릭터/궁합 DB, 관상 판정, 사주 계산, AI 프롬프트) **전부 서버 코드
+준비가 끝났다.** 남은 건 전부 "배포 → 실제 대조 검증 → 클라이언트 전환 → 클라이언트 코드 삭제"
+단계이고, 이건 로컬에서 대신 해줄 수 없는 부분이라 실제 배포 환경에서 진행해야 한다.
 
 ---
 

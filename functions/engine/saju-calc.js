@@ -1365,4 +1365,18 @@ module.exports = {
   buildYongsinChemi,
   calcAge,
   getGongmang,
+  // 천간/지지 이름 테이블 — prompt-builders.js가 리포트 문구에 "갑자" 같은 한글 간지를 넣을 때 재사용.
+  CHEONGAN,
+  JIJI,
+  CG_KO,
+  JJ_KO,
+  CG_OH,
+  JJ_OH,
+  // 해석 문구 테이블 — prompt-builders.js가 "제왕: 기운이 최고조..." 같은 뜻풀이를 리포트 근거로 인용.
+  SIBIUNSEONG_MEANING,
+  SIPSEONG_MEANING,
+  SIBISINSAL_MEANING,
+  GWIIN_MEANING,
+  get12Unseong,
+  LIFELINE_STAGE_LABEL,
 };

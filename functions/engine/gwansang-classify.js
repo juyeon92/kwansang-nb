@@ -1188,4 +1188,7 @@ module.exports = {
   calcSamjeongRatio,
   calcAsymmetry,
   calcFaceOhaeng,
+  isForeheadReliable,
+  classifyEyeArchetypeRuleBased,
+  classifyFaceArchetypeRuleBased,
 };

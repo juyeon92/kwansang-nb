@@ -11,6 +11,7 @@ const archetypeDb = require('./engine/archetype-db');
 const characterDb = require('./engine/character-db');
 const { computeSajuBundle } = require('./engine/saju-calc');
 const { classifyGwansangBundle } = require('./engine/gwansang-classify');
+const { generateDeepReport, generateAiEnhancement, generateGunghapReport } = require('./engine/prompt-builders');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -763,6 +764,66 @@ exports.adminNyangHistory = onRequest({ cors: true }, async (req, res) => {
   }
 });
 
+// ═══ AI 리포트 3종 (ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 3번" — engine/prompt-builders.js 서버 이전) ═══
+// js/ai-analysis.js의 시스템 프롬프트 3종(딥리포트/궁합/부위별 보완) + 각 리포트 JSON 스키마가 정적
+// 스크립트로 그대로 노출되던 문제를 막기 위해 서버로 옮겼다. geminiProxy처럼 "클라이언트가 보낸
+// systemInstruction을 그대로 전달"하지 않는다 — 프롬프트는 서버가 스스로 조립하고, 클라이언트는
+// 원재료(관상 판정 결과·사주 계산 결과·사전 질문 답변 등, 이미 computeSaju/classifyGwansang이
+// 반환하는 것과 같은 모양)만 보낸다. Gemini 실제 호출·응답 파싱까지 전부 여기서 끝나므로 클라이언트는
+// Gemini raw 응답도 보지 않는다 — 최종 리포트 텍스트만 받는다.
+// timeoutSeconds를 늘려둔 이유는 geminiProxy와 동일(키 할당량 초과 시 여러 키 순차 재시도).
+function toApiKeys() { return (geminiApiKeys.value() || '').split(',').map(k => k.trim()).filter(Boolean); }
+
+exports.generateDeepReport = onRequest({ cors: true, secrets: [geminiApiKeys], timeoutSeconds: 180 }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  try { await admin.auth().verifyIdToken(idToken); }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+
+  try {
+    const data = await generateDeepReport({ ...(req.body || {}), apiKeys: toApiKeys() });
+    res.json({ ok: true, data });
+  } catch (e) {
+    console.error('generateDeepReport 실패', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+exports.generateAiEnhancement = onRequest({ cors: true, secrets: [geminiApiKeys], timeoutSeconds: 180 }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  try { await admin.auth().verifyIdToken(idToken); }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+
+  try {
+    const data = await generateAiEnhancement({ ...(req.body || {}), apiKeys: toApiKeys() });
+    res.json({ ok: true, data });
+  } catch (e) {
+    console.error('generateAiEnhancement 실패', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+exports.generateGunghapReport = onRequest({ cors: true, secrets: [geminiApiKeys], timeoutSeconds: 180 }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  try { await admin.auth().verifyIdToken(idToken); }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+
+  try {
+    const data = await generateGunghapReport({ ...(req.body || {}), apiKeys: toApiKeys() });
+    res.json({ ok: true, data });
+  } catch (e) {
+    console.error('generateGunghapReport 실패', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ⚠️ geminiProxy는 아직 폐기하지 않았다 — 클라이언트가 위 3개 엔드포인트를 호출하도록 바뀌고 실제
+// 대조 검증까지 끝난 뒤에 폐기(또는 접근 제한)한다(ANALYSIS_LOGIC_SERVER_MIGRATION.md 4.4·5번 8단계).
 // 프론트(js/ai-analysis.js)가 Gemini에 보낼 내용(시스템 지시문·사용자 텍스트·이미지·스키마)만 보내면
 // 여기서 실제 Gemini 요청 형식으로 조립해 키와 함께 호출한다 — 브라우저는 진짜 키를 절대 볼 수 없다.
 // timeoutSeconds를 기본값(60초)보다 늘려둔다 — 사진 분석은 요청이 무겁고, 키 할당량 초과로 여러 키를
