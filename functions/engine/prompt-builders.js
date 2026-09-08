@@ -33,12 +33,13 @@ const { EYE_ARCHETYPE_DB, FACE_ARCHETYPE_DB, FOREHEAD_TYPE_DB, EYEBROW_TYPE_DB,
   FACE_ARCHETYPE_EMOJI, eyeIconSVG } = archetypeDb;
 const { CHARACTER_DB, CHARACTER_ILLUSTRATION, getCharacterIllustration, getCompatibilityTags } = characterDb;
 
-// ═══ Gemini AI 정밀 해석 (선택 기능) ═══
-// 실제 API 키는 여기 없다 — functions/index.js의 geminiProxy Cloud Function 안에서만 쓰인다.
-// 브라우저는 js/config.js의 GEMINI_PROXY_URL로만 요청한다(사용자에게 키 입력을 요구하는 UI 없음).
-// config.js가 ai-analysis.js보다 먼저 로드되어야 한다(gwansang-saju.html의 <script> 순서 참고).
+// ═══ Gemini 모델 선택 ═══
 // 고정 버전은 계속 폐기됨(2.0→2.5도 신규 계정엔 이미 막힘) → 항상 최신 별칭 사용.
 // Flash(하루 20회)보다 Flash Lite(하루 500회)가 무료 한도가 25배 넉넉해서 이쪽으로 전환.
+// ⚠️ 2026-09-08 버그 수정 — generateDeepReport/generateAiEnhancement/generateGunghapReport가
+// callGeminiDirect를 부를 때 이 상수를 안 넘겨서, callGeminiDirect의 기본값('gemini-flash-latest',
+// 무료 한도가 훨씬 적음)이 조용히 쓰이고 있었다(그래서 503/한도초과가 유독 잦았다) — 세 호출부
+// 전부 GEMINI_MODEL을 명시로 넘기도록 고쳤다.
 const GEMINI_MODEL = 'gemini-flash-lite-latest';
 
 function isGeminiConfigured() {
@@ -3389,7 +3390,7 @@ async function generateDeepReport(opts) {
     archetypeAnalysis, sewoonInfo, zone1Character, zone3Extra, situation
   );
   const schema = buildPersonalDeepReportSchema(!!hasSaju, !!hasFace, q1, q2, q3);
-  return callGeminiDirect(apiKeys, sys, userText, imageDataUrl ? [imageDataUrl] : [], schema);
+  return callGeminiDirect(apiKeys, sys, userText, imageDataUrl ? [imageDataUrl] : [], schema, 0.3, GEMINI_MODEL);
 }
 
 // 관상(인연도감/통합분석) — 부위별 사진 기반 보완 한 문장 + 눈모양·동물형상 재확인
@@ -3400,7 +3401,7 @@ async function generateAiEnhancement(opts) {
   const statusMap = ratios ? judgePartStatus(ratios) : null;
   const sys = await buildAiEnhancementSystemInstruction();
   const userText = buildAiEnhancementUserPrompt(ratios, statusMap, pillars, ohaeng);
-  return callGeminiDirect(apiKeys, sys, userText, imageDataUrl ? [imageDataUrl] : [], AI_ENHANCEMENT_SCHEMA, 0.25);
+  return callGeminiDirect(apiKeys, sys, userText, imageDataUrl ? [imageDataUrl] : [], AI_ENHANCEMENT_SCHEMA, 0.25, GEMINI_MODEL);
 }
 
 // 궁합보기 — 커플 해석
@@ -3409,7 +3410,7 @@ async function generateGunghapReport(opts) {
   const sys = buildGunghapSystemInstruction(nameA || '나', nameB || '상대방', !!isRomantic);
   const userText = await buildGunghapUserPrompt(cache || {});
   const schema = buildGunghapReportSchema(!!isRomantic);
-  return callGeminiDirect(apiKeys, sys, userText, images || [], schema);
+  return callGeminiDirect(apiKeys, sys, userText, images || [], schema, 0.9, GEMINI_MODEL);
 }
 
 module.exports = {
