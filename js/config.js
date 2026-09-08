@@ -47,6 +47,7 @@ const GET_COMPATIBILITY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfun
 // 서버(functions/engine/gwansang-classify.js)로 옮긴 판정 엔드포인트. 랜드마크 좌표(lm)만 보내고
 // featureIds/confidences/partStatusMap을 받는다 — 그 다음 analyzeCharacter로 이어지는 흐름은 그대로.
 const CLASSIFY_GWANSANG_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/classifyGwansang';
+const GWANSANG_COMPAT_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/gwansangCompat';
 
 // ═══ 사주 계산 함수 URL (ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 2번", 2026-09-08 배포) ═══
 // js/app.js의 computePillars/computeOhaeng/computeDaeun 등(십성·십이운성·신살·귀인·공망·대운 판정
@@ -55,6 +56,15 @@ const CLASSIFY_GWANSANG_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfun
 // 한 번에 받는다 — buildCombinedReport(통합분석)의 단일 인물 계산만 우선 전환한다. 궁합보기의 두 사람
 // 비교 계산(computePillars(A)/(B), buildSipseongCross 등)은 이번 전환 범위 밖(다음 후보).
 const COMPUTE_SAJU_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/computeSaju';
+
+// ═══ AI 리포트 3종 함수 URL (ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 3번", 2026-09-08 배포) ═══
+// js/ai-analysis.js의 시스템 프롬프트 3종(딥리포트/부위별 보완/궁합) + 스키마 + Gemini 호출이 정적
+// 파일로 노출되던 걸 막기 위해 서버(functions/engine/prompt-builders.js)로 옮긴 엔드포인트.
+// 클라이언트는 원재료(ratios/statusMap/pillars 등)만 보내고 최종 리포트 텍스트만 받는다 —
+// 기존 GEMINI_PROXY_URL(geminiProxy)은 대조 검증이 끝날 때까지는 그대로 둔다.
+const GENERATE_DEEP_REPORT_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/generateDeepReport';
+const GENERATE_AI_ENHANCEMENT_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/generateAiEnhancement';
+const GENERATE_GUNGHAP_REPORT_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/generateGunghapReport';
 
 // ═══ 카카오페이 결제 함수 URL (2026-09-03) ═══
 // firebase deploy 후 아래 2개를 실제 함수 URL로 채워야 냥샵의 "구매하기" 버튼이 실제 카카오페이

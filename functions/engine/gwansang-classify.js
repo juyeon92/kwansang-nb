@@ -1171,24 +1171,90 @@ function gwansangLevel(key, v) {
 // ⚠️ 아직 어떤 Cloud Function에서도 호출되지 않는다 — functions/index.js에 endpoint를 추가하는 건
 // 이 파일의 다음 커밋에서 한다. 랜드마크 추출(MediaPipe) 자체는 계속 클라이언트가 한다는 전제라,
 // 이 함수는 "이미 추출된 lm 배열"을 입력으로 받는다.
+// ⚠️ 2026-09-08 확장 — js/app.js·js/landmark-engine.js의 나머지 렌더링 함수들(renderPersonalReportV2·
+// renderSnapshotHighlights·buildPersonNarrative·renderExtendedAnalysis 등)이 각자 getGwansangRatios/
+// judgePartStatus/gwansangLevel/classifyGwansang3Tier를 직접 불러 쓰고 있어서, classifyGwansangBundle
+// 하나만 서버로 옮겨서는 그 계산 로직들을 클라이언트에서 지울 수 없었다. 이 화면들이 필요로 하는
+// "이미 계산된 값"(원본 수치·임계값 자체가 아니라)을 전부 이 한 응답에 묶어서, 클라이언트는 표시만
+// 하도록 만든다 — partDetails(부위별 실측값+정규화점수+강점/보완), tier3·asymmetry·faceOhaeng·
+// samjeong·faceShape3(각 화면이 쓰던 부가 판정 결과).
 function classifyGwansangBundle(lm) {
   const { ids, confidences } = classifyAllFeaturesRuleBased(lm);
   const ratios = getGwansangRatios(lm);
   const partStatusMap = judgePartStatus(ratios);
-  return { featureIds: ids, confidences, partStatusMap };
+
+  const partDetails = {};
+  Object.entries(PART_KEY_TO_MEASURE).forEach(([key, measure]) => {
+    partDetails[key] = {
+      status: partStatusMap[key],
+      rawValue: ratios[measure],
+      level: gwansangLevel(measure, ratios[measure]),
+    };
+  });
+
+  return {
+    foreheadReliable: isForeheadReliable(ratios.gwanR),
+    featureIds: ids,
+    confidences,
+    partStatusMap,
+    partDetails,
+    tier3: classifyGwansang3Tier(ratios),
+    asymmetry: calcAsymmetry(lm),
+    faceOhaeng: calcFaceOhaeng(lm),
+    samjeong: calcSamjeongRatio(lm),
+    faceShape3: classifyFaceShape3(ratios),
+    // drawRegions(js/landmark-engine.js)가 좌우 개별 실측 라벨(와잠(우)/(좌), 법령(우)/(좌))을 그릴 때
+    // lm 좌표를 직접 나누는 분모로만 쓴다 — 판정 임계값이 아니라 사진마다 달라지는 스케일 상수.
+    interocularDist: ratios.__interocularDist,
+  };
+}
+
+// 궁합보기의 2인 관상 궁합(db/MATCHING.csv 기반) — js/app.js에서 그대로 옮김(로직 변경 없음).
+// gwansangFeatureCompat의 similarity 계산은 원본 raw 값(vA-vB)의 클램프 전 차이를 쓰기 때문에
+// level(0~100, 클램프됨)만으로는 재현할 수 없다 — 그래서 이 함수는 lm 자체를 받아 서버에서
+// 처음부터 다시 계산한다(클라이언트에 근사치를 만들게 하지 않는다).
+function gwansangFeatureCompat(key, vA, vB) {
+  const [min, max] = GWANSANG_FEATURE_RANGE[key];
+  const range = max - min;
+  const avgLevel = (gwansangLevel(key, vA) + gwansangLevel(key, vB)) / 2;
+  const similarity = Math.max(30, Math.min(100, Math.round(100 - (Math.abs(vA - vB) / range) * 120)));
+  return Math.round(avgLevel * 0.5 + similarity * 0.5);
+}
+
+function calcGwansangCompat(lmA, lmB) {
+  const rA = getGwansangRatios(lmA), rB = getGwansangRatios(lmB);
+  const emo    = gwansangFeatureCompat('waJ', rA.waJ, rB.waJ);
+  const comm   = Math.round((gwansangFeatureCompat('beomR', rA.beomR, rB.beomR) + gwansangFeatureCompat('mgW', rA.mgW, rB.mgW)) / 2);
+  const love   = Math.round((gwansangFeatureCompat('waJ', rA.waJ, rB.waJ) + gwansangFeatureCompat('injR', rA.injR, rB.injR)) / 2);
+  const money  = gwansangFeatureCompat('junduR', rA.junduR, rB.junduR);
+  const jaw    = gwansangFeatureCompat('jigakR', rA.jigakR, rB.jigakR);
+  const growth = gwansangFeatureCompat('gwanR', rA.gwanR, rB.gwanR);
+  return {
+    '정서적 궁합': emo,
+    '대화·소통 궁합': comm,
+    '연애 궁합': love,
+    '금전 궁합': money,
+    '갈등 궁합': jaw,
+    '성장 궁합': growth,
+    '장기적인 관계 궁합': jaw,
+  };
 }
 
 module.exports = {
   // 마스터 진입점 — 새 엔드포인트는 원칙적으로 이것만 호출하면 된다.
   classifyGwansangBundle,
+  calcGwansangCompat,
   // 낱개로도 필요할 수 있어 개별로도 내보낸다.
   classifyAllFeaturesRuleBased,
   getGwansangRatios,
   judgePartStatus,
+  getPartLevelsSorted,
   calcSamjeongRatio,
   calcAsymmetry,
   calcFaceOhaeng,
   isForeheadReliable,
   classifyEyeArchetypeRuleBased,
   classifyFaceArchetypeRuleBased,
+  classifyGwansang3Tier,
+  classifyFaceShape3,
 };

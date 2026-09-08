@@ -1,11 +1,8 @@
 // ═══ Gemini AI 정밀 해석 (선택 기능) ═══
-// 실제 API 키는 여기 없다 — functions/index.js의 geminiProxy Cloud Function 안에서만 쓰인다.
-// 브라우저는 js/config.js의 GEMINI_PROXY_URL로만 요청한다(사용자에게 키 입력을 요구하는 UI 없음).
-// config.js가 ai-analysis.js보다 먼저 로드되어야 한다(gwansang-saju.html의 <script> 순서 참고).
-// 고정 버전은 계속 폐기됨(2.0→2.5도 신규 계정엔 이미 막힘) → 항상 최신 별칭 사용.
-// Flash(하루 20회)보다 Flash Lite(하루 500회)가 무료 한도가 25배 넉넉해서 이쪽으로 전환.
-const GEMINI_MODEL = 'gemini-flash-lite-latest';
-
+// ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 3번" — 시스템 프롬프트 조립·스키마·Gemini 실제
+// 호출(모델 선택 포함)은 이제 서버(js/ai-report-api.js → generateDeepReport 등)로 옮겼다. 여기 남은
+// isGeminiConfigured()는 GEMINI_PROXY_URL(옛 geminiProxy 설정) 유무로 "AI 기능이 배포됐는지"만 게이트한다
+// — geminiProxy 자체가 폐기되기 전까지는 같은 배포 묶음이라 이 값으로도 여전히 정확하다.
 function isGeminiConfigured() {
   return typeof GEMINI_PROXY_URL !== 'undefined' && !!GEMINI_PROXY_URL.trim();
 }
@@ -22,140 +19,6 @@ function getCleanImageDataUrl(ctx, canvasId) {
   const canvas = document.getElementById(canvasId);
   return canvas ? canvas.toDataURL('image/jpeg', 0.85) : null;
 }
-
-// db/FACE_FEATURE.csv · db/FACE_READING.csv 내용을 코드에 옮겨 둔 PART_DEF/PART_CONTENT를 그대로 재사용
-function buildDbContext() {
-  return PART_DEF.map(p => ({
-    label: p.label,
-    sub: p.sub,
-    strength_meaning: PART_CONTENT[p.key].strength.meaning,
-    complement_meaning: PART_CONTENT[p.key].complement.meaning,
-  }));
-}
-
-// ═══ AI가 판별한 관상 유형 ID → 실제 해석 근거 DB로 변환 ═══
-// Deep Report가 사진을 다시 마음대로 해석하지 않고,
-// 앞선 AI 분류 결과 + archetype-db.js의 고정 데이터를 근거로 서술하도록 전달한다.
-function buildArchetypeContext(ids) {
-  if (!ids) return null;
-
-  function pick(db, id) {
-    if (!id || !db || !db[id]) return null;
-
-    const v = db[id];
-
-    const result = {
-      id,
-      name: v.nameKo || '',
-    };
-
-    if (v.easyName) result.easy_name = v.easyName;
-    if (v.glance) result.visual_summary = v.glance;
-    if (Array.isArray(v.features)) result.visual_features = v.features;
-    if (v.traditional) result.traditional_meaning = v.traditional;
-    if (Array.isArray(v.keywords)) result.keywords = v.keywords;
-
-    if (v.strength) result.strength = v.strength;
-    if (v.weakness) result.weakness = v.weakness;
-    if (v.coaching) result.coaching = v.coaching;
-
-    return result;
-  }
-
-  const context = {
-    eye_archetype: pick(
-      EYE_ARCHETYPE_DB,
-      ids.eye_archetype_id
-    ),
-
-    face_archetype: pick(
-      FACE_ARCHETYPE_DB,
-      ids.face_archetype_id
-    ),
-
-    forehead: pick(
-      FOREHEAD_TYPE_DB,
-      ids.forehead_type_id
-    ),
-
-    eyebrow: pick(
-      EYEBROW_TYPE_DB,
-      ids.eyebrow_type_id
-    ),
-
-    eye_shape: pick(
-      EYE_SHAPE_DB,
-      ids.eye_shape_id
-    ),
-
-    nose: pick(
-      NOSE_SHAPE_DB,
-      ids.nose_shape_id
-    ),
-
-    mouth: pick(
-      MOUTH_SHAPE_DB,
-      ids.mouth_shape_id
-    ),
-
-    chin: pick(
-      CHIN_SHAPE_DB,
-      ids.chin_shape_id
-    ),
-
-    face_shape: pick(
-      FACE_SHAPE_TYPE_DB,
-      ids.face_shape_type_id
-    ),
-  };
-
-  // null인 유형은 Gemini에 넘기지 않는다.
-  return Object.fromEntries(
-    Object.entries(context).filter(([, value]) => value)
-  );
-}
-
-const TONE_RULES = `[말투 규칙]
-- 반드시 친근한 해요체 사용 ("~해요", "~예요")
-- MBTI 유형을 설명하듯 직관적이고 감성적인 단어로 표현
-- 부정적인 표현 대신 "이렇게 하면 운이 더 좋아져요" 식 긍정적인 개운 팁으로 제시
-
-[절대 금지 — 반드시 지켜야 함]
-- 한자 관상·명리 용어 노출 금지(명궁, 산근, 준두, 법령, 지각, 관록궁, 십성, 용신, 오행의 목·화·토·금·수 한자 등). 부위명은 항상 [참고 데이터베이스]의 label(이마·미간·눈밑·코 뿌리·코끝·인중·팔자주름·턱)만 사용하세요.
-- 쁘띠 시술(보톡스, 필러, 성형 등) 추천 절대 금지 → 메이크업/헤어 연출법 및 마사지/표정 습관으로만 대체하세요.
-- "사망", "요절", "재앙" 같은 단정적 흉조 표현 금지. 항상 건설적이고 긍정적으로 재해석하세요.
-- growth_guidance, zone3_ohaeng_reading처럼 snake_case로 된 내부 필드명·변수명을 문장에 그대로 쓰지 마세요. "위 조언", "앞서 설명한 성향"처럼 사람이 읽는 말로 풀어서 가리키세요(사용자 리포트: "growth_guidance에서 강조한..."이라고 쓰면 사용자는 무슨 말인지 모른다).`;
-
-// AI의 역할은 "분류"뿐 — 어떤 눈모양/동물형상 ID에 가까운지만 판별한다. 설명 문장은 AI가 짓지 않고
-// EYE_ARCHETYPE_DB/FACE_ARCHETYPE_DB에 미리 써둔 고정 문구를 그대로 쓴다(부위별 코멘트 생성 기능은 폐기함).
-// 자동 실행되는 AI 보완 1콜 — (1) 부위별 사진 기반 코멘트 + (2) 눈모양·동물형상 분류를 한번에 받는다.
-// (2)는 분류만 하면 되고, 설명 문장은 EYE_ARCHETYPE_DB/FACE_ARCHETYPE_DB에 미리 저장된 고정 문구를 그대로 씀.
-const AI_ENHANCEMENT_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    part_additions: {
-      type: 'ARRAY',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          part_key: { type: 'STRING', description: 'forehead, eyebrow, midbrow, undereye, nosebridge, nosetip, philtrum, mouth, smilelines, jaw, cheekbone 중 하나' },
-          addition: { type: 'STRING', description: '기존 카드 문장을 반복하지 않고, 사진에서 직접 관찰한 내용만 담은 한 문장 추가 코멘트' },
-        },
-        required: ['part_key', 'addition'],
-      },
-    },
-    eye_archetype_id: { type: 'STRING', description: '[참고: 눈모양 유형 ID] 중 사진의 눈매와 뚜렷하게 닮은 게 있으면 그 ID를 정확히 그대로 반환(예: "EYE_PHOENIX"). 애매하면 빈 문자열("") — 억지로 끼워맞추지 말 것' },
-    face_archetype_id: { type: 'STRING', description: '[참고: 동물 형상 유형 ID] 중 사진의 전체 인상과 뚜렷하게 닮은 게 있으면 그 ID를 정확히 그대로 반환(예: "FACE_CRANE"). 애매하면 빈 문자열("") — 억지로 끼워맞추지 말 것' },
-    forehead_type_id: { type: 'STRING', description: '[참고: 이마 유형 ID] 중 사진과 가장 가까운 것의 ID. 애매하면 빈 문자열("")' },
-    eyebrow_type_id: { type: 'STRING', description: '[참고: 눈썹 유형 ID] 중 사진과 가장 가까운 것의 ID. 애매하면 빈 문자열("")' },
-    eye_shape_id: { type: 'STRING', description: '[참고: 눈 크기·모양 유형 ID] 중 사진과 가장 가까운 것의 ID(위 eye_archetype_id와는 다른 기준 — 크기/쌍꺼풀 등). 애매하면 빈 문자열("")' },
-    nose_shape_id: { type: 'STRING', description: '[참고: 코 유형 ID] 중 사진과 가장 가까운 것의 ID. 애매하면 빈 문자열("")' },
-    mouth_shape_id: { type: 'STRING', description: '[참고: 입 유형 ID] 중 사진과 가장 가까운 것의 ID. 애매하면 빈 문자열("")' },
-    chin_shape_id: { type: 'STRING', description: '[참고: 턱 유형 ID] 중 사진과 가장 가까운 것의 ID. 애매하면 빈 문자열("")' },
-    face_shape_type_id: { type: 'STRING', description: '[참고: 얼굴형 유형 ID](직사각형/정사각형/삼각형/역삼각형/원형/타원형) 중 사진과 가장 가까운 것의 ID. 애매하면 빈 문자열("")' },
-  },
-  required: ['part_additions', 'eye_archetype_id', 'face_archetype_id', 'forehead_type_id', 'eyebrow_type_id', 'eye_shape_id', 'nose_shape_id', 'mouth_shape_id', 'chin_shape_id', 'face_shape_type_id'],
-};
 
 // ═══ 궁합보기 AI 리포트 v2 (히어로 + Zone1 관상궁합 + Zone2 사주궁합, 2026-08-19 사용자 스펙) ═══
 // 점수(총합/관상만/사주만)는 항상 로컬 계산값(calcCompatScore·calcGwansangCompat, runGungham의 heroScores)을
@@ -199,1292 +62,11 @@ const GUNGHAP_ZONE3_META = {
   improvement:      { emoji: '💡', title: '우리 관계를 더 좋게 만드는 방법' },
 };
 
-// 2026-08-22 재편 — 상수였던 스키마를 함수로 바꿨다. zone3_practical_items(연애할 때/대화할 때 등
-// "그래서 우리는 이렇게 만나요" 8항목)는 연인/배우자 관계일 때만 요청한다 — 친구·가족·지인 관계에
-// "아이를 낳는다면" 같은 항목을 강제로 채우게 하면 어색한 내용이 나오기 때문(사용자 판단).
-function buildGunghapReportSchema(isRomantic) {
-  const properties = {
-    hero_reason: {
-      type: 'STRING',
-      description: '총합 점수가 왜 이렇게 나왔는지 가볍게 설명하는 3~4문장. 관상에서의 대표 장점 1개와 사주에서의 대표 장점 1개를 섞어서 근거로 들 것.',
-    },
-    zone1_shape_reading: {
-      type: 'STRING',
-      description: '두 사람의 관상 유형(캐릭터) 조합이 어떤 모양의 궁합인지 비유적으로 설명하는 풀이. "OO상인 나와 OO상인 상대의 조합은 ~" 형태로 시작해서 4~6문장.',
-    },
-    zone1_shape_basis: {
-      type: 'STRING',
-      description: '위 풀이가 왜 나왔는지 근거. [나의 관상 유형]·[상대방의 관상 유형]의 실제 키워드·강점과 [두 관상 유형의 관계]를 근거로 2~3문장.',
-    },
-    zone2_items: {
-      type: 'ARRAY',
-      description: '아래 10개 key를 모두, 각 1개씩 채운 배열. key는 새로 만들지 말고 지정된 값만 사용할 것.',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          key: {
-            type: 'STRING',
-            description: 'overall_relationship, attraction_reason, sinsal_combo, strengths, weak_point, perceived_by_partner, perceived_by_me, mind_hacking, family_background, expectation_vs_reality 중 하나',
-          },
-          reading: { type: 'STRING', description: '사용자가 먼저 읽는 쉬운 풀이. 해당 주제에 맞는 내용을 4~6문장으로.' },
-          basis: { type: 'STRING', description: '왜 이런 풀이가 나왔는지 — [나/상대방의 신살·귀인 목록]·[오행 분포]·[일간] 등 실제 제공된 사주 데이터 중 무엇을 근거로 했는지 2~3문장.' },
-        },
-        required: ['key', 'reading', 'basis'],
-      },
-    },
-  };
-
-  const required = ['hero_reason', 'zone1_shape_reading', 'zone1_shape_basis', 'zone2_items'];
-
-  if (isRomantic) {
-    properties.zone3_practical_items = {
-      type: 'ARRAY',
-      description: '아래 8개 key를 모두, 각 1개씩 채운 배열 — "그래서 우리는 이렇게 만나요" 실전 가이드. zone2_items에서 이미 다룬 성향 묘사를 반복하지 말고, 각 장면(연애/대화/돈/싸움/장기연애/결혼/육아/개선)에서 실제로 어떻게 행동하면 좋을지 실전 조언 위주로 쓸 것.',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          key: {
-            type: 'STRING',
-            description: 'dating, communication, money, fighting, long_term_dating, married_life, children, improvement 중 하나',
-          },
-          reading: { type: 'STRING', description: '사용자가 먼저 읽는 쉬운 풀이. 해당 장면에서 두 사람이 실제로 어떻게 부딪히거나 잘 맞는지, 그리고 어떻게 하면 좋을지 4~6문장.' },
-          basis: { type: 'STRING', description: '왜 이런 풀이가 나왔는지 — [나/상대방의 신살·귀인 목록]·[오행 분포]·[일간] 등 실제 제공된 사주 데이터 중 무엇을 근거로 했는지 2~3문장.' },
-        },
-        required: ['key', 'reading', 'basis'],
-      },
-    };
-    required.push('zone3_practical_items');
-  }
-
-  return { type: 'OBJECT', properties, required };
-}
-
-// 2026-08-30 DB 이원화 2단계 — archetype-db.js 9종 카탈로그 전체를 참고자료로 프롬프트에 싣는다.
-// EYE_ARCHETYPE_DB 등이 이제 서버에서 받아와야 채워지는 캐시라 async가 됐다(호출부는 이미 async).
-async function buildAiEnhancementSystemInstruction() {
-  await CharacterAPI.ensureArchetypeCatalog();
-  return `당신은 2030세대를 대상으로 하는 K-뷰티 & 관상·사주 컨설턴트입니다.
-
-[임무 1] 아래 [기존 카드 내용]은 로컬 규칙으로 이미 화면에 표시된 문장입니다. 이걸 대체하거나 새 리포트를 만들지 말고, 첨부된 사진을 직접 보고 그 사람만의 구체적인 특징(표정, 분위기, 이목구비의 실제 생김새 등)을 반영한 한 문장씩만 부위별로 "더 보태"주세요(part_additions). 사진을 보지 않고는 쓸 수 없는 구체적인 관찰이어야 하고, 기존 문장을 반복·요약하면 안 됩니다.
-
-[임무 2] 아래 [참고: 눈모양 유형 ID]·[참고: 동물 형상 유형 ID]는 고전 관상학 문헌(마의상법 연구)에서 정리한 명명된 눈모양·전체 인상 유형입니다. 사진을 보고 이 중 뚜렷하게 닮은 게 있으면 eye_archetype_id/face_archetype_id에 그 id 값을 정확히 그대로 반환하세요 — 설명 문장은 이미 서비스에 고정 저장되어 있으니 당신은 분류만 하면 됩니다. 절대 억지로 끼워맞추지 말고, 뚜렷하게 닮지 않았으면 빈 문자열로 두세요.
-
-[임무 3] 아래 [참고: 이마/눈썹/눈 크기·모양/코/입/턱/얼굴형 유형 ID]는 부위별 생김새(크기·모양)에 따른 강점·약점 분류입니다(위 임무2의 눈모양·동물형상과는 다른 축 — MBTI가 아니라 순수 생김새 유형입니다). 사진을 보고 각 부위마다 가장 가까운 유형 ID를 forehead_type_id/eyebrow_type_id/eye_shape_id/nose_shape_id/mouth_shape_id/chin_shape_id/face_shape_type_id에 반환하세요. 역시 설명은 고정 저장돼 있으니 분류만 하면 되고, 애매하면 빈 문자열로 두세요.
-
-아래 [참고 데이터베이스]는 전통 관상학을 8개 부위로 정리해 둔 내부 자료입니다. 사용자에게 이 원문을 그대로 노출하지 마세요.
-
-[참고: 눈모양 유형 ID]
-${JSON.stringify(Object.entries(EYE_ARCHETYPE_DB).map(([id, v]) => ({ id, name: `${v.nameKo}(${v.hanja})`, visual: v.features.join(' / ') })))}
-
-[참고: 동물 형상 유형 ID]
-${JSON.stringify(Object.entries(FACE_ARCHETYPE_DB).map(([id, v]) => ({ id, name: `${v.nameKo}(${v.hanja})`, visual: v.features.join(' / ') })))}
-
-[참고: 이마 유형 ID]
-${JSON.stringify(Object.entries(FOREHEAD_TYPE_DB).map(([id, v]) => ({ id, name: v.nameKo })))}
-
-[참고: 눈썹 유형 ID]
-${JSON.stringify(Object.entries(EYEBROW_TYPE_DB).map(([id, v]) => ({ id, name: v.nameKo })))}
-
-[참고: 눈 크기·모양 유형 ID]
-${JSON.stringify(Object.entries(EYE_SHAPE_DB).map(([id, v]) => ({ id, name: v.nameKo })))}
-
-[참고: 코 유형 ID]
-${JSON.stringify(Object.entries(NOSE_SHAPE_DB).map(([id, v]) => ({ id, name: v.nameKo })))}
-
-[참고: 입 유형 ID]
-${JSON.stringify(Object.entries(MOUTH_SHAPE_DB).map(([id, v]) => ({ id, name: v.nameKo })))}
-
-[참고: 턱 유형 ID]
-${JSON.stringify(Object.entries(CHIN_SHAPE_DB).map(([id, v]) => ({ id, name: v.nameKo })))}
-
-[참고: 얼굴형 유형 ID]
-${JSON.stringify(Object.entries(FACE_SHAPE_TYPE_DB).map(([id, v]) => ({ id, name: v.nameKo })))}
-
-${TONE_RULES}
-
-[참고 데이터베이스]
-${JSON.stringify(buildDbContext())}`;
-}
-
-function buildAiEnhancementUserPrompt(ratios, statusMap, pillars, ohaeng) {
-  const sajuBlock = pillars
-    ? `일간: ${pillars[2].stem >= 0 ? CG_KO[pillars[2].stem] + '(' + CG_OH[pillars[2].stem] + ')' : '미상'} / 오행 분포: ${JSON.stringify(ohaeng)}`
-    : '사주 정보 없음 — 관상 데이터만으로 판단해주세요.';
-  const existingCards = PART_DEF.map(p => ({ part_key: p.key, part_label: p.label, existing_text: PART_CONTENT[p.key][statusMap[p.key]].meaning }));
-  // 앞머리 등으로 이마 측정이 불확실하면(랜드마크 엔진의 이마 폴백 판정) 이마 얘기 비중을 줄이고
-  // 눈·코 등 상대적으로 신뢰도가 높은 부위 위주로 코멘트를 달아달라고 명시적으로 지시한다.
-  const foreheadNote = isForeheadReliable(ratios.gwanR)
-    ? ''
-    : '\n\n[측정 신뢰도 참고] 이 사진은 앞머리 등으로 이마 측정이 불확실해요. 이마 관련 코멘트는 피하고 눈·코·입 등 다른 부위 위주로 관찰해주세요.';
-  return `[기존 카드 내용] (이미 화면에 있음 — 대체하지 말고 보완만 할 것)
-${JSON.stringify(existingCards)}
-
-[실측 데이터] (MediaPipe FaceLandmarker 478점 랜드마크로 계산한 값과 부위별 강점/보완 판정)
-${JSON.stringify({ ratios, statusMap })}
-
-[사주 정보]
-${sajuBlock}${foreheadNote}
-
-[요청]
-1) 첨부된 사진을 보고 특히 눈에 띄는 부위 3~4개만 골라 part_additions에 담아주세요. 각 addition은 기존 카드 문장과 겹치지 않는, 사진을 직접 봐야 알 수 있는 한 문장으로 작성하세요.
-2) eye_archetype_id / face_archetype_id도 반드시 응답에 포함하세요. 사진의 눈매·전체 인상이 [참고: 눈모양 유형 ID]/[참고: 동물 형상 유형 ID] 중 뚜렷하게 닮은 게 있으면 그 id를 채우고, 없으면 빈 문자열로 두세요.
-3) forehead_type_id/eyebrow_type_id/eye_shape_id/nose_shape_id/mouth_shape_id/chin_shape_id/face_shape_type_id도 각각 해당 참고 목록에서 가장 가까운 id를 골라 채우세요. 애매하면 빈 문자열로 두세요.`;
-}
-
-function buildGunghapSystemInstruction(nameA, nameB, isRomantic) {
-  return `당신은 2030세대를 대상으로 하는 관상·사주 커플 궁합 컨설턴트입니다.
-전통 관상학·명리학 자료를 근거로, 두 사람의 궁합을 "관상 궁합(Zone1)"과 "사주 궁합(Zone2)" 두 갈래로 나눠 깊이 있게 풀어주는 리포트를 씁니다.${isRomantic ? ' 연인/배우자 관계라 "그래서 우리는 이렇게 만나요"(Zone3) 실전 가이드도 함께 씁니다.' : ''}
-
-[호칭 규칙 — 반드시 지킬 것]
-두 사람의 실제 이름은 ${nameA}, ${nameB}입니다. 모든 reading·basis 문장에서 "나"/"저"/"상대방"/"상대" 같은 지칭 대신 반드시 이 실제 이름(${nameA}, ${nameB})을 사용하세요.
-
-[글쓰기 순서 원칙 — 반드시 지킬 것]
-모든 항목은 풀이(reading)를 먼저 쓰고, 그 풀이가 왜 나왔는지 근거(basis)는 항상 별도 필드에 나눠서 씁니다.
-- reading: 사용자가 자기 이야기처럼 편하게 읽는 결과. 전문 용어로 시작하지 말고 실제 성향·관계 장면으로 풀어줄 것.
-- basis: reading에서 왜 그렇게 말했는지, 제공된 데이터(관상 유형·신살·귀인·오행 등) 중 무엇을 근거로 했는지.
-reading 안에 근거를 섞어 쓰지 말고, basis 안에 새로운 결론을 쓰지 마세요.
-
-[말투]
-- 짧고 인상적인 문장으로 시작해서 자연스럽게 풀어가는 흐름. 예: "OO상인 ${nameA}와 OO상인 ${nameB}의 조합은 마치 ~와 ~의 만남 같아요."
-- 다정한 해요체. 은유·비유를 적극적으로 활용(예: "차가운 불과 뜨거운 얼음", "천국과 지옥을 오가는 롤러코스터" 같은 극적이면서도 다정한 표현)
-- 장점만 늘어놓지 말고 충돌 지점도 솔직하게 짚은 뒤, 항상 현실적인 해결 방향으로 마무리
-
-${TONE_RULES}
-
-[추가 금지 사항]
-- family_background(집안 환경) 항목은 실제 가족 구성원에 대한 예언·평가를 하지 말고, "자라온 환경이 성향에 미쳤을 습관·태도 차이" 중심으로만 서술
-- children(아이) 항목은 성별·건강·개수를 단정하지 말고, "두 사람의 기질이 아이를 대하는 방식에 어떻게 나타날지" 중심으로만 서술
-- 아래 데이터에 실제로 없는 신살·귀인·관상 유형을 새로 만들어내지 말 것
-
-[Zone2 10개 항목 — 중복 방지, 반드시 지킬 것]
-같은 문장·결론·비유를 여러 항목에서 반복하지 마세요. 10개는 서로 다른 각도에서 써야 합니다.
-- hero_reason은 "대표 장점 1개씩"만 가볍게 언급하는 자리이니, zone1_shape_reading에서 그 장점을
-  다시 풀어쓰지 말고 관상 유형 "조합" 자체(비유·시너지)에 집중하세요.
-- overall_relationship은 관계 전체를 요약하는 큰 그림만 다루고, sinsal_combo나 strengths에서 다룰
-  구체적인 신살·귀인 조합이나 개별 강점을 여기서 먼저 설명하지 마세요. 화면 맨 위 "한줄 총평"으로
-  단독 노출되니 다른 항목보다 짧고 압축적으로(2~3문장) 쓸 것.
-- attraction_reason(우리가 끌리는 이유)은 "무엇이 서로를 끌어당기는가"에 집중 — strengths(잘 맞는
-  부분)가 "관계가 안정적인 이유"를 다룬다면, 이건 "애초에 왜 눈이 갔는가"를 다뤄 서로 겹치지 않게 할 것.
-- weak_point(관계에서 부족한 부분)는 지금 이 관계에 아직 채워지지 않은 것이 무엇인지 진단만 하고,
-  어떻게 채우면 좋을지 행동 조언까지는 쓰지 마세요(그건 ${isRomantic ? 'Zone3의 improvement(우리 관계를 더 좋게 만드는 방법)' : '이 리포트의 다른 부분'}이 맡습니다).
-- perceived_by_partner와 perceived_by_me는 반드시 서로 다른 시선이어야 합니다(상대가 나를 보는 인상
-  vs 내가 상대를 보는 인상) — 같은 성향 묘사를 주어만 바꿔서 반복하면 안 됩니다.
-- strengths·mind_hacking은 전부 "관계가 좋다/보완된다"는 결론으로 흐르기 쉬운 항목들입니다 — 매번
-  다른 데이터(신살, 귀인, 십성, 오행, 관상 실측 등 [나/상대방의 신살·귀인 목록]·[오행 분포] 중 아직
-  안 쓴 것)를 근거로 삼아 서로 다른 장면을 그리세요. 이미 다른 항목에서 근거로 쓴 신살·귀인 이름을
-  또 써도 되지만, 그 항목과 같은 해석·결론을 복사하듯 반복하면 안 됩니다.
-- 항목을 쓰기 전에 "바로 앞 항목에서 이미 한 말인가?"를 스스로 점검하고, 겹치면 다른 데이터나 다른
-  관점으로 바꿔 쓰세요.
-${isRomantic ? `
-[Zone3 "그래서 우리는 이렇게 만나요" 8개 항목 — 실전 가이드, Zone2와 성격이 다름]
-Zone2가 "두 사람이 어떤 관계인지" 성향 진단이라면, Zone3는 "그래서 실제로 어떻게 만나면 좋은지"
-장면별 실전 조언입니다. Zone2에서 이미 쓴 성향 묘사를 그대로 반복하지 말고, 매 항목마다 구체적인
-장면(연애할 때/대화할 때/돈 다룰 때/싸울 때/오래 만났을 때/결혼했을 때/아이를 낳는다면)에서 두 사람이
-실제로 어떻게 행동하면 좋을지에 집중하세요.
-- long_term_dating(오래 만났을 때)과 married_life(결혼했을 때)는 서로 다른 장면입니다 — 연애가
-  길어질 때 생기는 권태·안정감 얘기와, 실제로 한집에 살며 생기는 생활 밀착 얘기를 구분해서 쓸 것.
-- improvement(우리 관계를 더 좋게 만드는 방법)는 Zone2의 weak_point(관계에서 부족한 부분)에서 짚은
-  진단을 이어받아 "그래서 구체적으로 뭘 하면 좋을지" 행동 조언으로 마무리하는 자리입니다.
-- children 항목은 위 [추가 금지 사항]의 아이 관련 규칙을 그대로 따르세요.` : ''}`;
-}
-
-function buildGunghapCharacterBlock(label, characterResult) {
-  if (!characterResult || !characterResult.characterId) {
-    return `[${label}의 관상 유형]\n사진이 없어 관상 유형 정보 없음 — 사주 위주로 풀이할 것.`;
-  }
-  const c = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[characterResult.characterId]) || {};
-  return `[${label}의 관상 유형]
-유형명: ${c.name || ''}
-한줄평: ${c.headline || ''}
-강점: ${(c.strengths || []).join(', ')}`;
-}
-
-// 2026-08-30 DB 이원화 1단계 — COMPATIBILITY_DB(compatibility-engine.js)가 서버로 옮겨가서
-// CharacterAPI.getRelation을 거쳐야 한다. async가 됐으니 호출부(buildGunghapUserPrompt)도 await 필요.
-async function buildGunghapRelationBlock(charIdA, charIdB) {
-  if (!charIdA || !charIdB) return '';
-  const rel = await CharacterAPI.getRelation(charIdA);
-  if (!rel) return '';
-  let label = '내 사람';
-  if ((rel.good || []).indexOf(charIdB) >= 0) label = '귀인';
-  else if ((rel.spark || []).indexOf(charIdB) >= 0) label = '단짝';
-  else if ((rel.clash || []).indexOf(charIdB) >= 0) label = '호랑이 선생';
-  return `\n[두 관상 유형의 관계]\n${label}`;
-}
-
-function buildGunghapSajuBlock(label, pillars, ohaeng, sajuInsight) {
-  const dStem = pillars[2].stem;
-  return `[${label}의 사주]
-일간: ${dStem >= 0 ? CG_KO[dStem] + '(' + CG_OH[dStem] + ')' : '미상'}
-오행 분포: ${JSON.stringify(ohaeng)}
-
-[${label}의 신살·귀인 목록] (실제로 있는 것만 사용할 것)
-신살: ${JSON.stringify(sajuInsight.sinsalList)}
-귀인: ${JSON.stringify(sajuInsight.gwiinList)}`;
-}
-
-async function buildGunghapUserPrompt(cache) {
-  const nameA = cache.nameA || '나', nameB = cache.nameB || '상대방';
-  const charA = cache.characterA, charB = cache.characterB;
-  const charIdA = charA && charA.characterId, charIdB = charB && charB.characterId;
-  const relationBlock = await buildGunghapRelationBlock(charIdA, charIdB);
-  return `[궁합 점수 — 이미 확정된 값. 그대로 인용하되 새로 계산하지 말 것]
-총합 점수: ${cache.heroScores.total}점
-관상 궁합만 봤을 때: ${cache.heroScores.gwansang != null ? cache.heroScores.gwansang + '점' : '사진 정보 부족으로 산출 불가'}
-사주 궁합만 봤을 때: ${cache.heroScores.saju}점
-
-${buildGunghapCharacterBlock(nameA, charA)}
-
-${buildGunghapCharacterBlock(nameB, charB)}${relationBlock}
-
-${buildGunghapSajuBlock(nameA, cache.pillarsA, cache.ohA, cache.sajuInsightA)}
-
-${buildGunghapSajuBlock(nameB, cache.pillarsB, cache.ohB, cache.sajuInsightB)}
-
-[요청]
-위 데이터를 근거로 히어로 설명 1개, Zone1(관상 궁합) 풀이 1쌍, Zone2(사주 궁합) 10개 항목${cache.isRomantic ? ', Zone3("그래서 우리는 이렇게 만나요") 8개 항목' : ''}을 모두 작성해주세요. 개인별 관상·사주 풀이는 다른 화면(통합분석)에서 이미 다루므로 여기서는 "두 사람의 조합"에만 집중해주세요. 첨부된 사진이 있다면(전달 순서: ${nameA} → ${nameB}) 참고하되, 관상 유형 정보가 없는 사람은 사주 위주로 풀어주세요. 두 사람을 가리킬 때는 "나"/"상대방" 대신 항상 실제 이름(${nameA}/${nameB})을 쓰세요.`;
-}
-
-// ═══ AI 정밀 리포트 (R-I-C-E 프롬프트 기반, 2026-08-13 요청 반영) ═══
-// 위 buildAiEnhancementSystemInstruction은 "이미 화면에 있는 로컬 카드에 한 문장씩만 보태는" 용도로
-// 일부러 범위를 좁혀뒀는데(임무1 참고), 그러다 보니 부위별 설명 자체는 계속 로컬 문구 수준에 머물러
-// 있었다. 여기는 그거랑 별개로 완전히 새로운 장문 리포트를 Gemini에게 통째로 맡기는 용도다.
-// TONE_RULES는 "명리 한자 용어 노출 금지"가 있는데, 이 리포트는 사용자가 명시적으로 음양오행·신살을
-// 다뤄달라고 요청했으므로 이 전용 시스템 프롬프트에서는 그 금지 항목만 완화하고(한자 자체보다 뜻 위주로
-// 풀어쓰게), 시술 추천 금지·흉조 단정 금지 같은 나머지 규칙은 그대로 가져간다.
-// 사주(생년월일시) 정보가 없는 관상 탭에서는 ohaeng_reading/sinsal_reading을 아예 요청하지 않는다.
-// 예전엔 항상 요청하고 "사주 정보가 없어서 관상만으로 판단했다"는 대체 문구를 받았는데, 사용자
-// 피드백(2026-08-13): 그 대체 문구 자체가 필요 없으니 통합분석(사주 있는 탭)에서만 이 두 필드를 보고
-// 싶다고 함. schema에서 필드 자체를 빼면 Gemini가 만들어낼 일이 없어 화면에서 숨길 필요도 없어진다.
-// hasFace=false(사주 탭, 사진 없음)일 땐 part_deep_dive를 뺀다 — 관상 실측값이 아예 없어서 부위별
-// 해설 자체를 지어낼 근거가 없기 때문(2026-08-13: 사주 탭에 AI 리포트가 아예 안 붙어있던 문제 반영).
-// 통합분석 Zone4 카드 제목 — ⚠️ 2026-08-21 수정: "후보뱅크에서 골라 쓰거나 살짝 변형"하는 하이브리드로
-// 만들었었는데, AI가 이 예시 문장을 그대로(또는 단어만 살짝 바꿔) 베껴 쓰는 문제가 실제로 나왔다
-// (사용자 리포트). "고를 수 있는 후보"로 제시하면 그대로 골라버리니, 톤/형식만 참고하고 반드시 새로
-// 쓰게 "말투 참고용"으로만 프롬프트에 넣는다 — 아래는 후보가 아니라 참고 예시일 뿐이다.
-// 2026-08-22 9차 개편 — 경쟁 서비스(사주 앱) 벤치마킹으로 문장 끝에 짧은 해시태그 1~2개를 덧붙이는
-// 형식을 추가했다("#관살혼잡" 같은 원어 노출 없이, 이 앱 톤에 맞는 새 표현으로). 제목 자체가 더
-// 눈에 띄고 캡처·공유하고 싶어지는 걸 노림 — 전문용어 원어 노출 금지 규칙은 해시태그에도 동일 적용.
-const CMB_ZONE4_TITLE_STYLE_EXAMPLES = [
-  '누가 뭐래도 당신은 모두가 기댈 수 있는 든든한 산 #든든가장상 #의지대상1순위',
-  '재물 바다를 품은 거대한 태산, 스케일이 다른 K-여사장님 재질 #사업가마인드 #스케일깡패',
-  '알잘딱깔센 재테크의 신, 근데 통제는 살짝 힘들어함 #저축실패요정 #플렉스주의',
-  '사장님 할 거 아니면 답답해서 어찌 사시나? 팩폭 들어갑니다 #보스기질 #지시받기싫어',
-  '돈 복은 타고났네, 머니 파이프라인 심는 재능 만렙 #부자될상 #재테크만렙',
-  '연애는 프리스타일, 결혼은 비혼주의? No, 숨은 인연 찾기 #인연은있다 #밀당고수',
-  '아버지는 태평양, 어머니는 등대... 나는 그 사이의 섬 #가족애틋 #중간자포지션',
-  '서울보다는 강릉, 해외는 캐나다? 따스한 햇살과 숲이 필요해 #힐링필요 #자연인기질',
-  '애증의 K-가족, 그래도 내 편인 거 알지? #가족애증 #그래도내편',
-  '인싸인 듯 아싸, 아싸인 듯 인싸 #낯가림인싸 #혼자놀기장인',
-];
-
-// Zone4 사랑/일 카드 각도 — 통합분석 리포트 구성.md §4(2026-08-20). "어떤 상황이면 어떤 각도로
-// 풀지"는 q1/q2 값을 보고 여기서 룰베이스로 정하고, 그 각도 안의 실제 문장은 AI가 자유 생성한다.
-// q1/q2가 아래 표에 없으면(미답변·"직접 입력할게요"로 커스텀 텍스트를 쓴 경우 등) 기존 기본 각도로 폴백.
-function buildLoveCardGuidance(q1) {
-  if (q1 === '결혼했어요') {
-    return '- love(사랑): 이 사람은 기혼입니다 — "연애·결혼 스타일" 카드 대신 반드시 3개 카드로 순서대로 구성: 카드1 "매력·인기"(기존과 동일 — [사주 신살·귀인 목록]의 홍염살·년살 + [AI 관상 분류 결과]의 매력 계열 눈 유형), 카드2 "결혼 생활 스타일"(배우자와 함께 살아가는 방식), 카드3 "아이가 생기면"(자녀와의 관계·육아 성향 — 실제 자녀 유무·성별을 단정하지 말고 "이런 기질이 아이를 대하는 방식에 어떻게 나타날지" 중심으로). 이 경우 love만 3개라 zone4_cards 전체 카드 수는 최소 9개.';
-  }
-  if (q1 === '새로운 출발 (돌싱/기타)') {
-    return '- love(사랑): 이 사람은 새로운 출발(돌싱/기타)을 앞두고 있습니다 — 순서대로 카드1 "매력·인기"(기존과 동일), 카드2 "다시 시작하는 인연"("연애·결혼 스타일" 대신 — 새로운 사람을 만날 때 달라진 점, 지금 시점에서의 연애관).';
-  }
-  return '- love(사랑): ⚠️ 순서대로 카드1 "매력·인기"(신규, 먼저), 카드2 "연애·결혼 스타일"(기존, 나중) — 이 순서를 반드시 지킬 것(가볍게 시작해서 구체적인 스타일로 들어가는 흐름). 카드1은 [사주 신살·귀인 목록]의 홍염살·년살 같은 매력 계열 신살과, [AI 관상 분류 결과]의 눈 유형(도화안·난안처럼 매력·사교성 계열)을 엮어서 "주변에 인기가 많은지"를 풀이할 것 — 둘 다 없으면 이 카드는 억지로 만들지 말고 love를 다른 세부 카드(예: 연애할 때의 진심 표현 방식)로 채울 것. 카드2는 연애·결혼에서 추구하는 스타일.';
-}
-function buildWorkCardGuidance(q2) {
-  const sipseongNote = '[십성 목록] 조합(상관=말재주·표현력, 편관=카리스마·결단력, 편인=독창성, 정관=책임감·조직 적응 등)을 근거로 쓸 것.';
-  const map = {
-    '학생': `- work(일): 이 사람은 학생입니다 — 조직 생활 대신 진로로 방향을 바꿔서, ${sipseongNote} 이 성향과 어울리는 전공·직업 적성을 제시할 것.`,
-    '취업 준비중': `- work(일): 이 사람은 취업 준비 중입니다 — ${sipseongNote} ⚠️ 성향만 설명하고 끝내지 말 것("체계적으로 계획을 세우고 꼼꼼해요" 같은 서술만으로 마무리 금지). reading 앞부분에 실제 직무·직군명을 최소 1개 이상 구체적으로 명시할 것(예: 기획, 마케팅, 영업, 연구개발(R&D), 디자인, 인사(HR), 재무·회계, 생산·품질관리, CS/고객대응, 콘텐츠·PD 등 중 이 성향과 맞는 것을 골라서) — "당신은 OO 직무/직군이 잘 맞아요, 이런 성향이 있어서예요"의 흐름으로 쓰고, 그 다음에 성향 설명을 이어갈 것.`,
-    '주부': `- work(일): 이 사람은 주부입니다 — ${sipseongNote} 가정을 이끌어가는 스타일을 중심으로 쓰고, 이 성향이 사회활동·부업으로 이어진다면 어떤 방향이 잘 맞을지도 함께 짚을 것.`,
-    '자영업/프리랜서': `- work(일): 이 사람은 자영업/프리랜서입니다 — ${sipseongNote} 조직 소속이 아니라 혼자 일을 이끌 때의 강점·주의할 점(사업가 기질)을 전면에 다룰 것.`,
-    '은퇴함': `- work(일): 이 사람은 은퇴했습니다 — ${sipseongNote} ⚠️ "여유로운 일상 속 소일거리" 같은 뭉뚱그린 표현만 쓰고 끝내지 말 것 — 구체적으로 어떤 종류의 활동인지 최소 1개 이상 명시할 것(예: 정관·편인 조합이면 강의·멘토링·재능기부처럼 경험을 전수하는 활동, 편관·편재면 작게라도 다시 사업을 벌이거나 투자·재테크를 주도하는 활동, 식신·정인이면 공방·원예·요리 같은 손으로 만드는 창작 활동이나 봉사, 상관이면 글쓰기·강연·SNS처럼 표현하는 활동 — [십성 목록]에 실제로 있는 조합에 맞는 방향을 골라서). reading 앞부분에 "OO 같은 활동이 잘 맞아요, 이런 성향이 있어서예요"의 흐름으로 쓰고, 그 다음에 지금까지 쌓아온 경험과 어떻게 이어지는지를 설명할 것.`,
-  };
-  return map[q2] || `- work(일): ${sipseongNote} 구체적인 직업 성향을 풀이할 것. Zone1 캐릭터 카드의 work 문구를 그대로 반복하지 말고, 십성 근거로 더 구체적인 스타일을 추가할 것.`;
-}
-
-// Zone4 "고민 해결" 카드(topic_key: user_question, 통합분석 리포트 구성.md §10) — q3(진입 질문 3번,
-// "특별히 더 궁금한 내용")에 답이 있으면 그 질문에 직접 답하는 카드를 하나 더 만든다. q1/q2와 달리
-// "카드가 아예 생기냐 마냐" 자체가 q3 존재 여부로 갈리는 구조적 조건이라, 키워드 사전으로 주제를
-// 1차 판별하고 실패하면 질문 원문을 그대로 강제 주입하는 폴백으로 처리한다.
-// 건강/임신·자녀/소송처럼 진단·법적 판단으로 오인될 수 있는 주제는 caution:true로 표시해 별도 가드를 건다.
-const CMB_Q3_TOPIC_DICT = [
-  { keywords: ['이사', '이전', '이주'], topic: '이동수·변동수' },
-  { keywords: ['짝사랑', '고백'], topic: '연애운' },
-  { keywords: ['이직'], topic: '직업운·이동수' },
-  { keywords: ['결혼'], topic: '결혼운·궁합 기질' },
-  { keywords: ['시험', '합격', '자격증'], topic: '학업운·집중력' },
-  { keywords: ['재물', '돈', '재테크', '투자'], topic: '재물운' },
-  { keywords: ['화해', '친구'], topic: '대인관계' },
-  { keywords: ['창업', '사업'], topic: '사업운' },
-  { keywords: ['승진'], topic: '직업운' },
-  { keywords: ['유학'], topic: '이동수·학업운' },
-  { keywords: ['부모님', '아버지', '어머니'], topic: '가족운' },
-  { keywords: ['건강', '아프', '병원'], topic: '건강', caution: true },
-  { keywords: ['임신', '아이', '자녀', '출산'], topic: '임신·자녀운', caution: true },
-  { keywords: ['소송', '재판', '법적', '고소'], topic: '소송·분쟁', caution: true },
-];
-function matchQ3Topic(q3) {
-  if (!q3) return null;
-  return CMB_Q3_TOPIC_DICT.find(entry => entry.keywords.some(k => q3.includes(k))) || null;
-}
-function buildQ3CardGuidance(q3) {
-  if (!q3) {
-    return '- ⚠️ 사용자가 "특별히 더 궁금한 내용"에 답하지 않았습니다 — topic_key가 "user_question"인 카드는 절대 만들지 마세요.';
-  }
-  const matched = matchQ3Topic(q3);
-  const topicLine = matched
-    ? `이 질문은 "${matched.topic}"와 관련된 주제로 보입니다 — 이 관점을 중심으로 사주x관상 근거를 엮어 답하세요.`
-    : '사전에 정의된 주제와 뚜렷이 겹치지 않는 질문입니다 — 다른 얘기로 넘어가지 말고 질문 원문 자체에 반드시 직접 답하세요.';
-  const cautionLine = matched && matched.caution
-    ? ' ⚠️ 이 주제는 건강·임신/자녀·법적 분쟁처럼 민감한 영역입니다 — 단정적인 진단·결과·법적 판단을 내리지 말고 흐름·시기 관점으로만 답하며, 필요하면 전문가 상담을 권하세요.'
-    : '';
-  return `- topic_key가 "user_question"인 카드를 반드시 하나 추가하세요(family/love 카드 개수 규칙과는 무관한 별도 카드 1개). title은 이 지시에서는 신경 쓰지 말고 빈 문자열("")로 두세요 — 화면에는 이름을 넣은 고정 문구로 따로 표시됩니다. reading은 사용자가 입력한 질문 "${q3}"에 직접 답하는 내용으로 3~4문장 작성하세요. ${topicLine}${cautionLine} 다른 가변 카드와 마찬가지로 전문용어를 reading에 노출하지 말고 풀어서 쓰세요.`;
-}
 // "OO님의 질문, 냥반이 답해드려요" — 제목 형식 자체는 항상 등장하는 구조라 AI가 짓지 않고 코드가
 // 강제한다(§2 판단기준 1번과 동일 원칙, 고정 카드 제목들과 같은 이유). AI가 title에 뭘 써서 보내든
 // 이 값으로 덮어쓴다.
 function buildQ3CardTitle(name) {
   return `${name ? cmbEsc(name) + '님' : '회원님'}의 질문, 냥반이 답해드려요`;
-}
-
-function buildPersonalDeepReportSchema(hasSaju, hasFace, q1, q2, q3) {
-  const properties = {
-    catchphrase: {
-      type: 'STRING',
-      description:
-        '이 사람의 전체적인 성향을 한 줄로 압축한 카피. "~하는 ~형", "~한 ~타입"처럼 이해하기 쉬운 표현'
-    },
-
-    personality_type: {
-      type: 'STRING',
-      description:
-        'MBTI 유형 이름처럼 이 사람의 대표 성향을 부르는 짧은 이름. 예: "흔들림 없는 전략가형"'
-    },
-
-    personality_detail: {
-      type: 'STRING',
-      description:
-        '사용자가 먼저 읽는 전체 성향 풀이. 전문용어보다 실제 성격·행동·대인관계 장면을 중심으로 5~7문장. 장점과 장점이 과했을 때의 이면까지 함께 설명하고 마지막에는 사용자가 자신의 경험과 맞춰볼 수 있는 구체적인 일상 장면이나 공감형 질문을 넣을 것.'
-    },
-
-    early_life_headline: {
-      type: 'STRING',
-      description:
-        '초년운(~29세) 문단 바로 위에 붙는 짧은 헤드 카피. 반드시 줄바꿈 없이 한 줄, 15~25자 내외로 쓸 것. early_life 문단에서 실제로 쓴 이 사람 고유의 근거(관상 부위·사주 십성/신살/십이운성 등)에서 나온 표현을 반영해 매번 새로 지을 것 — 이 필드 설명에는 일부러 예시 문장을 넣지 않았으니 절대 다른 스키마 필드 설명이나 다른 사람 리포트에 나올 법한 문장을 그대로 재사용하지 말 것.'
-    },
-
-    early_life: {
-      type: 'STRING',
-      description:
-        '초년운(~29세)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것(관상만 또는 사주만으로 쓰지 말 것) — "관상"은 뭉뚱그리지 말고 실제 측정된 부위 이름(예: 눈매, 콧대, 이마, 광대)을 최소 1개, "사주"는 이 사람이 실제로 가진 십성·오행·신살 중 최소 1개를 문장 안에서 이름 그대로 언급할 것. 실제 삶과 비교할 수 있는 성향·환경·선택 패턴 위주로 서술. 지나치게 구체적인 사건을 지어내지 말 것. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면, 이 구간(~29세)에 해당하는 항목의 십이운성·뜻이 서술의 의미 범위를 벗어나면 안 되지만, 그 사전적 문구를 그대로 옮기거나 단어만 살짝 바꿔 쓰지 말 것 — 반드시 위에서 언급한 이 사람의 실제 관상·사주 근거와 엮어 완전히 새로운 문장으로 재구성할 것. 거기 없는 다른 십이운성 명칭이나 뜻을 새로 끌어오거나 어긋나는 서술을 하지 말 것. [사주 신살·귀인 목록]의 십이운성(사주 원국 자체 십이운성)은 나이 흐름과 무관한 별개 데이터이므로 초년/중년/말년 서사에 쓰지 말 것.'
-    },
-
-    mid_life_headline: {
-      type: 'STRING',
-      description:
-        '중년운(30~59세) 문단 바로 위에 붙는 짧은 헤드 카피. 반드시 줄바꿈 없이 한 줄, 15~25자 내외로 쓸 것. mid_life 문단에서 실제로 쓴 이 사람 고유의 근거에서 나온 표현을 반영해 매번 새로 지을 것 — 예시 문장을 그대로 재사용하지 말 것.'
-    },
-
-    mid_life: {
-      type: 'STRING',
-      description:
-        '중년운(30~59세)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것 — "관상"은 뭉뚱그리지 말고 실제 측정된 부위 이름을 최소 1개, "사주"는 이 사람이 실제로 가진 십성·오행·신살 중 최소 1개를 문장 안에서 이름 그대로 언급할 것. 사회생활·관계·책임·선택 방식처럼 현실적으로 확인 가능한 패턴 위주로 설명. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면, 이 구간(30~59세)에 해당하는 항목의 십이운성·뜻이 서술의 의미 범위를 벗어나면 안 되지만, 그 사전적 문구를 그대로 옮기거나 단어만 살짝 바꿔 쓰지 말 것 — 반드시 위에서 언급한 이 사람의 실제 관상·사주 근거와 엮어 완전히 새로운 문장으로 재구성할 것. 거기 없는 다른 십이운성 명칭이나 뜻을 새로 끌어오거나 어긋나는 서술을 하지 말 것. [사주 신살·귀인 목록]의 십이운성(사주 원국 자체 십이운성)은 나이 흐름과 무관한 별개 데이터이므로 초년/중년/말년 서사에 쓰지 말 것.'
-    },
-
-    late_life_headline: {
-      type: 'STRING',
-      description:
-        '말년운(60세~) 문단 바로 위에 붙는 짧은 헤드 카피. 반드시 줄바꿈 없이 한 줄, 15~25자 내외로 쓸 것. late_life 문단에서 실제로 쓴 이 사람 고유의 근거에서 나온 표현을 반영해 매번 새로 지을 것 — 예시 문장을 그대로 재사용하지 말 것.'
-    },
-
-    late_life: {
-      type: 'STRING',
-      description:
-        '말년운(60세~)을 3~5문장으로. [관상 실측 데이터]와 [사주 정보]가 둘 다 있으면 반드시 둘 다 근거로 섞어서 쓸 것 — "관상"은 뭉뚱그리지 말고 실제 측정된 부위 이름을 최소 1개, "사주"는 이 사람이 실제로 가진 십성·오행·신살 중 최소 1개를 문장 안에서 이름 그대로 언급할 것. 단정적인 미래예언이 아니라 성향이 어떻게 성숙하거나 안정되는지 중심으로 설명. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면, 이 구간(60세~)에 해당하는 항목의 십이운성·뜻이 서술의 의미 범위를 벗어나면 안 되지만, 그 사전적 문구를 그대로 옮기거나 단어만 살짝 바꿔 쓰지 말 것 — 반드시 위에서 언급한 이 사람의 실제 관상·사주 근거와 엮어 완전히 새로운 문장으로 재구성할 것. 거기 없는 다른 십이운성 명칭이나 뜻을 새로 끌어오거나 어긋나는 서술을 하지 말 것. [사주 신살·귀인 목록]의 십이운성(사주 원국 자체 십이운성)은 나이 흐름과 무관한 별개 데이터이므로 초년/중년/말년 서사에 쓰지 말 것. ⚠️ 마지막 1문장은 지금까지의 풀이 전체를 관통하는 이 사람의 애씀·강점을 따뜻하게 알아주는 위로 한마디로 마무리할 것(예: "스스로를 태워 여기까지 온 만큼, 이제는 잠시 내려놓아도 괜찮아요" 같은 톤 — 그대로 베끼지 말고 이 사람의 실제 풀이 내용에서 나온 표현으로 새로 쓸 것).'
-    },
-
-    past_reflection: {
-      type: 'STRING',
-      description:
-        '지금까지 살아온 삶에서 반복됐을 가능성이 높은 행동·관계·선택 패턴 2~4가지를 자연스럽게 이어서 설명. 사용자가 자신의 경험과 비교할 수 있게 쓸 것.'
-    },
-
-    growth_guidance: {
-      type: 'STRING',
-      description:
-        '앞으로 강점은 살리고 과한 부분은 줄이기 위한 현실적인 행동 조언을 3~4문장으로. 시술이 아닌 태도·습관·관계 방식 중심.'
-    },
-  };
-
-  const required = [
-    'catchphrase',
-    'personality_type',
-    'personality_detail',
-    'early_life_headline',
-    'early_life',
-    'mid_life_headline',
-    'mid_life',
-    'late_life_headline',
-    'late_life',
-    'past_reflection',
-    'growth_guidance'
-  ];
-
-  if (hasSaju) {
-    properties.ohaeng_reading = {
-      type: 'STRING',
-      description:
-        '음양오행 분포를 근거로 강하고 약한 기운을 일상 언어로 3~4문장 설명. 오행의 한자를 괄호 병기하지 말 것.'
-    };
-
-    properties.sinsal_reading = {
-      type: 'STRING',
-      description:
-        '[사주 신살·귀인 목록]에 실제 존재하는 항목만 사용해 4~6문장으로 해석. 없는 신살이나 귀인을 창작하지 말 것. ⚠️ 목록을 그냥 나열하지 말 것 — 먼저 이 사람이 가진 신살·귀인의 개수·다양성 자체가 무슨 의미인지 한 문장으로 짚고(예: 여러 개면 "인생에 굴곡이나 전환점이 잦은 편", 적으면 "무난하고 평탄한 흐름"), 그 다음 같은 방향을 가리키는 항목들을 조합해서(예: 홍염살+년살 → "매력") 1~2개 이야기로 묶어서 풀이할 것. 신살은 전부 나쁜 게 아니라 길신(귀인)·흉살이 섞여 있다는 것도 자연스럽게 짚을 것. ⚠️ "다양한 기운들이 조화롭게 섞여 있다" 같은 뭉뚱그린 문장으로 때우지 말고, 이 문장 안에서도 실제로 근거로 쓴 신살·귀인 이름을 최소 2개 이상 그대로 언급할 것(예: "홍염살과 문곡귀인이 있어서").'
-    };
-
-    properties.sinsal_basis = {
-      type: 'STRING',
-      description:
-        '위 신살·귀인 풀이가 어떤 데이터를 근거로 나왔는지 2~4문장으로 밝히는 "왜 이렇게 풀이했나요?" 영역. ⚠️ 반드시 구체적으로 인용할 것 — 일간 오행(예: "일간 갑목(甲木)"), 어느 기둥(년주/월주/일주/시주)에 있는지, 신살·귀인의 실제 명칭을 그대로 쓸 것. "다양한 기운" "여러 살" 같은 추상적 표현만 쓰는 것은 금지 — 반드시 [사주 신살·귀인 목록]에 실제로 있는 이름을 문장에 그대로 적을 것.'
-    };
-
-    required.push(
-      'ohaeng_reading',
-      'sinsal_reading',
-      'sinsal_basis'
-    );
-  }
-
-  if (hasFace) {
-    // 전체 관상 풀이 바로 아래에 붙는 "왜 이렇게 해석했는지" 근거.
-    properties.face_analysis_basis = {
-      type: 'STRING',
-      description:
-        '위 personality_detail을 관상 관점에서 왜 그렇게 해석했는지 2~4문장으로 설명. [AI 관상 분류 결과]와 [판별 유형 해석 DB]에 실제로 존재하는 유형만 언급. 봉안·학상·반달눈썹 등 실제 판별된 한국어 유형명을 사용하고 raw ID는 사용자에게 노출하지 말 것.'
-    };
-
-    properties.face_principle = {
-      type: 'STRING',
-      description:
-        '위 해석에 사용된 전통 관상 원리를 2~4문장으로 이해하기 쉽게 설명. 반드시 [판별 유형 해석 DB] 또는 [참고 데이터베이스]에 존재하는 내용만 근거로 하고 새로운 관상 법칙을 창작하지 말 것.'
-    };
-
-    properties.part_deep_dive = {
-      type: 'ARRAY',
-
-      description:
-        '실제로 판별된 관상 유형과 실측 데이터 중 의미가 뚜렷한 4~6개를 골라 상세 해설. 눈 형상·전체 인상처럼 AI 판별 근거가 있는 항목을 우선할 것.',
-
-      items: {
-        type: 'OBJECT',
-
-        properties: {
-          section_key: {
-            type: 'STRING',
-            description:
-              'eye_archetype, face_archetype, forehead, eyebrow, eye_shape, nose, mouth, chin, face_shape, midbrow, undereye, nosebridge, nosetip, philtrum, smilelines, jaw, cheekbone 중 하나'
-          },
-
-          title: {
-            type: 'STRING',
-            description:
-              '해당 특징이 실제 성격이나 행동에서 어떻게 나타나는지를 보여주는 짧고 흥미로운 제목. 예: "사람을 빠르게 읽지만 혼자 신경을 많이 쓰는 눈"'
-          },
-
-          interpretation: {
-            type: 'STRING',
-            description:
-              '사용자가 가장 먼저 읽는 쉬운 풀이. 전문 관상 용어부터 시작하지 말고 일상의 성격·행동·대인관계 패턴으로 4~6문장 설명. 장점과 과할 때의 이면을 함께 서술하고 마지막에는 구체적인 일상 장면이나 공감 질문을 넣을 것.'
-          },
-
-          analysis_basis: {
-            type: 'STRING',
-            description:
-              '왜 이런 풀이가 나왔는지 설명하는 관상 분석 근거. [AI 관상 분류 결과] 및 [관상 실측 데이터]에 실제 존재하는 내용만 사용. 판별된 유형의 한국어 이름과 관찰 특징을 1~3문장으로 설명.'
-          },
-
-          principle: {
-            type: 'STRING',
-            description:
-              '해당 특징을 전통 관상에서 어떻게 해석하는지를 2~3문장으로 설명. 반드시 제공된 DB 내용에 근거하고 새로운 전통 해석을 만들지 말 것.'
-          },
-        },
-
-        required: [
-          'section_key',
-          'title',
-          'interpretation',
-          'analysis_basis',
-          'principle'
-        ],
-      },
-    };
-
-    required.push(
-      'face_analysis_basis',
-      'face_principle',
-      'part_deep_dive'
-    );
-  }
-
-  // 관상×사주 "융합" 필드 — 통합분석 탭(사진+생년월일시 둘 다 있음)처럼 두 데이터가 모두 있을 때만
-  // 의미가 있다. 통합분석 리포트 구성.md §1·§2 개편(2026-08-21) — Zone2 히어로(헤드/케미점수)는
-  // 이미 룰베이스(computeGwansangSajuChemi)로 계산되므로 AI는 그 숫자를 설명만 하고 새로 짓지
-  // 않는다(궁합보기 hero_reason과 동일 원칙). Zone3 데이터 페어 3개의 융합풀이, Zone4 스토리
-  // 카드(고정 1 + 가변 1~3)가 이 블록으로 채워진다.
-  if (hasSaju && hasFace) {
-    // 통합분석 리포트 구성.md §4(2026-08-21 4차 개편) — "개인 기질"·"남이 모르는 내 모습"은
-    // 처음엔 각각 zone3_ohaeng_reading 보강/personality_detail 조건부 강화로 흡수했었는데, 실제
-    // 개인 서술이 화면에 안 보인다는 피드백으로 Zone4 전용 고정 카드(zone4_temperament_*/
-    // zone4_hidden_self_*)로 독립시켰다. growth_guidance도 이번에 Zone4 고정카드4("조언")로
-    // 재활용한다 — 근거만 아래에서 hasSaju&&hasFace 전용으로 보강.
-    properties.growth_guidance.description +=
-      ' 통합분석 화면에서는 이 필드가 Zone4 마지막 고정 카드("조언")로도 노출된다 — [십성 목록]·[신강/신약]·[용신]·[사주 신살·귀인 목록]·[관상 실측 데이터] 중 이 리포트 전체에서 이미 다룬 근거를 종합해서, "당신은 ~형이에요"(정체성 선언)가 아니라 "그래서 지금은 ~하면 좋아요"(방향 제시)로 마무리할 것.';
-
-    properties.zone2_review = {
-      type: 'STRING',
-      description:
-        '[관상x사주 케미 점수]가 왜 그렇게 나왔는지 설명하는 총평 3~5문장. 점수는 이미 계산되어 주어지므로 새로운 숫자를 만들지 말고, 관상에서의 근거 1개와 사주에서의 근거 1개를 섞어 그 점수를 뒷받침할 것.'
-    };
-
-    // Zone2 "둘이 같은 점 / 다른 점"(2026-08-22 추가) — 케미 점수·총평만으로는 "그래서 구체적으로
-    // 뭐가 같고 뭐가 다른지"가 안 보인다는 사용자 요청으로, [관상 6기질 점수]와 [사주 6기질 점수]를
-    // 직접 대조해서 뽑는 짧은 불릿을 추가한다. 두 블록 모두 이미 같은 baseline(0~100)으로 계산돼
-    // 있으므로 AI는 그 값을 비교만 하고 새로 점수를 만들지 않는다(§2 판단기준 1번과 동일 원칙).
-    properties.zone2_common_points = {
-      type: 'ARRAY',
-      minItems: 2,
-      maxItems: 3,
-      items: { type: 'STRING' },
-      description:
-        '[관상 6기질 점수]와 [사주 6기질 점수] 모두에서 상대적으로 높게 나온 기질 2~3개를 골라, 각각 "실행력이 강함"·"책임감/완수력이 강함"처럼 8~14자 내외의 짧은 구문으로 표현. 기질 원어(lead/strategy/drive/social/stability/sense)나 숫자를 그대로 노출하지 말고 자연스러운 한국어 표현으로 바꿀 것.'
-    };
-
-    properties.zone2_different_points = {
-      type: 'ARRAY',
-      minItems: 1,
-      maxItems: 2,
-      items: {
-        type: 'OBJECT',
-        properties: {
-          face: {
-            type: 'STRING',
-            description: '이 기질이 관상 쪽에서 드러나는 모습 — 8~16자 내외 짧은 구문. 예: "밖으로 밀어붙이는 힘"'
-          },
-          saju: {
-            type: 'STRING',
-            description: '같은 기질(또는 대비되는 기질)이 사주 쪽에서 드러나는 모습 — face와 대비되게, 8~16자 내외. 예: "안에서 신중하게 판단하는 힘"'
-          }
-        },
-        required: ['face', 'saju']
-      },
-      description:
-        '[관상 6기질 점수]와 [사주 6기질 점수]의 순위가 서로 엇갈리는 지점 1~2개를 골라, 관상 쪽 표현(face)과 사주 쪽 표현(saju)을 대비해서 서술. 같은 기질이 한쪽은 높고 한쪽은 낮을 때, 혹은 1순위 기질 자체가 서로 다를 때를 근거로 쓸 것 — 지어내지 말고 실제 점수 차이가 있는 기질만 쓸 것.'
-    };
-
-    properties.zone3_manseryeok_reading = {
-      type: 'STRING',
-      description:
-        '[사주 원국]과 [관상 6기질 점수]를 함께 근거로 들어, 타고난 사주 구조와 얼굴에 드러난 기질이 어떻게 이어지는지 3~4문장으로 설명. ⚠️ 순수 비교만 할 것 — 신강/신약·용신 판단은 Zone4 고정카드("나의 기질")에서 별도로 다루니 여기서는 언급하지 말 것(중복 방지). ⚠️ "차분하고 신중한 에너지" 같은 뭉뚱그린 표현만 쓰지 말고, 문장 안에 일간 오행(예: "일간 갑목")과 관상 6기질 중 실제로 높게 나온 기질 이름을 최소 하나씩 그대로 언급할 것.'
-    };
-
-    properties.zone3_manseryeok_basis = {
-      type: 'STRING',
-      description:
-        '위 만세력x기질 풀이가 어떤 데이터를 근거로 나왔는지 1~3문장으로 밝히는 "왜 이렇게 풀이했나요?" 영역. ⚠️ 반드시 구체적으로 인용할 것 — 일간 오행(예: "일간 갑목(甲木)")과 [관상 6기질 점수]에서 실제로 높게/낮게 나온 기질명·점수를 그대로 쓸 것. "두 데이터 모두에서 드러나요" 같은 추상적 마무리만 쓰는 것은 금지.'
-    };
-
-    properties.zone3_ohaeng_reading = {
-      type: 'STRING',
-      description:
-        '[사주 오행 분포]와 [관상 오행 분포]를 비교해서 두 오행이 서로 겹치는 부분과 다른 부분을 3~4문장으로 설명. 오행의 한자를 괄호 병기하지 말 것. ⚠️ 어느 쪽이 더 높은지는 [오행 비교표]에 오행별로 이미 계산돼 있다 — 그 표의 "더높은쪽"·"차이_관상마이너스사주" 값을 그대로 따르고, [사주 오행 분포]·[관상 오행 분포] 원본 숫자로 직접 다시 비교·계산하지 말 것(두 블록은 스케일이 달라 — 사주는 8글자 중 개수, 관상은 0~100 퍼센트 — 직접 비교하면 방향이 틀리기 쉬움). [오행 비교표]에서 차이가 큰(5%p 이상) 오행만 "다른 부분"으로 짚을 것. "관상이 사주의 부족한 기운을 보완/받쳐준다" 같은 표현은 더높은쪽이 "관상"인 오행에만 쓸 것 — 반대는 금지. 차이가 5%p 미만(더높은쪽 "동일" 포함)인 오행은 "겹친다/비슷하다"고만 쓰고 보완 서사를 만들지 말 것. ⚠️ 오행 zero(0개)나 과다(3개 이상)에 대한 개인 서사, 용신(필요 오행) 언급은 여기서 하지 말 것 — Zone4 고정카드("나의 기질")에서 전담한다(중복 방지).'
-    };
-
-    properties.zone3_daeun_reading = {
-      type: 'STRING',
-      description:
-        '[대운 정보]와 [삼정 비율(상정/중정/하정 = 초년/중년/말년)]을 함께 근거로 들어, 인생 시기별 흐름이 사주와 얼굴 양쪽에서 어떻게 나타나는지 3~4문장으로 설명. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면 그 목록의 십이운성·뜻과 어긋나는 명칭·서술을 새로 만들지 말 것 — 바로 위 "대운x삼정 타임라인" 위젯에 같은 계산 결과가 이미 노출되어 있어 모순되면 바로 눈에 띔.'
-    };
-
-    // Zone4 고정카드 2~4(2026-08-21 4차 개편) — "나는 누구인가"를 다루는 순수 개인 서술. 제목은
-    // 룰베이스 고정 문구(renderZone4FixedExtra)로 붙이고, 여기서는 reading/basis만 받는다.
-    properties.zone4_temperament_reading = {
-      type: 'STRING',
-      description:
-        'Zone4 고정카드2("나의 기질") 본문 3~5문장. [사주 오행 분포]의 zero(0개)·과다(3개 이상) 오행을 먼저 짚고, [신강/신약]·[용신(필요 오행)]을 이어서 근거로 엮을 것 — 셋을 따로따로 나열하지 말고 "이 사람의 에너지 밸런스"라는 하나의 이야기로 묶을 것. [관상 오행 분포]·[관상 6기질 점수]도 함께 근거로 섞을 것. 오행 zero가 있으면 비유적으로 표현해도 좋음(예: "뿌리내릴 흙이 없는 나무").'
-    };
-    properties.zone4_temperament_basis = {
-      type: 'STRING',
-      description:
-        '위 풀이의 근거를 1~3문장으로 — 실제 사용한 오행 개수·[신강/신약]·[용신] 값을 구체적으로 짚을 것.'
-    };
-
-    properties.zone4_hidden_self_reading = {
-      type: 'STRING',
-      description:
-        'Zone4 고정카드3("남이 모르는 내 모습") 본문 3~5문장. 관상에서 보이는 겉인상(예: 강해 보이는 얼굴형, 날카로운 눈매)과 사주(오행·십성 — 예: 편인·정인 같은 섬세한 십성, 감성적인 오행)에서 드러나는 실제 성향이 서로 다른 얘기를 하고 있다면 그 반전을 중심으로 쓸 것. 관상과 사주가 같은 얘기만 하면 억지로 반전을 만들지 말고 "겉과 속이 같은 사람"이라는 방향으로 풀어도 됨.'
-    };
-    properties.zone4_hidden_self_basis = {
-      type: 'STRING',
-      description:
-        '위 풀이의 근거를 1~3문장으로 — 관상 쪽 근거와 사주 쪽 근거를 각각 짚을 것.'
-    };
-
-    properties.zone4_advice_basis = {
-      type: 'STRING',
-      description:
-        'Zone4 고정카드4("조언")의 근거를 1~3문장으로 — 위 조언이 이 리포트의 어떤 사주x관상 데이터(십성·신살조합·용신 등)를 근거로 나왔는지 설명. 조언 본문과 내용이 겹치지 않게, "왜 그런 조언이 나왔는지"만 쓸 것.'
-    };
-
-    properties.zone4_cards = {
-      type: 'ARRAY',
-      minItems: 8,
-      maxItems: 18,
-      description:
-        '⚠️ 이 필드를 쓰기 전에, 지금까지 이 응답에서 이미 쓴 zone2_review·zone3_manseryeok_reading· zone3_ohaeng_reading·zone3_daeun_reading·zone4_temperament_reading·zone4_hidden_self_reading을 되짚어, 거기서 이미 근거로 쓴 십성·신살·귀인·관상 부위가 무엇인지 확인할 것. zone4_cards의 각 카드는 그 목록과 다른 데이터 포인트를 근거로 써야 한다 — 예를 들어 zone4_temperament_reading에서 이미 용신(yongsinOh)을 언급했다면 rest 카드에서 같은 용신을 근거로 또 쓰지 말고, 위에서 안 쓴 다른 데이터로 풀이할 것. 같은 근거를 다른 카드에서 표현만 바꿔 반복하면 리포트 전체가 같은 얘기의 재탕처럼 느껴진다.\n\n' +
-        '[Zone4 후보 주제 목록](family/work/money/love/relationships/rest, 6개) 전부를 반드시 다룰 것 — 이 사람에게 안 맞는다고 주제를 아예 빼면 안 됨. ⚠️ family와 love는 반드시 각각 2개 이상의 카드로 나눠 쓸 것(아래 [주제별 근거 가이드] 참고 — 자라온 환경 카드와 부모님과의 관계 카드를 분리, love는 아래 안내에 따름). 나머지 4개 주제(work/money/relationships/rest)는 기본 1개 카드, 할 말이 특히 많으면 최대 3개까지 세부 카드로 나눠도 된다. 전체 카드 수는 반드시 최소 8개 이상. "전체에서 최대 3개를 고르는" 게 아니라 "주제마다 1~3개씩(단, family·love는 2개 이상), 총합은 8~18개"가 규칙.\n\n' +
-        '[주제별 근거 가이드 — 카드 순서 포함, 사용자 현재 상황(q1/q2)에 따라 사랑·일 카드는 아래처럼 각도가 달라짐]\n' +
-        '- family(가족): 순서대로 카드1 "자라온 환경"(전반), 카드2 "부모님과의 관계"(신규) — 카드2는 반드시 [십성 목록]에 편재·정재(재성)가 있는지로 아버지와의 인연을, 편인·정인(인성)이 있는지로 어머니와의 인연을 풀이할 것 — 있으면 그 인연이 뚜렷함을, 3개 자리(year/month/hour) 중 전혀 없으면 그 인연이 약하거나 독립적으로 형성됐음을 풀이. 실제 가족 구성원을 예언·평가하지 말고 "성향에 미쳤을 습관·태도 차이" 중심으로.\n' +
-        buildLoveCardGuidance(q1) + '\n' +
-        '- money(돈): [십성 목록]의 재성(편재=통 큰 씀씀이·사업감각, 정재=성실한 축적) 유무·종류를 우선 근거로 쓰고, [관상 실측 데이터]의 코끝(nosetip)·입(mouth) 관련 수치가 있으면 함께 엮을 것.\n' +
-        buildWorkCardGuidance(q2) + '\n' +
-        '- relationships(대인관계): [사주 신살·귀인 목록] 중 화개살(혼자만의 시간 선호)·귀문관살(몰입력)·겁살·재살(관계 마찰) 같은 항목과, [관상 실측 데이터]의 눈썹·미간(대인관계·형제운 부위) 특징을 엮어서 풀이.\n' +
-        '- rest(쉼/힐링): [용신(필요 오행)]의 yongsinOh(그 사람에게 부족해서 필요한 오행)를 반드시 근거로 써서, 그 기운을 채워주는 활동·공간·색·환경을 제안할 것.\n\n' +
-        '[사용자가 직접 남긴 질문 카드 — topic_key: user_question]\n' + buildQ3CardGuidance(q3),
-      items: {
-        type: 'OBJECT',
-        properties: {
-          topic_key: {
-            type: 'STRING',
-            description: 'family(가족), work(일), money(돈), love(사랑), relationships(대인관계), rest(쉼/힐링), user_question(사용자가 직접 남긴 질문에 답하는 카드 — [사용자가 직접 남긴 질문 카드] 지시 참고, 지시가 없으면 이 키를 쓰지 말 것) 중 하나. 세부 분리 시에도 가장 가까운 키를 쓸 것. family·love는 반드시 2개 이상의 카드가 이 키를 가져야 함.'
-          },
-          title: {
-            type: 'STRING',
-            description:
-              '[Zone4 제목 말투 참고 예시]와 같은 2030 타깃 위트 있는 톤으로, 이 사람 데이터에 맞는 완전히 새로운 제목을 지어 쓸 것. ⚠️ 참고 예시 문장을 그대로 쓰거나 단어 몇 개만 바꿔 쓰는 것은 금지 — 반드시 이 카드의 실제 풀이 내용에서 나온 표현으로 새로 지을 것. 문장 끝에 이 카드 내용을 압축한 짧은 해시태그 1~2개(예: " #K사장님각 #무재사주주의")를 붙여 더 눈에 띄게 만들 것 — 해시태그도 그대로 인용하지 말고 이 카드의 실제 근거에서 새로 지을 것. 화면 두 줄을 넘지 않게(해시태그 포함). 전문용어·자음 표현 금지(시스템 지침 참고) — 해시태그에도 전문용어 원어를 그대로 쓰지 말 것.'
-          },
-          reading: {
-            type: 'STRING',
-            description:
-              '사주x관상 데이터를 근거로 한 실제 풀이. [주제별 근거 가이드]에서 이 topic_key에 해당하는 근거를 반드시 활용할 것. MBTI 풀이처럼 2030이 이해하기 쉽게 3~4문장. 전문용어·자음 표현 금지.'
-          },
-          basis: {
-            type: 'STRING',
-            description:
-              '위 풀이가 어떤 사주x관상 데이터 근거로 나왔는지 1~3문장으로 설명("왜 이렇게 풀이했나요?" 영역에 노출됨). [주제별 근거 가이드]에서 실제로 사용한 데이터(신살명·십성명·관상 부위 등)를 구체적으로 짚을 것.'
-          },
-        },
-        required: ['topic_key', 'title', 'reading', 'basis'],
-      },
-    };
-
-    required.push(
-      'zone2_review',
-      'zone2_common_points',
-      'zone2_different_points',
-      'zone3_manseryeok_reading',
-      'zone3_manseryeok_basis',
-      'zone3_ohaeng_reading',
-      'zone3_daeun_reading',
-      'zone4_temperament_reading',
-      'zone4_temperament_basis',
-      'zone4_hidden_self_reading',
-      'zone4_hidden_self_basis',
-      'zone4_advice_basis',
-      'zone4_cards'
-    );
-  }
-
-  return {
-    type: 'OBJECT',
-    properties,
-    required
-  };
-}
-
-function buildDeepReportSystemInstruction() {
-  return `[역할]
-너는 전통 관상·사주 자료를 현대적인 언어로 풀어주는 해석 전문가야.
-
-사용자는 어려운 관상 용어를 공부하려는 것이 아니라
-"그래서 나는 어떤 사람이고, 왜 그렇게 해석했으며, 실제 생활에서는 어떻게 나타나는가?"
-를 알고 싶어 해.
-
-따라서 리포트는 무조건
-"쉬운 풀이 → 분석 근거 → 전통 원리 → 현실 조언"
-순서로 이해할 수 있게 작성해야 해.
-
-
-[가장 중요한 원칙]
-
-관상 해석에서 "풀이"와 "근거"를 섞지 마. ⚠️ 아래 각 역할을 설명할 때도, 실제 응답에 내부 필드명(snake_case
-영문 식별자)을 그대로 옮겨 쓰지 마 — 여기서는 어떤 내용이 어디에 들어가는지 구분하는 용도로만 쓰인다.
-
-[풀이] 역할 — 사용자가 자기 이야기처럼 읽을 수 있는 쉬운 해석을 작성한다.
-
-[근거] 역할("왜 이렇게 풀이했나요?" 영역) — 왜 그렇게 풀이했는지 실제 판별 결과를 제시한다.
-
-[전통 원리] 역할 — 그 판별을 전통 관상에서 어떤 의미로 보는지 설명한다.
-
-[조언] 역할("이제는 이렇게 해보세요" 카드) — 현실에서 어떻게 활용하거나 보완할지 알려준다.
-
-
-[관상 근거 사용 우선순위]
-
-관상 해석은 아래 순서대로 근거를 사용한다.
-
-1순위: [AI 관상 분류 결과]
-- 사진을 직접 보고 이미 판별한 눈 형상, 전체 인상, 이마, 눈썹, 눈, 코, 입, 턱, 얼굴형 유형
-
-2순위: [판별 유형 해석 DB]
-- 위에서 판별된 유형의 visual_features / traditional_meaning / strength / weakness / keywords
-
-3순위: [관상 실측 데이터]
-- MediaPipe 얼굴 랜드마크 기반 ratios와 statusMap
-
-4순위: [참고 데이터베이스]
-- 기존 부위별 강점/보완 관상 자료
-
-
-[매우 중요]
-
-앞선 AI가 이미 판별한 관상 유형을 정답으로 취급해.
-Deep Report 단계에서 사진을 다시 보고 새로운 봉안·호안·용상·학상 등의 유형을 임의로 만들어내거나 다른 유형으로 재분류하지 마.
-
-예를 들어 [AI 관상 분류 결과]가
-eye_archetype_id = EYE_PHOENIX라면
-Deep Report에서는 해당 결과와 연결된 "봉안" 해석만 사용해.
-
-판별 결과에 없는 관상 유형을 추가하지 마.
-
-raw ID(EYE_PHOENIX, FS_OVAL 등)는 사용자에게 보여주지 말고
-항상 "봉안", "타원형 얼굴"처럼 한국어 이름으로 표현해.
-
-같은 이유로 [관상 실측 데이터]의 원본 변수명이나 수치(foreheadWR, browGapR, 0.638, 1.82 같은 것)를
-analysis_basis/face_analysis_basis에 그대로 옮겨 쓰지 마. 그 값이 "넓다/좁다/균형 잡혀 있다"처럼
-어떤 판정으로 이어졌는지만 한국어 문장으로 풀어서 설명해 — 변수명·소수점 수치 자체는 사용자에게
-아무 의미가 없는 내부 계산값이야.
-
-
-[관상 상세 해설 작성법]
-
-각 part_deep_dive는 반드시 다음 구조를 지켜.
-
-1. title
-사용자가 클릭하고 싶을 정도로 자신의 실제 성향과 연결되는 제목.
-
-나쁜 예:
-"봉안 분석"
-
-좋은 예:
-"사람의 분위기를 빠르게 읽지만 혼자 신경을 많이 쓰는 눈"
-
-
-2. interpretation
-
-전문 관상 용어를 먼저 말하지 마.
-
-먼저 사용자의 성격, 행동, 인간관계, 일할 때의 모습처럼
-현실에서 체감할 수 있는 모습으로 4~6문장 풀어줘.
-
-다음 구조를 권장해.
-
-- 핵심 강점
-- 실제 행동으로 나타나는 모습
-- 강점이 과할 때 생기는 이면
-- 다른 사람이 이 사람을 어떻게 볼 수 있는지
-- 사용자가 자신의 경험과 맞춰볼 수 있는 장면
-
-마지막에는 다음처럼 자기 경험과 대조할 수 있게 해.
-
-"평소에도 친구들 사이에서 어색한 분위기가 생기면 먼저 말을 꺼내는 편일 거예요."
-
-또는
-
-"일을 맡으면 남들이 충분하다고 해도 스스로 한 번 더 확인하지 않나요?"
-
-단, 모든 문단을 "혹시 ~하지 않으세요?"로 끝내지 말고
-질문형·예측형·일상 장면형을 섞어.
-
-
-3. analysis_basis
-
-풀이가 나온 이유를 짧고 분명하게 설명해.
-
-예:
-"눈매는 가로로 길고 눈 앞머리와 눈꼬리가 섬세한 봉안 특징에 가깝게 판별됐어요. 여기에 큰 눈 유형의 개방적인 특징이 함께 나타나요."
-
-반드시 실제 [AI 관상 분류 결과]와 [관상 실측 데이터]만 사용해.
-
-
-4. principle
-
-전통 관상에서 그 특징을 어떻게 보는지를 설명해.
-
-예:
-"전통 관상에서는 봉안을 총명함과 기품, 사람을 살피는 지혜와 연결해 풀이해요."
-
-DB 원문을 그대로 복사하지 말고 현대적인 문장으로 풀어줘.
-하지만 DB에 없는 관상 원리를 새로 만들어서는 안 돼.
-
-
-[전체 성향 풀이]
-
-personality_detail도 전문용어 나열이 아니라
-사용자가 첫 화면에서 읽는 메인 풀이처럼 작성해.
-
-관상 사진이 있을 경우
-그 바로 뒤에 출력되는 face_analysis_basis / face_principle이
-personality_detail의 근거가 되어야 해.
-
-즉 세 필드의 내용이 서로 충돌하면 안 돼.
-
-
-[초년·중년·말년]
-
-초년·중년·말년은 확정적인 사건 예언처럼 쓰지 마.
-
-"20대에 반드시 큰 실패를 겪어요" 같은 표현은 금지하고,
-
-"초년에는 주변 기대를 의식해 자신의 기준보다 남의 평가를 먼저 생각하기 쉬운 흐름이에요."
-
-처럼 성향과 선택의 패턴을 중심으로 설명해.
-
-⚠️ [화면에 이미 표시된 대운 시기 흐름]의 십이운성 뜻풀이는 그 사전 문장을 그대로 옮기거나
-단어만 살짝 바꿔서 재사용하지 마. 반드시 이 사람의 실제 관상 부위·사주 십성/신살을
-구체적으로 엮어서 매번 새로운 문장으로 써. 같은 십이운성이라도 사람마다 다른 근거가
-섞이니 결과 문장도 달라져야 해.
-
-
-[사주]
-
-사주 정보가 있는 경우에만 오행·신살을 사용해.
-
-신살과 귀인은 반드시
-[사주 신살·귀인 목록]에 실제로 있는 것만 언급하고
-새로운 신살이나 귀인을 만들지 마.
-
-음양오행은 딱딱한 한자 나열보다
-일상의 성향으로 풀어서 설명해.
-
-[신살·귀인 조합 해석 — 2026-08-21 강화]
-
-[사주 신살·귀인 목록]에 항목이 2개 이상 있으면
-각각을 따로따로 나열하지 말고, 그 조합이 만들어내는 "하나의 이야기"로 묶어서 풀이해.
-
-나쁜 예(따로 나열):
-"홍염살이 있어 매력이 있고, 년살도 있어 사교성이 좋아요."
-
-좋은 예(조합으로 묶기):
-"홍염살과 년살이 함께 있어서, 가만히 있어도 시선을 끄는 그런 사람이에요."
-
-가진 신살·귀인 중 서로 같은 방향(둘 다 매력/둘 다 예민함 등)을 가리키는 조합을 우선 찾아서 쓰고,
-그런 조합이 없으면 가장 뚜렷한 신살·귀인 1개만 골라서 써도 돼.
-목록에 없는 신살·귀인을 조합해서 지어내지는 마.
-
-
-[관상×사주 데이터 풀이·스토리 — 관상 실측 데이터와 사주 정보가 둘 다 있을 때만 요청됨]
-
-zone2_review/zone3_manseryeok_reading/zone3_manseryeok_basis/zone3_ohaeng_reading/zone3_daeun_reading/
-zone4_temperament_reading/zone4_temperament_basis/zone4_hidden_self_reading/zone4_hidden_self_basis/
-zone4_advice_basis/zone4_cards가 스키마에 있다면 아래 기준으로 채워.
-
-- zone2_review: [관상x사주 케미 점수]는 이미 계산되어 주어진다. 새 숫자를 만들지 말고, 그
-  점수가 왜 나왔는지만 관상 근거 1개 + 사주 근거 1개로 설명해.
-- zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading: 각각 [사주 원국]↔[관상
-  6기질 점수], [사주 오행 분포]↔[관상 오행 분포], [대운 정보]↔[삼정 비율]을 짝지어, 두 데이터가
-  같은 이야기를 하는지 다른 이야기를 하는지 구체적으로 짚어. ⚠️ zone3_manseryeok_reading·
-  zone3_manseryeok_basis는 "다양한 기운" "차분한 에너지" 같은 뭉뚱그린 표현 대신 일간 오행·관상
-  기질명을 실제로 언급해(스키마 설명 참고). ⚠️ zone3_ohaeng_reading에서 어느
-  쪽이 더 높은지는 [오행 비교표]에 이미 계산돼 있다 — [사주 오행 분포]·[관상 오행 분포] 원본으로
-  직접 다시 비교하지 말고(스케일이 달라 방향이 틀리기 쉬움) [오행 비교표]의 방향을 그대로 따라.
-  ⚠️ [신강/신약]·[용신(필요 오행)]과 오행 zero/과다 개인 서사는 여기서 쓰지 마 — Zone4 고정카드
-  (zone4_temperament_reading)가 전담해.
-- zone4_temperament_reading("나의 기질"): 오행 zero·과다를 먼저 짚고 [신강/신약]·[용신]을 하나의
-  이야기로 엮어서 이 사람의 에너지 밸런스를 설명해. Zone3에서 이미 언급 안 한 내용이니 여기서
-  처음 등장시켜.
-- zone4_hidden_self_reading("남이 모르는 내 모습"): 관상 겉인상과 사주(오행·십성)가 서로 다른
-  얘기를 할 때만 반전 포인트로 써. 같은 얘기면 "겉과 속이 같다"는 방향으로 풀어도 돼.
-- zone4_advice_basis: 조언(마지막 고정카드)이 이 리포트의 어떤 데이터(십성·신살조합·용신 등)를
-  근거로 나왔는지만 짧게 짚어(조언 내용 자체는 이미 다른 필드에 있으니 반복하지 마).
-- zone4_cards: ⚠️ 쓰기 전에 반드시 zone2_review·zone3_manseryeok_reading·zone3_ohaeng_reading·
-  zone3_daeun_reading·zone4_temperament_reading·zone4_hidden_self_reading에서 이미 근거로 쓴
-  십성·신살·귀인·관상 부위·용신을 되짚어보고, zone4_cards의 카드들은 거기 없던 다른 데이터
-  포인트를 근거로 써 — 같은 근거를 표현만 바꿔 다시 쓰면 리포트 전체가 같은 얘기의 재탕처럼
-  느껴져. [Zone4 후보 주제 목록] 6개(가족/일/돈/사랑/대인관계/쉼힐링)를 전부 다뤄 — 하나도
-  빼면 안 돼. family(가족)와 love(사랑)는 반드시 각각 2개 이상의 카드로 나눠(스키마의 [주제별
-  근거 가이드]에 각 카드가 어떤 데이터를 근거로 써야 하는지, 그리고 카드 순서가 어떻게 되는지
-  적혀 있어 — family는 카드1 "자라온 환경" → 카드2 "부모님과의 관계"([십성 목록]의 재성·인성
-  유무), love는 카드1 "매력·인기"([사주 신살·귀인 목록]의 홍염살·년살 + [AI 관상 분류 결과]의
-  매력 계열 눈 유형) → 카드2 "연애·결혼 스타일" 순서를 반드시 지켜). 나머지 주제(work/money/
-  relationships/rest)도 [주제별 근거 가이드]에 지정된 데이터(십성 조합, 신살·귀인, 관상 부위,
-  용신)를 반드시 활용해 — 전체 카드 수는 최소 8개 이상. 각 카드 제목은 [Zone4 제목 말투 참고
-  예시]와 같은 톤으로 이 카드의 실제 풀이 내용에 맞게 새로 지어. 참고 예시 문장을 그대로 쓰거나
-  단어만 바꿔 쓰는 것은 절대 금지.
-
-이 필드들도 지어내지 말고, 반드시 앞서 준 [관상 실측 데이터]·[AI 관상 분류 결과]·[사주 정보]·
-[사주 신살·귀인 목록]·[십성 목록]·[신강/신약]·[용신(필요 오행)]·[관상x사주 케미 점수]·[대운 정보]·
-[삼정 비율]에 실제로 있는 내용만 근거로 삼아.
-
-[Zone4 제목·풀이 말투 — 통합분석 리포트 구성.md §3]
-- 2030 타깃, MBTI 풀이처럼 이해가 쉽게. 사주·관상 전문용어(현침살, 자충수, 천정이 밝다, 재백궁 등)를
-  그대로 노출하지 말고 풀어서 표현해.
-- 자음 표현(ㄴㄴ, ㄱㄱ 등) 사용을 금지해.
-- zone4_cards의 title은 문장 끝에 그 카드 내용을 압축한 짧은 해시태그 1~2개를 붙여([Zone4 제목 말투
-  참고 예시]의 해시태그 형식 참고 — 그대로 베끼지 말고 톤만 참고) SNS 밈처럼 눈에 띄게 만들어.
-  해시태그도 전문용어를 그대로 쓰지 말고 이 카드의 실제 풀이 키워드를 새 표현으로 압축할 것.
-
-
-[말투]
-
-- 반드시 자연스러운 해요체
-- MBTI 성향 분석을 읽는 것처럼 직관적이고 이해하기 쉽게
-- 지나치게 신비주의적인 말투 금지
-- "당신은 무조건", "반드시 이렇게 된다" 같은 단정 표현 금지
-- 같은 문장 구조를 반복하지 말 것
-- 좋은 말만 늘어놓지 말고 강점의 이면도 함께 설명할 것
-
-
-[절대 금지]
-
-- 성형, 필러, 보톡스 등 의료·미용시술 권유 금지
-- 사망, 요절, 재앙 등 극단적인 흉조 단정 금지
-- 제공되지 않은 관상 유형 창작 금지
-- 제공되지 않은 사주 신살·귀인 창작 금지
-- DB의 전통 해석을 사실이나 과학적 인과관계처럼 단정하지 말 것
-- growth_guidance, zone3_ohaeng_reading처럼 snake_case로 된 내부 필드명·변수명을 문장에 그대로 쓰지 말 것.
-  "위 조언", "앞서 짚은 오행 조합"처럼 사람이 읽는 말로 풀어서 가리킬 것(사용자 리포트: "growth_guidance에서
-  강조한..."이라고 써서 사용자가 무슨 말인지 못 알아들었음).
-
-
-[참고 데이터베이스]
-${JSON.stringify(buildDbContext())}`;
-}
-
-// 2026-08-30 DB 이원화 2단계 — buildArchetypeContext가 참조하는 archetype-db.js 9종 카탈로그가
-// 서버 캐시가 돼서 async가 됐다(호출부 requestDeepReport는 이미 async).
-async function buildDeepReportUserPrompt(
-  ratios,
-  statusMap,
-  pillars,
-  ohaeng,
-  sajuInsight,
-  relLabel,
-  archetypeAnalysis = null,
-  sewoonInfo = null,
-  characterResult = null,
-  zone3Extra = null, // {chemiScore, faceTraitScores, faceOhaeng, samjeong, daeunList} — 통합분석 Zone2/3/4 전용
-  situation = null // {q1, q2, q3} — 통합분석 진입 질문(지금의 상황/일상/자유입력). 통합분석 리포트 구성.md §4
-) {
-  // classifyAndBuildCharacter가 이미 채워뒀을 가능성이 높지만(같은 분석 세션), 순서를 보장할 수 없는
-  // 호출 경로도 있어 방어적으로 한 번 더 await한다 — 캐시가 있으면 즉시 반환되니 비용은 거의 없다.
-  if (characterResult) await CharacterAPI.ensureCharacterCatalog();
-  // 스펙 §8-2 — Zone1(16캐릭터) 결과를 프롬프트에 넣고 "이것과 어긋나게 쓰지 말 것"을 못박는다.
-  // 안 넣으면 AI가 "우직한 신뢰가형" 같은 새 유형명을 만들어 Zone1 캐릭터명과 화면에서 충돌한다
-  // ("이 사람이 누구인가는 Zone1만 말한다"는 스펙 원칙 1).
-  const characterBlock = characterResult && characterResult.characterId
-    ? `[확정된 캐릭터 유형 — 절대 바꾸지 말 것]
-※ 관상+사주를 융합한 룰 엔진이 이미 확정한 결과입니다. 화면 최상단에 이 이름으로 이미 표시돼 있습니다.
-유형명: ${(CHARACTER_DB[characterResult.characterId] || {}).name || ''}
-판정 근거: ${characterResult.basisLabel || ''}
-가장 높은 두 기질: ${TRAIT_LABEL_KO[characterResult.primaryTrait] || ''} · ${TRAIT_LABEL_KO[characterResult.secondaryTrait] || ''}
-
-작성 규칙:
-1) "OO형", "OO상" 같은 **새로운 유형명을 만들지 마세요.** 사람을 유형화하는 이름은 위 유형명 하나뿐입니다.
-2) 총평은 "당신은 ~형이에요"(정체성 선언)로 쓰지 말고 "그래서 지금은 ~하면 좋아요"(방향 제시)로 마무리하세요.
-3) 위 두 기질과 어긋나는 성격 서술을 하지 마세요.`
-    : '';
-
-  const sajuBlock = pillars
-    ? `사주 8자(년/월/일/시): ${
-        pillars
-          .map(p =>
-            (p.stem >= 0 && p.branch >= 0)
-              ? `${CG_KO[p.stem]}${JJ_KO[p.branch]}`
-              : '(시간 미상)'
-          )
-          .join(' / ')
-      }
-일간: ${
-        pillars[2].stem >= 0
-          ? CG_KO[pillars[2].stem] +
-            '(' +
-            CG_OH[pillars[2].stem] +
-            ')'
-          : '미상'
-      }
-오행 분포: ${JSON.stringify(ohaeng)}`
-    : '사주 정보 없음 — 관상 데이터만으로 판단해주세요.';
-
-
-  const sinsalBlock = sajuInsight
-    ? `[사주 신살·귀인 목록]
-※ 반드시 이 목록에 실제로 있는 항목만 사용할 것.
-
-십이운성:
-${JSON.stringify(sajuInsight.unseongList)}
-
-신살:
-${JSON.stringify(sajuInsight.sinsalList)}
-
-귀인:
-${JSON.stringify(sajuInsight.gwiinList)}`
-    : `[사주 신살·귀인 목록]
-없음 — 생년월일시 정보가 없어 계산 불가.`;
-
-
-  // 십성/신강신약/용신(2026-08-21 추가) — 궁합보기(buildSipseongCross/buildYongsinChemi)에서만 쓰던
-  // 엔진을 개인 리포트에도 연결한다. year/month/hour는 일간 대비 년간·월간·시간의 십성이고, 일간 본인은
-  // "일원"이라 비교 대상에서 제외된다(calcSipseongAll 주석 참고) — 시간 미상이면 hour는 null.
-  const sipseongAll = pillars ? calcSipseongAll(pillars) : null;
-  const sipseongBlock = sipseongAll
-    ? `[십성 목록 — 일간 기준 년주/월주/시주. 일간 자신은 비교 대상에서 빠짐]
-${JSON.stringify(sipseongAll)}
-
-[십성 의미 참고 — 반드시 이 뜻풀이 범위 안에서만 서술할 것]
-${JSON.stringify(SIPSEONG_MEANING)}`
-    : `[십성 목록]
-없음 — 일간 정보가 없어 계산 불가.`;
-
-  const sinkangSinyak = pillars ? calcSinkangSinyak(pillars) : null;
-  const sinkangSinyakBlock = sinkangSinyak
-    ? `[신강/신약]
-${JSON.stringify(sinkangSinyak)}
-※ isStrong=true면 신강(스스로 밀고 나가는 힘이 강함), false면 신약(주변 도움·기운이 필요함). help/drain 숫자는 근거 계산값일 뿐이니 그대로 노출하지 말 것.`
-    : '';
-
-  const yongsin = pillars ? calcYongsin(pillars) : null;
-  const yongsinBlock = yongsin
-    ? `[용신(필요 오행)]
-${JSON.stringify(yongsin)}
-※ yongsinOh가 이 사람에게 부족해서 채우면 좋은 오행. ohCount에서 그 오행의 실제 개수도 함께 확인할 것.`
-    : '';
-
-
-  const faceBlock = ratios
-    ? `[관상 실측 데이터]
-MediaPipe FaceLandmarker 478점 기반 측정값과 기존 부위별 판정입니다.
-
-${JSON.stringify({
-  ratios,
-  statusMap
-})}`
-    : '';
-
-
-  // 사진+사주가 둘 다 있을 때(fusion_match_score 등이 요청될 때)만 의미 있는 블록.
-  const sewoonBlock = sewoonInfo
-    ? `[올해 세운 정보]
-올해 세운 오행: ${sewoonInfo.yearOh} / 일간과의 관계: ${sewoonInfo.text}`
-    : '';
-
-  if (archetypeAnalysis) await CharacterAPI.ensureArchetypeCatalog();
-  const archetypeContext =
-    archetypeAnalysis
-      ? buildArchetypeContext(archetypeAnalysis)
-      : null;
-
-
-  const archetypeBlock = ratios
-    ? archetypeAnalysis && archetypeContext
-      ? `[AI 관상 분류 결과]
-※ 사진을 보고 앞선 AI 분류 단계에서 이미 결정된 값입니다.
-※ 이 결과를 Deep Report에서 다시 재분류하지 마세요.
-
-${JSON.stringify(archetypeAnalysis)}
-
-[판별 유형 해석 DB]
-※ 위 분류 결과에 해당하는 archetype-db.js의 고정 근거입니다.
-※ 관상 분석과 전통 원리는 반드시 아래 데이터 범위 안에서 작성하세요.
-
-${JSON.stringify(archetypeContext)}`
-      : `[AI 관상 분류 결과]
-별도 유형 분류 결과 없음.
-
-이 경우 봉안·호안·용상·학상 등의 이름을 새로 추정하거나 만들어내지 말고,
-[관상 실측 데이터]와 [참고 데이터베이스]만 이용하세요.`
-    : '';
-
-
-  // 통합분석 Zone2/3/4 전용 근거 블록 — chemiScore가 없으면(사진 없거나 사주 없어 hasSaju&&hasFace가
-  // 애초에 false인 경우) 스키마에 해당 필드가 없으므로 빈 문자열이어도 무방하다.
-  const zone2ChemiBlock = zone3Extra && zone3Extra.chemiScore != null
-    ? `[관상x사주 케미 점수]\n${zone3Extra.chemiScore} (0~100, 이미 계산됨 — 새로 만들지 말 것)`
-    : '';
-
-  const faceTraitBlock = zone3Extra && zone3Extra.faceTraitScores
-    ? `[관상 6기질 점수]\n${JSON.stringify(zone3Extra.faceTraitScores)}`
-    : '';
-
-  const sajuTraitBlock = zone3Extra && zone3Extra.sajuTraitScores
-    ? `[사주 6기질 점수]\n${JSON.stringify(zone3Extra.sajuTraitScores)}`
-    : '';
-
-  const faceOhaengBlock = zone3Extra && zone3Extra.faceOhaeng
-    ? `[관상 오행 분포]\n${JSON.stringify(zone3Extra.faceOhaeng)}`
-    : '';
-
-  // 오행 비교표(2026-08-21 버그 수정) — [사주 오행 분포]는 사주 8글자 중 개수(0~8, 예: 목:1)이고
-  // [관상 오행 분포](calcFaceOhaeng)는 이미 0~100 퍼센트라, 두 블록을 그대로 나란히 주면 AI가 서로
-  // 다른 스케일의 숫자를 직접 비교하다가 방향을 헷갈린다(실사용 리포트에서 "관상 쪽 목 기운이 낮다"고
-  // 썼는데 실제 화면 그래프는 관상이 더 높았던 버그로 발견). 사주도 퍼센트로 미리 정규화해서 화면에
-  // 실제로 보이는 값과 똑같은 스케일로 맞추고, 오행별로 어느 쪽이 더 높은지까지 코드로 미리 계산해서
-  // 넘긴다 — AI는 이 표의 방향을 그대로 따르기만 하면 된다.
-  const ohaengCompareBlock = (ohaeng && zone3Extra && zone3Extra.faceOhaeng)
-    ? (() => {
-        const sajuTotal = Object.values(ohaeng).reduce((a, b) => a + b, 0) || 1;
-        const rows = Object.keys(ohaeng).map(oh => {
-          const sajuPct = Math.round((ohaeng[oh] / sajuTotal) * 100);
-          const facePct = Math.round(zone3Extra.faceOhaeng[oh] || 0);
-          const diff = facePct - sajuPct;
-          return {
-            오행: oh,
-            사주퍼센트: sajuPct,
-            관상퍼센트: facePct,
-            차이_관상마이너스사주: diff,
-            더높은쪽: diff > 0 ? '관상' : diff < 0 ? '사주' : '동일',
-          };
-        });
-        return `[오행 비교표 — 이미 계산됨. 직접 다시 비교·계산하지 말고 이 표의 "더높은쪽"과 "차이_관상마이너스사주" 값을 그대로 따를 것]
-${JSON.stringify(rows)}`;
-      })()
-    : '';
-
-  const samjeongBlock = zone3Extra && zone3Extra.samjeong
-    ? `[삼정 비율]\n${JSON.stringify(zone3Extra.samjeong)}`
-    : '';
-
-  const daeunBlock = zone3Extra && zone3Extra.daeunList
-    ? `[대운 정보]\n${JSON.stringify(zone3Extra.daeunList)}`
-    : '';
-
-  const daeunStagesBlock = zone3Extra && zone3Extra.daeunStages
-    ? `[화면에 이미 표시된 대운 시기 흐름 — "대운x삼정 타임라인" 위젯과 100% 동일한 계산 결과]
-※ early_life/mid_life/late_life을 쓸 때는 반드시 이 목록의 십이운성·뜻만 근거로 쓸 것. [사주 신살·귀인 목록]에 있는 십이운성(사주 원국 자체 십이운성, 나이 흐름과 무관)을 가져다 쓰지 말 것.
-${JSON.stringify(zone3Extra.daeunStages)}`
-    : '';
-
-  const zone4TitleBankBlock = zone3Extra && zone3Extra.chemiScore != null
-    ? `[Zone4 후보 주제 목록]\nfamily(가족) / work(일) / money(돈) / love(사랑) / relationships(대인관계) / rest(쉼·힐링)\n\n[Zone4 제목 말투 참고 예시 — 그대로 쓰거나 단어만 바꿔 쓰지 말고 톤만 참고할 것]\n${JSON.stringify(CMB_ZONE4_TITLE_STYLE_EXAMPLES)}`
-    : '';
-
-  // 통합분석 리포트 구성.md §4(2026-08-20) — q1(지금의 상황)/q2(일상)에 따라 zone4_cards의
-  // love/work 카드 각도가 스키마 설명(buildLoveCardGuidance/buildWorkCardGuidance)에서 바뀐다.
-  // 여기서는 AI가 실제 값을 참고할 수 있게 원본 데이터만 넘긴다.
-  const situationBlock = (situation && (situation.q1 || situation.q2 || situation.q3))
-    ? `[사용자 현재 상황]\n지금의 상황: ${situation.q1 || '미답변'}\n주로 보내는 일상: ${situation.q2 || '미답변'}\n${situation.q3 ? '추가로 궁금한 것: ' + situation.q3 : ''}\n※ love(사랑)·work(일) 카드는 이 상황에 맞는 각도로 써야 함 — 자세한 규칙은 zone4_cards 스키마 설명 참고.`
-    : '';
-
-  const requestLine = ratios
-    ? `[요청]
-
-위 데이터를 바탕으로 스키마의 모든 필드를 채워주세요.
-
-특히 관상 리포트는 반드시 다음 흐름이 느껴지게 작성하세요.
-
-사용자가 읽는 쉬운 풀이
-→ 왜 그렇게 해석했는지 관상 분석
-→ 전통 관상에서의 원리
-→ 현실적인 조언
-
-personality_detail은 전체적인 성향을 충분히 풀어주고,
-face_analysis_basis와 face_principle은 그 해석의 근거가 되어야 합니다.
-
-part_deep_dive에서는 특히 의미가 뚜렷한 특징 4~6개만 선택하세요.
-
-[AI 관상 분류 결과]가 있다면
-eye_archetype / face_archetype 및 실제 판별된 부위 유형을 우선적으로 활용하세요.
-
-각 상세 해설에서는
-interpretation에 사용자가 공감할 수 있는 실제 행동 패턴을 충분히 쓰고,
-analysis_basis와 principle은 별도 필드로 분리하세요.
-
-같은 내용을 interpretation / analysis_basis / principle에서 반복하지 마세요.
-
-zone2_review/zone2_common_points/zone2_different_points/zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading/
-zone4_temperament_reading/zone4_hidden_self_reading/zone4_advice_basis/zone4_cards가 스키마에
-있다면, [관상x사주 케미 점수]·[관상 6기질 점수]·[사주 6기질 점수]·[관상 오행 분포]·[오행 비교표]·[삼정 비율]·[대운 정보]·
-[십성 목록]·[신강/신약]·[용신(필요 오행)]·[Zone4 후보 주제 목록]·[Zone4 제목 말투 참고 예시]를 근거로
-채워주세요. 오행 중 어느 쪽이 더 높은지는 [오행 비교표]에 이미 계산돼 있으니 그 표만 따르고 원본
-분포로 직접 다시 비교하지 마세요. 오행 zero/과다·신강신약·용신은 zone3_* 필드가 아니라
-zone4_temperament_reading에만 쓰세요(중복 금지). zone4_cards는 [주제별 근거 가이드](스키마 설명
-참고)에 따라 family는 "자라온 환경"→"부모님과의
-관계", love는 "매력·인기"→"연애·결혼 스타일" 순서로 각각 2개 이상의 카드를 나누고, 나머지 주제도
-지정된 근거(십성·신살귀인·관상 부위)를 반드시 활용하세요. 제목 말투 참고 예시는 절대 그대로 베끼지
-마세요.`
-    : `[요청]
-
-사진 없이 사주 정보만으로 스키마의 모든 필드를 채워주세요.
-
-관상을 지어내지 말고,
-사주 8자·오행 분포·신살·귀인 목록에 실제로 제공된 정보만 근거로 작성하세요.`;
-
-
-  return `[관계]
-이 사람은 사용자 기준 "${relLabel || '본인'}"입니다.
-관계에 맞게 2인칭·3인칭 표현을 자연스럽게 선택하세요.
-
-
-${faceBlock}
-
-
-${archetypeBlock}
-
-
-${characterBlock}
-
-
-[사주 정보]
-${sajuBlock}
-
-
-${sinsalBlock}
-
-
-${sipseongBlock}
-
-
-${sinkangSinyakBlock}
-
-
-${yongsinBlock}
-
-
-${sewoonBlock}
-
-
-${zone2ChemiBlock}
-
-
-${faceTraitBlock}
-
-
-${sajuTraitBlock}
-
-
-${faceOhaengBlock}
-
-
-${ohaengCompareBlock}
-
-
-${samjeongBlock}
-
-
-${daeunBlock}
-
-
-${daeunStagesBlock}
-
-
-${zone4TitleBankBlock}
-
-
-${situationBlock}
-
-
-${requestLine}`;
 }
 
 // part_deep_dive 항목(section_key) → 화면 라벨. renderDeepReport(관상보기 탭)가 사용한다.
@@ -1955,18 +537,6 @@ async function requestDeepReport(ctx) {
     getCleanImageDataUrl(ctx, cfg.canvasId);
 
 
-  const ratios =
-    getGwansangRatios(lm);
-
-  const statusMap =
-    judgePartStatus(ratios);
-
-
-  const sajuInsight =
-    cfg.pillars
-      ? collectSajuInsightSummary(cfg.pillars)
-      : null;
-
   const sewoonInfo =
     cfg.pillars
       ? getSewoonRelation(cfg.pillars[2].stem)
@@ -2014,9 +584,7 @@ async function requestDeepReport(ctx) {
           ctx,
           cfg,
           lm,
-          imageDataUrl,
-          ratios,
-          statusMap
+          imageDataUrl
         );
 
         archetypeAnalysis =
@@ -2037,10 +605,6 @@ async function requestDeepReport(ctx) {
     // 2. 상세 리포트 생성
     // ─────────────────────────────
 
-    const sys =
-      buildDeepReportSystemInstruction();
-
-
     // Zone1 결과를 넣어 AI가 다른 유형명을 만들지 못하게 한다.
     const zone1Character = state[ctx] && state[ctx].characterResult;
 
@@ -2057,8 +621,10 @@ async function requestDeepReport(ctx) {
           // 넘기면, 두 도메인 모두에서 높은 기질(같은 점)·서로 엇갈리는 기질(다른 점)을 AI가 숫자로
           // 직접 비교해서 짚을 수 있다 — 새로 추정하지 않고 그대로 인용만 하면 되게.
           sajuTraitScores: zone1Character.sajuTraitScores,
-          faceOhaeng: calcFaceOhaeng(lm),
-          samjeong: calcSamjeongRatio(lm),
+          // classifyAndBuildCharacter가 이미 받아둔 gwansangBundle을 재사용 — lm을 다시 서버로
+          // 보내지 않는다(ANALYSIS_LOGIC_SERVER_MIGRATION.md 2026-09-08 확장).
+          faceOhaeng: state[ctx].gwansangBundle.faceOhaeng,
+          samjeong: state[ctx].gwansangBundle.samjeong,
           daeunList: state[ctx].daeun || null,
           // "대운x삼정 타임라인" 위젯(renderLifeline)이 계산하는 것과 완전히 같은 방식으로 미리
           // 12운성·뜻을 계산해서 넘긴다 — AI가 원국 자체 십이운성([사주 신살·귀인 목록])과 헷갈리거나
@@ -2082,43 +648,16 @@ async function requestDeepReport(ctx) {
     // 컨텍스트에서는 자연히 undefined → situationBlock/카드 각도 분기 모두 기존 기본값으로 폴백된다.
     const situation = { q1: state[ctx].q1, q2: state[ctx].q2, q3: state[ctx].q3 };
 
-    const userText =
-      await buildDeepReportUserPrompt(
-        ratios,
-        statusMap,
-        cfg.pillars,
-        cfg.ohaeng,
-        sajuInsight,
-        cfg.relVal,
-        archetypeAnalysis,
-        sewoonInfo,
-        zone1Character,
-        zone3Extra,
-        situation
-      );
-
-
+    // ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 3번" — 시스템 프롬프트·스키마 조립과 Gemini
+    // 호출(온도 0.3 등 세부 설정 포함)뿐 아니라 ratios/statusMap/sajuInsight 계산까지 서버가 lm/pillars로
+    // 부터 직접 한다. 클라이언트는 원재료(lm/pillars)만 보내고 완성된 리포트 객체만 받는다.
     const data =
-      await callGeminiAPI(
-        sys,
-        userText,
-        [imageDataUrl],
-        buildPersonalDeepReportSchema(
-          !!cfg.pillars,
-          true,
-          situation.q1,
-          situation.q2,
-          situation.q3
-        ),
-
-        // ⚠️ 사용자 리포트(2026-08-20): 같은 사주+사진으로 두 번 돌렸는데 analysis_basis/principle
-        // ("왜 이렇게 풀이했나요?") 문장이 눈에 띄게 달라짐 — 그 자리는 "이 숫자가 왜 이 결론으로
-        // 이어지는지"를 설명하는 근거라, 매번 다르게 설명되면 지어내는 것처럼 보여 신뢰를 깎는다.
-        // interpretation/제목처럼 표현이 매번 새로워야 하는 자리(문서에도 명시)와는 성격이 다르다.
-        // 0.65에서도 이 문제가 실제로 재현돼 0.3으로 더 낮춘다 — 스키마의 모든 필드가 한 호출을
-        // 공유해서 필드별로 온도를 나눠 줄 수는 없다.
-        0.3
-      );
+      await AiReportAPI.generateDeepReport({
+        lm, pillars: cfg.pillars, ohaeng: cfg.ohaeng, relVal: cfg.relVal,
+        archetypeAnalysis, sewoonInfo, zone1Character, zone3Extra, situation,
+        hasSaju: !!cfg.pillars, hasFace: true, q1: situation.q1, q2: situation.q2, q3: situation.q3,
+        imageDataUrl,
+      });
 
 
     if (splitIds.length) {
@@ -2169,41 +708,6 @@ async function requestDeepReport(ctx) {
       const el = document.getElementById(id);
       if (el) { el.innerHTML = ''; el.classList.add('hidden'); }
     });
-  }
-}
-
-// 사주 탭(사진 없음) 전용 — requestDeepReport와 로직은 같지만 photo/lm이 아예 없다는 전제라
-// CTX_CONFIG(canvasId 등 사진 관련 필드 위주)에 억지로 끼워맞추지 않고 별도 함수로 뒀다.
-// 사주 탭은 지금까지 이 리포트 자체가 연결돼 있지 않아서 여전히 짧은 로컬 카드 3장만 보였다
-// (사용자 피드백 2026-08-13: "관상 쪽은 디테일해졌는데 사주 쪽은 아직도 안 그렇다").
-// 실제 Gemini 요청 조립(systemInstruction/contents/generationConfig)과 키 사용은 이제 서버 쪽
-// geminiProxy Cloud Function 안에서만 일어난다 — 여기서는 재료만 보내고 원본 응답만 그대로 받는다.
-async function callGeminiAPI(
-  systemInstruction,
-  userText,
-  images,
-  schema,
-  temperature = 0.9
-) {
-  if (!isGeminiConfigured()) throw new Error('Gemini 프록시 주소가 없어요. js/config.js의 GEMINI_PROXY_URL을 확인해주세요.');
-
-  const res = await fetch(GEMINI_PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ systemInstruction, userText, images, schema, temperature, model: GEMINI_MODEL }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API 오류 (${res.status}). 무료 한도를 초과하지 않았는지 확인해주세요. — ${errText.slice(0, 200)}`);
-  }
-  const json = await res.json();
-  const text = json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts && json.candidates[0].content.parts[0] && json.candidates[0].content.parts[0].text;
-  if (!text) throw new Error('Gemini 응답을 해석할 수 없어요. 버튼을 다시 눌러 재시도해주세요.');
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    throw new Error('Gemini 응답 형식이 예상과 달라요. 버튼을 다시 눌러 재시도해주세요.');
   }
 }
 
@@ -2379,12 +883,13 @@ function fillGunghapAiFallback() {
 
 // AI 보완(부위별 코멘트 + 관상 형상 분류) — 사용자 조작 없이 로컬 분석 뒤에 자동으로만 실행됨(재시도 버튼 없음).
 // 키가 없거나 API 호출이 실패하면 조용히 스킵 — 로컬 결과만 있는 상태로 남을 뿐, 에러 UI를 사용자에게 노출하지 않음.
-// Gemini가 없거나 실패하면 랜드마크만으로 눈모양·동물형상을 약식 추정한다(landmark-engine.js의 룰베이스 분류기).
+// Gemini가 없거나 실패하면 서버 룰베이스 분류(classifyGwansang)로 눈모양·동물형상을 약식 추정한다.
 // 정밀도는 떨어지지만, 키가 없다는 이유로 이 카드 자체가 통째로 안 보이는 것보다는 낫다는 판단.
-function renderArchetypesFallback(archetypeId, lm, fallbackReason, genderVal, personLabel) {
-  const eyeId = classifyEyeArchetypeRuleBased(lm);
-  const faceId = classifyFaceArchetypeRuleBased(lm);
-  renderArchetypes(archetypeId, eyeId, faceId, true, null, fallbackReason, genderVal, null, personLabel);
+// ANALYSIS_LOGIC_SERVER_MIGRATION.md 2026-09-08 확장 — landmark-engine.js의 룰베이스 분류기를
+// 클라이언트에서 제거하면서 async로 바뀜(호출부는 이미 async 안에서 부른다).
+async function renderArchetypesFallback(archetypeId, lm, fallbackReason, genderVal, personLabel) {
+  const { featureIds } = await CharacterAPI.classifyGwansang(lm);
+  renderArchetypes(archetypeId, featureIds.eye_archetype_id, featureIds.face_archetype_id, true, null, fallbackReason, genderVal, null, personLabel);
 }
 
 // 컨텍스트별 설정 — 궁합 탭의 두 사람(gunghamA/B)도 관상 탭·통합분석 탭과 동일하게 관상 형상(눈모양·
@@ -2457,9 +962,7 @@ async function getOrRequestPersonalAiData(
   ctx,
   cfg,
   lm,
-  imageDataUrl,
-  ratios,
-  statusMap
+  imageDataUrl
 ) {
   const ctxState = state[ctx];
 
@@ -2493,27 +996,12 @@ async function getOrRequestPersonalAiData(
   ctxState.archetypeAnalysis = null;
 
 
-  const promise = (async () => {
-    const sys =
-      await buildAiEnhancementSystemInstruction();
-
-    const userText =
-      buildAiEnhancementUserPrompt(
-        ratios,
-        statusMap,
-        cfg.pillars,
-        cfg.ohaeng
-      );
-
-    // 관상 "분류" 단계는 창의성이 필요 없으므로 낮은 temperature 사용.
-    return callGeminiAPI(
-      sys,
-      userText,
-      [imageDataUrl],
-      AI_ENHANCEMENT_SCHEMA,
-      0.25
-    );
-  })();
+  // ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 3번" — 시스템 프롬프트·스키마·온도(0.25) 설정뿐
+  // 아니라 ratios/statusMap 계산(getGwansangRatios/judgePartStatus)까지 서버(generateAiEnhancement)가
+  // lm으로부터 직접 한다 — 클라이언트는 원본 랜드마크만 보낸다.
+  const promise = AiReportAPI.generateAiEnhancement({
+    lm, pillars: cfg.pillars, ohaeng: cfg.ohaeng, imageDataUrl,
+  });
 
 
   ctxState.personalAiPromise = promise;
@@ -3067,9 +1555,13 @@ async function classifyAndBuildCharacter(ctx, cfg, lm) {
   // ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 1번" — 판정 임계값·시그니처 테이블이 정적
   // 파일로 노출되지 않도록, 이 세 단계(classifyAllFeaturesRuleBased→getGwansangRatios→judgePartStatus)를
   // 서버(functions/engine/gwansang-classify.js, classifyGwansang 엔드포인트) 호출로 대체한다.
-  const { featureIds: ids, confidences, partStatusMap } = await CharacterAPI.classifyGwansang(lm);
+  const gwansangBundle = await CharacterAPI.classifyGwansang(lm);
+  const { featureIds: ids, confidences, partStatusMap } = gwansangBundle;
   state[ctx].archetypeAnalysis = extractArchetypeAnalysis(ids);
   state[ctx].ruleBasedConfidences = confidences;
+  // renderPersonalReportV2·renderExtendedAnalysis·buildPersonNarrative 등이 lm을 다시 서버에 보내지
+  // 않고 이 응답을 그대로 재사용할 수 있게 저장해둔다(ANALYSIS_LOGIC_SERVER_MIGRATION.md 2026-09-08 확장).
+  state[ctx].gwansangBundle = gwansangBundle;
 
   // 2026-08-30 DB 이원화 2단계 — EYE_ARCHETYPE_DB 등은 이제 빈 캐시라, renderArchetypes가 실제
   // 콘텐츠를 읽으려면 그 전에 서버 카탈로그를 받아 채워둬야 한다(archetype-db.js 주석 참고).
@@ -3100,7 +1592,7 @@ async function classifyAndBuildCharacter(ctx, cfg, lm) {
   // (getOrRequestPersonalAiData가 이 플래그를 보고 archetypeAnalysis 갱신을 건너뛴다)
   state[ctx].archetypeIsRuleBased = true;
   if (characterResult) console.log(`[16캐릭터] ${ctx}:`, characterResult);
-  return { ids, confidences, characterResult };
+  return { ids, confidences, characterResult, gwansangBundle };
 }
 
 async function requestPersonalAiRuleBased(ctx, cfg, lm) {
@@ -3151,7 +1643,7 @@ async function requestPersonalAi(ctx) {
   // Gemini가 없으면 기존 룰베이스 fallback 유지.
   if (!isGeminiConfigured()) {
     if (ruleBased) return; // 통합분석은 이미 룰베이스로 그렸다
-    renderArchetypesFallback(
+    await renderArchetypesFallback(
       cfg.archetypeId,
       lm,
       null,
@@ -3166,13 +1658,6 @@ async function requestPersonalAi(ctx) {
   const imageDataUrl =
     getCleanImageDataUrl(ctx, cfg.canvasId);
 
-  const ratios =
-    getGwansangRatios(lm);
-
-  const statusMap =
-    judgePartStatus(ratios);
-
-
   try {
     // requestDeepReport와 동일한 AI 분류 결과를 공유한다.
     const data =
@@ -3180,9 +1665,7 @@ async function requestPersonalAi(ctx) {
         ctx,
         cfg,
         lm,
-        imageDataUrl,
-        ratios,
-        statusMap
+        imageDataUrl
       );
 
 
@@ -3221,7 +1704,7 @@ async function requestPersonalAi(ctx) {
         cfg.personLabel
       );
     } else {
-      renderArchetypesFallback(
+      await renderArchetypesFallback(
         cfg.archetypeId,
         lm,
         null,
@@ -3237,7 +1720,7 @@ async function requestPersonalAi(ctx) {
     );
 
     if (ruleBased) return; // 분류는 이미 룰베이스로 확보돼 있어 fallback 문구가 필요 없다
-    renderArchetypesFallback(
+    await renderArchetypesFallback(
       cfg.archetypeId,
       lm,
       e.message,
@@ -3264,9 +1747,11 @@ async function requestCoupleAi() {
 
   try {
     const isRomantic = !!cache.isRomantic;
-    const sys = buildGunghapSystemInstruction(cache.nameA || '나', cache.nameB || '상대방', isRomantic);
-    const userText = await buildGunghapUserPrompt(cache);
-    const data = await callGeminiAPI(sys, userText, images, buildGunghapReportSchema(isRomantic));
+    // ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 3번" — 시스템 프롬프트·스키마 조립과 Gemini
+    // 호출을 서버(generateGunghapReport)가 그대로 맡는다.
+    const data = await AiReportAPI.generateGunghapReport({
+      cache, isRomantic, nameA: cache.nameA || '나', nameB: cache.nameB || '상대방', images,
+    });
     renderGunghapResult(data);
   } catch (e) {
     console.error('[Gemini 커플 해석 실패]', e);

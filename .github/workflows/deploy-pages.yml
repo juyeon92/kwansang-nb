@@ -7,6 +7,9 @@ on:
       - "index.html"
       - "js/**"
       - "images/**"
+      - "build.js"
+      - "package.json"
+      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
 permissions:
