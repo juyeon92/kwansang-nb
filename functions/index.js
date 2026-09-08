@@ -9,6 +9,8 @@ const { computeCharacterResult } = require('./engine/character-engine');
 const { classifyCompatibility, compatScore } = require('./engine/compatibility-engine');
 const archetypeDb = require('./engine/archetype-db');
 const characterDb = require('./engine/character-db');
+const { computeSajuBundle } = require('./engine/saju-calc');
+const { classifyGwansangBundle } = require('./engine/gwansang-classify');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -407,6 +409,35 @@ exports.nyangSpend = onRequest({ cors: true }, async (req, res) => {
 // 목록에 없는 feature(예: 'gwansang' 관상보기 최초 1회 무료 판정)는 지금까지처럼 티켓 없이 통과시킨다.
 const NYANG_GATED_FEATURES = new Set(['combined', 'gungham']);
 
+// ═══ 관상 판정 (ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 1번" — engine/gwansang-classify.js 서버 이전) ═══
+// js/landmark-engine.js의 판정 로직(classify*·scoreAgainstSignature·시그니처/임계값 테이블 전부)이
+// 정적 스크립트로 그대로 노출되던 문제를 막기 위해 서버로 옮겼다. 랜드마크 좌표(lm, MediaPipe로
+// 클라이언트가 이미 추출한 478점 배열)만 받아 featureIds/confidences/partStatusMap을 반환한다 —
+// analyzeCharacter가 지금 클라이언트에게서 받던 featureIds/confidences/partStatusMap과 같은 모양이라,
+// 클라이언트가 이 응답을 그대로 analyzeCharacter 입력으로 이어 쓸 수 있다.
+// ⚠️ 아직 js/ai-analysis.js는 이 엔드포인트를 호출하도록 바뀌지 않았다(computeSaju와 같은 이유 —
+// 배포 후 실제 사진으로 "로컬 판정 vs 서버 응답" 대조 검증을 먼저 거쳐야 한다) — 지금은 서버 쪽
+// 준비만 끝난 상태.
+exports.classifyGwansang = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  try { await admin.auth().verifyIdToken(idToken); }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+
+  const { lm } = req.body || {};
+  if (!Array.isArray(lm) || lm.length < 478) { res.status(400).json({ error: 'lm(랜드마크 478점 배열)이 필요합니다.' }); return; }
+
+  try {
+    const result = classifyGwansangBundle(lm);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    console.error('classifyGwansang 실패', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ═══ 16캐릭터 판정 (2026-08-30 DB 이원화 1단계) ═══
 // 관상×사주 판단 가중치·공식(engine/character-engine.js)이 브라우저 소스에 그대로 노출되던 문제를
 // 막기 위해, 판정 자체를 서버로 옮겼다 — 클라이언트(js/ai-analysis.js classifyAndBuildCharacter)는
@@ -492,6 +523,35 @@ exports.getCompatibility = onRequest({ cors: true }, async (req, res) => {
     res.json({ ok: true, ...result });
   } catch (e) {
     console.error('getCompatibility 실패', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ═══ 사주 계산 (ANALYSIS_LOGIC_SERVER_MIGRATION.md 1단계 — engine/saju-calc.js 서버 이전) ═══
+// js/app.js의 사주 계산 엔진(computePillars/computeOhaeng/computeDaeun/collectSajuInsightSummary/
+// calcSinkangSinyak/calcYongsin 등, 십성·십이운성·신살·귀인·공망·대운 판정 기준 전부)이 정적 스크립트로
+// 그대로 노출되던 문제를 막기 위해 서버로 옮겼다. 생년월일시 하나만 받아 pillars/ohaengCounts/daeun/
+// unseongList/sinsalList/gwiinList/sinkang/yongsin을 한 번에 반환한다 — analyzeCharacter가 지금
+// 클라이언트에게서 받던 pillars/ohaengCounts/sinsalList/gwiinList와 같은 모양이라, 클라이언트가
+// 이 응답을 그대로 analyzeCharacter 입력으로 이어 쓸 수 있다.
+// ⚠️ 아직 js/app.js·js/config.js는 이 엔드포인트를 호출하도록 바뀌지 않았다(마이그레이션 문서 5번
+// 3단계 "동작 동등성 검증"을 거친 뒤 클라이언트를 연결한다) — 지금은 서버 쪽 준비만 끝난 상태.
+exports.computeSaju = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 허용됩니다.' }); return; }
+
+  const idToken = getBearerToken(req);
+  if (!idToken) { res.status(401).json({ error: '로그인이 필요합니다.' }); return; }
+  try { await admin.auth().verifyIdToken(idToken); }
+  catch (e) { res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' }); return; }
+
+  const { birthDate, birthHour, gender } = req.body || {};
+  if (!birthDate) { res.status(400).json({ error: 'birthDate가 필요합니다.' }); return; }
+
+  try {
+    const bundle = computeSajuBundle({ birthDate, birthHour, gender });
+    res.json({ ok: true, ...bundle });
+  } catch (e) {
+    console.error('computeSaju 실패', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
