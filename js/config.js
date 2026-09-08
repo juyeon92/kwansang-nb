@@ -56,6 +56,15 @@ const CLASSIFY_GWANSANG_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfun
 // 비교 계산(computePillars(A)/(B), buildSipseongCross 등)은 이번 전환 범위 밖(다음 후보).
 const COMPUTE_SAJU_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/computeSaju';
 
+// ═══ AI 리포트 3종 함수 URL (ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 3번", 2026-09-08 배포) ═══
+// js/ai-analysis.js의 시스템 프롬프트 3종(딥리포트/부위별 보완/궁합) + 스키마 + Gemini 호출이 정적
+// 파일로 노출되던 걸 막기 위해 서버(functions/engine/prompt-builders.js)로 옮긴 엔드포인트.
+// 클라이언트는 원재료(ratios/statusMap/pillars 등)만 보내고 최종 리포트 텍스트만 받는다 —
+// 기존 GEMINI_PROXY_URL(geminiProxy)은 대조 검증이 끝날 때까지는 그대로 둔다.
+const GENERATE_DEEP_REPORT_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/generateDeepReport';
+const GENERATE_AI_ENHANCEMENT_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/generateAiEnhancement';
+const GENERATE_GUNGHAP_REPORT_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/generateGunghapReport';
+
 // ═══ 카카오페이 결제 함수 URL (2026-09-03) ═══
 // firebase deploy 후 아래 2개를 실제 함수 URL로 채워야 냥샵의 "구매하기" 버튼이 실제 카카오페이
 // 결제창으로 연결된다. 비어 있으면 js/nyang-shop.js가 예전처럼 "준비 중" 안내만 보여준다.
