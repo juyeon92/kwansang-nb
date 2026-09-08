@@ -1007,9 +1007,14 @@
   // 문서가 "반드시 하나 고를 때까지 모달 유지"로 확정했기 때문. 골라야만 다음으로 넘어간다.
   function showDogamConflict(conflicts) {
     if (!conflicts || !conflicts.length || !myDogam) return;
-    conflictCandidates = [{ slug: myDogam.slug, ownerCharacterId: myDogam.ownerCharacterId, ownerName: myDogam.ownerName, entryCount: (myDogam.entries || []).length }]
+    const candidates = [{ slug: myDogam.slug, ownerCharacterId: myDogam.ownerCharacterId, ownerName: myDogam.ownerName, entryCount: (myDogam.entries || []).length }]
       .concat(conflicts.map(function (c) { return { slug: c.slug, ownerCharacterId: c.ownerCharacterId, ownerName: c.ownerName, entryCount: c.entryCount }; }));
-    selectedConflictSlug = myDogam.slug; // 기본값: 지금 쓰던 도감을 미리 체크해둔다
+    // 사용자 정책(2026-09-08): "지금 쓰던 도감"을 무조건 기본값으로 미리 체크해두면(예전 코드)
+    // 인연이 더 적은 쪽을 무심코 고르기 쉬웠다 — 최신순이 아니라 등록된 인연이 가장 많은 도감을
+    // 1번(맨 위)으로 정렬하고 그걸 기본 선택값으로 둔다.
+    candidates.sort(function (a, b) { return b.entryCount - a.entryCount; });
+    conflictCandidates = candidates;
+    selectedConflictSlug = candidates[0].slug;
     renderDogamConflictModal();
   }
   function renderDogamConflictModal() {
@@ -1158,6 +1163,24 @@
       console.error('[dogam] 도감 삭제 실패', e);
       alert('삭제 중 오류가 발생했어요.\n' + ((e && e.message) || e));
     }
+  }
+
+  // ⚠️ 버그 수정(2026-09-08 사용자 리포트: "로그아웃할 때마다 비로그인 인연도감이 다시 생겨서
+  // 다음 로그인 때마다 도감이 여러 개라고 뜬다") — 근본 원인: migrateLocalOnLogin()이 게스트
+  // 캐릭터 캐시(inyeonLastCharacter, 계정 구분 없는 공용 키)를 계정 전용 키로 복사만 하고 원본
+  // 공용 키는 지우지 않는다. 로그아웃하면 inyeonCharacterKey()가 다시 그 공용 키를 가리키는데,
+  // 지워지지 않은 옛 캐릭터 데이터가 그대로 남아 있어서 render()의 자동 생성 분기(myCharacterId()가
+  // truthy면 새 익명 도감을 조용히 만드는 로직)가 사용자가 아무 것도 안 눌렀는데도 매번 새 익명
+  // 도감을 만들어버렸다 — 그게 다음 로그인에서 계정의 원래 도감과 충돌 후보로 잡혀 반복해서
+  // "여러 개" 팝업이 떴다. deleteMyDogam()의 forgetLocalDogam()과 달리 계정 전용 캐릭터 캐시
+  // (inyeonCharacterKey())는 건드리지 않는다 — 그건 다음에 같은 계정으로 로그인했을 때 "다시 보기"
+  // 카드를 그대로 복원하기 위해 남겨둬야 한다. 로그아웃 시점에는 SLUG_KEY도 함께 지운다 — 이제 이
+  // 기기의 익명 세션과는 무관한, 계정에 묶인 도감 slug라 남겨둘 이유가 없다.
+  function clearDeviceTraceOnLogout() {
+    localStorage.removeItem(SLUG_KEY);
+    localStorage.removeItem(INYEON_LAST_CHARACTER_KEY);
+    myDogam = null;
+    lastMatch = null;
   }
 
   // 이 기기에 남은 도감 흔적 정리 — 도감을 지웠는데 "이미 만드신 도감이 있어요" 카드가 남으면
@@ -1755,6 +1778,8 @@
     // 토큰 자체가 없음). 이 함수(원래 도감 등록/공유 시에만 쓰던 익명 인증 발급)를 startAnalysis가
     // 얼굴 분석 직후·캐릭터 판정 직전에도 불러 최소한 익명 uid라도 먼저 만들어두게 한다.
     ensureAuthUid: ensureAuthUid,
+    // 로그아웃 시점에 kakao-auth.js(doLogout)가 불러야 한다 — clearDeviceTraceOnLogout 주석 참고.
+    clearDeviceTraceOnLogout: clearDeviceTraceOnLogout,
     _score: compatScore, _policy: DOGAM_POLICY,
   };
 })();

@@ -415,6 +415,12 @@
     // 로딩을 이미 띄워둔 참이니 여기서 기다렸다가 로그아웃한다.
     const flush = (window.Profile && Profile.flushPending) ? Profile.flushPending() : Promise.resolve();
     flush.then(function () {
+      // ⚠️ signOut() 이후로 미루면 race가 생긴다 — signOut()이 onAuthStateChanged(null)을 촉발하고,
+      // 그 핸들러 안의 Dogam.render()가 곧바로 새 익명 세션을 발급하며 스스로를 다시 그리는데, 그
+      // 재귀 렌더가 여기 이 함수보다 먼저 끝나버리면 아직 안 지운 게스트 캐릭터 캐시를 보고 새
+      // 인연도감을 자동으로 만들어버릴 수 있다(inyeon-dogam.js clearDeviceTraceOnLogout 주석 참고).
+      // signOut() 호출 전에 미리 지워두면 이 경쟁 자체가 성립하지 않는다.
+      if (window.Dogam && Dogam.clearDeviceTraceOnLogout) Dogam.clearDeviceTraceOnLogout();
       // signOut이 끝나야 계정별 저장소가 아닌 게스트 저장소를 보게 된다 — 먼저 기다린 뒤 화면을 비운다.
       // (기다리지 않으면 로그아웃 직후에도 헤더에 이전 계정의 프로필이 남는다.)
       const signedOut = (window.fbAuth && fbAuth.currentUser)
