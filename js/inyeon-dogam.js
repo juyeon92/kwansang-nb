@@ -368,6 +368,13 @@
   }
 
   // nameOverride: 친구 도감에 등록하며 방금 입력한 이름 — 그 이름으로 내 도감도 만들어야 표기가 어긋나지 않는다.
+  // ⚠️ 사용자 리포트(2026-09-08: "같은 브라우저에서 탭 2개를 비로그인으로 열었더니 인연도감이 2개
+  // 생겼다") — 예전엔 "지금 이 uid엔 도감이 없다" 확인과 "그럼 새로 만든다"가 별개의 왕복(await)
+  // 이라, 두 탭이 거의 동시에 render()를 돌리면 둘 다 "아직 없음"을 보고 각자 만들어버렸다(read 후
+  // write 사이의 경쟁 — 둘 다 서버에 반영되기 전에 서로의 존재를 볼 수 없음). users/{uid}.dogamSlug
+  // 확인과 생성을 하나의 Firestore 트랜잭션으로 묶어서, 그 사이 다른 탭/요청이 먼저 만들어뒀으면
+  // 새로 만들지 않고 그 도감을 그대로 쓰게 한다 — "계정(uid)당 도감 1개" 불변식을 생성 시점부터
+  // 지킨다.
   async function createMyDogam(nameOverride) {
     const uid = currentUid();
     const charId = myCharacterId();
@@ -375,12 +382,25 @@
     const ownerName = (nameOverride && nameOverride.trim()) || myName();
     const slug = makeSlug();
     const now = new Date();
-    await fbDb.collection('dogam').doc(slug).set({
-      ownerUid: uid, ownerName: ownerName, ownerCharacterId: charId,
-      createdAt: now.toISOString(), lastAccessedAt: now.toISOString(),
-      expiresAt: new Date(now.getTime() + RETENTION_DAYS * 86400000).toISOString(),
+    const userRef = fbDb.collection('users').doc(uid);
+    const dogamRef = fbDb.collection('dogam').doc(slug);
+    const alreadyExistingSlug = await fbDb.runTransaction(async function (tx) {
+      const userSnap = await tx.get(userRef);
+      const existing = userSnap.exists ? userSnap.data().dogamSlug : null;
+      if (existing) return existing; // 그 사이 다른 탭/요청이 이미 만들어둠 — 이번 건 만들지 않는다
+      tx.set(dogamRef, {
+        ownerUid: uid, ownerName: ownerName, ownerCharacterId: charId,
+        createdAt: now.toISOString(), lastAccessedAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + RETENTION_DAYS * 86400000).toISOString(),
+      });
+      tx.set(userRef, { dogamSlug: slug }, { merge: true });
+      return null;
     });
-    await fbDb.collection('users').doc(uid).set({ dogamSlug: slug }, { merge: true });
+    if (alreadyExistingSlug) {
+      localStorage.setItem(SLUG_KEY, alreadyExistingSlug);
+      console.log('[dogam] 동시에 다른 탭/요청이 이미 만든 도감을 그대로 씀', { slug: alreadyExistingSlug });
+      return await loadDogam(alreadyExistingSlug);
+    }
     localStorage.setItem(SLUG_KEY, slug);
     console.log('[dogam] 내 도감 생성', { slug: slug, ownerName: ownerName, character: charId });
     return { slug: slug, ownerUid: uid, ownerName: ownerName, ownerCharacterId: charId, createdAt: now.toISOString(), entries: [] };
