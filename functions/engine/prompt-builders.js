@@ -3370,12 +3370,19 @@ async function callGeminiDirect(apiKeys, systemInstruction, userText, images, sc
 // 보내고, 프롬프트 조립·Gemini 호출·응답 파싱은 전부 여기 안에서 끝난다.
 
 // 통합분석/사주보기 — 딥 리포트
+// [서버 이관 수정 2] 원본(클라이언트)은 ratios/statusMap/sajuInsight를 요청 전에 미리 계산해서
+// 보냈지만(getGwansangRatios/judgePartStatus/collectSajuInsightSummary), 그러면 그 계산 로직 자체가
+// 클라이언트에 남아있어야 한다. 이 파일이 이미 같은 함수들을 require()로 갖고 있으므로, 원재료(lm/
+// pillars)만 받아 여기서 직접 계산한다 — 클라이언트는 더 이상 이 세 함수를 알 필요가 없다.
 async function generateDeepReport(opts) {
   const {
-    ratios, statusMap, pillars, ohaeng, sajuInsight, relVal, archetypeAnalysis,
+    lm, pillars, ohaeng, relVal, archetypeAnalysis,
     sewoonInfo, zone1Character, zone3Extra, situation,
     hasSaju, hasFace, q1, q2, q3, imageDataUrl, apiKeys,
   } = opts || {};
+  const ratios = lm ? getGwansangRatios(lm) : null;
+  const statusMap = ratios ? judgePartStatus(ratios) : null;
+  const sajuInsight = pillars ? collectSajuInsightSummary(pillars) : null;
   const sys = buildDeepReportSystemInstruction();
   const userText = await buildDeepReportUserPrompt(
     ratios, statusMap, pillars, ohaeng, sajuInsight, relVal,
@@ -3386,8 +3393,11 @@ async function generateDeepReport(opts) {
 }
 
 // 관상(인연도감/통합분석) — 부위별 사진 기반 보완 한 문장 + 눈모양·동물형상 재확인
+// [서버 이관 수정 2] 위와 같은 이유로 ratios/statusMap을 lm으로부터 여기서 직접 계산한다.
 async function generateAiEnhancement(opts) {
-  const { ratios, statusMap, pillars, ohaeng, imageDataUrl, apiKeys } = opts || {};
+  const { lm, pillars, ohaeng, imageDataUrl, apiKeys } = opts || {};
+  const ratios = lm ? getGwansangRatios(lm) : null;
+  const statusMap = ratios ? judgePartStatus(ratios) : null;
   const sys = await buildAiEnhancementSystemInstruction();
   const userText = buildAiEnhancementUserPrompt(ratios, statusMap, pillars, ohaeng);
   return callGeminiDirect(apiKeys, sys, userText, imageDataUrl ? [imageDataUrl] : [], AI_ENHANCEMENT_SCHEMA, 0.25);

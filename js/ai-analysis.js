@@ -537,18 +537,6 @@ async function requestDeepReport(ctx) {
     getCleanImageDataUrl(ctx, cfg.canvasId);
 
 
-  const ratios =
-    getGwansangRatios(lm);
-
-  const statusMap =
-    judgePartStatus(ratios);
-
-
-  const sajuInsight =
-    cfg.pillars
-      ? collectSajuInsightSummary(cfg.pillars)
-      : null;
-
   const sewoonInfo =
     cfg.pillars
       ? getSewoonRelation(cfg.pillars[2].stem)
@@ -596,9 +584,7 @@ async function requestDeepReport(ctx) {
           ctx,
           cfg,
           lm,
-          imageDataUrl,
-          ratios,
-          statusMap
+          imageDataUrl
         );
 
         archetypeAnalysis =
@@ -661,11 +647,11 @@ async function requestDeepReport(ctx) {
     const situation = { q1: state[ctx].q1, q2: state[ctx].q2, q3: state[ctx].q3 };
 
     // ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 3번" — 시스템 프롬프트·스키마 조립과 Gemini
-    // 호출(온도 0.3 등 세부 설정 포함)을 서버(generateDeepReport)가 그대로 맡는다. 클라이언트는
-    // 원재료만 보내고 완성된 리포트 객체만 받는다.
+    // 호출(온도 0.3 등 세부 설정 포함)뿐 아니라 ratios/statusMap/sajuInsight 계산까지 서버가 lm/pillars로
+    // 부터 직접 한다. 클라이언트는 원재료(lm/pillars)만 보내고 완성된 리포트 객체만 받는다.
     const data =
       await AiReportAPI.generateDeepReport({
-        ratios, statusMap, pillars: cfg.pillars, ohaeng: cfg.ohaeng, sajuInsight, relVal: cfg.relVal,
+        lm, pillars: cfg.pillars, ohaeng: cfg.ohaeng, relVal: cfg.relVal,
         archetypeAnalysis, sewoonInfo, zone1Character, zone3Extra, situation,
         hasSaju: !!cfg.pillars, hasFace: true, q1: situation.q1, q2: situation.q2, q3: situation.q3,
         imageDataUrl,
@@ -973,9 +959,7 @@ async function getOrRequestPersonalAiData(
   ctx,
   cfg,
   lm,
-  imageDataUrl,
-  ratios,
-  statusMap
+  imageDataUrl
 ) {
   const ctxState = state[ctx];
 
@@ -1009,10 +993,11 @@ async function getOrRequestPersonalAiData(
   ctxState.archetypeAnalysis = null;
 
 
-  // ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 3번" — 시스템 프롬프트·스키마·온도(0.25) 설정을
-  // 서버(generateAiEnhancement)가 그대로 맡는다.
+  // ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 3번" — 시스템 프롬프트·스키마·온도(0.25) 설정뿐
+  // 아니라 ratios/statusMap 계산(getGwansangRatios/judgePartStatus)까지 서버(generateAiEnhancement)가
+  // lm으로부터 직접 한다 — 클라이언트는 원본 랜드마크만 보낸다.
   const promise = AiReportAPI.generateAiEnhancement({
-    ratios, statusMap, pillars: cfg.pillars, ohaeng: cfg.ohaeng, imageDataUrl,
+    lm, pillars: cfg.pillars, ohaeng: cfg.ohaeng, imageDataUrl,
   });
 
 
@@ -1662,13 +1647,6 @@ async function requestPersonalAi(ctx) {
   const imageDataUrl =
     getCleanImageDataUrl(ctx, cfg.canvasId);
 
-  const ratios =
-    getGwansangRatios(lm);
-
-  const statusMap =
-    judgePartStatus(ratios);
-
-
   try {
     // requestDeepReport와 동일한 AI 분류 결과를 공유한다.
     const data =
@@ -1676,9 +1654,7 @@ async function requestPersonalAi(ctx) {
         ctx,
         cfg,
         lm,
-        imageDataUrl,
-        ratios,
-        statusMap
+        imageDataUrl
       );
 
 
