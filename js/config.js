@@ -48,6 +48,14 @@ const GET_COMPATIBILITY_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfun
 // featureIds/confidences/partStatusMap을 받는다 — 그 다음 analyzeCharacter로 이어지는 흐름은 그대로.
 const CLASSIFY_GWANSANG_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/classifyGwansang';
 
+// ═══ 사주 계산 함수 URL (ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 2번", 2026-09-08 배포) ═══
+// js/app.js의 computePillars/computeOhaeng/computeDaeun 등(십성·십이운성·신살·귀인·공망·대운 판정
+// 기준 전부)이 정적 파일로 노출되던 걸 막기 위해 서버(functions/engine/saju-calc.js)로 옮긴 엔드포인트.
+// 생년월일시만 보내고 pillars/ohaengCounts/daeun/unseongList/sinsalList/gwiinList/sinkang/yongsin을
+// 한 번에 받는다 — buildCombinedReport(통합분석)의 단일 인물 계산만 우선 전환한다. 궁합보기의 두 사람
+// 비교 계산(computePillars(A)/(B), buildSipseongCross 등)은 이번 전환 범위 밖(다음 후보).
+const COMPUTE_SAJU_FUNCTION_URL = 'https://us-central1-kwansang-nb.cloudfunctions.net/computeSaju';
+
 // ═══ 카카오페이 결제 함수 URL (2026-09-03) ═══
 // firebase deploy 후 아래 2개를 실제 함수 URL로 채워야 냥샵의 "구매하기" 버튼이 실제 카카오페이
 // 결제창으로 연결된다. 비어 있으면 js/nyang-shop.js가 예전처럼 "준비 중" 안내만 보여준다.

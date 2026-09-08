@@ -2528,10 +2528,13 @@ async function buildCombinedReport(dateVal, preloadedLm) {
   document.getElementById('cmbResultTitle').textContent = `🔮 AI 관상 X 사주 개운 리포트 (${rel})`;
 
   // ① 사주 먼저 계산 (사진 없어도 항상 실행) — Zone3 데이터 페어(만세력·오행·대운)의 사주 쪽 절반.
+  // ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 2번" — 판정 기준(십성·신살·귀인·공망·대운 계산식)이
+  // 정적 파일로 노출되지 않도록, 로컬 계산 대신 서버(computeSaju)가 계산해 돌려준 값을 그대로 쓴다.
   const hourVal = document.getElementById('cmbBirthHour').value;
-  const pillars = computePillars(dateVal, hourVal);
-  const ohaeng = computeOhaeng(pillars);
-  const daeun = computeDaeun(dateVal, hourVal, cmbGender);
+  const sajuBundle = await SajuAPI.computeSaju(dateVal, hourVal, cmbGender);
+  const pillars = sajuBundle.pillars;
+  const ohaeng = sajuBundle.ohaengCounts;
+  const daeun = sajuBundle.daeun;
   state.combined.pillars = pillars;
   state.combined.ohaeng = ohaeng;
   state.combined.daeun = daeun; // requestDeepReport의 zone3Extra + renderLifeline이 재사용
