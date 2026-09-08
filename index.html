@@ -3,15 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- index.html 자체는 매번 서버에 확인한다. js/*.js는 아래 ?v= 로 캐시를 끊는데, 정작 그 태그를 담은
-     이 파일이 캐시되면 옛 ?v= 가 고정돼 낡은 스크립트가 계속 로드된다. 실제로 "친구가 보는 리포트만
-     예전 구조로 나오는" 증상이 이 경로로 생겼다. HTML만 무효화하므로 스크립트 캐시 이득은 유지된다. -->
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <title>관상냥반</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0" rel="stylesheet">
-<!-- 이용약관/개인정보처리방침(.legal-doc) 제목용 — 원래 legal/*.html이 쓰던 서체 그대로 -->
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700&display=swap" rel="stylesheet">
 <style>
 .material-symbols-outlined {
@@ -20,44 +16,25 @@
   display: inline-block; vertical-align: middle; white-space: nowrap; word-wrap: normal;
   direction: ltr; -webkit-font-smoothing: antialiased;
 }
-/* ══════════════════════════════════════════════════════════════════
-   Neo Korean Mysticism — 관상·사주 서비스 UI Style Guide 기반 리스킨
-   ══════════════════════════════════════════════════════════════════ */
 :root {
-  /* 피그마 실측 기준 토큰 — 브랜드 포인트는 mint 하나로 제한, 나머지는 뉴트럴 그레이스케일 */
-  --mint: #55CCBB;
+    --mint: #55CCBB;
   --mint-05: rgba(85,204,187,0.05);
   --mint-10: rgba(85,204,187,0.10);
-  --mint-tint-10: rgba(85,204,187,0.10); /* 구 별칭 — 다른 규칙 호환용 */
-  --mint-soft: #EDF9F6;
+  --mint-tint-10: rgba(85,204,187,0.10);   --mint-soft: #EDF9F6;
   --mint-border: #CBEDE6;
   --beige: #E6D1A7;
   --beige-bg: #F8F4EC;
   --beige-chip-bg: #F3E8D3;
   --beige-chip-text: #675536;
 
-  --text-heading: #040404;   /* 팝업/앱바 타이틀 */
-  --text-title: #111111;     /* 섹션 라벨(예: "관상 정보") */
-  --text-strong: #333333;    /* 이름, 폼 라벨 */
-  --text-strong2: #3b3b3b;   /* "안심하세요" 등 강조 서브텍스트 */
-  --text-sub: #666666;       /* 일반 서브텍스트, 아이콘 */
-  --text-sub2: #5b5b5b;      /* 헬퍼텍스트, 안내 문구 */
-  --text-caption: #706a72;   /* 업로드 캡션 등 옅은 문구 */
-
-  --border-gray: #d9d9d9;    /* 인풋/뱃지 테두리 */
-  --border-gray2: #dddddd;   /* 업로드 드롭존 테두리 */
-  --border-lavender: #e8e2e8; /* 팝업/헤더 구분선, 미선택 칩 테두리 */
-
-  --bg-soft: #f3f6f8;        /* 안심 안내 박스 배경 */
-  --bg-soft2: #f3f3f3;       /* 배너 영역 배경 */
-  --bg-info-yellow: #fffaef; /* 사진 팁 안내 박스 배경 */
-  --icon-orange: #ff9533;
+  --text-heading: #040404;     --text-title: #111111;       --text-strong: #333333;      --text-strong2: #3b3b3b;     --text-sub: #666666;         --text-sub2: #5b5b5b;        --text-caption: #706a72;
+  --border-gray: #d9d9d9;      --border-gray2: #dddddd;     --border-lavender: #e8e2e8;
+  --bg-soft: #f3f6f8;          --bg-soft2: #f3f3f3;         --bg-info-yellow: #fffaef;   --icon-orange: #ff9533;
   --icon-purple-gray: #504250;
 
   --ink: #163B38;
   --jade: #2F6F68;
-  --est: #E68A2E;      /* 시주 추정("자시 가정") 강조색 — 오행 팔레트와 겹치지 않는 경고성 톤 */
-  --est-bg: #FDF1E3;
+  --est: #E68A2E;        --est-bg: #FDF1E3;
   --est-border: #F3D6AC;
   --bg: #FFFFFF;
   --surface: #FFFFFF;
@@ -66,16 +43,10 @@
   --text2: #68716F;
   --text3: #9AA3A1;
   --border: #E3E9E7;
-  --r: 20px;         /* 리포트 등 일반 카드 radius(범위 밖 화면 한정) */
-  --r-btn: 8px;       /* 버튼 radius — 피그마 실측 */
-  --r-input: 8px;     /* 인풋/칩 radius — 피그마 실측 */
-  --r-drop: 12px;     /* 업로드 드롭존 radius */
-  --nav-h: 69px;
+  --r: 20px;           --r-btn: 8px;         --r-input: 8px;       --r-drop: 12px;       --nav-h: 69px;
   --cta-h: 96px;
-  --frame-w: 390px; /* 모바일 프레임 고정 너비 — 데스크탑 브라우저에서도 이 폭으로 고정 */
-
-  /* Spacing scale — 기획서/STYLE_GUIDE.md 3번. 새 padding/margin/gap은 이 값만 쓴다 */
-  --space-1: 4px;
+  --frame-w: 390px;
+    --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
@@ -85,8 +56,7 @@
   --space-8: 32px;
   --space-9: 40px;
 
-  /* Elevation scale — 기획서/STYLE_GUIDE.md 5번. 기존 하드코딩 값과 동일, 이름만 붙임(값 변경 없음) */
-  --z-content: 1;
+    --z-content: 1;
   --z-cta-dock: 30;
   --z-bottom-nav: 40;
   --z-popup-backdrop: 100;
@@ -111,10 +81,8 @@ body {
   min-height: 100dvh;
 }
 .wrap { position: relative; z-index: 1; max-width: var(--frame-w); margin: 0 auto; padding: 0 16px 24px; }
-/* 업로드 섹션은 피그마 상 화면 가장자리까지 꽉 차는 full-bleed 구조 — wrap의 16px 패딩을 상쇄 */
 .upload-section { margin: 0 -16px; }
 
-/* ── Header (피그마 통합분석 화면 Header 노드 기준) ── */
 .app-header { max-width: var(--frame-w); margin: 0 auto; background: var(--surface); }
 .header-topbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -123,13 +91,11 @@ body {
 .header-topbar h1 {
   font-size: 20px; font-weight: 500; color: var(--text-heading); letter-spacing: -0.2px;
 }
-/* 헤더 타이틀은 글자 대신 가로형 로고를 쓴다. h1 태그는 그대로 두고 alt로 서비스명을 남긴다 — 이미지가 안 뜨거나 스크린리더로 읽을 때를 위해. */
 .header-topbar h1.app-logo { font-size: 0; line-height: 0; }
 .header-topbar h1.app-logo img { display: block; height: 28px; width: auto; }
 .header-topbar .topbar-icon { font-size: 18px; color: var(--icon-purple-gray); background: none; border: none; cursor: default; line-height: 1; }
 .header-topbar p { display:none; }
 .kakao-auth-box { display: flex; align-items: center; gap: 8px; }
-/* 헤더 우측 아이콘 버튼 — 비로그인: 로그인 아이콘 / 로그인: 햄버거 메뉴 */
 .header-icon-btn {
   display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;
   border: none; background: none; border-radius: 8px; cursor: pointer; padding: 0;
@@ -151,7 +117,6 @@ body {
 }
 .profile-edit-icon { margin-left: auto; font-size: 14px; color: var(--text-sub); opacity: 1; }
 
-/* ── Bottom Navigation (fixed, 피그마 실측 색상) ── */
 .bottom-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; max-width: var(--frame-w); margin: 0 auto;
   display: flex; background: var(--surface); border-top: 1px solid var(--border-lavender);
@@ -169,20 +134,12 @@ body {
 .panel { display: none; }
 .panel.active { display: block; }
 
-/* ── Card ── */
 .card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r); padding: 24px; margin-bottom: 16px;
 }
-/* 관상보기 결과(캐릭터 카드 + 리포트)는 카드 껍데기를 벗긴다 — 회색 테두리와 24px 안쪽 패딩을 없애서
-   콘텐츠가 .wrap 폭을 그대로 쓰게 함. .card 공통 규칙은 그대로 두고 이 두 개만 덮어쓴다 — 다른
-   탭(통합분석·사주·궁합)의 카드는 영향 없음. id가 아니라 class(.shell-strip)로 스코프하는 이유 —
-   보관함(archive.js)의 snapshot()이 저장 시 모든 [id] 속성을 지우므로, id 기반이면 되살린
-   리포트에서는 이 규칙이 안 먹혀 껍데기 패딩/테두리가 다시 나타난다. */
 .shell-strip { border: none; padding: 0; background: transparent; }
 
-/* 뒤로가기(#canvasCard 상단, resetUpload('gwansang') 호출) — .arc-back(보관함)과 같은 언어의
-   텍스트+아이콘 버튼. shell-strip으로 카드 패딩이 없어진 자리라 자체 여백을 둔다. */
 .report-back-btn {
   display: flex; align-items: center; gap: 4px; margin-bottom: 16px;
   border: none; background: none; padding: 0; cursor: pointer;
@@ -191,8 +148,6 @@ body {
 .report-back-btn:hover { color: var(--jade); }
 .report-back-btn .material-symbols-outlined { font-size: 19px; }
 
-/* ── 16캐릭터 일러스트 카드(#gwansangCharacterCard) — MBTI 카드 UI 참고, 실제 카피는 character-db.js에서 옴 ──
-   옥빛(민트) 배경 + 남색 테두리/장식 톤 — 히어로 카드(#gwansangHero)와 같은 색으로 통일. */
 .char-card { position: relative; background: linear-gradient(160deg, #f6fdfb, #e6f6f1); border: 3px solid #26375a; border-radius: 22px; padding: 22px 16px 20px; text-align: center; overflow: hidden; }
 .char-card::before { content: ''; position: absolute; inset: 9px; border: 1.5px dashed rgba(38,55,90,0.35); border-radius: 15px; pointer-events: none; }
 .char-card-corner { position: absolute; font-size: 13px; color: #26375a; line-height: 1; }
@@ -202,22 +157,14 @@ body {
 .char-card-name { font-size: 25px; font-weight: 900; color: #1c2942; letter-spacing: 0.3px; margin-bottom: 12px; }
 .char-card-img-wrap { width: 168px; height: 168px; margin: 0 auto 16px; border-radius: 50%; background: rgba(255,255,255,0.55); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid rgba(38,55,90,0.3); }
 .char-card-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
-/* 마스코트(Logo.png)는 이미지 자체에 이미 원형 테두리가 그려져 있어서, 위 원형 마스크를 또 씌우면
-   이중으로 잘려 보인다 — 히어로 자리에서만 마스크를 없애고 이미지 원본 비율 그대로 보여준다. */
 .char-card-img-wrap.no-mask { border-radius: 0; background: none; border: none; overflow: visible; }
 .char-card-img-wrap.no-mask img { object-fit: contain; }
 .char-card-ribbon { display: inline-block; background: #26375a; color: #f3f7fb; font-size: 13px; font-weight: 700; line-height: 1.5; padding: 9px 20px; border-radius: 8px; max-width: 90%; }
 
-/* ── 16캐릭터 상세 설명(#gwansangCharacterDetail) — 위 일러스트 카드(.char-card)와 같은 한지·금박 톤을
-   유지하되, 긴 문장을 읽는 블록이라 배경은 훨씬 옅게 깔고 본문 대비를 확보했다. 문구는 전부
-   character-db.js의 확정 콘텐츠이고 이 CSS는 표시 스타일만 담당한다. ── */
 .char-detail { border-radius: 18px; padding: 12px 18px; margin-bottom: 16px; }
 .char-detail-head { text-align: center; margin-bottom: 16px; }
 .char-detail-role { display: inline-block; background: #eef2f8; border: 1px solid #26375a; border-radius: 999px; padding: 3px 14px; font-size: 11px; font-weight: 700; color: #26375a; letter-spacing: 0.5px; }
 .char-detail-headline { font-size: 15px; font-weight: 800; color: #1c2942; line-height: 1.55; }
-/* 인연도감 결과 화면 전용 — 헤드라인은 항상 보이고, 그 옆 토글 버튼으로 나머지(6가지 힘~궁합)만
-   접고 편다. js/ai-analysis.js wireGwansangCharDetailToggle()이 렌더 직후 DOM을 이 구조로
-   후처리한다 — 통합분석 등 다른 탭의 .char-detail-headline은 이 클래스가 안 붙으므로 영향 없다. */
 .char-detail-headline-row { display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
 .char-detail-toggle {
   flex-shrink: 0; background: none; border: none; padding: 0; color: #26375a; cursor: pointer;
@@ -227,9 +174,6 @@ body {
 .char-detail-toggle.open .material-symbols-outlined { transform: rotate(180deg); }
 .char-detail-collapse { margin-top: 16px; }
 .char-detail-collapse.hidden { display: none; }
-/* 펼쳤을 때는 헤드라인(닫기 트리거)이 펼친 내용("다른 관상과의 궁합" 등) 아래로 내려가 있어야
-   다 읽은 자리에서 바로 닫기 편하다. DOM 순서는 그대로 두고 flex order로만 시각적 위치를
-   뒤집는다 — 접으면 order가 없어져 자동으로 원래 자리(맨 위)로 돌아온다. */
 .char-detail.detail-open { display: flex; flex-direction: column; }
 .char-detail.detail-open > .char-detail-headline-row { order: 2; margin-top: 16px; }
 .char-detail.detail-open > .char-detail-collapse { order: 1; }
@@ -253,9 +197,6 @@ body {
 .char-tag.is-clash { color: #a63d3d; background: rgba(196,80,80,0.13); border-color: rgba(166,61,61,0.30); }
 .char-detail-note { font-size: 11px; color: #5f6b7d; line-height: 1.6; margin-top: 16px; }
 
-/* ══ 통합분석 Zone 구조 (통합분석 화면_콘텐츠_스펙_260817.md) ══
-   Zone1만 사람을 지칭(캐릭터명)하고, Zone3/4 헤드는 "~기운"으로 영역을 묘사한다.
-   층위가 겹치지 않게 헤드 형태를 다르게 두는 게 스펙 원칙 2다. */
 .zone-label { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; color: var(--text-title); margin: 4px 0 14px; }
 .zone-num {
   flex: none; padding: 3px 9px; border-radius: 999px; background: var(--jade); color: #fff;
@@ -265,7 +206,6 @@ body {
 .zone-head-area { display: block; font-size: 11.5px; color: var(--text-sub); }
 .zone-head-line { display: block; font-size: 16px; font-weight: 800; color: var(--jade); line-height: 1.5; margin-top: 3px; }
 
-/* Zone1 "왜 이 캐릭터가 나왔나요" — 근거 칩은 엔진이 실제 점수에 반영한 항목만 들어간다 */
 .zone-basis { border: 1px solid var(--border); border-radius: 16px; background: var(--card2); padding: 18px 16px; margin-bottom: 16px; }
 .zone-basis-title { font-size: 15px; font-weight: 800; color: var(--text-title); }
 .ztrait-bars { margin: 14px 0 6px; }
@@ -276,17 +216,14 @@ body {
 .ztrait-row.is-top .ztrait-name { font-weight: 800; color: var(--text-title); }
 .ztrait-row.is-top .ztrait-fill { background: var(--mint); }
 
-/* ── Zone3 데이터 페어 카드 (통합분석) ── */
 .z3-pair-card { border: 1px solid var(--border); border-radius: 16px; background: var(--card2); padding: 16px; }
 .z3-pair-title { font-size: 13px; font-weight: 800; color: var(--jade); margin-bottom: 10px; }
 
-/* 오행능력치 한줄평 — 그래프 아래, 관상/사주 각자 영역에 가운데 정렬 */
 .oh-headline-split { display: grid; grid-template-columns: 32px 1fr 52px 1fr 32px; gap: 6px; margin-top: 14px; }
 .oh-headline-box { grid-column: span 2; font-size: 11.5px; font-weight: 800; line-height: 1.6; padding: 8px 9px; border-radius: 10px; text-align: center; }
 .oh-headline-box.face { grid-column: 1 / 3; background: var(--mint-10); color: var(--jade); }
 .oh-headline-box.saju { grid-column: 4 / 6; background: rgba(103,85,54,0.08); color: var(--beige-chip-text); }
 
-/* 대운x삼정 인생 타임라인 */
 .lifeline-group-head { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 0 8px; }
 .lifeline-group-head:first-child { margin-top: 2px; }
 .lifeline-group-name { font-size: 12.5px; font-weight: 800; }
@@ -311,7 +248,6 @@ body {
 .zone-basis-summary { font-size: 13px; line-height: 1.85; color: var(--text); margin-top: 12px; }
 .zone-basis-summary b { color: var(--jade); }
 
-/* Zone1 "관상 유형 → 관상+사주 유형" 비교 — 사주를 더해 캐릭터가 바뀌었을 때만 노출되는 후킹 블록 */
 .zbasis-compare { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .zbasis-compare-item { flex: 1; text-align: center; padding: 8px 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
 .zbasis-compare-item.is-final { background: var(--mint-10); border-color: var(--mint-border); }
@@ -320,11 +256,6 @@ body {
 .zbasis-compare-item.is-final .zbasis-compare-name { color: var(--jade); }
 .zbasis-compare-arrow { flex: none; font-size: 18px; color: var(--jade); }
 
-/* Zone1 통합 셀 — 캐릭터 카드(.char-card)·판정 근거(.zone-basis)·특징 설명(.char-detail)이 각자
-   다른 색(남색/민트/금박)과 테두리를 가진 별개 카드 3장으로 보였다. 세 조각이 "하나의 Zone1"으로
-   읽히도록 겉테두리는 이 스코프에서만 하나로 합치고, 안쪽 조각들의 개별 카드 테두리·그림자·배경은
-   지운다. .char-card/.char-detail 자체는 관상보기 탭·인연도감에서도 쓰므로 전역이 아니라
-   #cmbZone1로 한정한다. */
 #cmbCharacterCard, #cmbCharacterBasis, #cmbCharacterDetail { margin: 0; }
 #cmbCharacterCard .char-card {
   border: 1px solid var(--border); border-bottom: none; border-radius: 18px 18px 0 0;
@@ -337,33 +268,17 @@ body {
 #cmbCharacterCard .char-card-badge { background: var(--mint-10); border-color: var(--jade); }
 #cmbCharacterCard .char-card-ribbon { background: var(--jade); color: #fff; }
 #cmbCharacterCard .char-card-img-wrap { border-color: var(--mint-border); }
-/* 인연도감(A) 결과 화면의 캐릭터 카드: "관상 기반 유형" 배지는 빼고, 일러스트를 168px 기본값보다
-   작게. #gwansangCharacterCard로만 스코프해서 관상보기 탭 전용 #cmbCharacterCard 등 다른 곳은
-   그대로 둔다. #dogamOwnerCard(B 화면에 고정 노출되는 "A의 결과" 카드, showGuestView·
-   renderGuestMergedResult 둘 다 여기 렌더링)도 renderCharacterCard()로 같은 마크업을 그리므로
-   같은 스코프에 함께 묶는다 — 이 카드 스타일을 바꿀 땐 항상 두 id(#gwansangCharacterCard,
-   #dogamOwnerCard) 모두 확인할 것. */
 #gwansangCharacterCard .char-card-badge, #dogamOwnerCard .char-card-badge { display: none; }
 #gwansangCharacterCard .char-card-img-wrap, #dogamOwnerCard .char-card-img-wrap { width: 120px; height: 120px; }
-/* 캐릭터 카드 리본은 카드 위 이름과 겹치지 않도록 얇은 알약 칩으로 둔다(끝 이름은 js/ai-analysis.js
-   wireGwansangCharCardChip()이 텍스트에서 잘라낸다). */
 #gwansangCharacterCard .char-card-ribbon, #dogamOwnerCard .char-card-ribbon {
   display: inline-flex; align-items: center; background: rgba(255,255,255,0.65);
   border: 1px solid rgba(38,55,90,0.35); color: #26375a; font-size: 11.5px; font-weight: 700;
   padding: 5px 14px; border-radius: 999px; line-height: 1.4;
 }
-/* 카드(일러스트) 바로 아래 상세 카드가 늘 붙어 나오므로(정책 §2-3), 둘을 별개의 박스 두 개가 아니라
-   하나로 이어지는 서랍처럼 붙인다 — 사이 여백·둥근 모서리를 없애 맞닿는 면만 평평하게 만든다.
-   #canvasCard(A 전용 래퍼)의 기본 .card margin-bottom(16px)도 여기서만 0으로 줄인다. */
 #canvasCard.shell-strip { margin-bottom: 0; }
 #gwansangCharacterCard .char-card, #dogamOwnerCard .char-card {
   border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: none; margin-bottom: 0;
 }
-/* 이 섹션은 원래 쓰던 한지·금박 톤 대신, 위 일러스트 카드와 같은 배경 그라데이션 + 남색 테두리 +
-   옅은 그림자로 맞춰 하나의 표면처럼 보이게 한다. #cmbCharacterDetail이 이미 같은 방식(전용
-   배경색으로 덮어쓰기)을 쓰고 있어 같은 패턴이다. */
-/* 카드와 완전히 같은 배경 그라데이션 + 같은 3px 남색 테두리를 쓰고, 위쪽만 이어지는 자리라
-   border-top을 없애 카드와 맞닿게 한다 — 진짜 하나의 카드처럼 보이게. */
 #gwansangCharacterDetail .char-detail, #dogamOwnerDetail .char-detail {
   background: linear-gradient(179deg, #f6fdfb, #e6f6f1); border: 3px solid #26375a; border-top: none;
   border-top-left-radius: 0; border-top-right-radius: 0; margin-top: 0;
@@ -379,9 +294,6 @@ body {
 }
 #cmbCharacterDetail .char-detail-headline { color: var(--jade); margin-top: 0; margin-bottom: 4px; }
 
-/* ══ AI 로딩 스켈레톤 ══
-   Zone2~4는 Gemini 왕복이 있어 Zone1보다 늦게 찬다. 그 사이를 빈 화면으로 두면 사용자가
-   "다 뜬 건데 내용이 별거 없네"로 읽고 넘겨버린다 — 아직 오는 중이라는 걸 형태로 보여준다. */
 .ai-skeleton { padding: 4px 0 2px; }
 .ai-skeleton-note { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-sub); margin-bottom: 12px; }
 .ai-skeleton-dot {
@@ -400,12 +312,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .sk-line::after, .ai-skeleton-dot { animation: none; }
 }
-/* 아직 안 채워진 Zone은 아코디언 제목에도 표시해서, 접힌 상태로도 "로딩 중"이 보이게 한다 */
 .report-accordion.is-loading > summary::after { content: ' · 불러오는 중'; font-size: 11px; color: var(--text-sub); font-weight: 500; }
 
-/* ══ Zone3 부위별 상세 — 부위 1개 = 카드 1장, 안을 3층으로 쌓는다 ══
-   ① AI 해석(그래서 어떤 사람) ② 생김새 유형(무엇인가·DB) ③ 실측 포인트(얼마나·룰)
-   세 소스가 답하는 질문이 달라서 층으로 쌓으면 중복이 아니라 깊이가 된다(스펙 §4-B). */
 .z3-card { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; margin-bottom: 12px; }
 .z3-card-head { padding: 12px 14px; background: var(--card2); font-size: 14px; font-weight: 800; color: var(--text-title); }
 .z3-ai { padding: 14px; border-top: 1px solid var(--border); }
@@ -427,7 +335,6 @@ body {
 .z3-measure-level { margin-left: auto; font-size: 11px; color: var(--text3); }
 .z3-measure-text { font-size: 12.5px; line-height: 1.75; color: var(--text); }
 .z3-measure-tip { font-size: 12px; line-height: 1.7; color: var(--text-sub); margin-top: 5px; }
-/* 6대 기질 바 (노출스펙 §3-2) — 숫자는 넣지 않는다. 순위/등수로 읽히지 않도록 Top2만 색으로 구분 */
 .char-trait-bars { margin-top: 10px; }
 .char-trait-row { display: flex; align-items: center; gap: 10px; margin-top: 7px; }
 .char-trait-label { width: 30px; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #6b7789; }
@@ -436,7 +343,6 @@ body {
 .char-trait-fill { display: block; height: 100%; border-radius: 999px; background: #c3cbd8; transition: width .8s ease; }
 .char-trait-row.is-top .char-trait-fill { background: linear-gradient(90deg, #3b5488, #26375a); }
 .char-trait-caption { font-size: 12px; color: #4a5a72; margin-top: 12px; text-align: center; }
-/* 상황별 5종 — 길이가 길어 아코디언으로 접는다 (노출스펙 §3-5) */
 .char-detail-acc { border-radius: 12px; background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); padding: 11px 14px; margin-top: 8px; }
 .char-detail-acc > summary { font-size: 12.5px; font-weight: 800; color: #26375a; cursor: pointer; list-style: none; }
 .char-detail-acc > summary::-webkit-details-marker { display: none; }
@@ -452,7 +358,6 @@ body {
   content: ''; width: 3px; height: 16px; background: var(--mint); border-radius: 999px;
 }
 
-/* ── Mini profile chip (궁합 탭) ── */
 .mini-profile-chip {
   display: flex; flex-direction: row; align-items: center; gap: 2px;
   background: var(--mint-10); border: none; border-radius: 8px;
@@ -469,21 +374,13 @@ body {
 .mini-profile-empty { font-size: 12px; color: var(--text3); }
 .mini-profile-chevron { margin-left: auto; flex-shrink: 0; }
 
-
-/* ── Face Upload Area (피그마 실측 구조: Label → 안심 안내 → 드롭존[아이콘/캡션/노란 팁박스]) ── */
 .upload-section { padding: 0 20px 40px; }
 
-/* ── 인연도감 첫 진입 히어로(#gwansangHero) ── */
 .hero-section { text-align: center; padding: 8px 4px 28px; }
-/* char-card-name은 원래 3~4자 캐릭터명(1줄)용 크기라, 두 줄짜리 후킹 문구엔 살짝 낮춰서 안 넘치게 함 */
 .hero-hook { font-size: 20px; line-height: 1.35; }
 .hero-subcopy { font-size: 13px; line-height: 1.65; text-align: left; white-space: normal; }
 .hero-note { font-size: 11.5px; color: var(--text-caption); line-height: 1.6; margin-top: 14px; }
 
-/* #gwansangInputCard는 순서·캡처 단위를 위한 순수 구조용 div일 뿐, 시각적으로는 테두리 없는
-   개별 섹션들의 나열로 보인다(필드 순서: 이름 → 관상 정보 → 동의는 그대로 유지). */
-/* 인연도감 화면의 영역별 헤드 문구("관상 정보"/"이름")는 이 화면(#gwansangUploadSection)에만
-   스코프를 좁혀 줄인다. 통합분석·궁합보기 탭은 같은 .upload-label 클래스를 그대로 쓰므로 건드리지 않는다. */
 #gwansangUploadSection .upload-label { font-size: 13px; }
 
 .upload-label { font-size: 16px; font-weight: 700; color: var(--text-title); margin-bottom: 16px; }
@@ -493,7 +390,6 @@ body {
 .reassure-head .label { font-size: 16px; font-weight: 700; color: var(--text-strong2); }
 .reassure-sub { font-size: 14px; color: var(--text-sub); line-height: 1.5; }
 
-/* ── 사주 사전 질문 (진입 즉시 노출) ── */
 .saju-q-block { padding: 24px 0; }
 .saju-q-block:first-child { padding-top: 0; }
 .saju-divider { border-top: 1px solid var(--border-lavender); }
@@ -504,9 +400,6 @@ body {
 .saju-textarea { min-height: 88px; resize: vertical; line-height: 1.5; }
 .saju-char-counter { text-align: right; font-size: 12px; color: var(--text3); margin-top: 4px; }
 
-/* 사진 업로드가 끝나 썸네일(.thumb-area.show)이 뜨면, 라벨/안심 안내/드롭존 안내 박스는 더 볼 필요가
-   없으니 숨긴다. app.js의 loadThumb/resetUpload가 건드리는 클래스만 보고 반응하는 순수 CSS 처리라
-   기존 업로드 로직은 전혀 건드리지 않는다. */
 .upload-section:has(.thumb-area.show) .upload-label,
 .upload-section:has(.thumb-area.show) .reassure-box,
 .upload-section:has(.thumb-area.show) .tip-box {
@@ -526,37 +419,24 @@ body {
 .upload-icon-circle.small { width: 44px; height: 44px; font-size: 18px; margin-bottom: 8px; }
 .upload-area strong { display: block; color: var(--text-caption); font-size: 14px; font-weight: 400; margin: 0; }
 .upload-area p { color: var(--text-caption); font-size: 14px; margin: 0; }
-/* 목선까지~ 안내는 업로드 드롭존 "안"이 아니라 그 아래 별도 섹션 — 피그마 Message/InfoBox는 Background+Border의 형제 노드 */
 .tip-box {
   display: flex; align-items: flex-start; gap: 8px; text-align: left;
   background: var(--bg-info-yellow); border-radius: 8px; padding: 12px; margin-top: 12px;
 }
 .tip-box .icon { font-size: 16px; color: var(--icon-orange); flex-shrink: 0; }
 .tip-box p { font-size: 12px !important; font-weight: 500; color: var(--text-sub2) !important; margin: 0 !important; }
-.upload-hint { display: none; } /* 레거시 클래스 — 신규 마크업에서는 tip-box로 대체 */
-
-/* 궁합 탭 — 글자 크기는 다른 탭과 똑같이 두고, 한 사람의 영역("나/상대방" + 프로필 + 관상 정보)을
-   테두리 카드 하나로 묶는다(.person-block 쪽 규칙). 안쪽 업로드 영역은 카드 여백을 그대로 쓰도록
-   자체 여백·음수 마진을 푼다. */
+.upload-hint { display: none; }
 #panel-gungham .upload-section { border: 0; padding: 0; margin: 16px 0 0; }
 
-/* ── Thumbnail area ── */
 .thumb-area { display: none; align-items: center; gap: 16px; padding: 16px; background: var(--card2); border: 1px solid var(--border); border-radius: var(--r-drop); margin-bottom: 0; }
 .thumb-area.show { display: flex; }
 .thumb-img { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; border: 2px solid var(--border-gray); }
-/* 좌우 반전 버튼(toggleMirror, js/landmark-engine.js)은 모든 탭(관상보기/통합분석/궁합보기)이 이
-   클래스를 공유하므로 여기서 한 번만 고치면 전부 같이 고쳐진다. */
 .thumb-img.mirrored { transform: scaleX(-1); }
 .thumb-info { flex: 1; }
 .thumb-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
 .thumb-sub { font-size: 11px; color: var(--text-sub); }
 .thumb-btns { display: flex; flex-direction: column; gap: 8px; }
 
-/* 인연도감 화면에서만 썸네일을 [사진] / [버튼들] 두 그룹으로 가운데 정렬해 나란히 배치한다.
-   .thumb-area/.thumb-img는 통합분석·궁합보기 탭도 같이 쓰는 공용 클래스라, #gwansangUploadSection
-   스코프로만 덮어써서 다른 탭에는 영향이 없게 한다. #dogamGuestSection도 같은 스코프에 넣는
-   이유 — captureUploadNodes()가 이 썸네일 영역을 B의 등록 폼(#dogamGuestSection 안)으로
-   그대로 옮겨서 재사용하므로, A/B가 항상 같은 모양이어야 한다. */
 #gwansangUploadSection .thumb-img, #dogamGuestSection .thumb-img { width: 100px; height: 100px; }
 #gwansangUploadSection .thumb-area, #dogamGuestSection .thumb-area { justify-content: center; }
 #gwansangUploadSection .thumb-btns, #dogamGuestSection .thumb-btns { flex-direction: column; flex: none; }
@@ -574,14 +454,9 @@ body {
 .reupload-btn:hover { border-color: var(--mint); color: var(--mint); }
 .reupload-btn.on { background: var(--mint-soft); border-color: var(--mint); color: var(--jade); }
 
-/* ── Canvas ── */
 .canvas-wrap { position: relative; display: inline-block; max-width: 100%; }
 #gwansangCanvas, #combinedCanvas, #gunghamCanvasA, #gunghamCanvasB { max-width: 100%; border-radius: 10px; display: block; }
 
-/* ── Spinner ── */
-/* ── 통합분석 진행 화면 (js/app.js runCombined) ── */
-/* 리포트는 AI 해설까지 전부 끝난 뒤에 한 번에 공개한다. 그 전까지 화면에 남는 건 이 카드뿐이라,
-   어디까지 됐는지를 단계 문구로 알린다. */
 .cmb-analyzing {
   text-align: center; padding: 40px 24px; margin-top: 24px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
@@ -595,22 +470,17 @@ body {
 .spin-ring { width: 44px; height: 44px; border: 3px solid var(--mint-border); border-top-color: var(--mint); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* 로그인 직후 클라우드 데이터(인연도감·프로필·보관함)를 불러오는 동안 예전 화면이 잠깐 그대로
-   보이다가 새 데이터로 바뀌는 게 눈에 거슬려서, 그 사이를 딤 처리 + 스피너로 가린다. 문구는 넣지 않는다. */
 .auth-loading-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(10,16,15,0.45); display: flex; align-items: center; justify-content: center; }
 .auth-loading-overlay .spin-ring { margin: 0; border-color: rgba(255,255,255,0.35); border-top-color: #fff; }
 
-/* ── Error ── */
 .err-msg { display: none; background: #FDECEC; border: 1px solid #F5C2C2; color: #C23B3B; border-radius: var(--r); padding: 14px; text-align: center; font-size: 13px; }
 .err-msg.show { display: block; }
 
-/* ── Result cards ── */
 .result-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
 .result-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
 .rc-name { font-size: 13px; font-weight: 800; color: var(--jade); margin-bottom: 6px; }
 .rc-text { font-size: 12px; color: var(--text2); line-height: 1.6; }
 
-/* ── Summary ── */
 .summary-box { background: var(--beige-bg); border: 1px solid var(--beige); border-radius: var(--r); padding: 18px; margin-top: 16px; font-size: 13px; line-height: 1.8; color: var(--text); }
 
 .snapshot-box { border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; margin-bottom: 16px; background: var(--card2); }
@@ -644,17 +514,10 @@ body {
   background: var(--surface); color: var(--text-sub); font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
 }
 
-/* ── 버튼 사이즈 체계 ──────────────────────────────────────────────
-   large  = .submit-btn/.btn-solid-primary의 기본값(약 54px). 화면 하단 CTA처럼 혼자 서는 주요 액션.
-   medium = 44px. 리스트 행이나 폼 줄 안에 들어가는 액션(예: 관리자 "지급하기").
-   small  = 32px. 카드 안 보조 액션(예: 대표프로필 "변경").
-   크기만 바꾸는 modifier라 색·모양은 기존 클래스(.btn-solid-primary 등)가 그대로 결정한다.
-   높이를 padding이 아니라 height로 잡아둬야 폰트 크기를 바꿔도 줄 높이가 흔들리지 않는다. */
 :root { --btn-h-lg: 54px; --btn-h-md: 44px; --btn-h-sm: 32px; }
 .btn-md { height: var(--btn-h-md); padding: 0 18px; font-size: 15px; margin-top: 0; }
 .btn-sm { height: var(--btn-h-sm); padding: 0 14px; font-size: 12px; margin-top: 0; }
 
-/* ── CTA dock: 하단 네비게이션 바로 위 고정 바(피그마 "bottom Group") ── */
 .cta-dock {
   position: fixed; left: 0; right: 0; bottom: var(--nav-h); z-index: 30;
   max-width: var(--frame-w); margin: 0 auto; background: var(--surface);
@@ -663,7 +526,6 @@ body {
 .cta-dock .submit-btn { margin-top: 0; }
 .panel-scroll-area { padding: 0 0 calc(var(--cta-h) + var(--nav-h) + 16px); }
 
-/* ── Pillars ── */
 .pillars-table { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
 .pillar-col { text-align: center; }
 .pillar-label { font-size: 10px; color: var(--text2); font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
@@ -674,17 +536,9 @@ body {
 .pillar-unseong { font-size: 11px; color: var(--jade); font-weight: 700; margin-top: 2px; }
 .pillar-gwiin { font-size: 10px; color: var(--beige-chip-text); margin-top: 2px; }
 .pillar-sinsal { font-size: 10px; color: var(--text2); margin-top: 2px; }
-/* 시주 추정 표시(scratch/siju-estimate-notes.md) — 시간 미상일 때 자시(00:00) 가정값을 점선 테두리 +
-   "추정" 배지로 보여준다. 실제 오행 색은 그대로 유지해 "같은 계산식 결과"임을 나타내고, 12운성·신살·
-   귀인 뱃지는 붙이지 않는다(추정 위에 해석을 더 쌓지 않는다는 원칙). 통합분석·궁합보기 비교표 둘 다
-   이 배지를 공유하므로(buildPillarColBase) 캡션 문구 없이 배지 하나로만 표시한다. */
-/* 한글은 공백 없이도 글자 사이에서 줄바꿈될 수 있어서(CJK 줄바꿈 규칙), 배지 폭이 좁으면 white-space
-   지정 없이는 "추"/"정"이 각각 다른 줄로 쪼개진다. nowrap으로 항상 한 줄을 유지한다. */
 .est-tag { display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; color: var(--est); background: var(--est-bg); border: 1px solid var(--est-border); border-radius: 999px; padding: 3px 8px; margin-top: 6px; white-space: nowrap; }
-/* 궁합보기 8칸 비교표는 칸 폭이 통합분석의 절반 수준이라 배지를 더 작게 줄인다 */
 .pillars-table-compare .est-tag { font-size: 8px; padding: 2px 5px; margin-top: 4px; }
 
-/* ── 궁합보기 · 나/상대방 만세력 한 화면 비교 ── */
 .gg-manse-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 4px 10px; margin-bottom: 14px; text-align: center; }
 .gg-manse-name { font-size: 16px; font-weight: 800; color: var(--text-strong); }
 .gg-manse-heart { font-size: 18px; }
@@ -695,7 +549,6 @@ body {
 .pillars-table-compare .pillar-stem, .pillars-table-compare .pillar-branch { padding: 8px 2px; font-size: 14px; margin-bottom: 4px; }
 .pillars-table-compare .pillar-hanja { font-size: 8px; margin-top: 2px; }
 
-/* ── Ohaeng (오행 색은 데이터 시맨틱 색상 유지) ── */
 .ohaeng-bars { margin-bottom: 8px; }
 .ohaeng-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .ohaeng-name { width: 28px; font-size: 12px; font-weight: 800; text-align: right; flex-shrink: 0; }
@@ -718,23 +571,14 @@ body {
 .gg-ohaeng-barL { display: flex; justify-content: flex-end; }
 .gg-ohaeng-fill { height: 100%; border-radius: 999px; }
 
-/* 오행 100% 스택바 — 목화토금수 다섯 값의 합이 100%인 "구성비" 데이터라서(calcFaceOhaeng), 행마다
-   따로 100% 바를 그리면 각 오행이 독립적으로 0~100점 채점되는 것처럼 오인하기 쉽다. 긴 바 하나를
-   다섯 색으로 나눠 채워 "합쳐서 100%"를 그대로 보여준다. */
 .oh-stack-block + .oh-stack-block { margin-top: 14px; }
 .oh-stack-name { font-size: 12px; font-weight: 800; color: var(--text-strong); margin-bottom: 6px; }
 .oh-stack-track { display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: var(--card2); }
 .oh-stack-seg { height: 100%; }
 .oh-stack-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 7px; font-size: 11.5px; font-weight: 700; }
-/* 대표 오행 뱃지 — 도넛 조각과 같은 팔레트(oh-목-bar 등)를 배경으로 재사용해 "이 사람 = 이 색"이
-   바로 연결되게 한다. */
 .gg-ohaeng-badge { display: inline-flex; align-items: center; gap: 2px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
-/* wide 변형 — "토형" 세 글자가 아니라 FACE_OHAENG_TITLE 한줄평 문구를 담을 때(궁합보기 관상오행
-   비교). 알약 모양 대신 oh-headline-box처럼 줄바꿈되는 카드형으로 바꾼다. */
 .gg-ohaeng-badge.wide { flex: 1; display: block; white-space: normal; line-height: 1.5; padding: 9px 10px; border-radius: 12px; font-size: 11.5px; text-align: center; }
 
-/* 생애주기 궁합 — 오행 스택바(oh-stack-track)와 같은 원리로, 사람당 가로 막대 1개에 초년/중년/말년
-   3구간을 비율대로 쌓는다. 구간 아래 라벨도 같은 폭(width:%)으로 맞춰 그 구간 밑에 정확히 오게 한다. */
 .ls-stack-block + .ls-stack-block { margin-top: 14px; }
 .ls-stack-name { font-size: 12px; font-weight: 800; color: var(--text-strong); margin-bottom: 6px; }
 .ls-stack-track { display: flex; height: 34px; border-radius: 10px; overflow: hidden; background: var(--card2); }
@@ -744,7 +588,6 @@ body {
 .ls-stage-jung { background: linear-gradient(90deg, #3b82f6, #2563eb); }
 .ls-stage-ha   { background: linear-gradient(90deg, #4338ca, #3730a3); }
 
-/* ── Compatibility ── */
 .compat-section { margin-bottom: 20px; }
 .compat-score-box { text-align: center; padding: 28px; background: var(--mint-tint-10); border: 1px solid var(--mint-border); border-radius: var(--r); margin-bottom: 16px; }
 .compat-num { font-size: 64px; font-weight: 900; color: var(--ink); }
@@ -760,14 +603,10 @@ body {
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
 .person-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
-/* 한 사람 = 카드 하나 — 이름·프로필도 관상 정보와 같은 테두리 안에 넣는다. */
-/* 바깥 여백은 다른 탭의 사진 등록 영역(.upload-section — 화면 기준 좌우 20px · 위 28px · 아래 40px)에
-   맞춘다. .wrap이 이미 16px을 주고 있어 여기서는 4px만 더한다. */
 .person-block { margin: 0 4px; }
 .person-block + .person-block { margin-top: 12px; }
 .person-block:last-of-type { margin-bottom: 40px; }
 
-/* ── 궁합 탭 나/상대 아코디언 헤더(첨부 이미지 1 참고 — 민트 배경 + +/- 아이콘) ── */
 .gg-acc-head {
   display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 14px 16px; border: 1px solid var(--mint-border); border-radius: var(--r-input);
@@ -800,7 +639,6 @@ body {
 .chemi-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
 .chemi-title { font-size: 13px; font-weight: 800; color: var(--jade); margin-bottom: 8px; }
 .chemi-role { font-size: 12.5px; color: var(--text); line-height: 1.8; margin-bottom: 4px; }
-/* ── 기운 줄다리기 바 (통합분석 Zone2) ── */
 .dom-bar { margin-top: 14px; }
 .dom-bar-track { display: flex; height: 10px; border-radius: 999px; overflow: hidden; }
 .dom-bar-fill { height: 100%; }
@@ -810,8 +648,6 @@ body {
 .dom-bar-labels .face { color: var(--jade); }
 .dom-bar-labels .saju { color: var(--beige-chip-text); }
 .dom-line { margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--text2); text-align: left; }
-/* 고정 설명 캡션 — 점수·퍼센트·%가 뭘 재는지는 사람마다 안 바뀌는 구조적 설명이라 AI가 매번
-   다시 쓰게 하지 않고 항상 같은 문장을 고정으로 보여준다. */
 .metric-caption { font-size: 11.5px; color: var(--text2); line-height: 1.6; margin-top: 4px; }
 .moment-card { background: var(--beige-bg); border: 1px solid var(--beige); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
 .moment-title { font-size: 13px; font-weight: 800; color: var(--beige-chip-text); margin-bottom: 6px; }
@@ -821,10 +657,6 @@ body {
 .ai-badge { display: inline-block; font-size: 11px; font-weight: 800; color: var(--ink); background: var(--mint); padding: 4px 10px; border-radius: 999px; }
 .part-tip.ai-addition { color: var(--jade); border-top: 1px dashed var(--mint-border); padding-top: 8px; margin-top: 4px; }
 
-/* ══ 궁합보기 AI 리포트 — 히어로(총합/관상만/사주만 점수) + Zone1 관상궁합 + Zone2 사주궁합 ══
-   모든 풀이 항목은 "풀이 먼저 → 근거 나중" 순서로 쌓는다(.gg-item-reading 다음 .gg-item-basis).
-   기존 report-accordion.zone-accordion(통합분석 탭)을 그대로 재사용해 Zone1/Zone2를 접고 펼친다. */
-/* 총점만 큰 숫자로 — 박스 자체(.gg-hero)는 없앴지만 총점 숫자 크기는 기존처럼 유지. */
 .gg-hero-total { font-size: 40px; font-weight: 900; color: var(--jade); line-height: 1; }
 .gg-hero-total span { font-size: 16px; font-weight: 700; margin-left: 4px; }
 .gg-item { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 14px 16px; margin-bottom: 10px; }
@@ -832,7 +664,6 @@ body {
 .gg-item-reading { font-size: 13px; line-height: 1.85; color: var(--text); }
 .gg-item-basis { font-size: 12.5px; line-height: 1.75; color: var(--text-sub); margin-top: 10px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
 .gg-item-basis b { color: var(--jade); }
-/* "왜 이렇게 풀이했나요?" 근거 아코디언 — 기본 접힘 + 버튼 클릭 시에만 펼친다. char-detail-acc와 같은 패턴. */
 .gg-basis-acc { margin-top: 10px; }
 .gg-basis-acc > summary { font-size: 12.5px; font-weight: 700; color: var(--jade); cursor: pointer; list-style: none; }
 .gg-basis-acc > summary::-webkit-details-marker { display: none; }
@@ -840,8 +671,6 @@ body {
 .gg-basis-acc[open] > summary::before { content: '▾ '; }
 .gg-basis-acc > .gg-basis-content { font-size: 12.5px; line-height: 1.75; color: var(--text-sub); margin-top: 8px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
 
-/* Zone2 "둘이 같은 점 / 다른 점" — 같은 점은 char-detail-list(✓)를 재사용, 다른 점은 관상=jade·
-   사주=beige 배색을 dom-bar-labels/oh-headline-split과 통일해서 재사용. */
 .cmb-cd-label { font-size: 12.5px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
 .cmb-diff-row { padding: 10px 0; border-top: 1px dashed var(--border); }
 .cmb-diff-row:first-of-type { border-top: none; }
@@ -867,7 +696,6 @@ body {
 .print-btn:hover { border-color: var(--mint); color: var(--jade); }
 .hidden { display: none !important; }
 
-/* ══ 프로필 시스템 (js/profile.js가 생성하는 오버레이) ══ */
 body.overlay-open { overflow: hidden; }
 .overlay-backdrop { position: fixed; inset: 0; background: rgba(23,32,31,0.45); z-index: 100; }
 .bottomsheet {
@@ -911,9 +739,6 @@ body.overlay-open { overflow: hidden; }
 }
 .field-input:focus { border-color: var(--mint); }
 .field-input-btn { cursor: pointer; color: var(--text-strong); }
-/* 사주 프로필 잠금 — 리포트 구매 이력이 있는 프로필은 정보가 바뀌면 이미 산 리포트와 어긋나므로
-   수정 화면 자체를 잠근다. disabled 속성을 주면 onclick도 안 먹혀서(안전한 잠금) 클릭 방지 로직을
-   따로 안 짜도 된다 — 흐려 보이는 스타일만 이 규칙에서 얹는다. */
 .popup-body [disabled] { opacity: .55; cursor: not-allowed; }
 .chip-row { display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .chip-row::-webkit-scrollbar { display: none; }
@@ -950,7 +775,6 @@ body.overlay-open { overflow: hidden; }
 .leap-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); margin-top: 10px; }
 .hour-row .profile-row-name { font-weight: 700; }
 
-/* ══ 로그인 / 마이페이지 팝업 (js/kakao-auth.js가 프로필과 같은 오버레이 루트에 렌더) ══ */
 .login-popup-body { align-items: center; justify-content: center; gap: 12px; padding: 32px 20px 36px; }
 .login-popup-lead { font-size: 14px; color: var(--text-sub); text-align: center; }
 .kakao-login-big-btn {
@@ -961,7 +785,6 @@ body.overlay-open { overflow: hidden; }
 .kakao-login-big-btn:hover { opacity: .9; }
 .kakao-login-big-btn .kakao-mark { font-size: 18px; line-height: 1; }
 
-/* 마이페이지는 화면 전체를 덮는 풀페이지 팝업 — 사주 등록 팝업(top:8vh)과 달리 위쪽 여백 없이 꽉 채운다 */
 .form-popup.fullpage { top: 0; bottom: 0; border-radius: 0; }
 .mypage-body { gap: 0; padding: 0 0 20px; }
 .mypage-account { display: flex; align-items: center; gap: 12px; padding: 20px; }
@@ -1002,16 +825,12 @@ body.overlay-open { overflow: hidden; }
 .mypage-menu-item.is-quiet { color: var(--text-sub); font-weight: 400; }
 .mypage-menu-item.is-danger { color: var(--text-sub2); font-weight: 400; font-size: 13px; }
 
-/* ── 냥(포인트) 지갑 / 관리자 지급 (js/kakao-auth.js) — 관상냥반_냥시스템_기획서.md v2.0 ── */
 .wallet-balance-card {
   display: flex; align-items: center; justify-content: space-between;
   background: var(--card2); border-radius: 12px; padding: 16px 20px;
 }
-/* 대표프로필 이름(.mypage-rep-name)과 같은 크기·굵기·색으로 통일. */
 .wallet-balance-num { font-size: 14px; font-weight: 700; color: var(--text-strong); }
 .mypage-rep-change[disabled] { opacity: 0.55; cursor: not-allowed; }
-/* .admin-section도 .mypage-section을 같이 달고 있어 padding:16px 20px(공통 가이드)는 그쪽에서 이미
-   상속받는다 — 여기서 배경색만 더한다(전에는 여기서 12px 4px로 덮어써서 가이드값이 깨졌었음). */
 .admin-section { background: rgba(85,204,187,0.06); border-radius: 12px; }
 .admin-search-row { display: flex; gap: 16px; margin-bottom: 16px; }
 .admin-search-row .field-input { flex: 1; }
@@ -1026,14 +845,12 @@ body.overlay-open { overflow: hidden; }
 .admin-grant-amount { width: 64px; padding: 8px; border: 1px solid var(--border-gray); border-radius: 8px; font-family: inherit; font-size: 12.5px; }
 .admin-grant-reason { padding: 8px; border: 1px solid var(--border-gray); border-radius: 8px; font-family: inherit; font-size: 12px; background: var(--surface); }
 
-/* ══ 인연도감 영역 (js/inyeon-dogam.js) — 관상 리포트 하단 ══ */
 .dogam-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-input); padding: 16px; margin-top: 20px; }
 .dogam-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .dogam-title { font-size: 16px; font-weight: 800; color: var(--text-title); }
 .dogam-count { font-size: 14px; font-weight: 700; color: var(--mint); }
 .dogam-empty { font-size: 13px; line-height: 1.7; color: var(--text-sub2); text-align: center; padding: 18px 4px; }
 .dogam-list { display: flex; flex-direction: column; }
-/* 리스트형 — 친구 도감은 상세 설명이 아니라 캐릭터명 + 한줄평 + 점수만 (요청 사항) */
 .dogam-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; }
 .dogam-row + .dogam-row { border-top: 1px solid var(--border-lavender); }
 .dogam-row-thumb { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--card2); }
@@ -1046,7 +863,6 @@ body.overlay-open { overflow: hidden; }
 .dogam-row-score span { font-size: 11px; color: var(--text-sub); margin-left: 1px; }
 
 .dogam-guide { font-size: 13px; color: var(--text-sub2); margin: 8px 0; }
-/* 등록 직후 "방금 맺은 인연" — 인연 도감보다 먼저 눈에 들어와야 해서 톤을 한 단계 올린다 */
 .dogam-matched { background: var(--mint-soft); border-color: var(--mint-border); }
 .dogam-match-row { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: var(--r-input); padding: 12px; margin-top: 8px; }
 .dogam-match-thumb { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--card2); }
@@ -1058,18 +874,12 @@ body.overlay-open { overflow: hidden; }
 .dogam-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-strong); margin-bottom: 12px; cursor: pointer; }
 .dogam-check input { margin-top: 2px; flex-shrink: 0; }
 .dogam-policy { margin-top: 12px; background: var(--card2); border-radius: var(--r-input); padding: 12px 14px; }
-/* "도감 보관·삭제 안내"(.dogam-policy)와 이름/사진 유의사항 콜아웃의 폰트 굵기·크기를 12.5px/400로 통일한다 — 이 화면의 다른 보조 텍스트(.dogam-policy-q/.reassure-sub/.dogam-check 등)와 같은 값. */
 .dogam-policy > summary { font-size: 12.5px; font-weight: 400; color: var(--text-strong); cursor: pointer; }
 .dogam-policy-item { margin-top: 12px; }
-/* 이 셀렉터는 질문에만 쓰는 클래스로 좁혀야 한다 — <b> 태그 전체를 고르면 답변 문장 속 인라인
-   강조(예: "사진은 브라우저에서만...")에도 display:block이 걸려 문장 중간에서 줄이 깨진다. */
 .dogam-policy-item b.dogam-policy-q { display: block; font-size: 12.5px; color: var(--text-strong); margin-bottom: 3px; }
 .dogam-policy-item p { font-size: 12px; line-height: 1.7; color: var(--text-sub2); }
 .dogam-actions { margin-top: 16px; }
-/* 공유 버튼 — 마이페이지 "변경"(.mypage-rep-change)과 같은 아웃라인 디자인.
-   그 자리에서는 단독 액션이라 폭만 꽉 채운다. 비로그인일 때는 "로그인하고 도감 보관하기" 아래 놓인다. */
-.dogam-actions { text-align: center; } /* 공유 버튼은 폭을 내용에 맞추고 가운데 둔다 */
-.dogam-share-btn {
+.dogam-actions { text-align: center; } .dogam-share-btn {
   display: inline-flex; align-items: center; gap: 6px;
   width: auto; padding: 12px 14px; border-radius: var(--r-btn); border: 1px solid var(--border-gray);
   background: var(--surface); color: var(--text-sub); font-size: 13px; font-weight: 700;
@@ -1077,7 +887,6 @@ body.overlay-open { overflow: hidden; }
 }
 .dogam-share-btn:hover { border-color: var(--mint); color: var(--mint); }
 .dogam-share-btn .material-symbols-outlined { font-size: 17px; }
-/* 비로그인 후킹 — 인연 목록 바로 아래, 같은 카드 안. 안심 안내(.reassure-box)와 같은 톤을 쓴다 */
 .dogam-keep { margin: 14px 0 0; }
 .dogam-keep .reassure-head .label { font-size: 13px; }
 .dogam-keep .reassure-sub { font-size: 12.5px; }
@@ -1089,7 +898,6 @@ body.overlay-open { overflow: hidden; }
 }
 .dogam-link-btn:hover { color: var(--mint); }
 .dogam-link-btn .material-symbols-outlined { font-size: 18px; }
-/* 통합분석 유도 CTA (노출스펙 §4 A안) — 좌측 원형 이미지 + 제목/설명, 아래 전체폭 버튼 */
 .dogam-cta {
   background: var(--surface); border: 1px solid var(--border-lavender); border-radius: 16px;
   padding: 16px; margin-top: 22px; box-shadow: 0 2px 10px rgba(23,32,31,0.05);
@@ -1111,8 +919,6 @@ body.overlay-open { overflow: hidden; }
 .dogam-cta-btn:hover { opacity: .9; }
 .dogam-cta-btn .material-symbols-outlined { font-size: 20px; }
 
-/* ── 통합분석 진입 히어로 카드 — "사주도령" 레퍼런스의 배지+굵은 헤드라인+캐릭터 구도를 따르되
-   배경은 그 노란/한지색 대신 브랜드 민트 톤으로 맞춘다 ── */
 .cmb-hero-card {
   position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
   background: linear-gradient(160deg, #EEFAF7 0%, #FFFFFF 75%);
@@ -1131,23 +937,13 @@ body.overlay-open { overflow: hidden; }
 .cmb-hero-img { width: 108px; height: 108px; flex-shrink: 0; }
 .cmb-hero-img img { width: 100%; height: 100%; object-fit: contain; }
 @media (max-width: 360px) { .cmb-hero-img { width: 84px; height: 84px; } }
-/* 도감 전체 삭제 — 정책 안내 안에 두어 우발적 클릭을 줄인다 */
 .dogam-delete-btn { display: block; width: 100%; margin-top: 16px; padding: 11px; border: 1px solid var(--border-gray);
   border-radius: var(--r-btn); background: var(--surface); color: #b04a4a; font-size: 12.5px; font-weight: 700;
   cursor: pointer; font-family: inherit; }
 .dogam-delete-btn:hover { border-color: #b04a4a; }
-/* 인연도감 화면(패널 전체) 맨 아래 — 이용약관/개인정보처리방침. 결과가 있을 때만 그려지는
-   #dogamSection 안이 아니라 패널 레벨의 정적 요소라, 첫 진입(업로드 전) 화면에도 항상 보인다.
-   ⚠️ body가 고정 CTA독/하단 네비 몫으로 미리 비워둔 여백(padding-bottom: nav-h+cta-h+12, 여기에
-   .wrap 자체의 하단 패딩 24px까지 더해짐 — 둘 다 이 패널과 무관하게 항상 존재)이 콘텐츠 뒤에
-   그대로 남아, 배경이 중간에서 끊기고 그 뒤로 흰 여백이 보였다. padding-bottom만 키우면 그 여백
-   자체는 그대로 남고(문서 전체 길이만 늘어날 뿐) 해결이 안 돼서, 늘린 만큼을 음수 margin-bottom으로
-   상쇄해 "문서 흐름상 차지하는 높이"는 원래(12px)와 같게 유지하면서 실제 배경 박스만 그 여백 구간을
-   뚫고 내려가게 했다 — 초과분은 z-index가 더 높은 하단 네비(.bottom-nav)가 위에서 덮어 가려준다. */
 .legal-footer {
   display: flex; justify-content: center; align-items: flex-start; gap: 8px;
-  /* 좌우 -16px는 .wrap의 좌우 패딩(16px)을 상쇄해 프레임 끝까지 꽉 채운다(하단 네비·CTA독과 같은 폭) */
-  margin: 12px -16px calc(12px - (var(--cta-h) + 56px));
+    margin: 12px -16px calc(12px - (var(--cta-h) + 56px));
   padding: 12px 16px calc(var(--cta-h) + 56px);
   font-size: 12px; background: var(--card2);
 }
@@ -1155,15 +951,7 @@ body.overlay-open { overflow: hidden; }
 .legal-footer-link:hover { text-decoration: underline; }
 .legal-footer-sep { color: var(--text-sub2); }
 
-/* 사업자정보 표시 — .wrap 바깥이 아니라 안쪽 맨 끝(모든 .panel의 형제)에 둬서, 지금 활성화된 탭이
-   무엇이든 항상 보인다(.panel은 active가 아니면 display:none이라 그 안에 넣으면 그 탭에서만 보인다).
-   body의 padding-bottom(하단 네비+CTA독 몫)이 이미 화면 전체에 잡혀 있어 별도 여백 보정 없이도
-   하단 네비에 가리지 않는다. */
 .biz-footer { padding: 12px 0 4px; text-align: center; font-size: 11px; line-height: 1.7; color: var(--text-sub2); }
-/* 사업자정보는 업로드 화면(1뎁스)에서만 보이고, "분석하기"를 눌러 분석중/리포트/리포트 상세로
-   들어가면 숨긴다(인연도감·통합분석·궁합보기 공통). 이 상태들은 app.js/ai-analysis.js/
-   inyeon-dogam.js 여러 지점에서 hidden 클래스를 토글하므로, 그 호출부를 전부 찾아 손대는 대신
-   :has()로 "이 컨테이너들 중 하나라도 hidden이 아니면 숨긴다"만 선언한다. */
 .wrap:has(#cmbAnalyzing:not(.hidden)) .biz-footer,
 .wrap:has(#cmbResult:not(.hidden)) .biz-footer,
 .wrap:has(#cmbSavedReport:not(.hidden)) .biz-footer,
@@ -1175,12 +963,6 @@ body.overlay-open { overflow: hidden; }
   display: none;
 }
 .legal-page { padding-top: 8px; }
-/* ══ 이용약관/개인정보처리방침(.legal-doc) — legal/*.html 내용을 그대로 인라인으로 옮겨왔다(다른
-   탭들과 똑같이 페이지 자체가 스크롤되게 하려는 목적 — iframe으로 넣으면 안쪽만 따로 스크롤돼
-   이질감이 있다). 변수·클래스 이름이 앱 전역과 같아도(--border, --text 등) .legal-doc 밑에서만
-   유효해 서로 영향을 주지 않는다 — legal/*.html 파일 자체는 그대로 남겨뒀다(직접 열어볼 때나
-   백업용). 이 앱은 항상 390px 프레임 안에만 그려지므로, 뷰포트 폭이 아니라 프레임 폭 기준으로
-   media query 없이 항상 1열로 고정했다. */
 .legal-doc {
   --lg-ink:#163B38; --lg-jade:#2F6F68; --lg-mint-soft:#EDF9F6; --lg-mint-border:#CBEDE6;
   --lg-beige-bg:#F8F4EC; --lg-beige-text:#7A5B22;
@@ -1224,7 +1006,6 @@ body.overlay-open { overflow: hidden; }
 .legal-doc .sub-h { font-size: 13px; font-weight: 700; color: var(--lg-jade); margin: 16px 0 8px; }
 .legal-doc .addendum { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--lg-border); font-size: 13px; color: var(--lg-text2); line-height: 1.9; }
 .legal-doc .addendum .no { font-family: var(--lg-serif); color: var(--lg-jade); font-weight: 700; margin-right: 6px; }
-/* 링크 복사 확인 토스트 — alert처럼 흐름을 끊지 않도록 잠깐 떴다 사라진다 */
 .dogam-toast {
   position: fixed; z-index: 120; left: 50%; bottom: calc(var(--nav-h) + 24px); transform: translateX(-50%);
   max-width: calc(var(--frame-w) - 48px); padding: 12px 20px; border-radius: 999px;
@@ -1233,8 +1014,6 @@ body.overlay-open { overflow: hidden; }
 }
 .dogam-toast.show { opacity: 1; }
 
-/* ── 이미 만든 도감 다시 보기 (js/ai-analysis.js가 내용을 그린다) ── */
-/* 카드 전체가 하나의 이동 링크라 버튼 없이 행 오른쪽 화살표로만 안내한다 — 높이를 줄이는 게 목적 */
 .revisit-card { padding: 16px; }
 .revisit-row { display: flex; align-items: center; gap: 12px; cursor: pointer; }
 .revisit-thumb { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
@@ -1245,25 +1024,18 @@ body.overlay-open { overflow: hidden; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-
 .revisit-arrow { font-size: 22px; color: var(--text-sub); flex-shrink: 0; }
-/* 도감 삭제 — 보관함에서 기록을 지워도 이 카드가 남던 문제 때문에, 카드 자체에 삭제 수단을 둔다 */
 .revisit-del { background: none; border: none; color: var(--text3); cursor: pointer; padding: 6px; flex-shrink: 0; }
 .revisit-del:hover { color: #b04a4a; }
 .revisit-del .material-symbols-outlined { font-size: 19px; }
 .revisit-row:hover .revisit-arrow { color: var(--mint); }
-/* 통합분석 첫 화면의 "이미 분석한 내역이 있어요" 목록(js/app.js) — 도감 카드와 같은 행 구조를 쓰되
-   기록이 여러 개라 행 사이 구분선을 넣고, 캐릭터 일러스트 대신 보관함과 같은 문서 아이콘을 쓴다. */
 #cmbSavedList .revisit-row + .revisit-row { border-top: 1px solid var(--border-lavender); margin-top: 10px; padding-top: 10px; }
-/* 궁합보기의 "이미 확인한 궁합이 있어요" 목록(js/app.js) — 행끼리 8px 간격만 추가. */
 #ggSavedList .revisit-row + .revisit-row { margin-top: 12px; }
 .revisit-mark {
   width: 34px; height: 34px; border-radius: 50%; background: var(--mint-10); color: var(--jade);
   display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
 }
 
-/* ══ 확인 다이얼로그 / 전환 로딩 (js/kakao-auth.js) ══ */
-/* 마이페이지 팝업(z-index 101) 위에 겹쳐 떠야 하므로 그보다 높은 층에 둔다 */
 .confirm-backdrop { z-index: 102; }
 .confirm-dialog {
   position: fixed; z-index: 103; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -1276,9 +1048,6 @@ body.overlay-open { overflow: hidden; }
 .confirm-actions .btn-outline-primary { flex: 1; font-size: 15px; }
 .confirm-actions .btn-solid-primary { flex: 1; font-size: 15px; padding: 14px 18px; margin-top: 0; }
 
-/* ══ 토스트 (js/profile.js showToast) — 냥 차감 직후 "구매되었습니다" 통보용 ══ */
-/* 확인 버튼이 없는 알림이라 다이얼로그처럼 흐름을 막지 않는다. 차감 직후 곧바로 분석이 시작되므로
-   화면 하단(탭바 위)에 잠깐 떴다가 스스로 사라지고, 클릭도 통과시킨다(pointer-events:none). */
 .app-toast {
   position: fixed; z-index: 200; left: 50%; bottom: 92px; transform: translate(-50%, 8px);
   max-width: calc(var(--frame-w) - 64px); padding: 13px 22px; border-radius: 999px;
@@ -1288,9 +1057,6 @@ body.overlay-open { overflow: hidden; }
 }
 .app-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
-/* ══ 냥 차감 안내 팝업 (js/profile.js confirmSpend) ══ */
-/* 보유/사용 냥을 나란히 보여주고, 모자라면 오른쪽 버튼이 "냥 구매하기"로 바뀐다.
-   레이아웃·z-index는 기존 .confirm-dialog와 동일하게 맞춰 두 팝업이 같은 층에서 같은 크기로 뜬다. */
 .nyang-dialog {
   position: fixed; z-index: 103; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: calc(var(--frame-w) - 64px); max-width: calc(100vw - 64px);
@@ -1310,8 +1076,6 @@ body.overlay-open { overflow: hidden; }
 .nyang-count-num.is-short { color: #c94a4a; }
 .nyang-dialog-short { font-size: 12.5px; color: #c94a4a; line-height: 1.6; margin: 10px 0 0; }
 .nyang-dialog .confirm-actions { margin-top: 16px; }
-/* 어떤 사주로 분석하는지 확인시키는 줄 — 차감 직전이 마지막 확인 지점이라, 여기서 대상이 틀리면
-         냥만 쓰고 처음부터 다시 해야 한다. 눌러서 다른 사주로 바꿀 수 있다. */
 .nyang-dialog-profile-label { font-size: 12px; color: var(--text-sub); text-align: left; margin: 18px 0 6px; }
 .nyang-dialog-profile {
   width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;
@@ -1327,7 +1091,6 @@ body.overlay-open { overflow: hidden; }
 .nyang-dialog-profile .np-arrow { font-size: 18px; color: var(--text3); flex-shrink: 0; }
 .nyang-dialog-profile-hint { font-size: 11.5px; color: var(--text3); text-align: left; line-height: 1.5; margin: 6px 0 0; }
 
-/* ══ 냥 구매 페이지 (js/nyang-shop.js — #panel-nyangshop) ══ */
 .shop-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 0 8px; }
 .shop-head h2 { font-size: 20px; font-weight: 700; color: var(--text-heading); }
 .shop-close {
@@ -1337,7 +1100,6 @@ body.overlay-open { overflow: hidden; }
 .shop-close:hover { background: var(--card2); }
 .shop-balance { font-size: 13px; color: var(--text-sub); padding-bottom: 12px; }
 .shop-balance strong { color: var(--jade); font-weight: 800; }
-/* 가격 배너 — 참고 시안의 MENU 카드를 앱의 민트 톤으로 옮긴 것 */
 .shop-menu-card {
   border: 2px solid var(--mint-border); border-radius: 16px; background: var(--mint-soft);
   padding: 20px 16px; text-align: center; margin-bottom: 18px;
@@ -1364,7 +1126,6 @@ body.overlay-open { overflow: hidden; }
 .shop-cta-dock { padding: 24px 0 8px; }
 .shop-cta-dock .submit-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 
-/* ══ 냥 내역 (js/nyang-history.js — #panel-nyanghistory) ══ */
 .admin-history-link { margin-top: 4px; padding-left: 0; padding-right: 0; font-weight: 700; color: var(--jade); }
 .nh-tabs { display: flex; gap: 6px; padding: 4px 0 14px; flex-wrap: wrap; }
 .nh-tab {
@@ -1405,7 +1166,6 @@ body.overlay-open { overflow: hidden; }
 .nh-search-row:hover { background: var(--mint-10); }
 .nh-search-name { font-size: 13.5px; font-weight: 700; color: var(--text-title); }
 .nh-search-sub { font-size: 11.5px; color: var(--text-sub); }
-/* 지금 어떤 사용자만 보고 있는지 항상 눈에 띄게 — CS 중에 전체/개인 화면을 헷갈리면 안 된다 */
 .nh-picked {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 11px 14px; margin-bottom: 12px; border-radius: 12px;
@@ -1419,7 +1179,6 @@ body.overlay-open { overflow: hidden; }
   font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
 }
 
-/* ══ 결제내역 (js/pay-history.js — #panel-payhistory) ══ */
 .ph-summary {
   display: flex; gap: 14px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 10px;
   border-radius: 12px; background: var(--card2); font-size: 12.5px; font-weight: 700; color: var(--text-sub);
@@ -1449,7 +1208,6 @@ body.overlay-open { overflow: hidden; }
 }
 .transition-loading p { font-size: 14px; color: var(--text-sub); }
 
-/* ══ 보관함 (js/archive.js) — 팝업이 아니라 .wrap 안의 페이지(#panel-archive) ══ */
 .arc-page-head { display: flex; align-items: center; gap: 8px; padding: 16px 0 8px; }
 .arc-page-head h2 { font-size: 20px; font-weight: 500; color: var(--text-heading); }
 .arc-back { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-left: -6px;
@@ -1467,7 +1225,6 @@ body.overlay-open { overflow: hidden; }
 .arc-sort-btn:hover { border-color: var(--mint); color: var(--mint); }
 .arc-sort-btn .material-symbols-outlined { font-size: 15px; }
 
-/* 아코디언 — 타이틀은 배경을 깔아 영역을 잡고, 본문은 펼쳤을 때만 붙는다 */
 .arc-acc { margin-bottom: 10px; }
 .arc-acc-head {
   display: flex; align-items: center; gap: 8px; width: 100%;
@@ -1506,18 +1263,10 @@ body.overlay-open { overflow: hidden; }
 .arc-row-del .material-symbols-outlined { font-size: 19px; }
 
 .arc-report-meta { font-size: 12px; color: var(--text-sub); padding: 0 2px 12px; }
-/* 보관함에서 연 인연도감 리포트 아래에 붙는 실시간 도감 영역(js/archive.js attachLiveDogam) */
 .arc-live-dogam { margin-top: 16px; }
 .arc-report .card { margin-bottom: 16px; }
-/* .shell-strip 클래스가 붙기 전에 저장된 옛 인연도감 리포트(로컬스토리지에 이미 들어있는 스냅샷)는
-   저장 당시 HTML을 그대로 문자열로 갖고 있어서, 클래스를 나중에 추가해도 소급 적용이 안 된다 — 그
-   안에 있던 .card엔 class="shell-strip"이 없기 때문. 그래서 클래스가 아니라 "내용물이 뭔지"로 다시
-   잡는다: 캐릭터 카드(.char-card)나 캐릭터 상세(.char-detail)를 담은 .card는 안에 이미 자기만의
-   테두리/카드 모양이 있으니 바깥 껍데기(.card 자체의 패딩·테두리)는 옛 스냅샷이든 새 스냅샷이든
-   항상 벗긴다. 다른 분석(통합분석·사주·궁합)의 .card는 이 셀렉터에 안 걸리니 그대로 유지됨. */
 .arc-report .card:has(.char-card), .arc-report .card:has(.char-detail) { border: none; padding: 0; background: transparent; }
 
-/* Saju form (레거시 — 현재 미사용, 클래스만 유지) */
 .saju-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 600px) { .saju-form { grid-template-columns: 1fr; } }
 .form-group label { display: block; font-size: 11px; font-weight: 700; color: var(--jade); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
@@ -1547,14 +1296,10 @@ body.overlay-open { overflow: hidden; }
 
 <div class="wrap">
 
-  <!-- ===== 통합 분석 패널 ===== -->
-  <div class="panel active" id="panel-combined">
+    <div class="panel active" id="panel-combined">
     <div class="arc-page-head"><h2>통합분석</h2></div>
     <div class="upload-section" id="cmbUploadSection">
-      <!-- 진입 후킹 배너 — "사주도령" 레퍼런스 구도(배지 + 굵은 헤드라인 + 캐릭터 일러스트)를 따르되
-           배경은 브랜드 민트 톤으로 맞췄다. markAnalyzed()가 #cmbUploadSection 전체를 숨기는
-           기존 로직에 얹혀서, 분석 후엔 같이 사라진다. -->
-      <div class="cmb-hero-card" id="cmbHero">
+            <div class="cmb-hero-card" id="cmbHero">
         <div class="cmb-hero-text">
           <div class="cmb-hero-badge">🐱 관상냥반</div>
           <div class="cmb-hero-title">냥반이<br>얼굴과 사주를<br>함께 봐드릴게요</div>
@@ -1563,10 +1308,7 @@ body.overlay-open { overflow: hidden; }
         <div class="cmb-hero-img"><img src="images/Logo.png" alt=""></div>
       </div>
 
-      <!-- 사진 등록 단계 — 최초 진입(보관함에 통합분석 리포트가 없거나 비로그인)일 때만 보인다.
-           보관된 리포트가 있으면 app.js의 renderCombinedSavedReport()가 이 블록을 감추고
-           아래 #cmbSavedStep(저장된 리포트 + 다른 사람으로 통합분석하기)을 대신 노출한다. -->
-      <div id="cmbPhotoStep">
+            <div id="cmbPhotoStep">
       <div class="upload-label">관상 정보</div>
 
       <div class="reassure-box">
@@ -1596,8 +1338,7 @@ body.overlay-open { overflow: hidden; }
         </div>
       </div>
 
-      <!-- 사진 등록 후에만 노출 — 사주보기와 동일한 질문으로 관상×사주 리포트에 참고할 맥락을 더 받는다 -->
-      <div class="hidden" id="cmbSajuQBlock" style="margin-top:16px;">
+            <div class="hidden" id="cmbSajuQBlock" style="margin-top:16px;">
         <div class="saju-q-block">
           <div class="saju-q-title">지금의 상황을 알려주세요</div>
           <div class="saju-chip-row">
@@ -1634,18 +1375,14 @@ body.overlay-open { overflow: hidden; }
           <div class="saju-char-counter" id="cmbQ3Counter">0/100</div>
         </div>
       </div>
-      </div><!-- /#cmbPhotoStep -->
-
-      <!-- 보관함에 쌓인 통합분석 내역 — 로그인 상태에서 기록이 있을 때만 노출된다(기록 수만큼 전부).
-           행을 누르면 그 리포트를 아래 #cmbSavedReport에 그대로 펼친다(보관함 스냅샷 재사용 — 재분석 아님). -->
-      <div class="hidden" id="cmbSavedStep">
+      </div>
+            <div class="hidden" id="cmbSavedStep">
         <div class="upload-label">이미 분석한 내역이 있어요</div>
         <div class="card revisit-card" id="cmbSavedList"></div>
         <button class="submit-btn" style="margin-top:20px;" onclick="startCombinedForOther()">다른 사람으로 통합분석하기</button>
       </div>
 
-      <!-- 내역에서 고른 리포트 한 건 -->
-      <div class="hidden" id="cmbSavedReport">
+            <div class="hidden" id="cmbSavedReport">
         <button type="button" class="report-back-btn" onclick="closeCombinedSavedReport()">
           <span class="material-symbols-outlined">arrow_back</span>분석 내역으로
         </button>
@@ -1668,8 +1405,7 @@ body.overlay-open { overflow: hidden; }
       <button class="submit-btn" onclick="Profile.runCombined()">분석하기</button>
     </div>
 
-    <!-- 분석 진행 화면 — 리포트(#cmbResult)는 AI 해설까지 끝난 뒤에야 열린다. 그 전까지는 이 카드만 보인다. -->
-    <div class="cmb-analyzing hidden" id="cmbAnalyzing">
+        <div class="cmb-analyzing hidden" id="cmbAnalyzing">
       <div class="spin-ring"></div>
       <div class="cmb-analyzing-title">냥반이 리포트를 쓰고 있어요</div>
       <div class="cmb-analyzing-msg" id="cmbAnalyzingMsg">사주를 뽑는 중이에요</div>
@@ -1684,9 +1420,7 @@ body.overlay-open { overflow: hidden; }
     <div class="card hidden shell-strip" id="cmbResult">
       <div class="card-title" id="cmbResultTitle">🔮 AI 관상 X 사주 개운 리포트</div>
 
-      <!-- ══ Zone1 · 관상 캐릭터 ══ 관상70 + 사주30 융합 결과. AI를 안 쓰므로 분석 직후 바로 뜬다. -->
-      <!-- Zone1도 다른 Zone과 같은 아코디언으로 맞춘다 — 기본은 열림. -->
-      <details class="report-accordion zone-accordion" open id="cmbZone1">
+                  <details class="report-accordion zone-accordion" open id="cmbZone1">
         <summary>ZONE 1 · 관상 캐릭터</summary>
         <div id="cmbCharacterCard"></div>
         <div id="cmbCharacterBasis"></div>
@@ -1695,20 +1429,14 @@ body.overlay-open { overflow: hidden; }
 
       <div id="cmbPhotoLoading" class="hidden" style="text-align:center;color:var(--text2);font-size:13px;padding:24px 0;">🔮 관상 분석중~</div>
 
-      <!-- ══ Zone2 · 총평 히어로 ══ 통합분석 리포트 구성.md §1. 헤드/케미점수는 룰베이스(항상 즉시 노출),
-           최종 총평·같은점/다른점·오행 에너지 비교는 AI/데이터 로딩을 기다려야 해서 로딩 스켈레톤을
-           탄다. 최종 총평은 케미 점수 바로 아래에 붙인다. -->
-      <details class="report-accordion zone-accordion" id="cmbZone2">
+            <details class="report-accordion zone-accordion" id="cmbZone2">
         <summary>ZONE 2 · 관상x사주 총평</summary>
-        <!-- 영역1: 헤드 문구 (궁합보기 ggHeadline과 같은 독립 박스) -->
-        <div class="headline-quote" id="cmbZone2Headline"></div>
-        <!-- 영역2: 케미 점수 + 최종 총평 (궁합보기 chemi-card와 같은 구조) -->
-        <div class="chemi-card" style="text-align:center;">
+                <div class="headline-quote" id="cmbZone2Headline"></div>
+                <div class="chemi-card" style="text-align:center;">
           <div class="chemi-title">🧠 관상·사주 싱크</div>
           <div class="gg-hero-total" style="margin-top:6px;"><b id="cmbChemiScore">-</b><span>%</span></div>
           <div class="metric-caption">겉모습(관상)과 타고난 기질(사주)이 얼마나 같은 방향을 가리키는지예요. 100%에 가까울수록 겉과 속이 일치하고, 낮을수록 반전 매력이 있다는 뜻이에요 — 아래 비율(어느 쪽 기운이 더 센지)과는 다른 기준이에요</div>
-          <!-- 기운 줄다리기 바 — chemiScore(방향 일치도)와 별개로 "어느 쪽 기운이 더 센지"를 보여준다 -->
-          <div class="dom-bar hidden" id="cmbDomBar">
+                    <div class="dom-bar hidden" id="cmbDomBar">
             <div class="dom-bar-track">
               <div class="dom-bar-fill face" id="cmbDomBarFace"></div>
               <div class="dom-bar-fill saju" id="cmbDomBarSaju"></div>
@@ -1722,13 +1450,10 @@ body.overlay-open { overflow: hidden; }
           <div class="chemi-role" style="text-align:left;margin-top:8px;" id="cmbZone2Review">사진 분석이 끝나면 표시돼요.</div>
         </div>
 
-        <!-- 영역3: 둘이 같은 점 / 다른 점(신규) — 케미 점수·총평만으로는 안 보이던 "구체적으로 뭐가
-             같고 뭐가 다른지"를 관상 6기질 vs 사주 6기질 비교로 짚어준다. -->
-        <div class="z3-pair-card" style="margin-top:16px;">
+                <div class="z3-pair-card" style="margin-top:16px;">
           <div class="z3-pair-title">🤝 둘이 같은 점 · 다른 점</div>
           <div id="cmbZone2CommonDiff" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         </div>
-
 
         <div class="z3-pair-card" style="margin-top:16px;">
           <div class="z3-pair-title">🌳 오행 에너지 비교</div>
@@ -1741,20 +1466,14 @@ body.overlay-open { overflow: hidden; }
         </div>
       </details>
 
-      <!-- ══ Zone3 · 데이터 풀이 ══ 통합분석 리포트 구성.md §1 — 만세력+6기질 / 대운+삼정, 페어마다
-           AI 융합풀이 1개. 오행능력치 비교는 Zone2에서 그린다(위 참고). -->
-      <details class="report-accordion zone-accordion" id="cmbZone3">
+            <details class="report-accordion zone-accordion" id="cmbZone3">
         <summary>ZONE 3 · 관상x사주 데이터 풀이</summary>
 
         <div class="z3-pair-card">
           <div class="z3-pair-title">☯ 사주 원국</div>
           <div class="pillars-table" id="cmbPillarsTable"></div>
 
-        <!-- 신살·귀인 종합 풀이 — 원국표 뱃지로만 나열되던 신살·귀인을 "여러 개면 무슨 의미인지 + 조합
-             해석"으로 풀어주는 sinsal_reading을 여기 연결. .gg-item 자체가 이미 흰 배경
-             (var(--surface))의 카드라, z3-pair-card로 한 번 더 감싸면 이중 테두리가 된다.
-             z3-pair-card 대신 .gg-item 클래스를 이 컨테이너에 직접 줘서 같은 흰 카드 느낌을 낸다. -->
-          <div id="cmbSinsalReading" class="gg-item" style="margin-top:10px;">사진 분석이 끝나면 표시돼요.</div>
+                  <div id="cmbSinsalReading" class="gg-item" style="margin-top:10px;">사진 분석이 끝나면 표시돼요.</div>
           <div id="cmbZone3Reading1" class="gg-item" style="margin-top:10px;">사진 분석이 끝나면 표시돼요.</div>
 
         </div>
@@ -1764,25 +1483,16 @@ body.overlay-open { overflow: hidden; }
           <div class="metric-caption" style="margin-bottom:8px;">%는 실제 얼굴에서 이마(초년)·눈코(중년)·인중~턱(말년)이 차지하는 비율이에요 — 셋을 합치면 100%인 파이 조각이라 낮다고 그 시기가 나쁜 게 아니에요. ⭐좋은 시기는 이 얼굴 비율과 무관하게, 사주로 계산한 그 10년의 십이운성이 상승기라는 별개의 표시예요.</div>
           <div id="cmbLifelineNow" style="font-size:12.5px;color:var(--text);margin-bottom:6px;"></div>
           <div class="lifeline" id="cmbLifeline" style="color:var(--text2);font-size:12.5px;">사진이 있어야 볼 수 있어요.</div>
-          <!-- 사주보기 탭과 같은 renderDaeunTable을 쓰지 않으므로 숨은 그릇 불필요 -->
-          <div id="cmbZone3Reading3" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
+                    <div id="cmbZone3Reading3" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
         </div>
 
-        <!-- 관상 정보 — part_deep_dive(눈·코·미간 등 실측 근거 부위별 상세해설, 관상탭과 동일한 카드 UI)를
-             여기로 연결 — Zone1은 캐릭터 판정만 다루는 원칙을 지키기 위해 Zone1에서 뺐다.
-             순서: 사주 원국 → 대운x삼정 순으로 사주 쪽 풀이를 먼저 다 보여준 뒤 관상 정보를 맨 뒤로. -->
-        <div class="z3-pair-card" style="margin-top:16px;">
+                <div class="z3-pair-card" style="margin-top:16px;">
           <div class="z3-pair-title">🔮 관상 정보</div>
           <div id="cmbPartDeepDive" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         </div>
         </details>
 
-      <!-- ══ Zone4 · 스토리 풀이 ══ 통합분석 리포트 구성.md §1 — 오프닝 고정 카드 3개(인생의 흐름 → 나의
-           기질 → 남이 모르는 내 모습) → 가변 카드 8개("생활 속의 나": family2/relationships1/
-           love2/work1/money1/rest1) → 클로징 고정 카드("조언", 맨 마지막). 전부 AI라 로딩
-           스켈레톤을 탄다. 고정 카드의 제목은 룰베이스(renderZone4FixedCard에 고정 문구로
-           박아둠) — reading/basis만 AI. -->
-      <details class="report-accordion zone-accordion" id="cmbZone4">
+            <details class="report-accordion zone-accordion" id="cmbZone4">
         <summary>ZONE 4 · 관상x사주 스토리 풀이</summary>
         <div id="cmbZone4Card1" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         <div id="cmbZone4Temperament" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
@@ -1795,19 +1505,11 @@ body.overlay-open { overflow: hidden; }
     </div>
   </div>
 
-  <!-- ===== 관상 패널 ===== -->
-  <div class="panel" id="panel-gwansang">
+    <div class="panel" id="panel-gwansang">
     <div class="arc-page-head" id="gwansangPageHead"><h2>인연도감</h2></div>
     <div class="upload-section" id="gwansangUploadSection">
-      <!-- 인연도감 첫 진입 화면(인연도감_정책및개발명세서.md "화면 구성") — 아무것도 입력 안 한 상태에서만
-           보이고, markAnalyzed()가 이 섹션 전체(#gwansangUploadSection)를 숨기면 같이 사라진다.
-           재방문 카드(3번 항목)는 이 앱에 계정·서버가 없어 "친구 N명 등록" 같은 진행 상황은 실제로
-           추적 불가 — localStorage에 저장된 마지막 결과가 있을 때만 "다시 보기"로 가볍게 대체했다.
-           소셜 프루프(5번, "OO명이 만들었어요")는 실제 집계값이 없어 지어내지 않고 생략함. -->
-      <div class="hero-section" id="gwansangHero">
-        <!-- 캐릭터 결과 카드(.char-card)와 같은 톤으로 통일. badge/name/이미지/ribbon 구조를 그대로
-             재사용하되, name은 후킹 문구, ribbon은 서브카피(작동 방식 설명)를 담는다. -->
-        <div class="char-card">
+            <div class="hero-section" id="gwansangHero">
+                <div class="char-card">
           <span class="char-card-corner tl">✦</span><span class="char-card-corner tr">✦</span>
           <span class="char-card-corner bl">✦</span><span class="char-card-corner br">✦</span>
           <div class="char-card-badge">인연도감</div>
@@ -1817,20 +1519,13 @@ body.overlay-open { overflow: hidden; }
         </div>
       </div>
 
-      <!-- 타이틀은 카드 밖으로 빼서 아래 "관상 정보"(.upload-label)와 같은 계위·스타일로 맞춘다 -->
-      <div class="upload-label" id="gwansangRevisitLabel" style="display:none;">이미 만드신 도감이 있어요</div>
+            <div class="upload-label" id="gwansangRevisitLabel" style="display:none;">이미 만드신 도감이 있어요</div>
       <div class="card revisit-card" id="gwansangRevisitCard" style="display:none;">
         <div id="gwansangRevisitBody"></div>
       </div>
 
-      <!-- #gwansangInputCard: 시각적 테두리는 없는 순수 구조용 래퍼. 존재 이유 — 이 div 하나가
-           gwansangUploadSection의 top-level 자식이라, captureUploadNodes()가 이 통째를 캡처해
-           B의 등록 폼(.dogam-block) 안으로 옮긴다. 안에 있는 이름 입력(gwansangOwnerNameBlock)·
-           동의 체크박스(gwansangOwnerAgreeBlock)는 A 전용이라 showGuestView()가 따로 숨긴다
-           (아래 참고, js/inyeon-dogam.js). -->
-      <div id="gwansangInputCard">
-        <!-- 순서: 이름 → 관상 정보 → 동의(정책 문서 2-0 "A/B 항상 동기화" 규칙, B 등록 폼과 동일하게 유지). -->
-        <div id="gwansangOwnerNameBlock">
+            <div id="gwansangInputCard">
+                <div id="gwansangOwnerNameBlock">
           <div class="upload-label">이름</div>
           <input type="text" class="field-input" id="gwansangOwnerName" maxlength="12" placeholder="도감에 표시될 이름" style="margin-bottom:8px;">
           <details class="dogam-policy" style="margin-top:0;margin-bottom:12px;">
@@ -1845,16 +1540,13 @@ body.overlay-open { overflow: hidden; }
              onclick="document.getElementById('fileInput').click()"
              ondrop="handleDrop('gwansang', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
           <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
-          <!-- 이 영역 자체가 A·B 공용 DOM(captureUploadNodes가 그대로 캡처)이라 이 한 줄만 고치면 A/B 둘 다
-               같이 바뀐다. -->
-          <strong>관상을 살펴볼 사진 넣기</strong>
+                    <strong>관상을 살펴볼 사진 넣기</strong>
           <div class="tip-box">
             <span class="icon material-symbols-outlined">warning</span>
             <p>목선까지 보이는 정면사진을 올려주세요.<br>(얼굴 60% 이상)</p>
           </div>
         </div>
         <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile('gwansang', event)">
-
 
         <div class="thumb-area" id="thumbArea">
           <img id="thumbImg" class="thumb-img" src="" alt="선택한 사진">
@@ -1864,14 +1556,9 @@ body.overlay-open { overflow: hidden; }
           </div>
         </div>
 
-        <!-- 에러 문구(얼굴 인식 실패 등)는 "사진 등록 영역"과 한 덩어리로 읽히도록 사진 영역 바로 아래 둔다 —
-             8px 패턴으로 위아래 간격을 직접 지정해 에러가 있든 없든 아래 콜아웃과의 간격이 일정하게 유지되게 한다. -->
-        <div class="err-msg" id="gwansangErr" style="margin-top:8px;margin-bottom:8px;"></div>
+                <div class="err-msg" id="gwansangErr" style="margin-top:8px;margin-bottom:8px;"></div>
 
-        <!-- "안심하세요" 고정 박스(.reassure-box) 대신 이름 유의사항과 완전히 같은 스타일(.dogam-policy
-             접이식)로 통일한다. margin-top:8px — 위 이름 입력·유의사항 간격(input mb 8px)과 같은
-             간격을 사진 등록 영역 아래에도 맞춘다. -->
-        <details class="dogam-policy" style="margin-top:8px;margin-bottom:12px;">
+                <details class="dogam-policy" style="margin-top:8px;margin-bottom:12px;">
           <summary>🔒사진은 저장되지 않으니 안심하세요</summary>
           <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
         </details>
@@ -1881,11 +1568,7 @@ body.overlay-open { overflow: hidden; }
           <p style="color:var(--text2);font-size:13px;" id="spinnerMsg">얼굴 분석 중...</p>
         </div>
 
-        <!-- 동의 체크박스 — B의 등록 폼(dogamAgree)과 완전히 같은 문구. 인연도감 서비스 정책.md
-             v4 2-0/2-1 1번 및 8장 참고. A 전용이라 gwansangOwnerAgreeBlock으로 감쌌다 — B는 자기
-             것(dogamAgree)을 따로 쓰므로, 캡처(gwansangInputCard 전체가 통째로 옮겨감) 이후
-             showGuestView()가 이 블록을 setDisplay(...,'none')으로 숨긴다(js/inyeon-dogam.js 참고). -->
-        <div id="gwansangOwnerAgreeBlock">
+                <div id="gwansangOwnerAgreeBlock">
           <label class="dogam-check"><input type="checkbox" id="gwansangOwnerAgree">
             <span>입력한 이름과 사진을 인연도감 생성/관리에 이용하는 데 동의해요. <b>(필수)</b></span>
           </label>
@@ -1893,18 +1576,11 @@ body.overlay-open { overflow: hidden; }
       </div>
     </div>
 
-    <!-- 사진을 올려야만 뜨던 걸 기본 노출로 바꿨다. 사진 없이 눌러도 startAnalysis()가 이미 "사진을
-         먼저 업로드해주세요" 안내를 하므로 안전하다(js/app.js). updateCtaDock()은 이제
-         ctx==='gwansang'일 때 이 요소를 건드리지 않는다 — 분석 완료 시 markAnalyzed('gwansang')만
-         명시적으로 숨긴다(결과 화면 전환). -->
-    <div class="cta-dock" id="gwansangCtaDock">
+        <div class="cta-dock" id="gwansangCtaDock">
       <button class="submit-btn" onclick="startGwansangOwnerAnalysis()">인연도감 만들기</button>
     </div>
 
-    <!-- "관상 분석중~"은 통합분석(#cmbAnalyzing)처럼 화면 전체를 대신하는 큰 로딩 카드다.
-         .cmb-analyzing 클래스를 그대로 재사용(새 CSS 불필요). js/app.js의
-         showGwansangAnalyzing()/setGwansangAnalyzingMsg()/hideGwansangAnalyzing()이 제어한다. -->
-    <div class="cmb-analyzing hidden" id="gwansangAnalyzing">
+        <div class="cmb-analyzing hidden" id="gwansangAnalyzing">
       <div class="spin-ring"></div>
       <div class="cmb-analyzing-title">냥반이 인연도감을 만들고 있어요</div>
       <div class="cmb-analyzing-msg" id="gwansangAnalyzingMsg">관상을 분석하는 중이에요</div>
@@ -1912,27 +1588,13 @@ body.overlay-open { overflow: hidden; }
     </div>
 
     <div class="card hidden shell-strip" id="canvasCard">
-      <!-- "인연도감 다시 생성하기"(deleteMyDogam) 버튼은 아래 "도감 보관·삭제 안내" 아코디언 안의
-           같은 동작("내 인연도감 삭제하기")과 겹쳐서 제거했다. #gwansangBackBtn을 참조하던
-           setDisplay 호출들(showGuestView 등)은 존재하지 않는 id를 조용히 무시하므로 안전하다. -->
-      <!-- 실제 얼굴 분석용 캔버스는 그대로 유지(내부적으로 계속 사용) — 화면에는 안 보이게만 숨긴다 -->
-      <div style="text-align:center;display:none;"><div class="canvas-wrap"><canvas id="gwansangCanvas"></canvas></div></div>
+                  <div style="text-align:center;display:none;"><div class="canvas-wrap"><canvas id="gwansangCanvas"></canvas></div></div>
       <div id="gwansangCharacterCard"></div>
     </div>
     <div class="card hidden shell-strip" id="gwansangResult">
-      <!-- 16캐릭터 상세 설명 — character-db.js의 확정 콘텐츠를 위 일러스트 카드와 같은 톤으로 펼쳐서
-           보여준다. renderCharacterDetail()은 통합분석도 같이 쓰는 공용 함수라 그 함수 자체나
-           마크업은 안 건드리고, 렌더링이 끝난 뒤 js/ai-analysis.js의 wireGwansangCharDetailToggle()이
-           결과 DOM을 후처리해서 헤드라인 뒤 형제 요소들만 접이식 wrapper로 모으고 토글 버튼을
-           붙인다(populateGwansangReportFromSaved·requestPersonalAiRuleBased 두 호출 지점에서 각각 실행). -->
-      <div id="gwansangCharacterDetail"></div>
+            <div id="gwansangCharacterDetail"></div>
 
-      <!-- 기존 리포트 전체(리포트 타이틀·관상 형상 ~ Daily 개운 루틴)를 이 아코디언 하나에 접어둔다.
-           각 컨테이너 id는 그대로라 app.js/ai-analysis.js 렌더 로직은 무변경. -->
-      <!-- 16캐릭터 카드/상세 설명(#gwansangCharacterCard·#gwansangCharacterDetail)으로 대체됐으니 구
-           리포트 전체는 숨긴다. 내부 렌더 로직(app.js/ai-analysis.js)은 그대로 두고 화면에만 안 보이게
-           함 — 값 계산은 계속 되지만 비용이 큰 작업이 아니라 굳이 로직까지 걷어내지 않음. -->
-      <details class="report-accordion" id="gwansangDetailAccordion" style="display:none;">
+                  <details class="report-accordion" id="gwansangDetailAccordion" style="display:none;">
         <summary>관상 상세 리포트 전체 보기 (관상 형상 · 부위별 생김새 · 오행 능력치 · 11개 부위 · Daily 루틴)</summary>
 
         <div class="card-title" id="gwansangResultTitle">🔮 AI 관상 개운 리포트</div>
@@ -1960,26 +1622,18 @@ body.overlay-open { overflow: hidden; }
         <div class="summary-box" id="gwansangSummary"></div>
       </details>
 
-      <!-- ===== 인연도감 영역 (js/inyeon-dogam.js가 내용을 그린다) ===== -->
-      <div id="dogamSection"></div>
+            <div id="dogamSection"></div>
 
-      <!-- "다른 관상 분석하기"는 통합분석 유도 CTA(노출스펙 §4)로 대체됐다 — #dogamSection 안에서
-           공유 버튼 다음(맨 아래)에 그려진다. 다시 찍기는 상단 "인연도감 메인으로"가 같은 일을 한다. -->
-    </div>
+          </div>
 
-    <!-- 이용약관/개인정보처리방침 — 결과 유무와 상관없이 인연도감 탭 어디서든(첫 진입 포함) 항상 보인다.
-         새 탭/외부 페이지가 아니라 앱 안 화면 전환으로 연다 — openLegalPanel()이 #panel-legal-*를
-         보여주고 뒤로가기로 복귀한다. -->
-    <div class="legal-footer">
+        <div class="legal-footer">
       <button type="button" class="legal-footer-link" onclick="openLegalPanel('terms')">이용약관</button>
       <span class="legal-footer-sep">·</span>
       <button type="button" class="legal-footer-link" onclick="openLegalPanel('privacy')"><b>개인정보처리방침</b></button>
     </div>
   </div>
 
-  <!-- ===== 이용약관/개인정보처리방침 — legal/*.html 내용을 그대로 옮겨온 것(내용을 고치면 두 곳 다
-       고쳐야 한다: 이 아래 블록과 legal/terms-of-service.html·legal/privacy-policy.html) ===== -->
-  <div class="panel legal-page" id="panel-legal-terms">
+    <div class="panel legal-page" id="panel-legal-terms">
     <button type="button" class="report-back-btn" onclick="closeLegalPanel()">
       <span class="material-symbols-outlined">arrow_back</span>이전으로
     </button>
@@ -2327,14 +1981,9 @@ body.overlay-open { overflow: hidden; }
     </div>
   </div>
 
-  <!-- ===== 궁합 패널 ===== -->
-  <div class="panel" id="panel-gungham">
+    <div class="panel" id="panel-gungham">
     <div class="arc-page-head"><h2>궁합보기</h2></div>
-    <!-- 진입 후킹 배너 — 통합분석 탭의 #cmbHero(cmb-hero-card)와 같은 클래스를 그대로 재사용. 문구는
-         실제 궁합보기 리포트 구성(얼굴형·눈·코·광대·입·턱 조합 + 관상 궁합 + 사주 궁합 + 매칭
-         점수)을 근거로 썼다. #ggInputStep 밖의 형제로 둬서, 저장된 내역이 있어 #ggInputStep이
-         통째로 hidden 되어도 #cmbHero처럼 setGgHeroVisible()로 따로 켜고 끌 수 있게 한다. -->
-    <div class="cmb-hero-card" id="ggHeroBanner">
+        <div class="cmb-hero-card" id="ggHeroBanner">
       <div class="cmb-hero-text">
         <div class="cmb-hero-badge">🐱 관상냥반</div>
         <div class="cmb-hero-title">냥반이<br>두 분의 궁합을<br>봐드릴게요</div>
@@ -2343,14 +1992,8 @@ body.overlay-open { overflow: hidden; }
       <div class="cmb-hero-img"><img src="images/Logo.png" alt=""></div>
     </div>
 
-    <!-- 나/상대방 선택 단계 — 최초 진입(보관함에 궁합 기록이 없거나 비로그인)일 때만 보인다.
-         보관된 기록이 있으면 app.js의 renderGunghamSavedReport()가 이 블록을 감추고
-         아래 #ggSavedStep(저장된 내역 + 다른 상대와 궁합보기)을 대신 노출한다. -->
-    <div id="ggInputStep">
-    <!-- Person A는 대표 프로필 고정이 아니라 B처럼 자유롭게 프로필을 고를 수 있다("엄마 vs 아빠"처럼
-         나 아닌 두 사람의 궁합도 봐야 해서). 열려면 처음엔 대표 프로필로 기본 채워지고
-         (Profile.applyRepresentativeEverywhere), 클릭하면 다른 프로필로 바꿀 수 있다. -->
-    <div class="person-block is-open" id="ggBlockA">
+        <div id="ggInputStep">
+        <div class="person-block is-open" id="ggBlockA">
       <button type="button" class="gg-acc-head" onclick="Profile.toggleGgAcc('A')">
         <span class="person-label" id="ggLabelA">나</span>
         <span class="gg-acc-icon material-symbols-outlined" id="ggAccIconA">remove</span>
@@ -2385,11 +2028,9 @@ body.overlay-open { overflow: hidden; }
         <input type="hidden" id="ggBirthA" value="">
         <input type="hidden" id="ggBirthHourA" value="-1">
       </div>
-      </div><!-- /.gg-acc-body -->
-    </div>
+      </div>    </div>
 
-    <!-- Person B: 프로필 선택 -->
-    <div class="person-block" id="ggBlockB">
+        <div class="person-block" id="ggBlockB">
       <button type="button" class="gg-acc-head" onclick="Profile.toggleGgAcc('B')">
         <span class="person-label" id="ggLabelB">상대</span>
         <span class="gg-acc-icon material-symbols-outlined" id="ggAccIconB">add</span>
@@ -2424,13 +2065,9 @@ body.overlay-open { overflow: hidden; }
         <input type="hidden" id="ggBirthB" value="">
         <input type="hidden" id="ggBirthHourB" value="-1">
       </div>
-      </div><!-- /.gg-acc-body -->
-    </div>
+      </div>    </div>
 
-    <!-- A·B 둘 다 대표(나)가 아닐 때만 뜬다 — 그럴 땐 프로필의 "이 사람과 나의 관계" 필드로 A·B 사이
-         관계를 알 수 없어서 직접 물어봐야 한다. Profile.syncGunghamRelation()이 필요할 때만 hidden을
-         풀고, 확정되면 다시 접는다. -->
-    <div class="gg-rel-ask hidden" id="ggRelAsk" style="margin:16px 4px 0;">
+        <div class="gg-rel-ask hidden" id="ggRelAsk" style="margin:16px 4px 0;">
       <label class="field-label">두 사람의 관계는?</label>
       <div class="chip-row">
         <button class="rel-chip" onclick="Profile.setGunghamRelation('연인/배우자', this)">연인/배우자</button>
@@ -2440,20 +2077,15 @@ body.overlay-open { overflow: hidden; }
       </div>
     </div>
 
-    <!-- 좌우 여백은 위 카드(.person-block)와 같은 선에 맞춘다 — .wrap의 16px + 4px = 화면 기준 20px -->
-    <div class="err-msg" id="ggErr" style="margin:16px 4px 0;"></div>
-    </div><!-- /#ggInputStep -->
-
-    <!-- 보관함에 쌓인 궁합보기 내역 — 로그인 상태에서 기록이 있으면 전부 나열한다.
-         행을 누르면 그 리포트를 아래 #ggSavedReport에 그대로 펼친다(보관함 스냅샷 재사용 — 재분석 아님). -->
-    <div class="hidden" id="ggSavedStep">
+        <div class="err-msg" id="ggErr" style="margin:16px 4px 0;"></div>
+    </div>
+        <div class="hidden" id="ggSavedStep">
       <div class="upload-label">이미 확인한 궁합이 있어요</div>
       <div class="card revisit-card" id="ggSavedList"></div>
       <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">다른 상대와 궁합보기</button>
     </div>
 
-    <!-- 내역에서 고른 궁합 리포트 한 건 -->
-    <div class="hidden" id="ggSavedReport">
+        <div class="hidden" id="ggSavedReport">
       <button type="button" class="report-back-btn" onclick="closeGunghamSavedReport()">
         <span class="material-symbols-outlined">arrow_back</span>궁합 내역으로
       </button>
@@ -2466,23 +2098,14 @@ body.overlay-open { overflow: hidden; }
       <button class="submit-btn" onclick="Profile.runGungham()">궁합 분석하기</button>
     </div>
 
-    <!-- 분석 진행 화면 — 리포트(#ggResult)는 AI 정밀 해석까지 끝난 뒤에야 열린다. 그 전까지는 이 카드만 보인다. -->
-    <div class="cmb-analyzing hidden" id="ggAnalyzing">
+        <div class="cmb-analyzing hidden" id="ggAnalyzing">
       <div class="spin-ring"></div>
       <div class="cmb-analyzing-title">냥반이 궁합 리포트를 쓰고 있어요</div>
       <div class="cmb-analyzing-msg" id="ggAnalyzingMsg">사주 궁합을 계산하는 중이에요</div>
       <p class="cmb-analyzing-note">관상·사주 AI 해설까지 마치면<br>완성된 리포트를 한 번에 보여드릴게요.</p>
     </div>
 
-    <!-- 뒤로가기 — 관상보기 탭의 #gwansangBackBtn과 같은 패턴. 카드(#ggCanvasCard) 바깥(테두리 밖)에
-         둔다 — #ggCanvasCard는 사진이 없으면 계속 숨겨져 있어서(얼굴 없이 사주만으로도 리포트는
-         나옴) 뒤로가기가 카드 안에 있으면 그 경우 버튼 자체가 사라진다. 보이고 감추는 시점은
-         app.js의 runGungham()/backToGunghamMain()이 #ggResult와 같이 맞춘다.
-         ⚠️ "다른 궁합 분석하기"의 resetGunghamResult()는 ggWantsNewAnalysis=true를 세워 보관
-         내역이 있어도 무시하고 입력 단계로 보내버린다 — backToGunghamMain()은 이것과 달리 새
-         분석을 강제하지 않고 renderGunghamSavedReport()가 판단한 기본 화면(내역 목록 또는 입력
-         단계)으로 돌려보낸다. 두 함수를 혼동해서 재사용하지 말 것. -->
-    <button type="button" class="report-back-btn hidden" id="gunghamBackBtn" onclick="backToGunghamMain();">
+        <button type="button" class="report-back-btn hidden" id="gunghamBackBtn" onclick="backToGunghamMain();">
       <span class="material-symbols-outlined">arrow_back</span>궁합보기 메인으로
     </button>
 
@@ -2499,17 +2122,10 @@ body.overlay-open { overflow: hidden; }
       </div>
     </div>
 
-    <!-- 궁합 결과 — 정보 성격별로 재배치:
-         히어로(총합) = 총합/관상만/사주만 점수 + 관상 케미 분석 + 사주 기운 케미(둘 다 "두 사람을 합쳐" 보는 총평격 섹션이라 히어로로).
-         Zone1(관상 궁합) = 관상 관련 정보만(형상 설명·개인 관상 풀이·눈모양 카드·골든타임·얼굴형 조합).
-         Zone2(사주 궁합) = 사주 관련 정보만(신살·귀인 등 11항목 풀이·개인 사주 풀이·원국표·오행). -->
-    <div class="card hidden" id="ggResult" style="margin-top:16px;">
+        <div class="card hidden" id="ggResult" style="margin-top:16px;">
       <div class="card-title" id="ggResultTitle">👩‍❤️‍👨 AI 관상 &amp; 사주 궁합 리포트</div>
 
-      <!-- ══ Zone0 · 종합(히어로) ══ — 개인별 서술은 통합분석 탭에서 이미 다루므로, 여기서는 "두 사람의
-           관계"만 다룬다(궁합 리포트 구성.md 기준). Zone1/Zone2와 같은 zone-accordion이라
-           initZoneAccordions()의 "하나 열면 나머지 닫힘" 그룹에 자동으로 포함된다. -->
-      <details class="report-accordion zone-accordion" open id="ggHero">
+            <details class="report-accordion zone-accordion" open id="ggHero">
         <summary>🧠 종합 점수 &amp; 케미 분석</summary>
         <div class="headline-quote" id="ggHeadline"></div>
         <div class="chemi-role" id="ggHeadlineSub" style="text-align:center;color:var(--text2);font-size:12px;margin-top:4px;"></div>
@@ -2525,75 +2141,50 @@ body.overlay-open { overflow: hidden; }
         <div class="compat-bars" id="ggBars"></div>
       </details>
 
-      <!-- ══ Zone1 · 관상으로 보는 우리 케미 ══ — 두 사람의 관상 "조합"만 다룬다. 개인별 관상 서술·
-           아키타입·황금타임은 통합분석 탭에 이미 있으므로 여기서는 반복하지 않는다. 순서: 한줄 총평 →
-           역할분담 케미 → 오행비교 → 얼굴형조합 → 재물케미 → 생애주기. -->
-      <details class="report-accordion zone-accordion" id="ggZone1">
+            <details class="report-accordion zone-accordion" id="ggZone1">
         <summary>🎭 Zone 1 · 관상으로 보는 우리 케미</summary>
 
-        <!-- ① 관상 케미 한줄 총평(신규) — 기존 "관상 궁합 총평"(chemi.total)을 역할분담 카드에서
-             떼어내 Zone1 맨 위 헤드라인격으로 독립시켰다. -->
-        <div id="ggRoleTotal"></div>
+                <div id="ggRoleTotal"></div>
 
-        <!-- ② 두 사람의 역할분담 케미 -->
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🤝 두 사람의 역할분담 케미</div>
+                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🤝 두 사람의 역할분담 케미</div>
         <div id="ggRoleCards"></div>
 
-        <!-- ③ 관상오행 비교 — 막대 그래프. "나 ❤ 상대방" 헤더 하나만 위에 두고, 오행별 대표 뱃지는
-             renderFaceOhaengCompare가 막대 아래에 한 번 더 그린다(이름을 2번 반복하지 않는다는 원칙). -->
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🌿 관상오행 비교</div>
+                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🌿 관상오행 비교</div>
         <div id="ggFaceOhaengCompare" style="padding-bottom:20px;"></div>
         <div class="gg-item" id="ggZone1AiShape"></div>
 
-        <!-- ④ 얼굴형·눈·코·입·턱 조합 (디테일 근거는 각 카드 안 "유형 조합" 보조 줄로 노출) -->
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">👥 얼굴형·눈·코·입·턱 조합으로 보는 궁합</div>
+                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">👥 얼굴형·눈·코·입·턱 조합으로 보는 궁합</div>
         <div id="ggFaceComboCards"></div>
 
-        <!-- ⑤ 재물관상 케미 -->
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">💰 재물관상 케미</div>
+                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">💰 재물관상 케미</div>
         <div id="ggMoneyChemiCard"></div>
 
-        <!-- ⑥ 생애주기 궁합 -->
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">⏳ 생애주기 궁합 (초년·중년·말년)</div>
+                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">⏳ 생애주기 궁합 (초년·중년·말년)</div>
         <div id="ggLifeStageCard"></div>
       </details>
 
-      <!-- ══ Zone2 · 사주 궁합 ══ — 두 사람의 사주 "조합"만 다룬다. 개인별 사주 서술·오행바·오행 딥다이브는
-           통합분석 탭에 이미 있으므로 여기서는 반복하지 않는다. 순서: 한줄 총평 → 십성 → AI 관계 풀이 →
-           에너지 케미 → 용신. 티격태격 모먼트는 아래 Zone3로 분리. -->
-      <details class="report-accordion zone-accordion" id="ggZone2">
+            <details class="report-accordion zone-accordion" id="ggZone2">
         <summary>☯️ Zone 2 · 사주 궁합</summary>
 
-        <!-- ① 사주 궁합 한줄 총평(overall_relationship을 목록에서 분리) -->
-        <div id="ggOverallRelationship"></div>
+                <div id="ggOverallRelationship"></div>
 
-        <!-- ② 만세력 비교표 — 이름·생년월일시 헤더 + 8칸(양쪽 시주~연주) 원국표. 십이운성·십이신살·귀인
-             근거 뱃지는 여기서 노출하지 않는다. -->
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 만세력 비교</div>
+                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 만세력 비교</div>
         <div id="ggManseryeokCompare" style="margin-bottom:16px;"></div>
 
-        <!-- ③ 십성으로 보는 서로의 역할 -->
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🎴 십성으로 보는 서로의 역할</div>
+                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🎴 십성으로 보는 서로의 역할</div>
         <div id="ggSipseongCross"></div>
 
-        <!-- ④ 사주 관계 풀이 -->
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">📖 사주 관계 풀이</div>
+                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">📖 사주 관계 풀이</div>
         <div id="ggZone2AiItems"></div>
 
-        <!-- ⑤ 사주 기운의 케미 -->
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 사주 기운의 케미 (에너지의 합)</div>
+                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 사주 기운의 케미 (에너지의 합)</div>
         <div id="ggEnergyCards"></div>
 
-        <!-- ⑥ 용신 궁합 -->
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🧭 용신 궁합</div>
+                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🧭 용신 궁합</div>
         <div id="ggYongsinCard"></div>
       </details>
 
-      <!-- ══ Zone3 · 관계 실전 가이드 ══ — 티격태격 모먼트와 "그래서 우리는 이렇게 만나요"(연애할 때/
-           대화할 때/... 8항목). 연인/배우자 관계일 때만 노출(runGungham()이 relation으로 hidden 토글) —
-           친구·가족·지인 관계엔 "아이를 낳는다면" 같은 항목이 어색하다는 판단. 티격태격 모먼트는
-           관계 유형과 무관하게 항상 노출. -->
-      <details class="report-accordion zone-accordion" id="ggZone3">
+            <details class="report-accordion zone-accordion" id="ggZone3">
         <summary>💌 Zone 3 · 관계 실전 가이드</summary>
 
         <div class="card-title" style="margin-top:0;margin-bottom:12px;">🚨 티격태격 모먼트 &amp; 극복 전략</div>
@@ -2609,28 +2200,19 @@ body.overlay-open { overflow: hidden; }
     </div>
   </div>
 
-  <!-- ===== 보관함 패널 (js/archive.js가 내용을 그린다 — 팝업이 아니라 페이지) ===== -->
-  <div class="panel" id="panel-archive"></div>
-  <!-- 냥 구매 페이지(js/nyang-shop.js) — 보관함과 같이 .panel을 갈아끼우는 방식의 페이지 -->
-  <div class="panel" id="panel-nyangshop"></div>
-  <!-- 냥 지급·사용 내역(js/nyang-history.js) — 관리자 CS 대응용 -->
-  <div class="panel" id="panel-nyanghistory"></div>
-  <!-- 결제내역(js/pay-history.js) — 사용자 본인의 냥 지급·사용·구매 내역 -->
-  <div class="panel" id="panel-payhistory"></div>
+    <div class="panel" id="panel-archive"></div>
+    <div class="panel" id="panel-nyangshop"></div>
+    <div class="panel" id="panel-nyanghistory"></div>
+    <div class="panel" id="panel-payhistory"></div>
 
-  <!-- 사업자정보 표시 — 전자상거래법상 통신판매업자 표시 의무 항목(상호·대표자·사업자등록번호·
-       통신판매업신고번호)까지 채워짐. 사업장 소재지·이메일은 (경쟁 서비스 사례를 따라) 메인 화면엔
-       올리지 않고 이용약관/개인정보처리방침 부칙에서만 밝힌다(js/kakao-auth.js·index.html의 .legal-doc
-       .addendum 참고). -->
-  <div class="biz-footer">
+    <div class="biz-footer">
     <div>상호 : 관상냥반</div>
     <div>대표 : 최주연</div>
     <div>사업자등록번호 : 521-32-01773</div>
     <div>통신판매업신고 번호 : 제2026-서울강동-1452호</div>
   </div>
 
-</div><!-- /wrap -->
-
+</div>
 <nav class="bottom-nav">
   <button class="tab-btn" onclick="switchTab('gwansang', this)"><span class="nav-icon material-symbols-outlined">face</span><span>인연도감</span></button>
   <button class="tab-btn active" onclick="switchTab('combined', this)"><span class="nav-icon material-symbols-outlined">auto_awesome</span><span>통합분석</span></button>
@@ -2640,30 +2222,17 @@ body.overlay-open { overflow: hidden; }
 
 <div id="profileOverlayRoot"></div>
 
-<!-- 만세력(사주 4기둥) 계산 — 절기(24절기) 기준 월주 산출과 정확한 일주 갑자를 위해 자체 계산식 대신
-     검증된 오픈소스 라이브러리를 사용한다. 자체 계산식은 절기 미반영으로 월주가, 잘못된 기준일(epoch)로
-     일주가 체계적으로 틀리는 문제가 있었다. -->
 <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
 <script src="https://developers.kakao.com/sdk/js/kakao.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<!-- 로컬 스크립트의 ?v= 는 캐시 무효화용 버전이다. 브라우저(및 Firebase Hosting의 기본 캐시 헤더)가
-     수정된 js를 옛 버전 그대로 재사용해 "코드를 고쳤는데 반영이 안 되는" 문제가 반복돼서 붙였다.
-     js/*.js 를 수정하고 배포할 때마다 아래 v 값을 모두 함께 올려야 한다(날짜+연번). -->
-<!-- 관상 유형 DB — 실제 콘텐츠는 functions/engine/archetype-db.js에 있다. 여기 남은 건 서버
-     카탈로그로 채워지는 빈 캐시뿐(js/character-api.js의 ensureArchetypeCatalog 참고). -->
 <script src="js/archetype-db.js?v=20260830b"></script>
 <script src="js/landmark-engine.js?v=20260903b"></script>
 <script src="js/config.js?v=20260904b"></script>
 <script src="js/firebase-init.js?v=20260827c"></script>
 <script src="js/kakao-auth.js?v=20260908"></script>
-<!-- 냥(포인트) 지갑 — fbAuth/fbDb가 필요해 firebase-init.js 다음, 통합분석/궁합보기에서 써야 해 profile.js보다 먼저 -->
 <script src="js/wallet.js?v=20260904"></script>
-<!-- 16캐릭터 시스템 — 판단 가중치·공식(trait-config/face-trait-map/saju-trait-map/character-engine/
-     compatibility-engine)과 콘텐츠(archetype-db/character-db)를 전부 functions/engine/에 서버
-     이전했다. 여기 남는 건 화면 표시용 상수(trait-labels.js)와 서버 카탈로그로 채워지는 빈 캐시
-     (character-db.js), 그리고 서버 API를 호출하는 character-api.js뿐이다. -->
 <script src="js/character/trait-labels.js?v=20260830a"></script>
 <script src="js/character/character-db.js?v=20260830b"></script>
 <script src="js/character-api.js?v=20260830b"></script>
