@@ -263,10 +263,19 @@
     // 조회 자체는 늘 가능하다 — 인연도감은 원칙적으로 "이 기기" 기준(비로그인 기준)이라, 로그인
     // 안 한 상태에서는 소유자 uid를 대조할 대상이 없으니 이 기기가 마지막으로 다룬 도감을 그대로
     // 믿고 보여준다(사용자 요청 2026-08-18: 로그아웃하면 등록된 리스트가 사라짐 — 그러면 안 된다).
-    // 로그인 상태에서는 여전히 소유자가 지금 uid와 맞는지 확인한다(다른 계정/익명 도감을 내 것처럼
-    // 보여주지 않기 위해).
+    // ⚠️ 사용자 리포트(2026-09-08: "로그인한 계정에 이미 있던 도감이 충돌 선택 목록에 아예 안 뜬다") —
+    // 실계정(비익명) 로그인 상태에서는 이 캐시를 절대 신뢰하면 안 된다. 로그인 순간 서버
+    // (functions/index.js migrateAnonymousData)가 이 기기의 익명 도감 ownerUid를 방금 로그인한
+    // 계정으로 바로 바꿔버리기 때문에, 아래 "ownerUid === uid" 검사만으로는 그 도감이 방금 새로
+    // 계정 소유가 된 잡(junk) 도감인지 서버가 이미 확정한 진짜 대표 도감(users/{uid}.dogamSlug)인지
+    // 구분이 안 된다 — 실제로 두 탭에서 각각 다른 익명 도감을 만든 뒤 한쪽에서 로그인하면, 그 탭의
+    // SLUG_KEY 캐시가 가리키던 (0명짜리) 익명 도감을 "내 도감"으로 잘못 채택해서, 계정에 원래 있던
+    // 진짜 도감은 조회조차 안 되고 충돌 후보 목록에서 통째로 빠졌다. 실계정 로그인 상태에서는 캐시를
+    // 건너뛰고 곧장 아래 계정 문서(users/{uid}.dogamSlug) 기준 조회로 간다 — 그게 서버가 이미 정한
+    // 유일한 진실이다. 비로그인/익명 세션에서는 대조할 계정이 없으므로 기존처럼 캐시를 그대로 믿는다.
     const cachedSlug = localStorage.getItem(SLUG_KEY);
-    if (cachedSlug) {
+    const trustLocalCache = !uid || isAnonymousUser();
+    if (trustLocalCache && cachedSlug) {
       const cachedFound = await loadDogam(cachedSlug);
       if (cachedFound && (!uid || cachedFound.ownerUid === uid)) {
         if (uid) touchDogam(cachedSlug, uid);
