@@ -1697,6 +1697,10 @@
   // 재미를 위해 등록 전에도 다른 사람들이 얼마나 등록·매칭했는지 보여달라). entries는 public read라
   // 오너 화면(renderOwnerView)과 똑같은 데이터·같은 entryRow 렌더러를 그대로 재사용한다 — 등록하기
   // 전인 손님에게도 "내 사람"/점수까지 그대로 보인다는 뜻이라, 새로운 정보 노출은 아니다.
+  // ⚠️ 사용자 리포트(2026-09-10: "상대방이 내 인연도감에 들어왔을 때는 부채가 안 보인다") — 인연부채를
+  // renderOwnerView()에만 붙였는데, 게스트(B) 화면(showGuestView/renderGuestMergedResult)은 둘 다
+  // 이 함수를 거쳐 명부를 그린다. 오너 화면과 같은 자리(명부 바로 위)에 넣어서 오너·게스트 어느 쪽이
+  // 봐도 같은 부채가 보이게 한다.
   function guestEntriesBlock(dogam) {
     const entries = dogam.entries || [];
     const count = entries.length;
@@ -1706,6 +1710,7 @@
       : (count ? '<p class="dogam-empty">이 조건에 맞는 인연이 없어요.</p>'
                : '<p class="dogam-empty">아직 등록된 인연이 없어요. 첫 번째로 등록해보세요!</p>');
     return '' +
+      renderFanChart(entries, dogam.ownerName) +
       '<div class="dogam-block">' +
         '<div class="dogam-head">' +
           '<span class="dogam-title">인연 도감</span>' +
