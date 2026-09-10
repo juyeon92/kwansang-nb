@@ -853,7 +853,7 @@
       wedgePaths += '<path d="' + tintPath + '" fill="' + meta.tint + '" opacity="0.4"></path>';
       const lp = polar(FRMAX + 58, mid);
       const count = entries.filter(function (e) { return e.relation === key; }).length;
-      wedgeLabels += '<div style="position:absolute;' + pctPos(lp.x, lp.y) + ';transform:translate(-50%,-50%);font-family:\'Song Myung\',serif;font-size:12.5px;font-weight:700;color:' + meta.deep + ';white-space:nowrap;">' + esc(key) + ' ' + count + '</div>';
+      wedgeLabels += '<div style="position:absolute;' + pctPos(lp.x, lp.y) + ';transform:translate(-50%,-50%);font-size:12.5px;font-weight:700;color:' + meta.deep + ';white-space:nowrap;">' + esc(key) + ' ' + count + '</div>';
       legendChips.push('<div style="display:flex;align-items:center;gap:5px;font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid rgba(43,38,32,.15);background:linear-gradient(180deg,#fffdf6,#fbf3e2);box-shadow:0 1px 2px rgba(43,38,32,.08);color:#2b2620;"><div style="width:8px;height:8px;border-radius:50%;background:' + meta.color + ';flex:none;"></div><div>' + esc(key) + ' ' + count + '</div></div>');
     });
     const p0 = polar(FRMAX + 34, 180);
@@ -902,7 +902,7 @@
           // ⚠️ openAttr을 그대로 붙이면 style 속성이 두 번(cursor:pointer + position:absolute…) 생겨서
           // 브라우저가 첫 번째만 인정하고 위치 스타일을 통째로 무시한다(로컬 렌더 테스트에서 실제로
           // 이름표가 전부 왼쪽 위에 쌓이는 걸로 확인됨) — onclick만 따로 떼어 쓰고 style은 하나로 합친다.
-          pinLabels += '<div onclick="Dogam.showEntryDetail(\'' + esc(e.uid) + '\')" style="cursor:pointer;position:absolute;' + pctPos(lp.x, lp.y) + ';transform:translate(-50%,-50%);text-align:center;font-family:\'Gowun Batang\',serif;font-weight:700;color:' + meta.deep + ';font-size:' + (isRep ? '11.5px' : '10px') + ';">' + esc(e.name.slice(0, 1)) + '</div>';
+          pinLabels += '<div onclick="Dogam.showEntryDetail(\'' + esc(e.uid) + '\')" style="cursor:pointer;position:absolute;' + pctPos(lp.x, lp.y) + ';transform:translate(-50%,-50%);text-align:center;font-weight:700;color:' + meta.deep + ';font-size:' + (isRep ? '11.5px' : '10px') + ';">' + esc(e.name.slice(0, 1)) + '</div>';
         }
       });
     });
@@ -911,7 +911,7 @@
 
     return '' +
       '<div class="dogam-block">' +
-        '<div class="dogam-head"><span class="dogam-title">인연부채</span></div>' +
+        '<div class="dogam-head"><span class="dogam-title">' + (ownerName ? esc(ownerName) + '님의 ' : '') + '인연부채</span></div>' +
         '<div style="position:relative;">' +
           '<svg viewBox="0 0 580 345" style="width:100%;height:auto;display:block;">' +
             '<defs>' +
@@ -931,7 +931,7 @@
           '</svg>' +
           wedgeLabels +
           pinLabels +
-          '<div style="position:absolute;' + pctPos(FCX, FCY - 17) + ';transform:translate(-50%,-50%);font-family:\'Song Myung\',serif;font-size:15px;font-weight:700;color:#2b2620;white-space:nowrap;">' + esc(ownerName || '') + '</div>' +
+          '<div style="position:absolute;' + pctPos(FCX, FCY - 17) + ';transform:translate(-50%,-50%);font-size:15px;font-weight:700;color:#2b2620;white-space:nowrap;">' + esc(ownerName || '') + '</div>' +
         '</div>' +
         '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">' + legendChips.join('') + '</div>' +
       '</div>';
