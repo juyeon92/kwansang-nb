@@ -801,6 +801,141 @@
     if (!entryFilter) return entries;
     return entries.filter(function (e) { return e.relation === entryFilter; });
   }
+
+  // ── 인연부채 (관계 라벨 5종 색상 + 정의) ─────────────────────────────
+  // 클로드 디자인 캔버스 "인연도감 리디자인.dc.html"(2026-09-10, 사용자 최종 시안)에서 그대로 가져온
+  // 값. relationLabel()이 실제로 내는 5개 값과 정확히 1:1 대응해야 한다(하나라도 어긋나면 그 라벨의
+  // 사람이 부채에 안 나타난다). def 문구는 그 시안에서 처음 확정된 것 — 기존 문서(인연도감 UI
+  // 리디자인 시안 6장)가 "relationLabel()의 판별 기준을 '~한 사이예요' 톤으로 풀어 쓴다"고만 해두고
+  // 실제 문구를 안 정해뒀던 자리를 채운다.
+  const RELATION_META = {
+    '찰떡': { color: '#FF6253', deep: '#BF4A3E', lite: '#FFB8B2', tint: '#FFE7E5', icon: '●', def: '성향이 비슷해 대화가 술술 풀리고, 서로의 판단을 편하게 신뢰할 수 있는 조합이에요.' },
+    '횡재': { color: '#8867FF', deep: '#664DBF', lite: '#C9BBFF', tint: '#EDE8FF', icon: '✦', def: '서로 다른 결이 만나 예상 못한 시너지를 내는 조합이에요. 함께 있으면 기회가 잘 열려요.' },
+    '벗': { color: '#3AA381', deep: '#2C7A61', lite: '#A6D6C6', tint: '#E1F1EC', icon: '◎', def: '무리 없이 어울리며 오래 갈 수 있는 조합이에요. 부담 없이 곁을 지켜주는 사이예요.' },
+    '물음표': { color: '#7E796A', deep: '#5F5B50', lite: '#C5C3BC', tint: '#ECEBE9', icon: '?', def: '아직 서로를 파악하는 중인 조합이에요. 더 겪어봐야 결이 뚜렷해질 사이예요.' },
+    '불협화음': { color: '#F89A38', deep: '#BA742A', lite: '#FCD2A5', tint: '#FEF0E1', icon: '✕', def: '서로 다른 속도와 방식이 부딪히기 쉬운 조합이에요. 다가가는 방법을 조금 다르게 해보면 좋아요.' }
+  };
+  // 점수가 낮을수록 관계색을 흰색 쪽으로 흐리게(파스텔) 만든다 — 부채 위 핀 색 하나로도 "얼마나
+  // 가까운 사이인지"가 채도 차이로 드러나게 하기 위함(시안 원본 pastelize() 그대로).
+  function pastelizeColor(hex, score, amount) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    const t = amount * (1 - score / 100);
+    const mix = function (c) { return Math.round(c + (255 - c) * t); };
+    return 'rgb(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ')';
+  }
+
+  // 인연부채 — 오너를 중심(허브)에 두고 관계 라벨 5칸(각 36°)짜리 반원에 참여자를 핀으로 꽂는다.
+  // 핀 길이가 점수에 비례(점수 높을수록 김)하고, 칸마다 점수 상위 3명(대표)만 이름표가 상시 노출되며
+  // 나머지는 점만 찍힌다 — 인원이 아무리 늘어도 이름표 개수가 무한정 늘지 않는다. 좌표 계산은 전부
+  // "인연도감 리디자인.dc.html"의 renderVals()를 그대로 옮긴 것(숫자를 임의로 바꾸지 않았다).
+  function renderFanChart(entries, ownerName) {
+    if (!entries.length) return '';
+    const FCX = 290, FCY = 300, HUBR = 56, FRMIN = 48, FRMAX = 205, HALF = 15, MARGE = 4;
+    function polar(r, angleDeg) {
+      const a = angleDeg * Math.PI / 180;
+      return { x: FCX + r * Math.cos(a), y: FCY - r * Math.sin(a) };
+    }
+    function fmt(n) { return n.toFixed(1); }
+    const centerAngle = function (i) { return 180 - 36 * (i + 0.5); };
+    const boundaryAngles = [180, 144, 108, 72, 36, 0];
+    const pctPos = function (x, y) { return 'left:' + (x / 580 * 100).toFixed(2) + '%;top:' + (y / 345 * 100).toFixed(2) + '%'; };
+
+    let wedgePaths = '', wedgeLabels = '', dividers = '';
+    const legendChips = [];
+    RELATION_LABELS.forEach(function (key, i) {
+      const meta = RELATION_META[key];
+      const mid = centerAngle(i);
+      const aStart = 180 - 36 * i, aEnd = aStart - 36;
+      const STEPS = 10, pts = [];
+      for (let s = 0; s <= STEPS; s++) pts.push(polar(FRMAX + 34, aEnd + (aStart - aEnd) * (s / STEPS)));
+      const tintPath = 'M ' + FCX + ' ' + FCY + ' L ' + pts.map(function (p) { return fmt(p.x) + ' ' + fmt(p.y); }).join(' L ') + ' Z';
+      wedgePaths += '<path d="' + tintPath + '" fill="' + meta.tint + '" opacity="0.4"></path>';
+      const lp = polar(FRMAX + 58, mid);
+      const count = entries.filter(function (e) { return e.relation === key; }).length;
+      wedgeLabels += '<div style="position:absolute;' + pctPos(lp.x, lp.y) + ';transform:translate(-50%,-50%);font-family:\'Song Myung\',serif;font-size:12.5px;font-weight:700;color:' + meta.deep + ';white-space:nowrap;">' + esc(key) + ' ' + count + '</div>';
+      legendChips.push('<div style="display:flex;align-items:center;gap:5px;font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid rgba(43,38,32,.15);background:linear-gradient(180deg,#fffdf6,#fbf3e2);box-shadow:0 1px 2px rgba(43,38,32,.08);color:#2b2620;"><div style="width:8px;height:8px;border-radius:50%;background:' + meta.color + ';flex:none;"></div><div>' + esc(key) + ' ' + count + '</div></div>');
+    });
+    const p0 = polar(FRMAX + 34, 180);
+    let bandPath = 'M ' + fmt(p0.x) + ' ' + fmt(p0.y);
+    for (let s = 1; s <= 24; s++) { const p = polar(FRMAX + 34, 180 - 180 * (s / 24)); bandPath += ' L ' + fmt(p.x) + ' ' + fmt(p.y); }
+    const d0 = polar(FRMAX + 4, 180);
+    let dashedPath = 'M ' + fmt(d0.x) + ' ' + fmt(d0.y);
+    for (let s = 1; s <= 24; s++) { const p = polar(FRMAX + 4, 180 - 180 * (s / 24)); dashedPath += ' L ' + fmt(p.x) + ' ' + fmt(p.y); }
+    boundaryAngles.forEach(function (a) {
+      const p = polar(FRMAX + 34, a);
+      dividers += '<line x1="' + FCX + '" y1="' + FCY + '" x2="' + fmt(p.x) + '" y2="' + fmt(p.y) + '" stroke="#8a7a55" stroke-width="0.6" opacity="0.25"></line>';
+    });
+
+    let pinLines = '', pinCircles = '', pinLabels = '';
+    RELATION_LABELS.forEach(function (key, i) {
+      const meta = RELATION_META[key];
+      const list = entries.filter(function (e) { return e.relation === key; }).slice().sort(function (a, b) { return b.score - a.score; });
+      const n = list.length;
+      const mid = centerAngle(i);
+      const aStart = mid - HALF + MARGE, aEnd = mid + HALF - MARGE;
+      list.forEach(function (e, k) {
+        const isRep = k < 3;
+        let angle;
+        if (n === 1) angle = mid;
+        else if (n >= 6 && isRep) angle = aStart + k * (aEnd - aStart) / 2;
+        else if (n >= 6) { const rest = n - 3; angle = aStart + (aEnd - aStart) * ((k - 3 + 0.5) / rest); }
+        else angle = aStart + (aEnd - aStart) * (k / (n - 1));
+        const showLabel = isRep || n < 5;
+        const jitter = n > 4 ? [0, 16, -16, 24, -24][k % 5] : 0;
+        const length = FRMIN + (e.score / 100) * (FRMAX - FRMIN) + jitter;
+        const p = polar(length, angle);
+        const pinColor = pastelizeColor(meta.color, e.score, 0.6);
+        const openAttr = 'onclick="Dogam.showEntryDetail(\'' + esc(e.uid) + '\')" style="cursor:pointer;"';
+        if (isRep) {
+          const litP1 = polar(FRMIN - 4, angle), litP2 = polar(length - 14, angle);
+          pinLines += '<line x1="' + FCX + '" y1="' + FCY + '" x2="' + fmt(p.x) + '" y2="' + fmt(p.y) + '" stroke="' + pinColor + '" stroke-width="11" stroke-linecap="round" ' + openAttr + '></line>';
+          pinLines += '<line x1="' + fmt(litP1.x) + '" y1="' + fmt(litP1.y) + '" x2="' + fmt(litP2.x) + '" y2="' + fmt(litP2.y) + '" stroke="' + meta.lite + '" stroke-width="3" stroke-linecap="round" opacity="0.55"></line>';
+        } else {
+          pinLines += '<line x1="' + FCX + '" y1="' + FCY + '" x2="' + fmt(p.x) + '" y2="' + fmt(p.y) + '" stroke="' + pinColor + '" stroke-width="1.5" opacity="0.7" ' + openAttr + '></line>';
+        }
+        if (showLabel) {
+          const circleR = isRep ? 7 : 5, circleStroke = isRep ? 2.5 : 1.5;
+          pinCircles += '<circle cx="' + fmt(p.x) + '" cy="' + fmt(p.y) + '" r="' + circleR + '" fill="#ffffff" stroke="' + pinColor + '" stroke-width="' + circleStroke + '" ' + openAttr + '></circle>';
+          const repOffset = [20, 34, 48][k] || 20;
+          const lp = polar(length + (isRep ? repOffset : 16), angle);
+          // ⚠️ openAttr을 그대로 붙이면 style 속성이 두 번(cursor:pointer + position:absolute…) 생겨서
+          // 브라우저가 첫 번째만 인정하고 위치 스타일을 통째로 무시한다(로컬 렌더 테스트에서 실제로
+          // 이름표가 전부 왼쪽 위에 쌓이는 걸로 확인됨) — onclick만 따로 떼어 쓰고 style은 하나로 합친다.
+          pinLabels += '<div onclick="Dogam.showEntryDetail(\'' + esc(e.uid) + '\')" style="cursor:pointer;position:absolute;' + pctPos(lp.x, lp.y) + ';transform:translate(-50%,-50%);text-align:center;font-family:\'Gowun Batang\',serif;font-weight:700;color:' + meta.deep + ';font-size:' + (isRep ? '11.5px' : '10px') + ';">' + esc(e.name.slice(0, 1)) + '</div>';
+        }
+      });
+    });
+
+    const fanHubPath = 'M ' + (FCX - HUBR) + ' ' + FCY + ' A ' + HUBR + ' ' + HUBR + ' 0 0 1 ' + (FCX + HUBR) + ' ' + FCY + ' Z';
+
+    return '' +
+      '<div class="dogam-block">' +
+        '<div class="dogam-head"><span class="dogam-title">인연부채</span></div>' +
+        '<div style="position:relative;">' +
+          '<svg viewBox="0 0 580 345" style="width:100%;height:auto;display:block;">' +
+            '<defs>' +
+              '<filter id="fanPinShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#2b2620" flood-opacity="0.25"></feDropShadow></filter>' +
+              '<filter id="fanHubShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="-5" stdDeviation="5" flood-color="#2b2620" flood-opacity="0.14"></feDropShadow></filter>' +
+              '<clipPath id="fanClip"><rect x="0" y="0" width="580" height="300"></rect></clipPath>' +
+            '</defs>' +
+            '<g clip-path="url(#fanClip)">' +
+              wedgePaths +
+              '<path d="' + bandPath + '" fill="none" stroke="#6e6250" stroke-width="46" opacity="0.05"></path>' +
+              '<path d="' + dashedPath + '" fill="none" stroke="#6e6250" stroke-width="1" stroke-dasharray="2 5" opacity="0.3"></path>' +
+              dividers +
+              pinLines +
+              pinCircles +
+            '</g>' +
+            '<path d="' + fanHubPath + '" fill="#ffffff" filter="url(#fanHubShadow)"></path>' +
+          '</svg>' +
+          wedgeLabels +
+          pinLabels +
+          '<div style="position:absolute;' + pctPos(FCX, FCY - 17) + ';transform:translate(-50%,-50%);font-family:\'Song Myung\',serif;font-size:15px;font-weight:700;color:#2b2620;white-space:nowrap;">' + esc(ownerName || '') + '</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">' + legendChips.join('') + '</div>' +
+      '</div>';
+  }
   // 칩을 눌렀을 때 — 지금 보고 있는 화면이 오너 화면인지 게스트 화면(등록 폼/병합 결과)인지에 맞춰
   // 그 화면만 다시 그린다. 필터는 화면 종류를 안 바꾸므로 render() 전체를 다시 태울 필요는 없다.
   function setEntryFilter(value) {
@@ -868,6 +1003,7 @@
 
     return '' +
       shareButtonBlock() +
+      renderFanChart(entries, dogam ? dogam.ownerName : '') +
       '<div class="dogam-block">' +
         '<div class="dogam-head">' +
           // ⚠️ 버그 수정(2026-09-08 — 콘솔에서 직접 확인: "Cannot read properties of null
@@ -1032,10 +1168,15 @@
   // 참여자 행 클릭 시 등록 당시 케미 상세를 다시 보여준다 — 새로 계산·조회하지 않고 entryRow가
   // 그릴 때 이미 받아온 값(entryLookup)만 그대로 재사용한다. 오버레이 마크업/클래스는 profile.js가
   // 쓰는 것과 같은 걸 재사용해 새 CSS 없이 바로 붙는다.
+  // 2026-09-10 — "인연도감 UI 리디자인 시안" 5장을 반영해 상세 시트를 "A와의 인연"(케미 문장+이유)과
+  // "{참여자}는 어떤 사람일까요?"(캐릭터 카드+상세) 두 섹션으로 재구성. 케미 이유 문구는 관계 라벨
+  // 5종의 def(RELATION_META, 클로드 디자인 "인연도감 리디자인.dc.html"에서 확정)를 그대로 쓴다.
   function showEntryDetail(uid) {
     const e = entryLookup[uid];
     if (!e) return;
     closeEntryDetail();
+    const meta = RELATION_META[e.relation] || {};
+    const ownerName = (myDogam && myDogam.ownerName) || (guestDogam && guestDogam.ownerName) || '';
     const root = document.createElement('div');
     root.id = 'dogamEntryDetailRoot';
     root.innerHTML = '' +
@@ -1046,19 +1187,51 @@
           '<button class="overlay-close" onclick="Dogam.closeEntryDetail()"><span class="material-symbols-outlined">close</span></button>' +
         '</div>' +
         '<div class="popup-body">' +
-          '<div id="dogamEntryDetailCard"></div>' +
-          '<div class="dogam-match-row" style="margin-top:12px;">' +
-            '<div class="dogam-match-body">' +
-              '<div class="dogam-row-name">' + esc(e.name) + '님과의 궁합' +
-                '<span class="dogam-row-tag">' + esc(e.relation || '') + '</span></div>' +
-            '</div>' +
-            '<div class="dogam-match-score"><b>' + (e.score == null ? '-' : e.score) + '</b><span>점</span></div>' +
+          '<div class="dogam-detail-chemistry">' +
+            '<span class="dogam-row-tag" style="color:' + (meta.deep || '') + ';background:' + (meta.tint || '') + ';">A와의 인연</span>' +
+            '<div class="dogam-detail-sentence">' + esc(ownerName) + '님한테 ' + esc(e.name) + '님은 <b>' + esc(e.relation || '') + '</b>케미예요</div>' +
+            '<div class="dogam-match-score" style="margin:8px 0;"><b>' + (e.score == null ? '-' : e.score) + '</b><span>점</span></div>' +
+            (meta.def ? '<p class="dogam-detail-reason">' + esc(meta.def) + '</p>' : '') +
           '</div>' +
+          '<div class="dogam-detail-divider"></div>' +
+          '<div class="dogam-detail-subhead">' + esc(e.name) + '님은 어떤 사람일까요?</div>' +
+          '<div id="dogamEntryDetailCard"></div>' +
+          '<div id="dogamEntryDetailBrief"></div>' +
+          '<div id="dogamEntryDetailCtaSlot"></div>' +
         '</div>' +
       '</div>';
     document.body.appendChild(root);
     document.body.classList.add('overlay-open');
     if (typeof renderCharacterCard === 'function') renderCharacterCard('dogamEntryDetailCard', { characterId: e.characterId });
+    if (typeof renderCharacterDetail === 'function') {
+      renderCharacterDetail('dogamEntryDetailBrief', { characterId: e.characterId });
+      if (typeof wireGwansangCharDetailToggle === 'function') wireGwansangCharDetailToggle('dogamEntryDetailBrief', 'dogamEntryDetailCard');
+    }
+    maybeShowEntryDetailCta(e);
+  }
+
+  // 참여자 상세에 "내 인연도감 만들기" CTA를 다는 조건(인연도감 UI 리디자인 시안 5장) — ① 지금 보는
+  // 항목이 뷰어 본인 것 ② 뷰어가 아직 자기 도감이 없을 것. 오너가 자기 참여자 목록을 볼 때는 항상
+  // 조건 ①에서 걸러진다(오너 목록엔 오너 자신의 항목이 없다) — 사실상 게스트가 같은 도감에서 자기
+  // 자신의 등록 행을 눌렀을 때만 뜬다.
+  // ⚠️ 버튼은 createMyDogamFromInvite()를 그대로 재사용하는데, 그 함수는 justRegistered(방금 이
+  // 링크에 등록을 마친 세션 메모리)가 있어야만 동작한다(없으면 조용히 아무 일도 안 함). 그래서
+  // justRegistered가 이 항목과 실제로 일치할 때만(= "방금 등록한 나"를 다시 눌러본 경우) CTA를
+  // 보여준다 — 그 외(며칠 지나 재방문해 내 옛 등록 행을 누른 경우)는 눌러도 반응 없는 버튼을 보여줄
+  // 수 없어 조건을 좁혔다. 그 케이스까지 지원하려면 createMyDogamFromInvite()를 justRegistered 없이도
+  // (guestDogam 기준으로) 동작하도록 별도로 확장해야 한다 — 다음 작업으로 남겨둔다.
+  async function maybeShowEntryDetailCta(e) {
+    const uid = currentUid();
+    if (!uid || e.uid !== uid || !justRegistered) return;
+    const mine = await ensureMyDogam().catch(function () { return null; });
+    if (mine) return;
+    const slot = document.getElementById('dogamEntryDetailCtaSlot');
+    if (!slot) return; // 그 사이 시트를 닫음
+    slot.innerHTML = '' +
+      '<div class="dogam-detail-cta">' +
+        '<p>🔒 ' + esc(e.name) + '님은 일할 때·연애할 때는 어떤 모습일까요? 다른 관상과는 어떤 궁합일까요? 내 인연도감을 만들면 더 볼 수 있어요</p>' +
+        '<button class="submit-btn" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
+      '</div>';
   }
   function closeEntryDetail() {
     const root = document.getElementById('dogamEntryDetailRoot');
