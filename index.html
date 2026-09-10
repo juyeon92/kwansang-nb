@@ -1355,7 +1355,9 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 
             <div id="cmbPhotoStep">
       <div class="upload-label">사주 정보</div>
-      <div id="cmbSajuBlock"></div>
+      <button type="button" class="mini-profile-chip select-mode" id="cmbSajuChip" onclick="Profile.openCombinedSajuPicker()">
+        <span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 사주 정보 선택</span>
+      </button>
 
       <div class="upload-label">관상 정보</div>
 

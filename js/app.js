@@ -383,7 +383,7 @@ function loadThumb(ctx, file) {
 }
 
 // 통합분석 서비스 정책.md 2-1 4번 — 진입 질문(Q1~Q3)은 "사주 선택 + 사진 업로드"가 둘 다 끝나야
-// 나타난다(예전엔 사진 업로드만으로 노출됐다). 사주 선택(Profile._pickCmbSaju/_openAddCmbSaju)과
+// 나타난다(예전엔 사진 업로드만으로 노출됐다). 사주 선택(Profile.openCombinedSajuPicker)과
 // 사진 업로드(loadThumb) 양쪽에서 이 함수 하나로 두 조건을 검사해서, 막 둘 다 채워진 순간에만
 // hidden을 떼고 그 위치로 스크롤한다 — 이미 떠 있는 상태에서 사주만 바꿔도 다시 스크롤하지 않는다.
 function maybeRevealCmbSajuQBlock() {
@@ -427,13 +427,11 @@ function resetUpload(ctx) {
   } else if (ctx === 'combined') {
     document.getElementById('cmbCanvasCard').classList.add('hidden');
     document.getElementById('cmbResult').classList.add('hidden');
-    // markAnalyzed()가 숨겼던 CTA 버튼을 다시 노출 — gwansang과 동일 원칙(2026-09-10, updateCtaDock은
-    // 더 이상 combined도 건드리지 않으므로 여기서 직접 처리).
-    const cmbDock = document.getElementById('cmbCtaDock');
-    if (cmbDock) cmbDock.classList.remove('hidden');
+    // markAnalyzed()가 숨겼던 CTA 버튼은 아래 showCombinedPhotoStep()이 setCmbCtaVisible(true)로
+    // 다시 노출한다(updateCtaDock은 더 이상 combined를 건드리지 않으므로).
     // "다른 (사람으로) 통합분석하기"로 들어온 자리 — 보관된 리포트 대신 사진 등록 단계부터 다시 시작한다.
     cmbWantsNewAnalysis = true;
-    if (window.Profile && Profile.resetCmbSajuSelection) Profile.resetCmbSajuSelection(); // 사주 정보 리스트도 미선택으로 되돌림
+    if (window.Profile && Profile.resetCmbSajuSelection) Profile.resetCmbSajuSelection(); // 사주 정보 칩도 미선택으로 되돌림
     showCombinedPhotoStep();
     state.combined.q1 = ''; state.combined.q2 = ''; state.combined.q3 = '';
     document.querySelectorAll('#panel-combined .rel-chip').forEach(b => b.classList.remove('on'));
@@ -466,6 +464,15 @@ function setCmbHeroVisible(on) {
   const hero = document.getElementById('cmbHero');
   if (hero) hero.classList.toggle('hidden', !on);
 }
+// ⚠️ 버그 수정(2026-09-10 사용자 리포트: "이미 분석한 내역이 있어요" 목록 화면에 "다른 사람으로
+// 통합분석하기"와 "통합분석 풀이 보기" 버튼이 동시에 뜸) — #cmbCtaDock은 gwansang과 똑같이 항상
+// 노출로 바꿨는데, gwansang과 달리 combined는 #cmbPhotoStep(입력 화면) 말고도 #cmbSavedStep(목록)·
+// #cmbSavedReport(상세) 화면이 따로 있다. #cmbCtaDock은 #cmbUploadSection 바깥의 별도 요소라 이
+// 화면 전환들과 자동으로 같이 안 움직이므로, #cmbPhotoStep이 보일 때만 같이 보이도록 직접 맞춘다.
+function setCmbCtaVisible(on) {
+  const dock = document.getElementById('cmbCtaDock');
+  if (dock) dock.classList.toggle('hidden', !on);
+}
 
 function showCombinedPhotoStep() {
   const photo = document.getElementById('cmbPhotoStep');
@@ -475,9 +482,11 @@ function showCombinedPhotoStep() {
     if (el) el.classList.add('hidden');
   });
   setCmbHeroVisible(true);
-  // 통합분석 서비스 정책.md 2-1 2번 — 사주 정보 리스트(#cmbSajuBlock)는 입력 화면이 보일 때마다
-  // 최신 등록 목록으로 다시 그린다(다른 화면에서 사주를 추가/수정/삭제했을 수도 있어서).
-  if (window.Profile && Profile.renderCombinedSajuBlock) Profile.renderCombinedSajuBlock();
+  setCmbCtaVisible(true);
+  // 통합분석 서비스 정책.md 2-1 2번 — "사주 정보" 칩(#cmbSajuChip)은 입력 화면이 보일 때마다 지금
+  // 선택 상태(cmbSajuSelectedId) 그대로 다시 그린다 — 선택 자체를 여기서 초기화하지는 않는다
+  // (초기화는 resetUpload가 Profile.resetCmbSajuSelection()으로 따로 처리).
+  if (window.Profile && Profile.syncCombinedSajuChip) Profile.syncCombinedSajuChip();
 }
 
 function cmbEsc(s) {
@@ -513,6 +522,7 @@ function renderCombinedSavedReport() {
   if (report && !report.classList.contains('hidden') && !viewingGone) {
     photo.classList.add('hidden');
     setCmbHeroVisible(false);
+    setCmbCtaVisible(false);
     return;
   }
   cmbViewingReportId = null;
@@ -520,6 +530,7 @@ function renderCombinedSavedReport() {
   photo.classList.add('hidden');
   saved.classList.remove('hidden');
   setCmbHeroVisible(true);
+  setCmbCtaVisible(false);
 }
 
 // 내역 행 클릭 — 보관된 스냅샷을 그대로 펼친다.
@@ -570,7 +581,11 @@ function startCombinedForOther() {
         startCombinedForOther(); // 다른 프로필을 고르도록 시트를 다시 띄운다
         return;
       }
-      resetUpload('combined'); // 안에서 cmbWantsNewAnalysis를 세우고 사진 등록 단계를 되살린다
+      resetUpload('combined'); // 안에서 cmbWantsNewAnalysis를 세우고 사진 등록 단계를 되살린다(사주 선택도 일단 초기화)
+      // resetUpload가 방금 초기화한 사주 선택을, 여기서 막 고른 프로필로 다시 채운다 — "다른 사람으로"는
+      // 이미 이 팝업에서 대상을 골랐으니 사진 등록 화면의 사주 정보 칩에도 그 결과가 바로 보여야 한다.
+      if (window.Profile && Profile.setCombinedSajuSelection) Profile.setCombinedSajuSelection(id);
+      if (window.maybeRevealCmbSajuQBlock) maybeRevealCmbSajuQBlock();
       window.scrollTo(0, 0);
     },
   });
