@@ -1563,10 +1563,38 @@
   // 통째로 숨기고 "내 도감 보러가기" 버튼만 보여줬다. 공용기기에서 여러 명이 순서대로 등록하는
   // 상황에서 다음 사람이 이전 사람 화면을 그대로 보게 되는 문제가 있어, 등록 이력과 무관하게
   // 항상 이 폼을 보여주는 것으로 정책이 바뀌었다(4장 "중복 등록 허용"과도 일관).
-  function showGuestView(dogam) {
+  // 2026-09-10 사용자 요청 — "공유받은 친구의 인연도감에 들어갔을 때" 두 경우를 나눈다.
+  // ① 이 사람(B)이 이미 자기 인연도감을 만든 적이 있다(=캐릭터도 이미 있다) → 그 캐릭터를 자동으로
+  //    써서 등록하고, 사진 첨부 영역 자체를 뺀다(이미 정보가 있으니 다시 찍을 이유가 없다).
+  // ② B의 인연도감이 아직 없다 → 사진 첨부 영역이 그대로 필요하다.
+  // 판단 기준은 세션에만 남는 로컬 캐시(myCharacterId())가 아니라 ensureMyDogam()으로 확인하는
+  // "진짜 내 도감 존재 여부"다 — 관상보기만 해보고 도감은 안 만든 경우까지 "있다"고 오판하면 안 된다.
+  async function showGuestView(dogam) {
     const el = prepGuestScreen();
     if (!el) return;
+    const mine = await ensureMyDogam().catch(function (e) { console.error('[dogam] 내 도감 확인 실패', e); return null; });
+    const myChar = mine ? mine.ownerCharacterId : null;
+    // registerEntry()는 myCharacterId()(세션 로컬 캐시)로 캐릭터를 읽는다 — 이 기기에서 이번 세션에
+    // 아직 한 번도 분석을 안 했어도(예: 다른 기기에서 만든 도감으로 로그인) 그 캐시가 비어있을 수
+    // 있으므로, 내 도감에서 읽어온 캐릭터를 여기서 미리 채워둔다(paintOwnerView의 동기화와 동일 패턴).
+    if (myChar && !myCharacterId()) {
+      try {
+        localStorage.setItem(inyeonCharacterKey(), JSON.stringify({
+          characterId: myChar,
+          characterName: (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[myChar]) ? CHARACTER_DB[myChar].name : null,
+          ts: Date.now(),
+        }));
+      } catch (e) { /* 프라이빗 브라우징 등 localStorage 불가 — 조용히 스킵 */ }
+    }
+    // ⚠️ #gwansangUploadSection 자체는 항상 보임 상태로 둔다 — 그 안의 #gwansangInputCard에 스피너
+    // (#gwansangSpinner)·에러 메시지(#gwansangErr)가 같이 들어있어서, 섹션째로 숨기면 사진 첨부를
+    // 생략한 경우에도 registerEntry() 처리 중 로딩 표시가 안 보이는 회귀가 생긴다(2026-09-04에 이미
+    // 한 번 고쳤던 문제). 대신 사진 관련 하위 요소만 개별적으로 숨긴다.
     setDisplay('gwansangUploadSection', '');
+    setDisplay('uploadArea', myChar ? 'none' : '');
+    setDisplay('thumbArea', myChar ? 'none' : '');
+    setDisplay('gwansangCharInfoLabel', myChar ? 'none' : '');
+    setDisplay('gwansangPhotoPrivacyNote', myChar ? 'none' : '');
     // ⚠️ 버그 수정(2026-09-04 사용자 리포트: "도감 공유하고 나서 보니 정책 안내 밑에 인연도감~이름
     // 또는 별명 입력창이 또 나온다") — #gwansangOwnerNameBlock(A 전용 닉네임 입력)과 #gwansangOwnerAgreeBlock
     // (A 전용 동의 체크박스, 2026-09-05 추가)은 gwansangInputCard 안에 중첩돼 있어 captureUploadNodes()가
@@ -1577,7 +1605,6 @@
     setDisplay('gwansangOwnerNameBlock', 'none');
     setDisplay('gwansangOwnerAgreeBlock', 'none');
 
-    const myChar = myCharacterId();
     const myName2 = myChar && CHARACTER_DB[myChar] ? CHARACTER_DB[myChar].name : '';
     // 로그인 상태면 카카오 닉네임을 기본값으로 채워둔다(사용자 요청 2026-08-18) — 매번 직접 타이핑
     // 안 해도 되고, 원치 않으면 그대로 지우고 다른 별명으로 바꿀 수 있다.
@@ -1600,6 +1627,9 @@
           '<summary>💡실명 대신 별명으로 권장드려요</summary>' +
           '<p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">개인정보 보호를 위해 실명 대신 별명을 권해요. 입력한 이름은 이 도감에 표시되고, 도감을 여는 다른 사람에게도 보여요. 전화번호·주소 등 다른 개인정보는 입력하지 마세요.</p>' +
         '</details>' +
+        // dogamUploadSlot은 myChar 여부와 무관하게 항상 렌더링한다 — #gwansangInputCard 통째로
+        // 여기 옮겨와야 그 안의 스피너·에러 메시지도 같이 쓸 수 있다(사진 관련 하위 요소만 위에서
+        // 개별적으로 숨겼다).
         '<div id="dogamUploadSlot"></div>' +
         '<label class="dogam-check"><input type="checkbox" id="dogamAgree">' +
           '<span>입력한 이름과 사진을 인연도감 생성/관리에 이용하는 데 동의해요. <b>(필수)</b></span></label>' +
