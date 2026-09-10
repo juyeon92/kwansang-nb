@@ -435,7 +435,7 @@
           <span class="mini-profile-name">${esc(profile.name)}</span>
           <span class="mini-profile-badge">${esc(profile.relationDetail || profile.relation)}</span>
         </span>
-        <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourShort(profile.birthHour))}</span>
+        <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourLabel(profile.birthHour))}</span>
       </span>
       <span class="mini-profile-chevron material-symbols-outlined">chevron_right</span>`;
     syncGgAccordion();
@@ -461,7 +461,7 @@
           <span class="mini-profile-name">${esc(profile.name)}</span>
           <span class="mini-profile-badge">${esc(profile.relationDetail || profile.relation)}</span>
         </span>
-        <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourShort(profile.birthHour))}</span>
+        <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourLabel(profile.birthHour))}</span>
       </span>
       <span class="mini-profile-chevron material-symbols-outlined">chevron_right</span>`;
     syncGgAccordion();
@@ -529,7 +529,7 @@
               <span class="profile-row-name">${esc(p.name)}</span>
               <span class="profile-row-badge">${esc(p.relationDetail || p.relation)}</span>
             </div>
-            <div class="profile-row-sub">${esc(fmtYmd(...String(p.solarDate||'').split('-')))} · ${esc(hourShort(p.birthHour))}</div>
+            <div class="profile-row-sub">${esc(fmtYmd(...String(p.solarDate||'').split('-')))} · ${esc(hourLabel(p.birthHour))}</div>
           </div>
           ${locked ? '' : `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._editRow('${p.id}', '${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>`}
           ${list.length > 1 ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._deleteRow('${p.id}')"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
@@ -589,7 +589,7 @@
   // ⚠️ 기능 추가(2026-08-27 사용자 요청) — 이 사주로 만든 리포트(통합분석·궁합보기)가 있으면 몇 건인지
   // 확인창에 보여주고, 삭제하면 그 리포트도 다 같이 지워진다고 미리 경고한다. 다른 캐스케이드 삭제
   // (Dogam.deleteMyDogam 등)도 이 앱은 전부 커스텀 모달 대신 confirm() 문구로 경고하는 걸 그대로 따른다.
-  function deleteRow(id) {
+  function deleteRow(id, onDeleted) {
     const p = getProfile(id);
     if (!p) return;
     const counts = linkedReportCounts(id);
@@ -612,7 +612,70 @@
     }
     deleteProfile(id);
     if (gunghamPartnerId === id) gunghamPartnerId = null;
-    openSwitcher(switcherOpts);
+    if (onDeleted) onDeleted(); else openSwitcher(switcherOpts);
+  }
+
+  // ═══ 통합분석 "사주 정보" 인라인 리스트 (통합분석 서비스 정책.md 2-1 2번, 2026-09-10) ═══
+  // 위 openSwitcher(바텀시트)와 같은 행 구성(.profile-row)을 화면에 직접 그린다. 대표 프로필 선택과
+  // 달리 "기본값 미선택 + 한 번에 하나만 선택"이어야 해서, 체크 표시는 대표 프로필(rep.id)이 아니라
+  // 이 화면 전용 상태(cmbSajuSelectedId)로 따로 추적한다 — 대표 프로필이 이미 있어도 이 리스트는
+  // 사용자가 직접 눌러야만 체크가 붙는다. 행을 클릭하면 대표 프로필도 같이 바뀐다(setRepresentative
+  // 재사용, 2026-09-10 사용자 확정) — "대표 프로필과 분석 대상의 관계"를 새 개념으로 안 만들고 기존
+  // 대표 프로필 개념에 그대로 편입시켰다. 새로 등록한 사주는 리스트에 나타나기만 하고 자동 선택되지
+  // 않는다(문서 2-1 2번 — 등록 직후에도 한 번 더 눌러야 선택됨).
+  let cmbSajuSelectedId = null;
+  function resetCmbSajuSelection() { cmbSajuSelectedId = null; }
+
+  function cmbSajuRowHTML(p, canDelete) {
+    const selected = p.id === cmbSajuSelectedId;
+    const locked = linkedReportCounts(p.id).total > 0;
+    return `
+      <div class="profile-row ${selected ? 'is-selected' : ''}" onclick="Profile._pickCmbSaju('${p.id}')">
+        <span class="profile-row-check">${selected ? '<span class="material-symbols-outlined" style="font-size:16px;color:var(--mint);">check_circle</span>' : ''}</span>
+        <div class="profile-row-body">
+          <div class="profile-row-top">
+            <span class="profile-row-name">${esc(p.name)}</span>
+            <span class="profile-row-badge">${esc(p.relationDetail || p.relation)}</span>
+          </div>
+          <div class="profile-row-sub">${esc(fmtYmd(...String(p.solarDate||'').split('-')))} · ${esc(hourLabel(p.birthHour))}</div>
+        </div>
+        ${locked ? '' : `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._editCmbSaju('${p.id}')"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>`}
+        ${canDelete ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._deleteCmbSaju('${p.id}')"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
+      </div>`;
+  }
+
+  function renderCombinedSajuBlock() {
+    const el = document.getElementById('cmbSajuBlock');
+    if (!el) return;
+    const list = loadProfiles();
+    if (!list.length) {
+      el.innerHTML = `<button type="button" class="btn-solid-primary btn-add" onclick="Profile._openAddCmbSaju()"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px;">add</span> 사주 등록</button>`;
+      return;
+    }
+    const rows = list.map(p => cmbSajuRowHTML(p, list.length > 1)).join('');
+    el.innerHTML = `
+      <div class="profile-row-list" style="overflow-y:visible;padding:0;">${rows}</div>
+      <button type="button" class="btn-solid-primary btn-add" style="margin-left:0;margin-right:0;width:100%;" onclick="Profile._openAddCmbSaju()"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px;">add</span> 사주 추가하기</button>`;
+  }
+
+  function pickCmbSajuRow(id) {
+    cmbSajuSelectedId = id;
+    setRepresentative(id); // 대표 프로필도 같이 바뀜(2026-09-10 확정)
+    renderCombinedSajuBlock();
+    if (window.maybeRevealCmbSajuQBlock) maybeRevealCmbSajuQBlock();
+  }
+  function editCmbSajuRow(id) {
+    openForm(getProfile(id), { onDone: function () { renderCombinedSajuBlock(); } });
+  }
+  function deleteCmbSajuRow(id) {
+    deleteRow(id, function () {
+      if (cmbSajuSelectedId === id) cmbSajuSelectedId = null;
+      renderCombinedSajuBlock();
+    });
+  }
+  // 등록 폼(신규)만 연다 — 저장돼도 자동 선택하지 않는다(문서 2-1 2번). onDone만 넘겨 리스트만 새로 그림.
+  function openAddCmbSaju() {
+    openForm(null, { onDone: function () { renderCombinedSajuBlock(); } });
   }
 
   // ── 등록/수정 폼 팝업 ────────────────────────────────────────────────
@@ -1092,13 +1155,13 @@
     return {
       name: p.name,
       relation: p.relationDetail || p.relation,
-      birth: `${fmtYmd(...String(p.solarDate || '').split('-'))} · ${hourShort(p.birthHour)}`,
+      birth: `${fmtYmd(...String(p.solarDate || '').split('-'))} · ${hourLabel(p.birthHour)}`,
     };
   }
 
   window.Profile = {
     openSwitcher, close: closeOverlay,
-    getRepresentative, describe: describeProfile, hourShort,
+    getRepresentative, describe: describeProfile, hourShort, hourLabel,
     getGunghamPartner: function () { return gunghamPartnerId ? getProfile(gunghamPartnerId) : null; },
     getGunghamA: function () { return gunghamAId ? getProfile(gunghamAId) : null; },
     _dismissSwitcher: finishSwitcher, _dismissForm: dismissForm,
@@ -1109,6 +1172,8 @@
     setGunghamRelation: setGunghamRelation,
     toggleGgAcc, syncGgAccordion,
     _pickRow: pickRow, _editRow: editRow, _openAdd: openAdd, _deleteRow: deleteRow,
+    renderCombinedSajuBlock, resetCmbSajuSelection, getCmbSajuSelectedId: function () { return cmbSajuSelectedId; },
+    _pickCmbSaju: pickCmbSajuRow, _editCmbSaju: editCmbSajuRow, _deleteCmbSaju: deleteCmbSajuRow, _openAddCmbSaju: openAddCmbSaju,
     _draftSet: draftSet, _setRelation: setRelation, _setCalendarType: setCalendarType, _setGender: setGender,
     _save: saveDraft, _openCalendar: openCalendar, _closeSub: closeSub,
     _calNav: calNav, _calSetYear: calSetYear, _calSetMonth: calSetMonth, _setLeap: setLeap, _pickDay: pickDay,

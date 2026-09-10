@@ -767,7 +767,7 @@ function renderGunghamManseryeok(nameA, dateA, hourA, pillarsA, nameB, dateB, ho
   const el = document.getElementById('ggManseryeokCompare');
   if (!el) return;
   const dstr = d => String(d || '').replace(/-/g, '.');
-  const hourLabel = h => (window.Profile && Profile.hourShort) ? Profile.hourShort(h) : '';
+  const hourLabel = h => (window.Profile && Profile.hourLabel) ? Profile.hourLabel(h) : '';
   const colHTML = p => {
     const isEst = p.stem < 0 && p.estStem >= 0 && p.estBranch >= 0;
     return `<div class="pillar-col${isEst ? ' is-est' : ''}">${buildPillarColBase(p, { allowEstimate: true })}</div>`;

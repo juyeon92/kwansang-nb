@@ -508,7 +508,7 @@
     if (!box) return;
     box.innerHTML =
       '<button class="header-icon-btn" aria-label="로그인" onclick="KakaoAuth.openLoginPopup()">' +
-      '<span class="material-symbols-outlined">login</span></button>';
+      '<span class="material-symbols-outlined">account_circle</span></button>';
   }
 
   // ── 로그인 / 마이페이지 팝업 (프로필 팝업과 같은 오버레이 루트·스타일을 그대로 쓴다) ──

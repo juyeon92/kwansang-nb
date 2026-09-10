@@ -75,6 +75,10 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  /* 공통 영역 설계 — 전역 규칙: 문구는 어절(단어) 단위로만 줄바꿈된다("나"/"만의"처럼 단어 중간에서
+     안 잘리게). word-break: break-all을 직접 선언한 요소(.mypage-account-id, .nh-row-id 등 긴
+     ID 강제 절단용)는 상속보다 그 자신의 선언이 우선이라 영향 없음. */
+  word-break: keep-all;
   padding-bottom: calc(var(--nav-h) + var(--cta-h) + 12px);
   max-width: var(--frame-w);
   margin: 0 auto;
@@ -438,9 +442,9 @@ body {
 .thumb-sub { font-size: 11px; color: var(--text-sub); }
 .thumb-btns { display: flex; flex-direction: column; gap: 8px; }
 
-#gwansangUploadSection .thumb-img, #dogamGuestSection .thumb-img { width: 100px; height: 100px; }
-#gwansangUploadSection .thumb-area, #dogamGuestSection .thumb-area { justify-content: center; }
-#gwansangUploadSection .thumb-btns, #dogamGuestSection .thumb-btns { flex-direction: column; flex: none; }
+#gwansangUploadSection .thumb-img, #dogamGuestSection .thumb-img, #cmbUploadSection .thumb-img { width: 100px; height: 100px; }
+#gwansangUploadSection .thumb-area, #dogamGuestSection .thumb-area, #cmbUploadSection .thumb-area { justify-content: center; }
+#gwansangUploadSection .thumb-btns, #dogamGuestSection .thumb-btns, #cmbUploadSection .thumb-btns { flex-direction: column; flex: none; }
 .analyze-btn {
   padding: 10px 18px; border-radius: var(--r-btn); border: none;
   background: var(--mint); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
@@ -953,25 +957,44 @@ body.overlay-open { overflow: hidden; }
   border-radius: var(--r-btn); background: var(--surface); color: #b04a4a; font-size: 12.5px; font-weight: 700;
   cursor: pointer; font-family: inherit; }
 .dogam-delete-btn:hover { border-color: #b04a4a; }
+/* ⚠️ 2026-09-09 공통 영역 설계로 .legal-footer가 인연도감 결과 화면 안(패널 최하단, CTA/탭바와
+   맞닿는 자리)에서 .site-footer(전역, 탭바 바로 위) 안으로 옮겨왔다. 예전 margin/padding은 그
+   특정 위치에서 CTA·탭바 높이(--cta-h)만큼 시각적으로 밀어내려던 보정값이었는데, body가 이미
+   전역으로 padding-bottom: calc(--nav-h + --cta-h + 12px)를 갖고 있는 이 새 자리에서는 필요
+   없어져서(오히려 큰 빈 공간이 생김) 걷어내고 .biz-footer와 같은 평범한 한 줄로 맞췄다. */
 .legal-footer {
-  display: flex; justify-content: center; align-items: flex-start; gap: 8px;
-    margin: 12px -16px calc(12px - (var(--cta-h) + 56px));
-  padding: 12px 16px calc(var(--cta-h) + 56px);
-  font-size: 12px; background: var(--card2);
+  display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 12px 0 4px;
+  font-size: 12px;
 }
 .legal-footer-link { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; font-size: 12px; color: var(--text-sub2); }
 .legal-footer-link:hover { text-decoration: underline; }
 .legal-footer-sep { color: var(--text-sub2); }
 
 .biz-footer { padding: 12px 0 4px; text-align: center; font-size: 11px; line-height: 1.7; color: var(--text-sub2); }
-.wrap:has(#cmbAnalyzing:not(.hidden)) .biz-footer,
-.wrap:has(#cmbResult:not(.hidden)) .biz-footer,
-.wrap:has(#cmbSavedReport:not(.hidden)) .biz-footer,
-.wrap:has(#gwansangAnalyzing:not(.hidden)) .biz-footer,
-.wrap:has(#gwansangResult:not(.hidden)) .biz-footer,
-.wrap:has(#ggAnalyzing:not(.hidden)) .biz-footer,
-.wrap:has(#ggResult:not(.hidden)) .biz-footer,
-.wrap:has(#ggSavedReport:not(.hidden)) .biz-footer {
+/* 공통 영역 설계(2026-09-09) 3-2 — legal-footer + biz-footer를 .site-footer로 합쳤으므로 숨김
+   대상도 .site-footer 하나로 통일(노출 범위는 예전 .biz-footer와 동일하게 유지). */
+.wrap:has(#cmbAnalyzing:not(.hidden)) .site-footer,
+.wrap:has(#cmbResult:not(.hidden)) .site-footer,
+.wrap:has(#cmbSavedReport:not(.hidden)) .site-footer,
+.wrap:has(#gwansangAnalyzing:not(.hidden)) .site-footer,
+.wrap:has(#gwansangResult:not(.hidden)) .site-footer,
+.wrap:has(#ggAnalyzing:not(.hidden)) .site-footer,
+.wrap:has(#ggResult:not(.hidden)) .site-footer,
+.wrap:has(#ggSavedReport:not(.hidden)) .site-footer {
+  display: none;
+}
+/* 공통 영역 설계 1-2 — 헤더 profileInfoBox 노출 범위 축소. 인연도감 탭은 대표 프로필 개념을 안
+   쓰는 화면이라 항상 숨기고, 통합분석·궁합보기는 "특정 사람의 리포트를 보여주는 화면"(위 .site-footer
+   숨김과 같은 8개 ID)에서만 숨긴다 — 대표 프로필과 다른 사람의 리포트가 떠 있는데 헤더는 계속 대표
+   프로필을 보여줘서 오해를 주던 문제. */
+body:has(#panel-gwansang.active) #profileInfoBox,
+body:has(#cmbAnalyzing:not(.hidden)) #profileInfoBox,
+body:has(#cmbResult:not(.hidden)) #profileInfoBox,
+body:has(#cmbSavedReport:not(.hidden)) #profileInfoBox,
+body:has(#ggAnalyzing:not(.hidden)) #profileInfoBox,
+body:has(#ggResult:not(.hidden)) #profileInfoBox,
+body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
   display: none;
 }
 .legal-page { padding-top: 8px; }
@@ -1313,51 +1336,51 @@ body.overlay-open { overflow: hidden; }
     <div class="upload-section" id="cmbUploadSection">
             <div class="cmb-hero-card" id="cmbHero">
         <div class="cmb-hero-text">
-          <div class="cmb-hero-badge">🐱 관상냥반</div>
-          <div class="cmb-hero-title">냥반이<br>얼굴과 사주를<br>함께 봐드릴게요</div>
-          <p class="cmb-hero-sub">사진 한 장과 생년월일이면, 나만의 캐릭터와 잘 맞는 사람까지 알려드려요.</p>
+          <div class="cmb-hero-title">냥반이 관상과 사주를 함께 풀이해드려요</div>
+          <p class="cmb-hero-sub">겉모습과 내면을 동시에 꿰뚫어 보는,<br>소름 돋게 정확한 통합 풀이</p>
         </div>
         <div class="cmb-hero-img"><img src="images/Logo.png" alt=""></div>
       </div>
 
             <div id="cmbPhotoStep">
-      <div class="upload-label">관상 정보</div>
+      <div class="upload-label">사주 정보</div>
+      <div id="cmbSajuBlock"></div>
 
-      <div class="reassure-box">
-        <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
-        <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
-      </div>
+      <div class="upload-label">관상 정보</div>
 
       <div class="upload-area" id="cmbUploadArea"
            onclick="document.getElementById('cmbFileInput').click()"
            ondrop="handleDrop('combined', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
         <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
-        <strong>사진을 클릭하거나 드래그하여 업로드</strong>
-      </div>
-      <div class="tip-box">
-        <span class="icon material-symbols-outlined">warning</span>
-        <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+        <strong>관상을 살펴볼 사진 넣기</strong>
+        <div class="tip-box">
+          <span class="icon material-symbols-outlined">warning</span>
+          <p>목선까지 보이는 정면사진을 올려주세요.<br>(얼굴 60% 이상)</p>
+        </div>
       </div>
       <input type="file" id="cmbFileInput" accept="image/*" style="display:none" onchange="handleFile('combined', event)">
-      <div class="thumb-area" id="cmbThumbArea" style="margin-top:12px;">
+
+      <div class="thumb-area" id="cmbThumbArea">
         <img id="cmbThumbImg" class="thumb-img" src="" alt="">
-        <div class="thumb-info">
-          <div class="thumb-name">사진 업로드 완료</div>
-          <div class="thumb-sub" id="cmbThumbSub"></div>
-        </div>
         <div class="thumb-btns" id="cmbThumbBtns">
+          <button type="button" class="reupload-btn" onclick="document.getElementById('cmbFileInput').click()">다시 선택하기</button>
           <button class="reupload-btn" onclick="toggleMirror('combined', this)" title="비대칭 판정이 반대로 나오는 것 같으면 눌러보세요"><span class="material-symbols-outlined" style="font-size:14px;">flip</span> 좌우 반전</button>
         </div>
       </div>
 
+      <details class="dogam-policy" style="margin-top:8px;margin-bottom:12px;">
+        <summary>🔒사진은 저장되지 않으니 안심하세요</summary>
+        <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
+      </details>
+
             <div class="hidden" id="cmbSajuQBlock" style="margin-top:16px;">
         <div class="saju-q-block">
-          <div class="saju-q-title">지금의 상황을 알려주세요</div>
+          <div class="saju-q-title">현재 연애 상태를 알려주세요</div>
           <div class="saju-chip-row">
             <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q1','솔로',this)">솔로</button>
             <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q1','연애중',this)">연애중</button>
             <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q1','결혼했어요',this)">결혼했어요</button>
-            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q1','새로운 출발 (돌싱/기타)',this)">새로운 출발 (돌싱/기타)</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q1','새로운 출발(돌싱/기타)',this)">새로운 출발(돌싱/기타)</button>
             <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q1','직접 입력할게요',this)">직접 입력할게요</button>
           </div>
           <input type="text" class="field-input saju-q-custom hidden" id="cmbQ1Custom" placeholder="상황을 입력해주세요" oninput="setSajuCustom('combined','q1', this.value)">
@@ -1366,13 +1389,13 @@ body.overlay-open { overflow: hidden; }
         <div class="saju-divider"></div>
 
         <div class="saju-q-block">
-          <div class="saju-q-title">주로 어떤 일상을 보내고 계세요</div>
+          <div class="saju-q-title">현재 직장(일) 상태를 알려주세요</div>
           <div class="saju-chip-row">
             <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','학생',this)">학생</button>
             <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','취업 준비중',this)">취업 준비중</button>
             <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','주부',this)">주부</button>
             <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','직장인',this)">직장인</button>
-            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','자영업/프리랜서',this)">자영업/프리랜서</button>
+            <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','자영업·프리랜서',this)">자영업·프리랜서</button>
             <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','은퇴함',this)">은퇴함</button>
             <button type="button" class="rel-chip" onclick="setSajuAnswer('combined','q2','직접 입력할게요',this)">직접 입력할게요</button>
           </div>
@@ -1382,7 +1405,7 @@ body.overlay-open { overflow: hidden; }
         <div class="saju-divider"></div>
 
         <div class="saju-q-block">
-          <div class="saju-q-title">특별히 더 궁금한 내용이 있나요. <span class="saju-q-optional">(선택사항)</span></div>
+          <div class="saju-q-title">현재 고민이나 특별히 더 듣고 싶은 내용이 있나요? <span class="saju-q-optional">(선택사항)</span></div>
           <textarea class="field-input saju-textarea" id="cmbQ3" maxlength="100" placeholder="예: 올해 이직운이 있는지 궁금해요, 결혼 시기가 언제쯤일지 등" oninput="onSajuQ3Input('combined', this)"></textarea>
           <div class="saju-char-counter" id="cmbQ3Counter">0/100</div>
         </div>
@@ -1413,8 +1436,8 @@ body.overlay-open { overflow: hidden; }
       <div class="err-msg" id="cmbErr"></div>
     </div>
 
-    <div class="cta-dock hidden" id="cmbCtaDock">
-      <button class="submit-btn" onclick="Profile.runCombined()">분석하기</button>
+    <div class="cta-dock" id="cmbCtaDock">
+      <button class="submit-btn" onclick="startCombinedAnalysis()">통합분석 풀이 보기</button>
     </div>
 
         <div class="cmb-analyzing hidden" id="cmbAnalyzing">
@@ -1638,11 +1661,6 @@ body.overlay-open { overflow: hidden; }
 
           </div>
 
-        <div class="legal-footer">
-      <button type="button" class="legal-footer-link" onclick="openLegalPanel('terms')">이용약관</button>
-      <span class="legal-footer-sep">·</span>
-      <button type="button" class="legal-footer-link" onclick="openLegalPanel('privacy')"><b>개인정보처리방침</b></button>
-    </div>
   </div>
 
     <div class="panel legal-page" id="panel-legal-terms">
@@ -2217,12 +2235,25 @@ body.overlay-open { overflow: hidden; }
     <div class="panel" id="panel-nyanghistory"></div>
     <div class="panel" id="panel-payhistory"></div>
 
-    <div class="biz-footer">
-    <div>상호 : 관상냥반</div>
-    <div>대표 : 최주연</div>
-    <div>사업자등록번호 : 521-32-01773</div>
-    <div>통신판매업신고 번호 : 제2026-서울강동-1452호</div>
-  </div>
+    <!-- 공통 영역 설계(2026-09-09) 3-2 — legal-footer(이용약관/개인정보처리방침/문의하기)와
+         biz-footer(사업자 정보)를 하나로 합쳤다. 예전엔 legal-footer가 인연도감 결과 화면 안에만
+         있어 비로그인 사용자가 정책에 닿을 방법이 사실상 없었다 — 탭과 무관한 이 전역 자리로 옮겨서
+         해결한다. 문의하기도 마이페이지(로그인 전용) 밖에서 접근 가능하도록 여기 같이 둔다. -->
+    <div class="site-footer">
+      <div class="legal-footer">
+        <button type="button" class="legal-footer-link" onclick="openLegalPanel('terms')">이용약관</button>
+        <span class="legal-footer-sep">·</span>
+        <button type="button" class="legal-footer-link" onclick="openLegalPanel('privacy')"><b>개인정보처리방침</b></button>
+        <span class="legal-footer-sep">·</span>
+        <button type="button" class="legal-footer-link" onclick="KakaoAuth.openInquiryMail()">문의하기</button>
+      </div>
+      <div class="biz-footer">
+        <div>상호 : 관상냥반</div>
+        <div>대표 : 최주연</div>
+        <div>사업자등록번호 : 521-32-01773</div>
+        <div>통신판매업신고 번호 : 제2026-서울강동-1452호</div>
+      </div>
+    </div>
 
 </div>
 <nav class="bottom-nav">

@@ -275,7 +275,7 @@ function setGgGender(who, g) {
 // ═══ UPLOAD / THUMBNAIL LOGIC ═══
 const ctxMap = {
   gwansang: { uploadArea: 'uploadArea', thumbArea: 'thumbArea', thumbImg: 'thumbImg', spinner: 'gwansangSpinner', err: 'gwansangErr' },
-  combined: { uploadArea: 'cmbUploadArea', thumbArea: 'cmbThumbArea', thumbImg: 'cmbThumbImg', thumbSub: 'cmbThumbSub', spinner: 'cmbSpinner', err: 'cmbErr' },
+  combined: { uploadArea: 'cmbUploadArea', thumbArea: 'cmbThumbArea', thumbImg: 'cmbThumbImg', spinner: 'cmbSpinner', err: 'cmbErr' },
   gunghamA: { uploadArea: 'ggUploadA', thumbArea: 'ggThumbA', thumbImg: 'ggImgA', spinner: null, err: 'ggErr' },
   gunghamB: { uploadArea: 'ggUploadB', thumbArea: 'ggThumbB', thumbImg: 'ggImgB', spinner: null, err: 'ggErr' },
 };
@@ -300,13 +300,14 @@ function updateCtaDock(ctx) {
   // 2026-09-05(3차 피드백) — 인연도감(gwansang)은 더 이상 "사진 업로드 여부"로 CTA를 가리지 않는다.
   // 버튼은 처음부터 기본 노출(index.html #gwansangCtaDock)이고, 사진 없이 눌러도 startAnalysis()가
   // 이미 안내하므로 안전하다. 분석이 끝나 결과 화면으로 넘어갈 때만 markAnalyzed('gwansang')이
-  // 명시적으로 숨긴다. 다른 탭(통합분석·궁합보기)은 기존처럼 업로드 여부로 계속 게이트한다.
-  if (ctx === 'gwansang') return;
+  // 명시적으로 숨긴다. 다른 탭(궁합보기)은 기존처럼 업로드 여부로 계속 게이트한다.
+  // ⚠️ 통합분석 서비스 정책.md 2-3(2026-09-10) — combined도 gwansang과 같은 방식으로 바꿨다.
+  // "통합분석 풀이 보기" 버튼은 항상 노출·항상 클릭 가능하고, 미완료 항목은 startCombinedAnalysis()가
+  // 순서대로 alert로 안내한다(사주 선택+사진 없이 눌러도 안전).
+  if (ctx === 'gwansang' || ctx === 'combined') return;
   const show = (ctx === 'gunghamA' || ctx === 'gunghamB')
     ? !!(state.gunghamA.file && state.gunghamB.file)
-    : ctx === 'combined'
-      ? !!(state.combined.file && state.combined.q1 && state.combined.q2) // 사주보기처럼 상황·일상 질문까지 필수
-      : !!state[ctx].file;
+    : !!state[ctx].file;
   const el = document.getElementById(id);
   if (el) el.classList.toggle('hidden', !show);
   if (ctx === 'gunghamA' || ctx === 'gunghamB') {
@@ -372,9 +373,27 @@ function loadThumb(ctx, file) {
     const afterTop = document.getElementById(m.thumbArea).getBoundingClientRect().top;
     window.scrollBy(0, afterTop - beforeTop);
   }
-  const qBlock = sajuQBlockMap[ctx] && document.getElementById(sajuQBlockMap[ctx]);
-  if (qBlock) qBlock.classList.remove('hidden');
+  if (ctx === 'combined') {
+    maybeRevealCmbSajuQBlock();
+  } else {
+    const qBlock = sajuQBlockMap[ctx] && document.getElementById(sajuQBlockMap[ctx]);
+    if (qBlock) qBlock.classList.remove('hidden');
+  }
   updateCtaDock(ctx);
+}
+
+// 통합분석 서비스 정책.md 2-1 4번 — 진입 질문(Q1~Q3)은 "사주 선택 + 사진 업로드"가 둘 다 끝나야
+// 나타난다(예전엔 사진 업로드만으로 노출됐다). 사주 선택(Profile._pickCmbSaju/_openAddCmbSaju)과
+// 사진 업로드(loadThumb) 양쪽에서 이 함수 하나로 두 조건을 검사해서, 막 둘 다 채워진 순간에만
+// hidden을 떼고 그 위치로 스크롤한다 — 이미 떠 있는 상태에서 사주만 바꿔도 다시 스크롤하지 않는다.
+function maybeRevealCmbSajuQBlock() {
+  const qBlock = document.getElementById('cmbSajuQBlock');
+  if (!qBlock) return;
+  const sajuSelected = !!(window.Profile && Profile.getCmbSajuSelectedId && Profile.getCmbSajuSelectedId());
+  const ready = sajuSelected && !!state.combined.file;
+  const wasHidden = qBlock.classList.contains('hidden');
+  qBlock.classList.toggle('hidden', !ready);
+  if (ready && wasHidden) qBlock.scrollIntoView({ behavior: 'smooth' });
 }
 
 function resetUpload(ctx) {
@@ -408,8 +427,13 @@ function resetUpload(ctx) {
   } else if (ctx === 'combined') {
     document.getElementById('cmbCanvasCard').classList.add('hidden');
     document.getElementById('cmbResult').classList.add('hidden');
+    // markAnalyzed()가 숨겼던 CTA 버튼을 다시 노출 — gwansang과 동일 원칙(2026-09-10, updateCtaDock은
+    // 더 이상 combined도 건드리지 않으므로 여기서 직접 처리).
+    const cmbDock = document.getElementById('cmbCtaDock');
+    if (cmbDock) cmbDock.classList.remove('hidden');
     // "다른 (사람으로) 통합분석하기"로 들어온 자리 — 보관된 리포트 대신 사진 등록 단계부터 다시 시작한다.
     cmbWantsNewAnalysis = true;
+    if (window.Profile && Profile.resetCmbSajuSelection) Profile.resetCmbSajuSelection(); // 사주 정보 리스트도 미선택으로 되돌림
     showCombinedPhotoStep();
     state.combined.q1 = ''; state.combined.q2 = ''; state.combined.q3 = '';
     document.querySelectorAll('#panel-combined .rel-chip').forEach(b => b.classList.remove('on'));
@@ -451,6 +475,9 @@ function showCombinedPhotoStep() {
     if (el) el.classList.add('hidden');
   });
   setCmbHeroVisible(true);
+  // 통합분석 서비스 정책.md 2-1 2번 — 사주 정보 리스트(#cmbSajuBlock)는 입력 화면이 보일 때마다
+  // 최신 등록 목록으로 다시 그린다(다른 화면에서 사주를 추가/수정/삭제했을 수도 있어서).
+  if (window.Profile && Profile.renderCombinedSajuBlock) Profile.renderCombinedSajuBlock();
 }
 
 function cmbEsc(s) {
@@ -739,6 +766,22 @@ function startGwansangOwnerAnalysis() {
   const agreeEl = document.getElementById('gwansangOwnerAgree');
   if (!agreeEl || !agreeEl.checked) { alert('필수 동의 항목에 체크해주세요.'); if (agreeEl) agreeEl.focus(); return; }
   startAnalysis('gwansang');
+}
+
+// 통합분석 서비스 정책.md 2-3(2026-09-10) — "통합분석 풀이 보기"는 항상 클릭 가능하고, 화면에 보이는
+// 순서(사주 정보 → 관상 정보/사진 → Q1 → Q2) 그대로 위에서부터 하나씩 확인해서 alert로 안내한다
+// (startGwansangOwnerAnalysis와 같은 패턴). Q3(선택사항)는 확인 대상이 아니다. 전부 통과하면 기존
+// Profile.runCombined()(=runCombinedWrapped)에 그대로 넘긴다 — 대표 프로필/생년월일 확인, 냥 확인
+// (사주 재선택 포함), 얼굴 인식→차감 순서는 그 함수가 이미 갖고 있어 여기서 다시 안 만든다.
+function startCombinedAnalysis() {
+  if (!(window.Profile && Profile.getCmbSajuSelectedId && Profile.getCmbSajuSelectedId())) {
+    alert('사주 정보를 선택해주세요.');
+    return;
+  }
+  if (!state.combined.file) { alert('사진을 선택해주세요.'); return; }
+  if (!state.combined.q1) { alert('현재 연애 상태를 알려주세요.'); return; }
+  if (!state.combined.q2) { alert('현재 직장(일) 상태를 알려주세요.'); return; }
+  if (window.Profile && Profile.runCombined) Profile.runCombined();
 }
 
 // 2026-09-05(5차 피드백) — 인연도감의 "관상 분석중~"이 사진 미리보기 안 작은 텍스트로만 떠서 눈에
@@ -1918,7 +1961,7 @@ function renderGunghamManseryeok(nameA, dateA, hourA, pillarsA, nameB, dateB, ho
   const el = document.getElementById('ggManseryeokCompare');
   if (!el) return;
   const dstr = d => String(d || '').replace(/-/g, '.');
-  const hourLabel = h => (window.Profile && Profile.hourShort) ? Profile.hourShort(h) : '';
+  const hourLabel = h => (window.Profile && Profile.hourLabel) ? Profile.hourLabel(h) : '';
   const colHTML = p => {
     const isEst = p.stem < 0 && p.estStem >= 0 && p.estBranch >= 0;
     return `<div class="pillar-col${isEst ? ' is-est' : ''}">${buildPillarColBase(p, { allowEstimate: true })}</div>`;
