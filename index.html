@@ -161,26 +161,26 @@ body {
 .report-back-btn:hover { color: var(--jade); }
 .report-back-btn .material-symbols-outlined { font-size: 19px; }
 
-.char-card { position: relative; background: linear-gradient(160deg, #f6fdfb, #e6f6f1); border: 3px solid #26375a; border-radius: 22px; padding: 22px 16px 20px; text-align: center; overflow: hidden; }
+.char-card { position: relative; background: linear-gradient(160deg, #f6fdfb, #e6f6f1); border: 3px solid var(--char-navy); border-radius: 22px; padding: 22px 16px 20px; text-align: center; overflow: hidden; }
 .char-card::before { content: ''; position: absolute; inset: 9px; border: 1.5px dashed rgba(38,55,90,0.35); border-radius: 15px; pointer-events: none; }
-.char-card-corner { position: absolute; font-size: 13px; color: #26375a; line-height: 1; }
+.char-card-corner { position: absolute; font-size: 13px; color: var(--char-navy); line-height: 1; }
 .char-card-corner.tl { top: 14px; left: 16px; } .char-card-corner.tr { top: 14px; right: 16px; }
 .char-card-corner.bl { bottom: 14px; left: 16px; } .char-card-corner.br { bottom: 14px; right: 16px; }
-.char-card-badge { display: inline-block; background: #eef2f8; border: 1px solid #26375a; border-radius: 999px; padding: 3px 16px; font-size: 11px; font-weight: 700; color: #26375a; letter-spacing: 1.5px; margin-bottom: 12px; }
-.char-card-name { font-size: 25px; font-weight: 900; color: #1c2942; letter-spacing: 0.3px; margin-bottom: 12px; }
+.char-card-badge { display: inline-block; background: #eef2f8; border: 1px solid var(--char-navy); border-radius: 999px; padding: 3px 16px; font-size: 11px; font-weight: 700; color: var(--char-navy); letter-spacing: 1.5px; margin-bottom: 12px; }
+.char-card-name { font-size: 25px; font-weight: 900; color: var(--char-navy-deep); letter-spacing: 0.3px; margin-bottom: 12px; }
 .char-card-img-wrap { width: 168px; height: 168px; margin: 0 auto 16px; border-radius: 50%; background: rgba(255,255,255,0.55); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid rgba(38,55,90,0.3); }
 .char-card-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
 .char-card-img-wrap.no-mask { border-radius: 0; background: none; border: none; overflow: visible; }
 .char-card-img-wrap.no-mask img { object-fit: contain; }
-.char-card-ribbon { display: inline-block; background: #26375a; color: #f3f7fb; font-size: 13px; font-weight: 700; line-height: 1.5; padding: 9px 20px; border-radius: 8px; max-width: 90%; }
+.char-card-ribbon { display: inline-block; background: var(--char-navy); color: #f3f7fb; font-size: 13px; font-weight: 700; line-height: 1.5; padding: 9px 20px; border-radius: 8px; max-width: 90%; }
 
 .char-detail { border-radius: 18px; padding: 12px 18px; margin-bottom: 16px; }
 .char-detail-head { text-align: center; margin-bottom: 16px; }
-.char-detail-role { display: inline-block; background: #eef2f8; border: 1px solid #26375a; border-radius: 999px; padding: 3px 14px; font-size: 11px; font-weight: 700; color: #26375a; letter-spacing: 0.5px; }
-.char-detail-headline { font-size: 15px; font-weight: 800; color: #1c2942; line-height: 1.55; }
+.char-detail-role { display: inline-block; background: #eef2f8; border: 1px solid var(--char-navy); border-radius: 999px; padding: 3px 14px; font-size: 11px; font-weight: 700; color: var(--char-navy); letter-spacing: 0.5px; }
+.char-detail-headline { font-size: 15px; font-weight: 800; color: var(--char-navy-deep); line-height: 1.55; }
 .char-detail-headline-row { display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
 .char-detail-toggle {
-  flex-shrink: 0; background: none; border: none; padding: 0; color: #26375a; cursor: pointer;
+  flex-shrink: 0; background: none; border: none; padding: 0; color: var(--char-navy); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
 .char-detail-toggle .material-symbols-outlined { font-size: 18px; transition: transform .2s; }
@@ -192,22 +192,22 @@ body {
 .char-detail.detail-open > .char-detail-collapse { order: 1; }
 .char-detail-origin { font-size: 12.5px; line-height: 1.85; color: #33455f; background: #eef2f8; border: 1px dashed rgba(38,55,90,0.4); border-radius: 12px; padding: 12px 14px; }
 .char-detail-sec { margin-top: 20px; }
-.char-detail-sec-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 800; color: #1c2942; margin-bottom: 4px; }
-.char-detail-sec-title::before { content: ''; width: 3px; height: 14px; background: #26375a; border-radius: 999px; }
+.char-detail-sec-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 800; color: var(--char-navy-deep); margin-bottom: 4px; }
+.char-detail-sec-title::before { content: ''; width: 3px; height: 14px; background: var(--char-navy); border-radius: 999px; }
 .char-detail-list { list-style: none; padding: 0; margin: 0; }
 .char-detail-list li { position: relative; font-size: 12.5px; line-height: 1.75; color: #2d3c52; padding-left: 21px; margin-top: 8px; }
 .char-detail-list li::before { position: absolute; left: 2px; top: 0; font-weight: 800; }
 .char-detail-list.is-strength li::before { content: '✓'; color: #2F6F68; }
-.char-detail-list.is-shadow li::before { content: '!'; color: #a15c12; }
+.char-detail-list.is-shadow li::before { content: '!'; color: var(--char-tag-spark); }
 .char-detail-row { border-radius: 12px; background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); padding: 12px 14px; margin-top: 8px; }
-.char-detail-row-head { font-size: 12.5px; font-weight: 800; color: #26375a; margin-bottom: 5px; }
+.char-detail-row-head { font-size: 12.5px; font-weight: 800; color: var(--char-navy); margin-bottom: 5px; }
 .char-detail-row-text { font-size: 12.5px; line-height: 1.8; color: #2d3c52; }
 .char-tag-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 9px; }
 .char-tag-label { font-size: 11.5px; font-weight: 700; color: #3d4f6b; min-width: 74px; }
 .char-tag { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 4px 11px; border: 1px solid; }
 .char-tag.is-good { color: #1f6b5e; background: rgba(85,204,187,0.16); border-color: rgba(47,111,104,0.35); }
-.char-tag.is-spark { color: #a15c12; background: rgba(255,149,51,0.16); border-color: rgba(161,92,18,0.32); }
-.char-tag.is-clash { color: #a63d3d; background: rgba(196,80,80,0.13); border-color: rgba(166,61,61,0.30); }
+.char-tag.is-spark { color: var(--char-tag-spark); background: rgba(255,149,51,0.16); border-color: rgba(161,92,18,0.32); }
+.char-tag.is-clash { color: var(--char-tag-clash); background: rgba(196,80,80,0.13); border-color: rgba(166,61,61,0.30); }
 .char-detail-note { font-size: 11px; color: #5f6b7d; line-height: 1.6; margin-top: 16px; }
 
 .zone-label { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; color: var(--text-title); margin: 4px 0 14px; }
@@ -285,7 +285,7 @@ body {
 #gwansangCharacterCard .char-card-img-wrap, #dogamOwnerCard .char-card-img-wrap { width: 120px; height: 120px; }
 #gwansangCharacterCard .char-card-ribbon, #dogamOwnerCard .char-card-ribbon {
   display: inline-flex; align-items: center; background: rgba(255,255,255,0.65);
-  border: 1px solid rgba(38,55,90,0.35); color: #26375a; font-size: 11.5px; font-weight: 700;
+  border: 1px solid rgba(38,55,90,0.35); color: var(--char-navy); font-size: 11.5px; font-weight: 700;
   padding: 5px 14px; border-radius: 999px; line-height: 1.4;
 }
 #canvasCard.shell-strip { margin-bottom: 0; }
@@ -293,11 +293,11 @@ body {
   border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: none; margin-bottom: 0;
 }
 #gwansangCharacterDetail .char-detail, #dogamOwnerDetail .char-detail {
-  background: linear-gradient(179deg, #f6fdfb, #e6f6f1); border: 3px solid #26375a; border-top: none;
+  background: linear-gradient(179deg, #f6fdfb, #e6f6f1); border: 3px solid var(--char-navy); border-top: none;
   border-top-left-radius: 0; border-top-right-radius: 0; margin-top: 0;
   box-shadow: 0 4px 10px rgba(38,55,90,0.06);
 }
-#gwansangCharacterDetail .char-detail-headline, #dogamOwnerDetail .char-detail-headline { color: #26375a; }
+#gwansangCharacterDetail .char-detail-headline, #dogamOwnerDetail .char-detail-headline { color: var(--char-navy); }
 #cmbCharacterBasis .zone-basis {
   border: 1px solid var(--border); border-top: none; border-radius: 0; margin-bottom: 0;
 }
@@ -344,20 +344,20 @@ body {
 .z3-measure-name { font-size: 13px; font-weight: 700; color: var(--text-title); }
 .z3-measure-badge { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
 .z3-measure-badge.is-strong { color: var(--jade); background: var(--mint-10); }
-.z3-measure-badge.is-fill { color: #a15c12; background: rgba(255,149,51,0.14); }
+.z3-measure-badge.is-fill { color: var(--char-tag-spark); background: rgba(255,149,51,0.14); }
 .z3-measure-level { margin-left: auto; font-size: 11px; color: var(--text3); }
 .z3-measure-text { font-size: 12.5px; line-height: 1.75; color: var(--text); }
 .z3-measure-tip { font-size: 12px; line-height: 1.7; color: var(--text-sub); margin-top: 5px; }
 .char-trait-bars { margin-top: 10px; }
 .char-trait-row { display: flex; align-items: center; gap: 10px; margin-top: 7px; }
 .char-trait-label { width: 30px; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #6b7789; }
-.char-trait-row.is-top .char-trait-label { color: #26375a; }
+.char-trait-row.is-top .char-trait-label { color: var(--char-navy); }
 .char-trait-track { flex: 1; height: 9px; background: rgba(38,55,90,0.10); border-radius: 999px; overflow: hidden; }
 .char-trait-fill { display: block; height: 100%; border-radius: 999px; background: #c3cbd8; transition: width .8s ease; }
-.char-trait-row.is-top .char-trait-fill { background: linear-gradient(90deg, #3b5488, #26375a); }
+.char-trait-row.is-top .char-trait-fill { background: linear-gradient(90deg, #3b5488, var(--char-navy)); }
 .char-trait-caption { font-size: 12px; color: #4a5a72; margin-top: 12px; text-align: center; }
 .char-detail-acc { border-radius: 12px; background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); padding: 11px 14px; margin-top: 8px; }
-.char-detail-acc > summary { font-size: 12.5px; font-weight: 800; color: #26375a; cursor: pointer; list-style: none; }
+.char-detail-acc > summary { font-size: 12.5px; font-weight: 800; color: var(--char-navy); cursor: pointer; list-style: none; }
 .char-detail-acc > summary::-webkit-details-marker { display: none; }
 .char-detail-acc > summary::after { content: '＋'; float: right; color: #6b7789; font-weight: 700; }
 .char-detail-acc[open] > summary::after { content: '－'; }
@@ -955,7 +955,7 @@ body.overlay-open { overflow: hidden; }
 /* 도감 보관·삭제 안내(결과 화면 최하단) 전용 — Figma "Delete Info" 풋터(node 29:5672)는 등록 화면의
    같은 클래스(회색 카드)와 달리 반투명 화이트 + 네이비 톤 보더를 쓴다. */
 .dogam-policy.dogam-policy-footer { background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); border-radius: 12px; margin-top: 20px; }
-.dogam-policy.dogam-policy-footer > summary { color: #1c2942; }
+.dogam-policy.dogam-policy-footer > summary { color: var(--char-navy-deep); }
 .dogam-actions { margin-top: 16px; }
 .dogam-actions { text-align: center; } .dogam-share-btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -1254,7 +1254,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
   background: var(--card2); color: var(--text-sub);
 }
 .nh-badge.is-plus { background: var(--mint-10); color: var(--jade); }
-.nh-badge.is-minus { background: rgba(255,149,51,0.14); color: #a15c12; }
+.nh-badge.is-minus { background: rgba(255,149,51,0.14); color: var(--char-tag-spark); }
 .nh-who { flex: 1; font-size: 14px; font-weight: 700; color: var(--text-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nh-amount { flex: none; font-size: 14px; font-weight: 800; }
 .nh-amount.is-plus { color: var(--jade); }
@@ -1300,7 +1300,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
   background: var(--card2); color: var(--text-sub);
 }
 .ph-badge.is-plus { background: var(--mint-10); color: var(--jade); }
-.ph-badge.is-minus { background: rgba(255,149,51,0.14); color: #a15c12; }
+.ph-badge.is-minus { background: rgba(255,149,51,0.14); color: var(--char-tag-spark); }
 .ph-desc { flex: 1; font-size: 14px; font-weight: 700; color: var(--text-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ph-amount { flex: none; font-size: 14px; font-weight: 800; }
 .ph-amount.is-plus { color: var(--jade); }
