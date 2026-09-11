@@ -203,7 +203,11 @@
         isFirstSnapshot = false;
 
         const el = host();
-        if (el) el.innerHTML = renderOwnerView(myDogam);
+        // ⚠️ 버그 수정(2026-09-12, 사용자 리포트) — renderOwnerView 호출부가 8곳인데 그중 이 실시간
+        // 구독 콜백(친구가 새로 등록될 때마다 호출)만 suppressKeepNotice를 안 넘겨서, paintOwnerView가
+        // 정상적으로 숨긴 배너가 첫 스냅샷(onSnapshot은 초기 데이터에도 즉시 호출됨)에서 바로 다시
+        // #dogamSection 맨 위에 그려지고 있었다.
+        if (el) el.innerHTML = renderOwnerView(myDogam, { suppressKeepNotice: true });
         syncLiveBlocks();
       }, function (e) {
         console.error('[dogam] 실시간 구독 실패', e);
@@ -735,10 +739,32 @@
     }
     if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
     if (stale && stale()) return;
-    el.innerHTML = renderOwnerView(myDogam);
+    el.innerHTML = renderOwnerView(myDogam, { suppressKeepNotice: true });
+    insertKeepNoticeIntoCharDetail(); // Figma 실측대로 #dogamSection이 아니라 캐릭터 상세 카드 안에 넣는다
     syncLiveBlocks(); // 보관함에서 열어둔 도감 영역도 같은 내용으로 맞춘다(등록·삭제 직후 등)
     if (myDogam && myDogam.slug) watchEntries(myDogam.slug); else stopWatchingEntries();
     maybeShowLoginModal(myDogam); // 정책 2-1 3번 — 오너가 자기 도감(캐릭터 있음)을 볼 때만, 1회
+  }
+
+  // 사용자 요청(2026-09-11) — "인연도감을 소장하세요!" 배너를 #dogamSection 맨 위가 아니라
+  // #gwansangCharacterDetail(캐릭터 상세 카드) 안으로 옮긴다. Figma node 22:1219/26:3966 실측:
+  // "DogamCta"가 궁합 섹션(CompatWrap) 바로 다음, "Cnt" 카드의 마지막 자식이다. render()가 여러 번
+  // 불릴 수 있어(실시간 명부 갱신 등) 매번 이전 배너를 지우고 다시 넣는다.
+  // 사용자 요청(2026-09-11, 2차) — 토글 버튼(.char-detail-headline-row)을 눌러 상세 설명을 접어도
+  // (.char-detail-collapse가 hidden) 로그인 유도 배너는 계속 보여야 한다. 그래서 .char-detail-collapse
+  // "안"이 아니라 .char-detail의 형제 자식으로 붙인다 — 펼쳤을 때는 CSS order로 궁합 섹션 다음(=collapse
+  // 바로 뒤, 토글 버튼보다 앞) 자리를 유지하고(.char-detail.detail-open > .dogam-keep { order: 2 } 참고),
+  // 접었을 때는 collapse가 display:none이 돼도 이 배너는 형제라 그대로 남는다.
+  function insertKeepNoticeIntoCharDetail() {
+    const detail = document.querySelector('#gwansangCharacterDetail .char-detail');
+    if (!detail) return;
+    const old = detail.querySelector(':scope > .dogam-keep');
+    if (old) old.remove();
+    const loggedIn = !!currentUid() && !isAnonymousUser();
+    const html = keepNotice(loggedIn);
+    if (!html) return; // 로그인 상태면 안내 자체가 없다
+    const host = detail;
+    host.insertAdjacentHTML('beforeend', html);
   }
 
   // "내 도감 보러가기" — 공유 링크(?dogam=code)에 머물던 화면에서 사용자가 직접 눌러야만 내 도감으로
@@ -858,7 +884,7 @@
       wedgePaths += '<path d="' + tintPath + '" fill="' + meta.tint + '" opacity="0.4"></path>';
       const lp = polar(FRMAX + 58, mid);
       const count = entries.filter(function (e) { return e.relation === key; }).length;
-      wedgeLabels += '<div style="position:absolute;' + pctPos(lp.x, lp.y) + ';transform:translate(-50%,-50%);font-size:12.5px;font-weight:700;color:' + meta.deep + ';white-space:nowrap;">' + esc(key) + ' ' + count + '</div>';
+      wedgeLabels += '<div style="position:absolute;' + pctPos(lp.x, lp.y) + ';transform:translate(-50%,-50%);font-size:12px;font-weight:700;color:' + meta.deep + ';white-space:nowrap;">' + esc(key) + ' ' + count + '</div>';
       legendChips.push('<div style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;padding:4px 9px;border-radius:999px;border:1px solid rgba(43,38,32,.12);background:#fffdf6;color:#2b2620;"><div style="width:8px;height:8px;border-radius:50%;background:' + meta.color + ';flex:none;"></div><div>' + esc(key) + ' ' + count + '</div></div>');
     });
     const p0 = polar(FRMAX + 34, 180);
@@ -946,7 +972,7 @@
   function setEntryFilter(value) {
     entryFilter = value;
     if (myDogam && document.getElementById('dogamSection')) {
-      host().innerHTML = renderOwnerView(myDogam);
+      host().innerHTML = renderOwnerView(myDogam, { suppressKeepNotice: true });
       syncLiveBlocks();
     } else if (guestDogam) {
       renderGuestScreen(guestDogam);
@@ -986,12 +1012,18 @@
     render();
   }
 
-  function renderOwnerView(dogam) {
+  function renderOwnerView(dogam, opts) {
     const entries = (dogam && dogam.entries) || [];
     const count = entries.length;
     const filtered = applyEntryFilter(entries);
     // 익명 인증은 "로그인"이 아니다 — 기기/브라우저에 묶인 임시 신원이라 보관 안내는 계속 띄운다.
     const loggedIn = !!currentUid() && !isAnonymousUser();
+    // Figma node 22:1219/26:3966 실측 — "인연도감을 소장하세요!" 배너(DogamCta)는 #dogamSection이
+    // 아니라 캐릭터 상세 카드(Cnt) 안, 궁합 섹션 바로 다음에 있다. 관상 탭(paintOwnerView)은 이제
+    // 이 배너를 #gwansangCharacterDetail 안에 직접 넣으므로(insertKeepNoticeIntoCharDetail 참고)
+    // 여기서는 중복 노출을 막기 위해 뺀다. 보관함(renderIntoEl)은 캐릭터 카드가 축약판(renderOwnerBrief)
+    // 이라 이 배너를 넣을 자리가 마땅치 않아, 기존대로 opts 없이 호출해 여기서 계속 보여준다.
+    const suppressKeepNotice = !!(opts && opts.suppressKeepNotice);
 
     // "방금 맺은 인연" 표시 — lastMatch(내가 방금 도감을 만들며 상대를 자동 등록 — 서로 등록됨)나
     // liveJustMatched(누군가 내 도감에 방금 등록 — 실시간 구독)가 있으면, 그 사람의 명부 항목 자체를
@@ -1003,16 +1035,12 @@
 
     const list = filtered.length
       ? filtered.map(function (e) { return entryRow(e, { canDelete: true, justMatched: !!justMatchedUid && e.uid === justMatchedUid }); }).join('')
-      : (count ? '<p class="dogam-empty">이 조건에 맞는 인연이 없어요.</p>'
-               : '<p class="dogam-empty">아직 어떤 인연도 등록되지 않았어요.<br>친구들과 공유해서 내 인연을 등록해보세요.</p>');
+      : '<p class="dogam-empty">이 조건에 맞는 인연이 없어요.</p>'; // count===0은 아래에서 블록 자체를 안 그리므로 여긴 필터 결과 없음만 남는다
 
-    // 화면 순서는 Figma "공유인(오너)" 결과 화면(node 29:5444/5445) 기준 —
-    // 소장 안내 → 인연부채 → 명부 → 친구 초대 카드 → 사주 업셀 → 보관·삭제 안내(풋터).
-    // 예전엔 공유 버튼이 페이지 맨 위 단독 버튼이었는데, 이제 명부 아래 "친구에게 공유해보세요" 카드로
-    // 옮겨졌다(shareInviteCard 참고).
-    return '' +
-      keepNotice(loggedIn) +
-      renderFanChart(entries, dogam ? dogam.ownerName : '') +
+    // 인연도감 콘텐츠_노출 분기정책.md — "친구와의 인연정보(인연부채·명부) — 등록 전: 미노출, 등록 후: 노출"
+    // — 친구가 한 명도 등록하기 전(count===0)엔 명부(.dogam-block) 자체를 그리지 않는다. renderFanChart는
+    // 이미 entries.length===0일 때 ''를 반환해 같은 규칙을 지키고 있었다(0.6 이전부터).
+    const dogamBlock = count === 0 ? '' : (
       '<div class="dogam-block">' +
         '<div class="dogam-head">' +
           // ⚠️ 버그 수정(2026-09-08 — 콘솔에서 직접 확인: "Cannot read properties of null
@@ -1024,7 +1052,17 @@
         '</div>' +
         filterChips(entries) +
         '<div class="dogam-list">' + list + '</div>' +
-      '</div>' +
+      '</div>'
+    );
+
+    // 화면 순서는 Figma "공유인(오너)" 결과 화면(node 29:5444/5445) 기준 —
+    // 소장 안내 → 인연부채 → 명부 → 친구 초대 카드 → 사주 업셀 → 보관·삭제 안내(풋터).
+    // 예전엔 공유 버튼이 페이지 맨 위 단독 버튼이었는데, 이제 명부 아래 "친구에게 공유해보세요" 카드로
+    // 옮겨졌다(shareInviteCard 참고).
+    return '' +
+      (suppressKeepNotice ? '' : keepNotice(loggedIn)) +
+      renderFanChart(entries, dogam ? dogam.ownerName : '') +
+      dogamBlock +
       shareInviteCard(dogam ? dogam.ownerName : '') +
       combinedAnalysisCta() +
       policyBlock(!!dogam, loggedIn);
@@ -1048,7 +1086,9 @@
           '<span class="label">인연도감을 소장하세요!</span>' +
         '</div>' +
         '<p class="reassure-sub">이 인연도감은 현재 기기·브라우저에만 연결되어 있어, 연결이 끊기면 사라질 수 있어요. 지금 로그인해서 소중한 인연도감을 보관함에 넣어주세요!</p>' +
-        '<button class="submit-btn" onclick="Dogam.loginAndKeep()">로그인하고 내 인연도감 보관하기</button>' +
+        // Primary/Solid/Medium 컴포넌트(사용자 지정, 46px/14px) — 인연도감 보관하기 팝업 버튼과
+        // 같은 클래스로 통일했다(STYLE_GUIDE 7.2).
+        '<button class="btn-solid-primary btn-md" onclick="Dogam.loginAndKeep()">로그인하고 내 인연도감 보관하기</button>' +
       '</div>';
   }
 
@@ -1095,15 +1135,30 @@
           // 전부 0으로 죽이고 gap:8px 하나로만 통일해야 그룹 사이 20px가 확실히 더 크게 유지된다.
           '<div style="display:flex;flex-direction:column;gap:8px;">' +
             '<p class="dogam-guide" style="margin-bottom:0;font-size:16px;font-weight:800;color:var(--text-title);">인연도감을 계정에 보관할까요?</p>' +
-            '<p class="dogam-guide" style="margin-bottom:0;font-size:12.5px;color:var(--text-sub);">지금 로그인하면 접속 기기를 바꾸거나 브라우저 기록을 지워도 보관된 인연도감을 언제든지 펼치고 관리할 수 있어요.</p>' +
+            '<p class="dogam-guide" style="margin-bottom:0;font-size:12px;color:var(--text-sub);">지금 로그인하면 접속 기기를 바꾸거나 브라우저 기록을 지워도 보관된 인연도감을 언제든지 펼치고 관리할 수 있어요.</p>' +
             '<div class="tip-box" style="margin-top:0;">' +
-              '<span class="icon material-symbols-outlined">warning</span>' +
+              // Figma node 48:895 "Message/InfoBox" > Icon/Icons 실측 — alpha 마스크(Icon/Line/Info
+              // 도형) + 오렌지(#FF9533=--icon-orange) 사각형 채우기로 만든 아이콘. material-symbols
+              // "warning"은 다른 모양이라 실제 export된 SVG로 교체(이 팝업 한정 — 다른 tip-box는 아직
+              // 대조 전이라 그대로 둠).
+              '<svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+                '<mask id="mask0_48_1023" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">' +
+                  '<path d="M7.99996 1.33325C4.31997 1.33325 1.33331 4.31992 1.33331 7.99992C1.33331 11.6799 4.31997 14.6666 7.99996 14.6666C11.6799 14.6666 14.6666 11.6799 14.6666 7.99992C14.6666 4.31992 11.6799 1.33325 7.99996 1.33325ZM7.99996 11.3333C7.63329 11.3333 7.3333 11.0333 7.3333 10.6666V7.99992C7.3333 7.63325 7.63329 7.33325 7.99996 7.33325C8.36663 7.33325 8.66662 7.63325 8.66662 7.99992V10.6666C8.66662 11.0333 8.36663 11.3333 7.99996 11.3333ZM8.66662 5.99992H7.3333V4.66659H8.66662V5.99992Z" fill="#5B5B5B"/>' +
+                '</mask>' +
+                '<g mask="url(#mask0_48_1023)">' +
+                  '<rect width="15.9999" height="15.9999" fill="#FF9533"/>' +
+                '</g>' +
+              '</svg>' +
               '<p>지금 건너뛰면 이 인연도감은 현재 접속 기기에만 연결돼서, 사라질 수 있어요</p>' +
             '</div>' +
           '</div>' +
           '<div style="display:flex;flex-direction:column;gap:8px;">' +
-            '<button class="submit-btn" style="margin-top:0;" onclick="Dogam.dismissLoginModal();Dogam.loginAndKeep();">로그인하고 보관하기</button>' +
-            '<button type="button" style="display:block;width:100%;padding:10px;background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;" onclick="Dogam.snoozeLoginModal(\'' + dogam.slug + '\')">나중에 할게요</button>' +
+            // Primary/Solid/Medium 컴포넌트(사용자 지정, 46px/14px) — .dogam-keep 버튼과 같은 클래스.
+            '<button class="btn-solid-primary btn-md" onclick="Dogam.dismissLoginModal();Dogam.loginAndKeep();">로그인하고 보관하기</button>' +
+            // Figma node 48:895 "Frame 1261159294" 실측: height 46(SubmitBtn과 동일 탭 영역), 텍스트
+            // 14px/400 #666666 중앙 정렬 — 기존엔 --text2(리포트 카드 전용 색, 1.6 규칙 위반)와
+            // font-size 13px, padding 10px(높이가 더 얇음)였다. 팝업 화면이므로 --text-sub로 교체.
+            '<button type="button" style="display:flex;align-items:center;justify-content:center;width:100%;height:46px;background:none;border:none;color:var(--text-sub);font-size:14px;cursor:pointer;" onclick="Dogam.snoozeLoginModal(\'' + dogam.slug + '\')">나중에 할게요</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -1167,7 +1222,7 @@
     try {
       await fbDb.collection('dogam').doc(myDogam.slug).collection('entries').doc(uid).delete();
       myDogam.entries = (myDogam.entries || []).filter(function (x) { return x.uid !== uid; });
-      host().innerHTML = renderOwnerView(myDogam);
+      host().innerHTML = renderOwnerView(myDogam, { suppressKeepNotice: true });
       syncLiveBlocks();
     } catch (err) {
       alert('삭제 중 문제가 생겼어요. 잠시 후 다시 시도해줘.');
@@ -1526,7 +1581,8 @@
               '아니면 전혀 다른 상이 나올까요?</p>' +
           '</div>' +
         '</div>' +
-        '<button class="dogam-cta-btn" onclick="Dogam.goCombined()">관상에 사주까지 더해 깊게 보기' +
+        // Primary/Solid/Medium 컴포넌트(사용자 지정, 46px/14px)로 통일.
+        '<button class="dogam-cta-btn btn-solid-primary btn-md" onclick="Dogam.goCombined()">관상에 사주까지 더해 깊게 보기' +
           '<span class="material-symbols-outlined">chevron_right</span></button>' +
       '</div>';
   }

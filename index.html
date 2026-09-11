@@ -161,7 +161,8 @@ body {
 .report-back-btn:hover { color: var(--jade); }
 .report-back-btn .material-symbols-outlined { font-size: 19px; }
 
-.char-card { position: relative; background: linear-gradient(160deg, #f6fdfb, #e6f6f1); border: 3px solid var(--char-navy); border-radius: 22px; padding: 22px 16px 20px; text-align: center; overflow: hidden; }
+/* 사용자 지정(2026-09-11) — 그라디언트 제거(흰색, Figma 실측과 일치·0.6d 참고), padding 20px 20px로 통일. */
+.char-card { position: relative; background: #fff; border: 3px solid var(--char-navy); border-radius: 22px; padding: 20px 20px; text-align: center; overflow: hidden; }
 .char-card::before { content: ''; position: absolute; inset: 9px; border: 1.5px dashed rgba(38,55,90,0.35); border-radius: 15px; pointer-events: none; }
 .char-card-corner { position: absolute; font-size: 13px; color: var(--char-navy); line-height: 1; }
 .char-card-corner.tl { top: 14px; left: 16px; } .char-card-corner.tr { top: 14px; right: 16px; }
@@ -174,37 +175,58 @@ body {
 .char-card-img-wrap.no-mask img { object-fit: contain; }
 .char-card-ribbon { display: inline-block; background: var(--char-navy); color: #f3f7fb; font-size: 13px; font-weight: 700; line-height: 1.5; padding: 9px 20px; border-radius: 8px; max-width: 90%; }
 
-.char-detail { border-radius: 18px; padding: 12px 18px; margin-bottom: 16px; }
+/* 사용자 지정(2026-09-11): padding 0 16px 16px(위쪽 0 — .char-card와 이어붙는 이음매에 맞춤). */
+.char-detail { border-radius: 18px; padding: 8px 16px 16px; margin-bottom: 16px; }
+/* 사용자 지정 — .char-detail-collapse의 첫 번째 섹션만 margin-top을 뺀다(위 padding-top:8px와
+   .char-detail-sec의 margin-top:16px가 겹쳐 첫 섹션 위쪽만 유독 넓어 보였다). */
+.char-detail-collapse > .char-detail-sec:first-child { margin-top: 0; }
 .char-detail-head { text-align: center; margin-bottom: 16px; }
 .char-detail-role { display: inline-block; background: #eef2f8; border: 1px solid var(--char-navy); border-radius: 999px; padding: 3px 14px; font-size: 11px; font-weight: 700; color: var(--char-navy); letter-spacing: 0.5px; }
 .char-detail-headline { font-size: 15px; font-weight: 800; color: var(--char-navy-deep); line-height: 1.55; }
 .char-detail-headline-row { display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+/* Figma node 29:4375 "btn"(펼치기/접기 토글 알약) 실측 — 헤드라인이 아니라 회색 필 버튼이다:
+   배경 #f5f5f5, radius 999(피그마 100), padding 8px 4방향, gap 4, 텍스트 14px/500/#111111,
+   아이콘도 네이비가 아니라 #111111. 기존엔 그냥 15px/800/네이비 텍스트 + 배경 없음이었다. */
+.char-detail-headline.char-detail-headline-row {
+  background: #f5f5f5; border-radius: 999px; padding: 8px; gap: 4px;
+  font-size: 14px; font-weight: 500; color: #111111; line-height: 1.4;
+}
 .char-detail-toggle {
   flex-shrink: 0; background: none; border: none; padding: 0; color: var(--char-navy); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
+.char-detail-headline.char-detail-headline-row .char-detail-toggle { color: #111111; }
 .char-detail-toggle .material-symbols-outlined { font-size: 18px; transition: transform .2s; }
+.char-detail-headline.char-detail-headline-row .char-detail-toggle .material-symbols-outlined { font-size: 16px; }
 .char-detail-toggle.open .material-symbols-outlined { transform: rotate(180deg); }
-.char-detail-collapse { margin-top: 16px; }
 .char-detail-collapse.hidden { display: none; }
 .char-detail.detail-open { display: flex; flex-direction: column; }
-.char-detail.detail-open > .char-detail-headline-row { order: 2; margin-top: 16px; }
+/* 사용자 지정(2026-09-12, Figma 재확인) — 펼쳤을 때 순서는 궁합 섹션(collapse) → 토글 버튼(pill) →
+   소장 배너, 배너가 맨 아래(카드 하단 라운드 코너와 맞닿음)다. 토글은 "닫기 트리거"로 맨 위가 아니라
+   collapse 바로 다음에 오지만, 배너보다는 위다. */
 .char-detail.detail-open > .char-detail-collapse { order: 1; }
-.char-detail-origin { font-size: 12.5px; line-height: 1.85; color: #33455f; background: #eef2f8; border: 1px dashed rgba(38,55,90,0.4); border-radius: 12px; padding: 12px 14px; }
-.char-detail-sec { margin-top: 20px; }
-.char-detail-sec-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 800; color: var(--char-navy-deep); margin-bottom: 4px; }
+.char-detail.detail-open > .char-detail-headline-row { order: 2; margin-top: 16px; }
+.char-detail.detail-open > .dogam-keep { order: 3; }
+/* Figma node 22:1219 / 26:3966 "OriginBox" 실측: 배경 흰색 + 실선 네이비 1px, 폰트 12px — 기존
+   라벤더 틴트(#eef2f8) + 점선 네이비였다(0.6b에서 확인만 하고 보류했던 항목, 이번에 확정 반영). */
+.char-detail-origin { font-size: 12px; line-height: 1.85; color: #33455f; background: #ffffff; border: 1px solid var(--char-navy); border-radius: 12px; padding: 12px 14px; }
+.char-detail-sec { margin-top: 16px; }
+/* Figma "SecTitleRow" 실측: 14px(13.5px 아님). */
+.char-detail-sec-title { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 800; color: var(--char-navy-deep); margin-bottom: 4px; }
 .char-detail-sec-title::before { content: ''; width: 3px; height: 14px; background: var(--char-navy); border-radius: 999px; }
 .char-detail-list { list-style: none; padding: 0; margin: 0; }
-.char-detail-list li { position: relative; font-size: 12.5px; line-height: 1.75; color: #2d3c52; padding-left: 21px; margin-top: 8px; }
+/* Figma "CheckRow" 본문 실측: 12px(체크마크 자체는 12.5px였지만 본문 텍스트 비중이 커서 12px로 통일). */
+.char-detail-list li { position: relative; font-size: 12px; line-height: 1.75; color: #2d3c52; padding-left: 21px; margin-top: 8px; }
 .char-detail-list li::before { position: absolute; left: 2px; top: 0; font-weight: 800; }
 .char-detail-list.is-strength li::before { content: '✓'; color: #2F6F68; }
 .char-detail-list.is-shadow li::before { content: '!'; color: var(--char-tag-spark); }
 .char-detail-row { border-radius: 12px; background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); padding: 12px 14px; margin-top: 8px; }
-.char-detail-row-head { font-size: 12.5px; font-weight: 800; color: var(--char-navy); margin-bottom: 5px; }
-.char-detail-row-text { font-size: 12.5px; line-height: 1.8; color: #2d3c52; }
+.char-detail-row-head { font-size: 12px; font-weight: 800; color: var(--char-navy); margin-bottom: 5px; }
+.char-detail-row-text { font-size: 12px; line-height: 1.8; color: #2d3c52; }
 .char-tag-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 9px; }
 .char-tag-label { font-size: 11.5px; font-weight: 700; color: #3d4f6b; min-width: 74px; }
-.char-tag { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 4px 11px; border: 1px solid; }
+/* Figma "CompatChip" 실측: 10px(11.5px 아님), padding 11/4/11/4는 이미 일치. */
+.char-tag { font-size: 10px; font-weight: 700; border-radius: 999px; padding: 4px 11px; border: 1px solid; }
 .char-tag.is-good { color: #1f6b5e; background: rgba(85,204,187,0.16); border-color: rgba(47,111,104,0.35); }
 .char-tag.is-spark { color: var(--char-tag-spark); background: rgba(255,149,51,0.16); border-color: rgba(161,92,18,0.32); }
 .char-tag.is-clash { color: var(--char-tag-clash); background: rgba(196,80,80,0.13); border-color: rgba(166,61,61,0.30); }
@@ -239,7 +261,7 @@ body {
 
 .lifeline-group-head { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 0 8px; }
 .lifeline-group-head:first-child { margin-top: 2px; }
-.lifeline-group-name { font-size: 12.5px; font-weight: 800; }
+.lifeline-group-name { font-size: 12px; font-weight: 800; }
 .lifeline-group-pct { font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; }
 .lifeline-group-head.early .lifeline-group-name, .lifeline-group-head.early .lifeline-group-pct { color: var(--jade); }
 .lifeline-group-head.mid .lifeline-group-name, .lifeline-group-head.mid .lifeline-group-pct { color: var(--beige-chip-text); }
@@ -283,17 +305,24 @@ body {
 #cmbCharacterCard .char-card-img-wrap { border-color: var(--mint-border); }
 #gwansangCharacterCard .char-card-badge, #dogamOwnerCard .char-card-badge { display: none; }
 #gwansangCharacterCard .char-card-img-wrap, #dogamOwnerCard .char-card-img-wrap { width: 120px; height: 120px; }
+/* Figma node 22:1219 "TaglinePill" 실측: padding 16/7/16/7, radius 999, fill #eaf7f3(스트로크 없음),
+   text 14px/700 #26375a. #eaf7f3는 1.11에 "미확정 색"으로 남아있어 그대로 쓰지 않고 가장 가까운
+   기존 토큰(--mint-tint-10, mint 10% tint — 계산상 #eaf7f3와 거의 동일한 옅은 민트)으로 매핑했다.
+   기존 값(반투명 흰 배경 65% + padding 5/14 + font 11.5px)은 흰 CardInner 위에서 거의 안 보였다. */
 #gwansangCharacterCard .char-card-ribbon, #dogamOwnerCard .char-card-ribbon {
-  display: inline-flex; align-items: center; background: rgba(255,255,255,0.65);
-  border: 1px solid rgba(38,55,90,0.35); color: var(--char-navy); font-size: 11.5px; font-weight: 700;
-  padding: 5px 14px; border-radius: 999px; line-height: 1.4;
+  display: inline-flex; align-items: center; background: var(--mint-tint-10);
+  color: var(--char-navy); font-size: 14px; font-weight: 700;
+  padding: 7px 16px; border-radius: 999px; line-height: 1.4;
 }
 #canvasCard.shell-strip { margin-bottom: 0; }
+/* Figma node 22:1219 "Cnt"(fill #ffffff) / 26:3966 "Report Top"·"CardInner"(둘 다 fill #ffffff) 실측 —
+   그라디언트(#f6fdfb→#e6f6f1)가 아니라 단색 흰색이다. 이 카드는 위(hero, .char-card)/아래(상세,
+   .char-detail) DOM 두 조각으로 나뉘어 있지만 Figma에서는 하나의 흰 카드라 배경을 통일한다. */
 #gwansangCharacterCard .char-card, #dogamOwnerCard .char-card {
   border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: none; margin-bottom: 0;
 }
 #gwansangCharacterDetail .char-detail, #dogamOwnerDetail .char-detail {
-  background: linear-gradient(179deg, #f6fdfb, #e6f6f1); border: 3px solid var(--char-navy); border-top: none;
+  background: #fff; border: 3px solid var(--char-navy); border-top: none;
   border-top-left-radius: 0; border-top-right-radius: 0; margin-top: 0;
   box-shadow: 0 4px 10px rgba(38,55,90,0.06);
 }
@@ -332,12 +361,12 @@ body {
 .z3-ai { padding: 14px; border-top: 1px solid var(--border); }
 .z3-ai-title { font-size: 14.5px; font-weight: 800; color: var(--jade); line-height: 1.5; margin-bottom: 9px; }
 .z3-ai-body { font-size: 13px; line-height: 1.85; color: var(--text); }
-.z3-ai-sub { font-size: 12.5px; line-height: 1.75; color: var(--text-sub); margin-top: 9px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
+.z3-ai-sub { font-size: 12px; line-height: 1.75; color: var(--text-sub); margin-top: 9px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
 .z3-ai-sub b { color: var(--jade); }
 .z3-shape { padding: 12px 14px; border-top: 1px solid var(--border); background: var(--mint-05); }
-.z3-shape-head { font-size: 12.5px; color: var(--text-sub); margin-bottom: 6px; }
+.z3-shape-head { font-size: 12px; color: var(--text-sub); margin-bottom: 6px; }
 .z3-shape-head strong { color: var(--jade); font-weight: 800; }
-.z3-shape-line { font-size: 12.5px; line-height: 1.7; color: var(--text); }
+.z3-shape-line { font-size: 12px; line-height: 1.7; color: var(--text); }
 .z3-shape-line.is-dim { color: var(--text-sub); }
 .z3-measure { padding: 12px 14px; border-top: 1px solid var(--border); }
 .z3-measure-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 6px; }
@@ -346,7 +375,7 @@ body {
 .z3-measure-badge.is-strong { color: var(--jade); background: var(--mint-10); }
 .z3-measure-badge.is-fill { color: var(--char-tag-spark); background: rgba(255,149,51,0.14); }
 .z3-measure-level { margin-left: auto; font-size: 11px; color: var(--text3); }
-.z3-measure-text { font-size: 12.5px; line-height: 1.75; color: var(--text); }
+.z3-measure-text { font-size: 12px; line-height: 1.75; color: var(--text); }
 .z3-measure-tip { font-size: 12px; line-height: 1.7; color: var(--text-sub); margin-top: 5px; }
 .char-trait-bars { margin-top: 10px; }
 .char-trait-row { display: flex; align-items: center; gap: 10px; margin-top: 7px; }
@@ -355,11 +384,15 @@ body {
 .char-trait-track { flex: 1; height: 9px; background: rgba(38,55,90,0.10); border-radius: 999px; overflow: hidden; }
 .char-trait-fill { display: block; height: 100%; border-radius: 999px; background: #c3cbd8; transition: width .8s ease; }
 .char-trait-row.is-top .char-trait-fill { background: linear-gradient(90deg, #3b5488, var(--char-navy)); }
-.char-trait-caption { font-size: 12px; color: #4a5a72; margin-top: 12px; text-align: center; }
-.char-detail-acc { border-radius: 12px; background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); padding: 11px 14px; margin-top: 8px; }
-.char-detail-acc > summary { font-size: 12.5px; font-weight: 800; color: var(--char-navy); cursor: pointer; list-style: none; }
+.char-trait-caption { font-size: 12px; color: #4a5a72; margin-bottom: 6px; text-align: left; }
+/* Figma node 24:2791 "AccRow"(Medium) 실측: padding 12px 14px(11px 아니라 12px) — 사용자 지정대로
+   .dogam-policy-footer(Small)와 같은 padding으로 통일, 같은 아코디언 컴포넌트의 두 사이즈다. */
+.char-detail-acc { border-radius: 12px; background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); padding: 12px 14px; margin-top: 8px; }
+/* Figma "AccRow" 실측: 라벨 14px/600/#1c2942(--char-navy-deep), "+" 토글 400 — 기존 12.5px/800/
+   --char-navy(더 옅은 톤)·"+" 700이었다. */
+.char-detail-acc > summary { font-size: 14px; font-weight: 600; color: var(--char-navy-deep); cursor: pointer; list-style: none; }
 .char-detail-acc > summary::-webkit-details-marker { display: none; }
-.char-detail-acc > summary::after { content: '＋'; float: right; color: #6b7789; font-weight: 700; }
+.char-detail-acc > summary::after { content: '＋'; float: right; color: #6b7789; font-weight: 400; }
 .char-detail-acc[open] > summary::after { content: '－'; }
 .char-detail-acc > .char-detail-row-text { margin-top: 8px; }
 
@@ -459,9 +492,11 @@ body {
 .upload-icon-circle.small { width: 44px; height: 44px; font-size: 18px; margin-bottom: 8px; }
 .upload-area strong { display: block; color: var(--text-caption); font-size: 14px; font-weight: 400; margin: 0; }
 .upload-area p { color: var(--text-caption); font-size: 14px; margin: 0; }
+/* Figma "Message/InfoBox" 실측(node 22:425, 48:895 두 화면에서 동일하게 확인): padding 12/8/12/8
+   (좌우 12, 상하 8) — 기존 코드는 4방향 균등 12px였다. */
 .tip-box {
   display: flex; align-items: flex-start; gap: 8px; text-align: left;
-  background: var(--bg-info-yellow); border-radius: 8px; padding: 12px; margin-top: 12px;
+  background: var(--bg-info-yellow); border-radius: 8px; padding: 8px 12px; margin-top: 12px;
 }
 .tip-box .icon { font-size: 16px; color: var(--icon-orange); flex-shrink: 0; }
 .tip-box p { font-size: 12px !important; font-weight: 500; color: var(--text-sub2) !important; margin: 0 !important; }
@@ -524,7 +559,7 @@ body {
 .summary-box { background: var(--beige-bg); border: 1px solid var(--beige); border-radius: var(--r); padding: 18px; margin-top: 16px; font-size: 13px; line-height: 1.8; color: var(--text); }
 
 .snapshot-box { border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; margin-bottom: 16px; background: var(--card2); }
-.snapshot-row { font-size: 12.5px; line-height: 1.7; color: var(--text); margin-top: 4px; }
+.snapshot-row { font-size: 12px; line-height: 1.7; color: var(--text); margin-top: 4px; }
 .snapshot-row:first-child { margin-top: 0; }
 
 .report-accordion { margin-top: 8px; }
@@ -554,8 +589,11 @@ body {
   background: var(--surface); color: var(--text-sub); font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
 }
 
-:root { --btn-h-lg: 54px; --btn-h-md: 44px; --btn-h-sm: 32px; }
-.btn-md { height: var(--btn-h-md); padding: 0 18px; font-size: 15px; margin-top: 0; }
+/* 사용자 지정(2026-09-11, Figma "Primary/Solid/Medium" 컴포넌트 기준) — Medium 버튼은 44px/15px가
+   아니라 46px/14px다. 인연도감 결과 화면(#dogamSection > .dogam-keep 배너, 인연도감 보관하기 팝업)
+   두 곳에서 같은 값으로 확정돼 STYLE_GUIDE 7.2도 이 값으로 갱신했다. */
+:root { --btn-h-lg: 54px; --btn-h-md: 46px; --btn-h-sm: 32px; }
+.btn-md { height: var(--btn-h-md); padding: 0 18px; font-size: 14px; margin-top: 0; }
 .btn-sm { height: var(--btn-h-sm); padding: 0 14px; font-size: 12px; margin-top: 0; }
 
 .cta-dock {
@@ -572,6 +610,11 @@ body {
    그냥 나열돼 있었다. */
 .dogam-form-card { background: var(--surface); border-radius: 16px; padding: 16px; }
 .dogam-form-card-title { font-size: 16px; font-weight: 800; color: var(--text-title); margin-bottom: 16px; }
+/* Figma node 22:425 "Background+Border"(Face Upload Area) 실측: padding 16px 4방향 전부, radius 12px
+   (기존 --r-drop과 이미 일치), stroke #dddddd 2px(기존 --border-gray2와 이미 일치) — padding만
+   공용 .upload-area 기본값(24px 20px)과 달라서 이 화면(#uploadArea)에서만 덮어쓴다. 사주(#cmbUploadArea),
+   궁합(#ggUploadA/B)은 다른 참고 화면(node 2:2919)이라 이번엔 건드리지 않음 — STYLE_GUIDE.md 12번 참고. */
+#uploadArea { padding: 16px; }
 .panel-scroll-area { padding: 0 0 calc(var(--cta-h) + var(--nav-h) + 16px); }
 
 .pillars-table { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
@@ -682,11 +725,11 @@ body {
 .part-meaning { font-size: 13px; color: var(--text); line-height: 1.7; margin-bottom: 10px; }
 .part-tip { font-size: 12px; color: var(--text2); line-height: 1.7; margin-bottom: 4px; }
 .routine-list { list-style: none; margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.routine-list li { font-size: 12.5px; color: var(--text); line-height: 1.6; padding-left: 20px; position: relative; }
+.routine-list li { font-size: 12px; color: var(--text); line-height: 1.6; padding-left: 20px; position: relative; }
 .routine-list li::before { content: '✓'; position: absolute; left: 0; color: var(--jade); font-weight: 900; }
 .chemi-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
 .chemi-title { font-size: 13px; font-weight: 800; color: var(--jade); margin-bottom: 8px; }
-.chemi-role { font-size: 12.5px; color: var(--text); line-height: 1.8; margin-bottom: 4px; }
+.chemi-role { font-size: 12px; color: var(--text); line-height: 1.8; margin-bottom: 4px; }
 .dom-bar { margin-top: 14px; }
 .dom-bar-track { display: flex; height: 10px; border-radius: 999px; overflow: hidden; }
 .dom-bar-fill { height: 100%; }
@@ -699,7 +742,7 @@ body {
 .metric-caption { font-size: 11.5px; color: var(--text2); line-height: 1.6; margin-top: 4px; }
 .moment-card { background: var(--beige-bg); border: 1px solid var(--beige); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
 .moment-title { font-size: 13px; font-weight: 800; color: var(--beige-chip-text); margin-bottom: 6px; }
-.moment-tip { font-size: 12.5px; color: var(--text); line-height: 1.7; margin-top: 6px; }
+.moment-tip { font-size: 12px; color: var(--text); line-height: 1.7; margin-top: 6px; }
 
 .ai-card { border: 1.5px solid var(--mint-border); border-radius: var(--r); padding: 18px; background: var(--mint-tint-10); margin-top: 16px; }
 .ai-badge { display: inline-block; font-size: 11px; font-weight: 800; color: var(--ink); background: var(--mint); padding: 4px 10px; border-radius: 999px; }
@@ -710,32 +753,32 @@ body {
 .gg-item { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 14px 16px; margin-bottom: 10px; }
 .gg-item-head { font-size: 13.5px; font-weight: 800; color: var(--jade); margin-bottom: 8px; }
 .gg-item-reading { font-size: 13px; line-height: 1.85; color: var(--text); }
-.gg-item-basis { font-size: 12.5px; line-height: 1.75; color: var(--text-sub); margin-top: 10px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
+.gg-item-basis { font-size: 12px; line-height: 1.75; color: var(--text-sub); margin-top: 10px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
 .gg-item-basis b { color: var(--jade); }
 .gg-basis-acc { margin-top: 10px; }
-.gg-basis-acc > summary { font-size: 12.5px; font-weight: 700; color: var(--jade); cursor: pointer; list-style: none; }
+.gg-basis-acc > summary { font-size: 12px; font-weight: 700; color: var(--jade); cursor: pointer; list-style: none; }
 .gg-basis-acc > summary::-webkit-details-marker { display: none; }
 .gg-basis-acc > summary::before { content: '▸ '; }
 .gg-basis-acc[open] > summary::before { content: '▾ '; }
-.gg-basis-acc > .gg-basis-content { font-size: 12.5px; line-height: 1.75; color: var(--text-sub); margin-top: 8px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
+.gg-basis-acc > .gg-basis-content { font-size: 12px; line-height: 1.75; color: var(--text-sub); margin-top: 8px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
 
-.cmb-cd-label { font-size: 12.5px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.cmb-cd-label { font-size: 12px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
 .cmb-diff-row { padding: 10px 0; border-top: 1px dashed var(--border); }
 .cmb-diff-row:first-of-type { border-top: none; }
-.cmb-diff-row .face { font-size: 12.5px; font-weight: 700; color: var(--jade); }
-.cmb-diff-row .saju { font-size: 12.5px; font-weight: 700; color: var(--beige-chip-text); margin-top: 4px; }
+.cmb-diff-row .face { font-size: 12px; font-weight: 700; color: var(--jade); }
+.cmb-diff-row .saju { font-size: 12px; font-weight: 700; color: var(--beige-chip-text); margin-top: 4px; }
 
 .archetype-card { display: flex; gap: 14px; align-items: flex-start; border: 1.5px solid var(--mint-border); border-radius: var(--r); padding: 14px 16px; margin-top: 10px; background: var(--mint-tint-10); }
 .archetype-icon { flex-shrink: 0; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: var(--surface); border-radius: 12px; }
 .archetype-type-label { font-size: 10px; font-weight: 800; color: var(--jade); letter-spacing: 0.5px; margin-bottom: 3px; }
 .archetype-title { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
 .archetype-hanja { font-size: 12px; color: var(--text2); font-weight: 400; }
-.archetype-glance { font-size: 12.5px; color: var(--text); line-height: 1.6; margin-bottom: 6px; }
+.archetype-glance { font-size: 12px; color: var(--text); line-height: 1.6; margin-bottom: 6px; }
 .archetype-traditional { font-size: 12px; color: var(--beige-chip-text); line-height: 1.6; margin-bottom: 6px; }
 .archetype-keywords { font-size: 11px; color: var(--jade); }
 
 .shape-detail-row { border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-top: 8px; background: var(--card2); }
-.shape-detail-head { font-size: 12.5px; color: var(--text); margin-bottom: 5px; }
+.shape-detail-head { font-size: 12px; color: var(--text); margin-bottom: 5px; }
 .shape-detail-text { font-size: 12px; color: var(--text2); line-height: 1.6; }
 .shape-coaching { font-size: 12px; color: var(--jade); line-height: 1.6; margin-top: 4px; }
 .ai-status-msg { text-align: center; font-size: 12px; color: var(--text2); margin-top: 8px; }
@@ -777,6 +820,11 @@ body.overlay-open { overflow: hidden; }
 .popup-footer { display: flex; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--border-lavender); }
 .popup-footer .btn-outline-primary { flex: 0 0 100px; }
 .popup-footer .btn-solid-primary { flex: 1; margin-top: 0; }
+
+/* 인연도감 보관하기 팝업(Figma node 48:895) 전용 오버라이드 — 공용 .popup-header/.popup-body/
+   .submit-btn 기본값을 바꾸지 않고 이 팝업(#dogamLoginModalRoot)에서만 재정의한다. */
+#dogamLoginModalRoot .popup-header { height: 56px; padding: 12px 20px; }
+#dogamLoginModalRoot .popup-body { gap: 16px; }
 
 .field-group { display: flex; flex-direction: column; gap: 8px; }
 .field-label { font-size: 14px; font-weight: 500; color: var(--text-strong); }
@@ -896,7 +944,7 @@ body.overlay-open { overflow: hidden; }
 .admin-user-info { flex: 1; min-width: 140px; }
 .admin-user-name { font-size: 13px; font-weight: 700; color: var(--text-strong); }
 .admin-user-sub { font-size: 11.5px; color: var(--text-sub); margin-top: 2px; }
-.admin-grant-amount { width: 64px; padding: 8px; border: 1px solid var(--border-gray); border-radius: 8px; font-family: inherit; font-size: 12.5px; }
+.admin-grant-amount { width: 64px; padding: 8px; border: 1px solid var(--border-gray); border-radius: 8px; font-family: inherit; font-size: 12px; }
 .admin-grant-reason { padding: 8px; border: 1px solid var(--border-gray); border-radius: 8px; font-family: inherit; font-size: 12px; background: var(--surface); }
 
 .dogam-block { background: var(--surface); border: 1px solid var(--border-lavender); border-radius: 16px; padding: 16px 20px; margin-top: 20px; }
@@ -944,22 +992,28 @@ body.overlay-open { overflow: hidden; }
 .dogam-detail-divider { height: 1px; background: var(--border-lavender); margin: 18px 0; }
 .dogam-detail-subhead { font-size: 14px; font-weight: 700; color: var(--text-title); margin-bottom: 12px; }
 .dogam-detail-cta { margin-top: 14px; }
-.dogam-detail-cta p { font-size: 12.5px; line-height: 1.6; color: var(--text-sub2); margin: 0 0 10px; }
-.dogam-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-strong); margin-bottom: 12px; cursor: pointer; }
+.dogam-detail-cta p { font-size: 12px; line-height: 1.6; color: var(--text-sub2); margin: 0 0 10px; }
+.dogam-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.6; color: var(--text-strong); margin-bottom: 12px; cursor: pointer; }
 .dogam-check input { margin-top: 2px; flex-shrink: 0; }
 .dogam-policy { margin-top: 12px; background: var(--card2); border-radius: var(--r-input); padding: 11px 14px; }
 .dogam-policy > summary { font-size: 12px; font-weight: 600; color: var(--text-strong); cursor: pointer; }
 .dogam-policy-item { margin-top: 12px; }
-.dogam-policy-item b.dogam-policy-q { display: block; font-size: 12.5px; color: var(--text-strong); margin-bottom: 3px; }
+.dogam-policy-item b.dogam-policy-q { display: block; font-size: 12px; color: var(--text-strong); margin-bottom: 3px; }
 .dogam-policy-item p { font-size: 12px; line-height: 1.7; color: var(--text-sub2); }
-/* 도감 보관·삭제 안내(결과 화면 최하단) 전용 — Figma "Delete Info" 풋터(node 29:5672)는 등록 화면의
-   같은 클래스(회색 카드)와 달리 반투명 화이트 + 네이비 톤 보더를 쓴다. */
-.dogam-policy.dogam-policy-footer { background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); border-radius: 12px; margin-top: 20px; }
-.dogam-policy.dogam-policy-footer > summary { color: var(--char-navy-deep); }
+/* 도감 보관·삭제 안내(결과 화면 최하단) 전용 — Figma "Delete Info"(node 29:5431, Small 사이즈)는
+   등록 화면의 같은 클래스(회색 카드)와 달리 반투명 화이트 + 네이비 톤 보더를 쓴다. padding 12px 14px는
+   "상황별로 보면"(.char-detail-acc, Medium)과 같은 값 — 사용자 지정대로 Small/Medium이 같은 아코디언
+   컴포넌트의 두 사이즈다. 텍스트 색도 Figma 실측대로 --text-sub(#666666)로 고쳤다(기존엔 --char-navy-deep,
+   더 짙은 톤이었다 — 상황별 아코디언 라벨과 헷갈려서 그대로 옮겨온 값으로 보인다). */
+.dogam-policy.dogam-policy-footer { background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); border-radius: 12px; padding: 12px 14px; margin-top: 20px; }
+.dogam-policy.dogam-policy-footer > summary { color: var(--text-sub); }
 .dogam-actions { margin-top: 16px; }
-.dogam-actions { text-align: center; } .dogam-share-btn {
+.dogam-actions { text-align: center; }
+/* Figma node 22:1219 "DogamShareBtn" 실측: padding 14/8/14/8(좌우14·상하8) — 기존 12px 14px(상하가
+   더 두꺼움)에서 상하만 8로 맞춤. gap6·radius(--r-btn)·border-gray·13px/700/--text-sub는 이미 일치. */
+.dogam-share-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  width: auto; padding: 12px 14px; border-radius: var(--r-btn); border: 1px solid var(--border-gray);
+  width: auto; padding: 8px 14px; border-radius: var(--r-btn); border: 1px solid var(--border-gray);
   background: var(--surface); color: var(--text-sub); font-size: 13px; font-weight: 700;
   cursor: pointer; font-family: inherit; margin-top: 8px;
 }
@@ -967,10 +1021,12 @@ body.overlay-open { overflow: hidden; }
 .dogam-share-btn .material-symbols-outlined { font-size: 17px; }
 /* 인연도감을 소장하세요! 배너 — Figma "DogamCta"(node 29:6068, 등록 카드 안쪽에 붙는 저장 유도)
    스펙: 카드2 배경(#f0f4f3=--card2) + radius16, 제목 14px/800, 본문 12px Regular. */
-.dogam-keep { margin: 20px 0 0; background: var(--card2); border-radius: 16px; padding: 16px; }
+.dogam-keep { margin: 16px 0 0; background: var(--card2); border-radius: 16px; padding: 16px; }
 .dogam-keep .reassure-head .label { font-size: 14px; font-weight: 800; color: var(--text-title); }
 .dogam-keep .reassure-sub { font-size: 12px; color: var(--text-sub); }
-.dogam-keep .submit-btn { margin-top: 12px; font-size: 14px; padding: 13px; }
+/* 사용자 지정 — Primary/Solid/Medium 컴포넌트(.btn-solid-primary.btn-md, 46px/14px)로 통일.
+   간격(margin-top)만 이 배너 안에서 재정의한다. */
+.dogam-keep .btn-md { margin-top: 12px; }
 /* 친구에게 공유해보세요 카드 — Figma "ReassureBoxKeep"(node 29:6035). 명부 카드 바로 아래, 사주 CTA
    위에 항상 노출되는 초대 카드로 이전엔 페이지 맨 위 단독 버튼(.dogam-share-btn)이었다. */
 .dogam-share-card {
@@ -998,14 +1054,12 @@ body.overlay-open { overflow: hidden; }
 }
 .dogam-cta-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
 .dogam-cta-text { flex: 1; min-width: 0; }
-.dogam-cta-title { font-size: 14px; font-weight: 800; color: var(--text-title); }
+/* Figma node 22:1219 "DogamCtaHead > TextCol" 실측: 타이틀 16px/800(14px 아님). */
+.dogam-cta-title { font-size: 16px; font-weight: 800; color: var(--text-title); }
 .dogam-cta-copy { font-size: 12px; line-height: 1.6; color: var(--text-sub); margin-top: 4px; }
-.dogam-cta-btn {
-  display: flex; align-items: center; justify-content: center; gap: 2px; width: 100%;
-  padding: 15px; border: none; border-radius: var(--r-btn); background: var(--mint); color: #fff;
-  font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity .15s;
-}
-.dogam-cta-btn:hover { opacity: .9; }
+/* 사용자 지정 — Primary/Solid/Medium 컴포넌트(.btn-solid-primary.btn-md)로 통일. 아이콘과 나란히
+   배치하는 flex 레이아웃 + 아이콘 간격/크기만 이 버튼 전용으로 남긴다. */
+.dogam-cta-btn { display: flex; align-items: center; justify-content: center; gap: 2px; }
 .dogam-cta-btn .material-symbols-outlined { font-size: 20px; }
 
 .cmb-hero-card {
@@ -1022,12 +1076,12 @@ body.overlay-open { overflow: hidden; }
   font-size: 12px; font-weight: 700; color: var(--jade); margin-bottom: 14px;
 }
 .cmb-hero-title { font-size: 21px; font-weight: 900; line-height: 1.35; color: var(--ink); letter-spacing: -0.2px; }
-.cmb-hero-sub { font-size: 12.5px; line-height: 1.6; color: var(--text2); margin-top: 10px; max-width: 92%; }
+.cmb-hero-sub { font-size: 12px; line-height: 1.6; color: var(--text2); margin-top: 10px; max-width: 92%; }
 .cmb-hero-img { width: 108px; height: 108px; flex-shrink: 0; }
 .cmb-hero-img img { width: 100%; height: 100%; object-fit: contain; }
 @media (max-width: 360px) { .cmb-hero-img { width: 84px; height: 84px; } }
 .dogam-delete-btn { display: block; width: 100%; margin-top: 16px; padding: 11px; border: 1px solid var(--border-gray);
-  border-radius: var(--r-btn); background: var(--surface); color: #b04a4a; font-size: 12.5px; font-weight: 700;
+  border-radius: var(--r-btn); background: var(--surface); color: #b04a4a; font-size: 12px; font-weight: 700;
   cursor: pointer; font-family: inherit; }
 .dogam-delete-btn:hover { border-color: #b04a4a; }
 /* ⚠️ 2026-09-09 공통 영역 설계로 .legal-footer가 인연도감 결과 화면 안(패널 최하단, CTA/탭바와
@@ -1100,14 +1154,14 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 .legal-doc article.clause ol.items > li, .legal-doc article.clause ul.items > li { position: relative; padding-left: 22px; margin-bottom: 7px; line-height: 1.75; font-size: 13.5px; }
 .legal-doc article.clause ol.items { counter-reset: item; }
 .legal-doc article.clause ol.items > li { counter-increment: item; }
-.legal-doc article.clause ol.items > li::before { content: counter(item); position: absolute; left: 0; top: 0; color: var(--lg-jade); font-weight: 700; font-size: 12.5px; }
+.legal-doc article.clause ol.items > li::before { content: counter(item); position: absolute; left: 0; top: 0; color: var(--lg-jade); font-weight: 700; font-size: 12px; }
 .legal-doc article.clause ul.items > li::before { content: '—'; position: absolute; left: 0; top: 0; color: var(--lg-text3); }
 .legal-doc .callout { background: var(--lg-mint-soft); border: 1px solid var(--lg-mint-border); border-radius: 10px; padding: 13px 16px; margin: 12px 0; font-size: 13px; line-height: 1.7; color: var(--lg-text); }
 .legal-doc .callout b { color: var(--lg-jade); }
 .legal-doc .callout.warn { background: var(--lg-rose-bg); border-color: var(--lg-rose-border); }
 .legal-doc .callout.warn b { color: var(--lg-rose-text); }
 .legal-doc .table-wrap { overflow-x: auto; margin: 12px 0 16px; }
-.legal-doc table.rate, .legal-doc table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 420px; }
+.legal-doc table.rate, .legal-doc table.data { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 420px; }
 .legal-doc table.rate th, .legal-doc table.rate td, .legal-doc table.data th, .legal-doc table.data td { border: 1px solid var(--lg-border); padding: 8px 10px; text-align: left; vertical-align: top; }
 .legal-doc table.rate th, .legal-doc table.data th { background: var(--lg-paper); color: var(--lg-text2); font-weight: 700; font-size: 12px; }
 .legal-doc table.rate td, .legal-doc table.data td { background: var(--lg-paper2); }
@@ -1128,7 +1182,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 .revisit-body { flex: 1; min-width: 0; }
 .revisit-name { font-size: 15px; font-weight: 800; color: var(--text-title); }
 .revisit-desc {
-  font-size: 12.5px; color: var(--text-sub2); margin-top: 2px;
+  font-size: 12px; color: var(--text-sub2); margin-top: 2px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -1182,7 +1236,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 .nyang-count-num { font-size: 20px; font-weight: 800; color: var(--jade); line-height: 1; }
 .nyang-count-num.is-use { color: var(--icon-orange); }
 .nyang-count-num.is-short { color: #c94a4a; }
-.nyang-dialog-short { font-size: 12.5px; color: #c94a4a; line-height: 1.6; margin: 10px 0 0; }
+.nyang-dialog-short { font-size: 12px; color: #c94a4a; line-height: 1.6; margin: 10px 0 0; }
 .nyang-dialog .confirm-actions { margin-top: 16px; }
 .nyang-dialog-profile-label { font-size: 12px; color: var(--text-sub); text-align: left; margin: 18px 0 6px; }
 .nyang-dialog-profile {
@@ -1229,7 +1283,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 .shop-row.is-selected { background: var(--mint-10); }
 .shop-row-info { flex: 1; }
 .shop-row-name { font-size: 15px; font-weight: 700; color: var(--text-title); }
-.shop-row-desc { font-size: 12.5px; color: var(--mint); font-weight: 600; margin-top: 4px; }
+.shop-row-desc { font-size: 12px; color: var(--mint); font-weight: 600; margin-top: 4px; }
 .shop-row-price { font-size: 17px; font-weight: 800; color: var(--text-heading); }
 .shop-cta-dock { padding: 24px 0 8px; }
 .shop-cta-dock .submit-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
@@ -1238,12 +1292,12 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 .nh-tabs { display: flex; gap: 6px; padding: 4px 0 14px; flex-wrap: wrap; }
 .nh-tab {
   padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border-gray); background: var(--surface);
-  color: var(--text-sub); font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+  color: var(--text-sub); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
 }
 .nh-tab.is-on { border-color: var(--mint); background: var(--mint-10); color: var(--jade); font-weight: 800; }
 .nh-summary {
   display: flex; gap: 14px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 10px;
-  border-radius: 12px; background: var(--card2); font-size: 12.5px; font-weight: 700; color: var(--text-sub);
+  border-radius: 12px; background: var(--card2); font-size: 12px; font-weight: 700; color: var(--text-sub);
 }
 .nh-summary .is-plus { color: var(--jade); }
 .nh-summary .is-minus { color: var(--icon-orange); }
@@ -1264,7 +1318,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 .nh-empty { font-size: 13px; color: var(--text-sub2); padding: 28px 4px; text-align: center; line-height: 1.7; }
 .nh-search-row-wrap { display: flex; gap: 8px; padding: 4px 0 12px; }
 .nh-search-row-wrap .field-input { flex: 1; min-width: 0; }
-.nh-search-msg { font-size: 12.5px; color: var(--text-sub2); padding: 4px 2px 12px; }
+.nh-search-msg { font-size: 12px; color: var(--text-sub2); padding: 4px 2px 12px; }
 .nh-search-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
 .nh-search-row {
   display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 11px 14px; text-align: left;
@@ -1289,7 +1343,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 
 .ph-summary {
   display: flex; gap: 14px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 10px;
-  border-radius: 12px; background: var(--card2); font-size: 12.5px; font-weight: 700; color: var(--text-sub);
+  border-radius: 12px; background: var(--card2); font-size: 12px; font-weight: 700; color: var(--text-sub);
 }
 .ph-summary .is-plus { color: var(--jade); }
 .ph-summary .is-minus { color: var(--icon-orange); }
@@ -1571,7 +1625,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 
         <div class="z3-pair-card" style="margin-top:16px;">
           <div class="z3-pair-title">🌳 오행 에너지 비교</div>
-          <div id="cmbOhaengCompareTable" style="color:var(--text2);font-size:12.5px;">사진이 있어야 볼 수 있어요.</div>
+          <div id="cmbOhaengCompareTable" style="color:var(--text2);font-size:12px;">사진이 있어야 볼 수 있어요.</div>
           <div class="oh-headline-split">
             <div class="oh-headline-box face" id="cmbOhaengFaceHead"></div>
             <div class="oh-headline-box saju" id="cmbOhaengSajuHead"></div>
@@ -1595,8 +1649,8 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <div class="z3-pair-card" style="margin-top:16px;">
           <div class="z3-pair-title">🌊 대운 x 🎭 삼정 — 인생 타임라인</div>
           <div class="metric-caption" style="margin-bottom:8px;">%는 실제 얼굴에서 이마(초년)·눈코(중년)·인중~턱(말년)이 차지하는 비율이에요 — 셋을 합치면 100%인 파이 조각이라 낮다고 그 시기가 나쁜 게 아니에요. ⭐좋은 시기는 이 얼굴 비율과 무관하게, 사주로 계산한 그 10년의 십이운성이 상승기라는 별개의 표시예요.</div>
-          <div id="cmbLifelineNow" style="font-size:12.5px;color:var(--text);margin-bottom:6px;"></div>
-          <div class="lifeline" id="cmbLifeline" style="color:var(--text2);font-size:12.5px;">사진이 있어야 볼 수 있어요.</div>
+          <div id="cmbLifelineNow" style="font-size:12px;color:var(--text);margin-bottom:6px;"></div>
+          <div class="lifeline" id="cmbLifeline" style="color:var(--text2);font-size:12px;">사진이 있어야 볼 수 있어요.</div>
                     <div id="cmbZone3Reading3" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
         </div>
 

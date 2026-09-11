@@ -10,24 +10,386 @@
 > 실제 코드에 이미 있는 값과 대조해서 일치하는 것만 표로 확정했다(아래 각 섹션에 실측 근거 명시).
 > 목적: 새 페이지·섹션을 추가하거나 기존 화면을 고칠 때마다 컬러·간격·레이어 규칙이 매번
 > 조금씩 어긋나는 문제를 막는다. **이 문서 + `CLAUDE.md`를 먼저 읽고 작업한다.**
+> 2026-09-11 추가 업데이트: 0번을 "노드구조 불필요" → "필요"로 번복하고, 피그마 노드 구조를 어떻게
+> 뽑아서 문서화하는지(REST API/MCP 절차, 트리 표기 포맷, 토큰 매핑 규칙) 상세 가이드로 다시 썼다 —
+> [인연도감 등록 화면](https://www.figma.com/design/db1VP9BKUPFb09qBa6hBLu/Untitled?node-id=22-425)을
+> 그 절차로 실측해 `#panel-gwansang` 구현과 전부 대조했고(0.6), `.upload-area` padding 불일치 1건만
+> 발견해 12번에 등록했다.
 
 
 
 ---
 
-## 0. "노드구조로 만들어야 하니?" — 결론: 아니오
+## 0. 피그마 노드 구조 추출 가이드 — 결론: 필요하다 (이전 "아니오" 결론 번복)
 
+> 2026-09-11 번복: 이전 버전은 "지금 스타일이 깨지는 원인은 간격·z-index 토큰 부재 두 가지뿐이라 노드구조는
+> 필요 없다"고 결론 냈었다. 하지만 실제로 화면을 하나씩 피그마와 대조해보면(`node 22:431 "Form Card"`,
+> `node 29:5672 "Delete Info"`, `node 51:1805` 등 — 이미 `index.html` 주석 곳곳에 이렇게 남아있다) 매번
+> **오토레이아웃 방향·padding·gap·radius·상태 분기**를 코드와 눈대중으로만 비교하고 있었다 — 그때그때 스크린샷
+> 보고 감으로 맞추는 방식이라 재현성이 없고, 다음 사람(다음 세션의 나 포함)이 "이 padding이 실측인지 감인지"
+> 알 수 없었다. **그래서 "값 토큰화"뿐 아니라 "그 값을 어떻게 뽑았는지"까지 문서화한다** — 이 0번이 그 절차다.
+> 새 화면·섹션을 피그마 기반으로 만들 때는 아래 0.1~0.7 절차를 따르고, 그 결과 얻은 노드 트리를 (요약해서)
+> 이 문서 또는 코드 주석에 남긴다.
 
-실제로 지금 스타일이 깨지는 원인은 두 가지였다(아래에서 실측):
-1. **간격 값이 토큰화되어 있지 않다** — `padding`/`margin`/`gap`에 4px 배수 값과 5·7·9·13·15·18px 같은
-   임의 값이 섞여 있다(예: `12px`가 81번, `13px`가 6번, `15px`가 9번 등). 새 섹션을 만들 때 기준이 없으니
-   작업할 때마다 감으로 값을 정하게 된다.
-2. **z-index가 그때그때 주석으로만 관리된다** — `100, 101, 102, 103, 120, 200, 300` 같은 값이 스타일시트
-   여기저기 흩어져 있고, "마이페이지 팝업(101) 위에 떠야 하니 102" 식으로 이전 값을 찾아가며 다음 값을
-   정해왔다. 정해진 스케일이 없어 새 오버레이를 추가할 때마다 헤맨다.
+### 0.1 언제 이 절차를 쓰나
+- 새 화면을 피그마 레퍼런스에서 그대로/변형해서 만들 때(색상은 항상 1번 토큰으로 재매핑, 구조만 참고 — 문서
+  맨 위 안내와 동일한 원칙).
+- 기존 화면을 "피그마와 맞는지" 검수할 때(이번 작업처럼).
+- 컴포넌트(7~10번)를 새로 만들거나 사이즈 단을 늘릴 때, 피그마 컴포넌트셋과 대조가 필요할 때.
+- 단순 카피 수정, 색상 하나 바꾸기처럼 레이아웃에 영향 없는 작업에는 안 써도 된다 — 매번 전체 트리를
+  뽑는 게 아니라 **레이아웃/간격 판단이 필요한 화면 단위 작업에서만** 쓴다.
 
+### 0.2 추출 절차 — 우선순위 A(MCP) → B(REST API 폴백)
+**A. Figma MCP `get_design_context` (1순위)** — 이 세션/커넥터가 정상 연결돼 있으면 이걸 쓴다.
+`figma-design-to-code` 스킬을 먼저 로드하고 호출한다(스킬 규칙: `get_metadata`/`get_screenshot`으로 대체하지
+않는다). React+Tailwind 참고 코드와 스크린샷, 힌트를 같이 반환하지만 **그대로 붙여넣지 않고** 아래 0.3 체크리스트
+기준으로 다시 읽는다.
+
+**B. Figma REST API 폴백** — MCP가 세션에 아직 안 잡혔거나(예: 커넥터를 방금 승인해서 새 세션부터 반영되는
+경우) 타임아웃이 날 때 이 방법을 쓴다. 사용자에게 **Figma Personal Access Token**을 요청해서(자격 증명이지만
+사용자가 자기 API 호출에 쓰라고 직접 준 것이므로, 웹 폼에 대신 입력하는 것과 다르다 — 코드/curl에서만 쓰고
+응답에 그대로 노출하거나 파일에 저장하지 않는다) 아래처럼 호출한다.
+
+```bash
+# URL의 node-id=22-425 → API 파라미터는 콜론 표기 22:425 (대시→콜론)
+curl -s "https://api.figma.com/v1/files/{fileKey}/nodes?ids=22:425" \
+  -H "X-Figma-Token: {token}" -o scratch/figma/node_22_425.json
+```
+
+`fileKey`는 피그마 URL의 `/design/{fileKey}/...` 부분. 응답 JSON은 아주 커서(이 화면 하나로 18만자) 그대로
+읽지 말고, 0.3의 필드만 뽑는 파서 스크립트(`scratch/figma/dump_tree.js` 참고 — 재사용 가능)로 트리 형태로
+요약한다.
+
+### 0.3 무엇을 기록하는가 — 노드마다 확인할 필드
+| 구분 | 확인 필드 | 코드 매핑 대상 |
+|------|----------|---------------|
+| 이 노드가 오토레이아웃인가 | `layoutMode`(`HORIZONTAL`/`VERTICAL`/`NONE`) | `flex-direction` |
+| 간격 | `itemSpacing` | `gap` → 3번 Spacing 토큰(`--space-*`)에 매핑 |
+| 안쪽 여백 | `paddingLeft/Top/Right/Bottom` | `padding` → `--space-*`에 매핑(4방향 다르면 개별 지정) |
+| 정렬 | `primaryAxisAlignItems`/`counterAxisAlignItems` | `justify-content`/`align-items` |
+| 크기 규칙 | `layoutSizingHorizontal/Vertical`(`FIXED`/`HUG`/`FILL`) | `FIXED`=고정 px, `HUG`=`width:fit-content`류, `FILL`=`flex:1`류 |
+| 모서리 | `cornerRadius` | `border-radius` → 기존 `--r-*`(btn/input/drop) 있으면 재사용, 없으면 그 화면 전용 값 |
+| 배경/테두리 | `fills`/`strokes`(+`strokeWeight`) | HEX 그대로 쓰지 않고 **1번 컬러 토큰 중 가장 가까운 것에 매핑** — 없으면 1.11처럼 "미확정" 표로 |
+| 텍스트 | `style.fontSize`/`fontWeight`/`lineHeightPx`/`letterSpacing`/`textAlignHorizontal` | 2번 Typography 표(레벨 L1~L5 또는 용도별 표)에서 가장 가까운 줄 |
+
+절대 하지 않는 것: 위 값을 코드에 **그대로(raw)** 박아넣기. 항상 기존 토큰 중 가장 가까운 것에 매핑하고,
+매핑이 안 되면(스케일 밖 값) "이번엔 그대로 쓰되 다음 정리 대상으로 12번에 남긴다" 또는 "먼저 확인받는다" 중
+하나를 그 자리에서 정한다 — 1.12/2번/3번 규칙과 동일한 원칙.
+
+### 0.4 트리 표기 포맷 (문서·주석에 남길 때)
+
+들여쓰기 2칸 + `[TYPE] "이름" 가로x세로` 한 줄, 그 아래 한 칸 더 들여써서 핵심 속성만 `|`로 이어붙인다.
+자식이 있으면 재귀적으로 반복. 예:
+
+```
+- [FRAME] "Form Card" 350x586
+  layoutMode=VERTICAL | gap=16 | padding=16/16/16/16 | radius=16 | fill=#ffffff
+  - [TEXT] "내 도감 생성하기" 318x19
+    fontSize=16 | fontWeight=800 | fill=#111111
+  - [FRAME] "NameField" 318x122
+    layoutMode=VERTICAL | gap=8
+    ...
+```
+
+디자인·개발 모두 아이콘/벡터/인스턴스 내부까지 전부 펼치면 노이즈가 크므로, **오토레이아웃 컨테이너 +
+텍스트 + 배경/테두리가 있는 노드**만 남기고 순수 장식용 벡터 트리(아이콘 내부의 `Mask/Ratio/Shape` 같은
+중첩)는 한 줄로 접어서 적는다(예: `Icon/Line/Home (내부 생략)`).
+
+### 0.5 코드 반영 시 추적성 규칙 — 이미 하고 있던 관행을 정식화
+`index.html`에 이미 `/* Figma node 22:431 "Form Card" ... */`, `node 29:5672`, `node 51:1805` 같은 주석이
+여러 곳에 있다 — **이 관행을 계속 유지한다.** 피그마 구조를 보고 CSS를 작성/수정할 때는 그 블록 근처에
+"어느 노드(id + 이름)를 근거로 이 값을 정했는지" 한 줄 주석을 남긴다. 값이 코드와 다르게 간 경우(의도적 변형)
+그 이유도 같이 남긴다(예: 위 402번째 줄 근처 `.hero-card-fig` 주석 — "비율을 못 맞춰서 실제 안쪽 래퍼로
+바꿨다").
+
+### 0.6 실제 적용 예시 — 인연도감 등록 화면 (node 22:425)
+
+[레퍼런스](https://www.figma.com/design/db1VP9BKUPFb09qBa6hBLu/Untitled?node-id=22-425)를 이 절차로 뽑아
+`#panel-gwansang`(`gwansangInputCard` 등)과 대조한 결과다. 트리 요약(장식용 아이콘 내부 생략):
+
+```
+- [FRAME] "인연도감" 390x1315  fill=#ffffff
+  - [FRAME] "Warp" 390x1193  layoutMode=VERTICAL | gap=20 | fill=#f0f4f3
+    - [FRAME] "Cnt Warp" 390x991  layoutMode=VERTICAL | gap=20 | padding=20/-/20/- | sizeH=FILL
+      - [TEXT] "인연도감" — fontSize=20 | fontWeight=700 | fill=#111111        (= L1 페이지 타이틀, 2.1 표)
+      - [FRAME] "report top > Cnt" 350x341  gap=16 | padding=16/16/16/16 | radius=20 | fill=#e8f7f3
+        - [FRAME] "CardInner" 312x229  layoutMode=VERTICAL | gap=10 | padding=20/20/20/20 | radius=14 | stroke=#26375a/1.5
+          - [TEXT] "내 얼굴 주변엔 어떤 인연이 있을까?" — fontSize=20 | fontWeight=800 | fill=#1c2942
+          - [ELLIPSE] "Ellipse" 120x120 fill=IMAGE
+        - [FRAME] "Ribbon" 312x58  padding=16/12/16/12 | radius=8 | fill=#26375a
+          - [TEXT] 안내문구 — fontSize=12 | fontWeight=400 | fill=#ffffff
+      - [FRAME] "Form Card" 350x586  gap=16 | padding=16/16/16/16 | radius=16 | fill=#ffffff
+        - [TEXT] "내 도감 생성하기" — fontSize=16 | fontWeight=800 | fill=#111111   (= L3 카드 타이틀, 인연도감계열 16px)
+        - [FRAME] "NameField" gap=8
+          - [FRAME] "Label" > [TEXT] "이름" — fontSize=14 | fontWeight=400 | fill=#111111
+          - [FRAME] "FieldInput" padding=14/13/14/13 | radius=8 | fill=#fff | stroke=#d9d9d9/1
+          - [FRAME] "Delete Info" padding=14/11/14/11 | radius=8 | fill=#f0f4f3  (도움말 바 — 아래 매핑 참고)
+        - [FRAME] "Face Upload Area" gap=8
+          - [FRAME] "Background+Border" gap=8 | padding=16/16/16/16 | radius=12 | fill=#fff | stroke=#dddddd/2
+            - [FRAME] "Message/InfoBox" gap=8 | padding=12/8/12/8 | radius=8 | fill=#fffaef   (= 10번 Tip 박스와 배경색 완전 일치)
+          - [FRAME] "Delete Info" (NameField와 동일 컴포넌트, fill=#f0f4f3)
+        - [FRAME] "ConsentCheck" gap=8 > "CheckboxwithLabel" gap=4
+        - [INSTANCE] "Button/Solid/Primary" 318x56  padding=24/-/24/- | radius=8 | fill=#55ccbb
+          - [TEXT] "Label" — fontSize=18 | fontWeight=700 | fill=#ffffff
+```
+
+**토큰 매핑 결과 (모두 기존 토큰으로 커버됨 — 새 토큰 불필요):**
+
+| 피그마 노드 | 실측값 | 매핑 토큰/근거 | 코드 확인 |
+|------------|--------|---------------|----------|
+| `Cnt Warp` 좌우 padding | 20 | `--space-5` | ✅ `.upload-section`류 좌우 20px 계열과 일치 |
+| `Cnt`/`Form Card` gap·padding | 16 | `--space-4` | ✅ `.dogam-form-card { padding:16px }`, `.hero-card-fig { padding:16px; gap:16px }` |
+| `CardInner` padding | 20 | `--space-5` | ✅ `.hero-card-dashed { padding:20px }` |
+| `CardInner` gap | 10 | 스케일 외(8과 12 사이) — 기존에도 raw `10px` 그대로 사용 중 | ✅ `.hero-card-dashed { gap:10px }` — 12번에 "점진 치환 대상"으로 이미 있음, 새로 문제 삼지 않음 |
+| `Ribbon` padding | 16/12/16/12 | 좌우 `--space-4`, 상하 `12px`(레거시 스케일 외) | ✅ `.char-card-ribbon.hero-subcopy { padding:12px 16px }` |
+| `FieldInput` padding | 14/13/14/13 | 8.2 `.field-input` 스펙과 완전 동일 | ✅ 그대로 `.field-input` 재사용 |
+| `Delete Info` fill | `#f0f4f3` | `--card2`(1.7) | ✅ `.dogam-policy { background: var(--card2) }` |
+| `Message/InfoBox` fill | `#fffaef` | `--bg-info-yellow`(10번 Tip 박스와 완전 일치) | ✅ `.tip-box` 그대로 사용 |
+| 타이틀 "인연도감" | 20px/700/#111111 | L1(2.1) `--text-title` | ✅ |
+| 타이틀 "내 도감 생성하기" | 16px/800/#111111 | L3 인연도감계열(2.1) `--text-title` | ✅ `.dogam-form-card-title` |
+| 버튼 | padding 24px 좌우, radius 8, `#55ccbb` | 7번 `.btn-solid-primary`(Large) | ✅ `.submit-btn` |
+
+**발견 · 수정한 불일치 1건:**
+`Background+Border`(사진 업로드 박스)의 실측값은 padding 16px 전부/radius 12px/stroke `#dddddd` 2px다.
+radius(`var(--r-drop)`=12px)와 stroke(`var(--border-gray2)`=`#dddddd`)는 이미 정확히 일치했고, **padding만**
+공용 `.upload-area` 기본값(`24px 20px`)과 달랐다. `.upload-area`는 사주·궁합·인연도감이 공유하는 컴포넌트라
+기본값 자체는 바꾸지 않고, `#uploadArea`(인연도감 화면만) 스코프로 `padding:16px` 오버라이드를 추가했다 —
+`index.html`의 `.dogam-form-card-title` 바로 아래(주석: "Figma node 22:425 'Background+Border'"). 사주
+(`#cmbUploadArea`)·궁합(`#ggUploadA`/`#ggUploadB`)은 이번에 대조한 참고 화면(node 2:2919, "참고" 캔버스의
+"Main")과 padding 구조 자체가 달라서(패딩 없이 내부 프레임으로 위치 조정) 이번엔 건드리지 않았다 — 12번에
+남겨둠.
+
+### 0.6b 두 번째 적용 예시 — 인연도감 등록 후 결과 화면 (node 22:1219)
+
+[등록 후 캐릭터 결과 화면](https://www.figma.com/design/db1VP9BKUPFb09qBa6hBLu/Untitled?node-id=22-1219)을
+같은 절차로 뽑아 `renderCharacterCard`/`renderCharacterDetail`(`js/ai-analysis.js`)이 만드는
+`#gwansangCharacterCard`/`#gwansangCharacterDetail`과 대조했다. **핵심 섹션(6가지 힘 바 `.char-trait-*`,
+조선시대의 나/지금의 나 `.char-detail-origin`, 강점/그림자 리스트, 상황별 아코디언 `.char-detail-acc`,
+궁합 태그 `.char-tag*`)은 gap·padding·radius·색상까지 이미 거의 전부 일치했다** — 특히 `.char-trait-track`
+height(9px)·`.char-trait-row` gap(10px)·`.char-detail-acc` padding(11px 14px = Figma AccRow 14/11/14/11과
+동일)·`.char-detail-origin` padding(12px 14px = Figma OriginBox 14/12/14/12와 동일)은 손댈 게 없었다.
+
+**수정한 불일치 1건 — `.char-card-ribbon`(TaglinePill, `#gwansangCharacterCard`/`#dogamOwnerCard` 스코프):**
+Figma 실측은 padding `16/7/16/7`, font-size 14px, fill `#eaf7f3`(연한 민트, 스트로크 없음)인데, 코드는
+padding `5px 14px`, font-size 11.5px, `background: rgba(255,255,255,.65)` + 네이비 테두리였다 — 카드
+배경이 흰색이라 반투명 흰 배경이 사실상 안 보이는 문제였다. `#eaf7f3`는 1.11에 "미확정 색"으로 남아있어
+그대로 쓰지 않고, 계산상 가장 가까운 기존 토큰 `var(--mint-tint-10)`으로 매핑해서 패딩·폰트와 함께
+고쳤다(`index.html`의 `#gwansangCharacterCard .char-card-ribbon` 규칙). 브라우저에서 목업 데이터로
+`renderCharacterCard`/`renderCharacterDetail`을 직접 호출해 렌더링 확인함 — 수정 전엔 흰 배경 위에 거의
+안 보이던 리본이, 수정 후 옅은 민트 알약으로 뚜렷이 보인다.
+
+**0.6d(2026-09-11, node 26:3966 재대조)에서 최종 확정·수정함:** 아래 참고.
+
+**이어서(2026-09-11, 사용자 재요청) — "Cnt Warp" 레벨 형제 카드 3개까지 마저 대조·수정:**
+`report top`(=`Cnt` 캐릭터 카드) 바깥, `Cnt Warp` 안에서 20px gap으로 나열되는 나머지 카드들
+(`ReassureBoxKeep`, 두 번째 `DogamCta`)까지 마저 뽑아 대조했다.
+
+| 요소 | 실측(Figma) | 기존 코드 | 조치 |
+|------|------------|-----------|------|
+| `.dogam-keep .submit-btn`(소장 유도 카드 CTA) | padding 16px 4방향 | `padding:13px`(base `.submit-btn`의 16px보다 더 깎여있었음) | 16px로 수정 |
+| `.dogam-share-btn`("친구에게 공유하기") | padding `14/8/14/8` | `padding:12px 14px`(상하가 더 두꺼움) | `8px 14px`로 수정 |
+| `.dogam-cta-title`("지금 결과는 얼굴만 본 거예요") | 16px/800 | `font-size:14px` | 16px로 수정 — 2.2 레거시 표에서도 해당 행 제거(더 이상 레거시 아님, L3 인연도감 표준 16px/800과 정확히 일치) |
+| `.dogam-cta`(사주 업셀 카드) 전체, `.dogam-cta-thumb`(52x52 원형), `.dogam-cta-btn`(padding15/15px·15px/700/흰색) | — | — | 이미 전부 정확히 일치, 수정 없음 |
+| `.dogam-share-card`(배경·테두리·radius16·padding16) | — | — | 이미 전부 정확히 일치 |
+
+브라우저에 세 카드를 실제 클래스 그대로 렌더링해 수정 전/후 시각 비교까지 확인했다.
+
+**추가로 실제 element 요청(SVG 아이콘) 반영:** `.tip-box`의 Material Symbols "warning" 아이콘은 실제
+Figma export(Icon/Line/Info 알파마스크 + `#FF9533` 사각형 조합)와 모양이 달라서, 사용자가 직접 준 SVG로
+**이 보관하기 팝업 한정** 교체했다(`js/inyeon-dogam.js`) — 다른 tip-box(사진 업로드 등)는 아직 같은 방식
+대조 전이라 그대로 Material Symbols를 쓴다. 새 아이콘을 다른 화면에도 확장할지는 그 화면들을 볼 때 같이
+정리한다.
+
+### 0.6c 세 번째 적용 예시 — 인연도감 보관하기 팝업 (node 48:895)
+
+[로그인 유도 바텀시트](https://www.figma.com/design/db1VP9BKUPFb09qBa6hBLu/Untitled?node-id=48-895)를
+같은 절차로 뽑아 `js/inyeon-dogam.js`의 `maybeShowLoginModal()`이 만드는 `#dogamLoginModalRoot`와
+대조했다. 이 화면은 2.1의 "L5 바텀시트 안내 타이틀" 실측 근거로 이미 쓰인 화면이라 대부분 값이 이미
+정확했다(타이틀 16px/800/`--text-title`, 서브텍스트 `--text-sub`, 6.4의 3단 구조 그대로).
+
+**수정한 불일치 2건:**
+1. `.tip-box`(공용 InfoBox, 이 팝업과 인연도감 사진 업로드 화면이 공유) padding이 4방향 균등 `12px`였는데,
+   Figma 실측은 **좌우 12 / 상하 8**(`12px 8px`가 아니라 `8px 12px` — 세로가 더 좁다)이었다. 이번 팝업
+   (node 48:895)과 사진 업로드 화면(node 22:425, 0.6) **두 곳에서 동일하게 확인**돼서 한 화면만의 예외가
+   아니라고 판단해 공용 클래스 자체를 고쳤다.
+2. "나중에 할게요" 버튼 — 색상이 `var(--text2)`(리포트 카드 전용 톤, `#68716F`)였는데 이 버튼은 팝업
+   화면이라 1.6 규칙대로 `var(--text-sub)`(`#666666`, Figma 실측과 일치)를 써야 했다. font-size도
+   13px→14px, 탭 영역도 padding 10px(가변 높이)→height 46px 고정(Figma SubmitBtn과 같은 탭 크기)으로
+   맞췄다.
+
+**의도적으로 그대로 둔 것:** Figma는 안내 텍스트 묶음과 버튼 묶음 사이 간격이 전부 균일한 gap 16인데,
+코드는 두 그룹으로 나눠 묶음 안은 8px, 묶음 사이는 20px(`.popup-body` 기본 gap)로 차등을 준다 — 이건
+2026-09-05 11~12차 사용자 피드백으로 이미 여러 번 실측(`getBoundingClientRect`)까지 해가며 확정한
+의도적 변경이라 Figma 원본 간격으로 되돌리지 않았다. **텍스트도** Figma 원문 "나중에 할께요"(오타)를
+그대로 따르지 않고 코드의 올바른 표기 "나중에 할게요"를 유지했다 — 디자인 목업의 오타까지 복사하지
+않는다.
+
+**추가 조정(2026-09-11, 사용자 직접 지정) — 이 팝업(`#dogamLoginModalRoot`) 전용 스코프:**
+공용 `.popup-header`/`.popup-body`/`.submit-btn` 기본값은 그대로 두고, 이 팝업에서만 재정의했다
+(`index.html`, `.popup-footer .btn-solid-primary` 규칙 바로 아래).
+- 헤더 높이 56px(패딩 20px 균등 → `12px 20px`로 축소해 56px 확보 — Figma Header 실측과 동일)
+- `.popup-body` gap 20px → 16px
+- "로그인하고 보관하기" 버튼: font-size 14px, height 46px(미디엄 사이즈감), padding `0 18px` + flex 중앙 정렬
+
+다른 팝업(마이페이지, 프로필 등록 등)의 `.popup-header`/`.popup-body` 기본값은 바뀌지 않았다 — 이 스코프
+바깥에는 영향 없음.
+
+### 0.6d 네 번째 적용 예시 — "학자상" 캐릭터 설명 카드 전체 재대조 (node 26:3966)
+
+사용자가 "배경색, 콘텐츠 폰트 사이즈 등 다 다시 맞춰"라고 명시적으로 요청해서, 0.6b에서 안전하게
+넘어갔던 항목들까지 이번엔 전부 고쳤다. `26:3966`은 `22:1219`의 캐릭터 카드 부분과 내용이 동일한
+독립 프레임이라 교차 검증에 썼다 — **두 노드에서 동일하게 나온 값**이라 신뢰도가 높다.
+
+| 요소 | 실측(Figma) | 기존 코드 | 조치 |
+|------|------------|-----------|------|
+| 캐릭터 카드 전체 배경(`.char-card`+`.char-detail`, `#gwansangCharacterCard`/`#gwansangCharacterDetail`+`dogamOwner*`) | 단색 `#ffffff`(그라디언트 없음 — `Cnt`/`CardInner`/`Report Top` 전부 fill=#ffffff) | `linear-gradient(...#f6fdfb→#e6f6f1)` | 단색 흰색으로 수정 |
+| `.char-detail-origin`(조선시대의 나/지금의 나) 배경·테두리 | 흰 배경 + 실선 네이비 1px | 라벤더 틴트(#eef2f8) + 점선 네이비 | 흰 배경 + 실선 네이비로 수정(0.6b에서 보류했던 항목, 이번에 확정) |
+| `.char-detail-origin` font-size | 12px | 12.5px | 12px로 수정 |
+| `.char-detail-sec-title`(소제목) font-size | 14px | 13.5px | 14px로 수정 |
+| `.char-detail-list li`(강점/그림자 본문) font-size | 12px | 12.5px | 12px로 수정 |
+| `.char-detail-acc > summary`(상황별 아코디언 라벨) | 14px/600/`--char-navy-deep` | 12.5px/800/`--char-navy` | 수정 — 색이 더 짙어지고 글자도 커짐 |
+| `.char-detail-acc > summary::after`("+" 토글) font-weight | 400 | 700 | 400으로 수정 |
+| `.char-tag`(궁합 CompatChip) font-size | 10px | 11.5px | 10px로 수정 |
+| `.char-trait-*`(6가지 힘 바), `.char-detail-acc` padding/radius, `.char-tag` padding/색 매핑 | — | — | 이미 정확히 일치(0.6b·이번 재확인 모두 통과), 수정 없음 |
+
+전부 `#gwansangCharacterCard`/`#gwansangCharacterDetail`(+`dogamOwnerCard`/`dogamOwnerDetail`) 공용
+컴포넌트라 통합분석(`cmbCharacterCard`) 등 이 카드 템플릿을 같이 쓰는 다른 화면에도 함께 반영된다 —
+같은 템플릿이 화면마다 다른 스타일일 이유가 없다고 판단했다. 브라우저에 목업 데이터로 렌더링해서
+전/후 시각 확인 완료.
+
+### 0.6e 다섯 번째 적용 예시 — 토글 알약 버튼 + 배너 위치 구조 변경 (node 29:4375, 26:3966 재확인)
+
+**토글 버튼(`.char-detail-headline.char-detail-headline-row`, "OO상, 어떤 사람일까요?")** — Figma
+`node 29:4375 "btn"` 실측: 회색 필 버튼(배경 `#f5f5f5`, radius 999(피그마 100), padding 8px, gap 4,
+텍스트 14px/500/`#111111`, 아이콘도 네이비가 아니라 `#111111`)인데, 기존엔 배경 없는 15px/800/네이비
+텍스트 한 줄이었다. `.char-detail-headline`(단독, 토글이 아닌 순수 헤드라인 — 통합분석 등에서 사용)은
+그대로 두고, **두 클래스가 같이 붙은 경우만** 별도 규칙으로 덮어써서 다른 화면에 영향 없게 했다.
+
+**"인연도감을 소장하세요!" 배너 위치** — Figma `node 22:1219`/`26:3966` 실측: 이 배너(`DogamCta`)는
+`#dogamSection` 맨 위가 아니라 **캐릭터 상세 카드(`Cnt`) 안, 궁합 섹션 바로 다음**에 있다. `js/inyeon-dogam.js`
+구조를 바꿨다:
+- `renderOwnerView(dogam, opts)`에 `opts.suppressKeepNotice` 추가 — 관상 탭(`paintOwnerView`)만 이 옵션으로
+  기존 위치(`#dogamSection` 맨 위) 노출을 끄고, 보관함(`renderIntoEl`)은 옵션 없이 그대로 호출해 예전 자리에
+  계속 남긴다(보관함 캐릭터 카드는 축약판이라 카드 안에 넣을 자리가 마땅치 않음).
+- 새 함수 `insertKeepNoticeIntoCharDetail()`이 `#gwansangCharacterDetail .char-detail-collapse`(펼침 영역)
+  맨 뒤에 같은 배너를 삽입한다 — `paintOwnerView`가 화면을 그릴 때마다(실시간 명부 갱신 포함) 이전 배너를
+  지우고 다시 넣어 중복을 막는다.
+
+브라우저에서 목업 렌더링으로 두 가지 다 시각 확인 완료 — 배너가 "다른 관상과의 궁합" 바로 아래, 토글
+알약 버튼 위에 정확히 위치한다.
+
+### 0.6f 사용자 직접 지정 값 반영 + 사이트 전역 12.5px 정리, 명부 노출 분기 (2026-09-11)
+
+**폰트 크기 12.5px → 12px 전체 치환:** 사용자 지시로 `index.html`/`js/inyeon-dogam.js` 전체에서
+`font-size: 12.5px`(37곳) + JS 인라인 스타일 2곳을 전부 12px로 바꿨다. ⚠️ 예외 기록: 이 중
+"인연도감을 계정에 보관할까요?" 팝업의 서브텍스트(`js/inyeon-dogam.js`, `.dogam-guide`)는 0.6c에서
+Figma 실측(12.5px)과 **이미 정확히 일치한다고 확인**한 값이었다 — 이번 전체 치환으로 12px가 되면서
+Figma 실측과 0.5px 어긋나게 됐다. 사용자의 명시적 "다 바꿔줘" 지시를 따랐지만, 이 한 곳만은 되돌아가는
+변경이라 투명하게 기록해둔다.
+
+**사용자 직접 지정 CSS 값 (char-card/char-detail 계열):**
+| 규칙 | 이전 | 변경 |
+|------|------|------|
+| `.char-card` background | `linear-gradient(160deg, #f6fdfb, #e6f6f1)` | `#fff`(그라디언트 완전 제거 — 스코프 오버라이드였던 `#gwansangCharacterCard .char-card` 쪽 중복 배경 선언도 정리) |
+| `.char-card` padding | `22px 16px 20px` | `20px 20px` |
+| `.char-detail` padding | `12px 18px` | `0 16px 16px`(위쪽 0 — `.char-card`와 맞닿는 이음매) |
+| `.char-detail-sec` margin-top | `20px` | `16px` |
+
+전부 공용 `.char-card`/`.char-detail` 베이스 클래스라 통합분석 등 같은 카드 템플릿을 쓰는 다른 화면에도
+함께 적용된다(단, `#cmbCharacterDetail .char-detail`처럼 이미 자체 padding 오버라이드가 있는 화면은
+영향 없음).
+
+**명부(`.dogam-block`) 노출 분기 — [`기획서/인연도감/인연도감 콘텐츠_노출 분기정책.md`](기획서/인연도감/인연도감%20콘텐츠_노출%20분기정책.md) 반영:**
+"친구와의 인연정보(인연부채·명부) — 등록 전: 미노출" 규칙에 따라, 오너 메인 화면(`#dogamSection`)의
+`.dogam-block`(인연 명부)을 **count===0(친구가 한 명도 등록 전)일 때 아예 그리지 않도록** 바꿨다
+(`js/inyeon-dogam.js` `renderOwnerView`). 예전엔 "인연 도감 0명" 타이틀 + "아직 어떤 인연도
+등록되지 않았어요" 빈 상태 문구를 항상 그렸었다. `renderFanChart`(인연부채)는 이미 `entries.length===0`일
+때 `''`를 반환해 같은 규칙을 지키고 있었다(0.6 이전부터 기존 코드). 이 변경은 오너 메인 화면
+(`#dogamSection > .dogam-block`) 한 곳만 스코프했다 — 게스트 화면 등 다른 `.dogam-block` 인스턴스
+4곳은 이번 요청 범위 밖이라 손대지 않았다. ⚠️ 실제 Firestore 연동 없이는 count===0 케이스를 완전한
+E2E로 재현할 수 없어, 로직 검토(코드 리딩)로만 확인했다 — 브라우저 시각 확인은 못 함.
+
+### 0.6g 후속 조정 (2026-09-11, 세 번째 라운드)
+
+- `.char-detail-row-text` font-size 12px — 0.6f 전체 치환에서 이미 반영됨(확인만, 추가 수정 없음).
+- **Medium 버튼 컴포넌트화** — 7.2 표 갱신 참고. `.dogam-keep`과 "인연도감 보관하기" 팝업의 Primary
+  버튼을 각자 스코프 CSS로 46px/14px를 흉내내던 걸 걷어내고 `.btn-solid-primary.btn-md` 하나로
+  통일했다. `--btn-h-md`(44→46px)·`.btn-md` font-size(15→14px)를 바꿨다 — 사이트 전체에서 `.btn-md`를
+  쓰는 다른 2곳(`js/kakao-auth.js` 관리자 지급 버튼, `js/nyang-history.js` 검색 버튼)도 이 값을 같이
+  받는다(2px/1px 차이라 시각적 리스크는 낮다고 판단).
+- **로그인 유도 배너가 상세 접힘과 무관하게 계속 보이도록 구조 변경** — `.dogam-keep`을
+  `.char-detail-collapse`(토글로 접었다 펼치는 영역) **안**이 아니라 `.char-detail`의 형제로 옮겼다.
+  펼쳤을 때는 `.char-detail.detail-open > .dogam-keep { order: 2 }`로 궁합 섹션 다음·토글 버튼 앞
+  자리를 유지하고(토글은 order 2→3으로 밀림), 접었을 때는 `.char-detail-collapse`만 사라지고 배너는
+  형제 요소라 그대로 남는다. 브라우저에서 실제로 토글을 눌러 접힌 상태에서도 배너가 보이는 것까지
+  확인했다.
+- **`#dogamSection > .dogam-keep`** — 0.6e에서 이미 `suppressKeepNotice` 옵션으로 제거해뒀다(재확인,
+  추가 조치 없음). 보관함(`renderIntoEl`)은 여전히 예전 자리를 쓴다(0.6e 사유 그대로 유지).
+
+### 0.6h 배너 순서 재조정 + dist 빌드 누락 발견 (2026-09-12)
+
+- **펼침 상태에서 토글/배너 순서 정정** — Figma를 다시 대조한 결과 순서는 궁합 섹션 → **토글 버튼(pill)**
+  → **소장 배너**(배너가 카드 맨 아래, 하단 라운드 코너와 맞닿음)였다. 0.6g에서 반대로(배너 → 토글)
+  넣었던 걸 CSS order 값만 바꿔 정정했다(`.char-detail.detail-open > .char-detail-headline-row`
+  order 3→2, `> .dogam-keep` order 2→3). 접힘 상태(자연 DOM 순서)는 원래도 [토글, 배너] 순서라 영향
+  없다.
+- **⚠️ 중요 — `dist/` 빌드가 9월 8일 이후 정체돼 있었다.** 이 세션에서 오늘까지 고친 모든 것
+  (`.char-card` 배경, `.dogam-keep` 위치 이동, 버튼 컴포넌트화 등)이 `index.html`/`js/`(원본)에는
+  전부 반영돼 있었지만, `node build.js`를 다시 안 돌려서 `dist/`(실제 배포·미리보기가 보는 산출물)는
+  옛날 그대로였다 — 사용자가 "분명히 지우라고 했는데 왜 아직도 보이냐"고 재차 지적한 원인이 이거였다.
+  이번에 `node build.js`를 다시 실행해 `dist/`를 최신화했다(`js/bundle-315958c29f.js`로 재번들링,
+  `suppressKeepNotice` 등 반영 확인). **앞으로 이 화면 관련 작업이 끝나고 실제로 확인할 때는 dist가
+  최신인지("빌드를 다시 돌렸나?") 항상 같이 확인한다** — 소스만 고치고 빌드를 빼먹으면 겉보기엔 아무것도
+  안 바뀐 것처럼 보인다.
+
+### 0.6i ⚠️ `renderOwnerView` 호출부 누락 버그 수정 + 아코디언 컴포넌트 통일 (2026-09-12)
+
+**버그(사용자 리포트) — `#dogamSection > .dogam-keep`이 계속 부활함:** 0.6e에서 `suppressKeepNotice`
+옵션을 추가했지만, `renderOwnerView(`를 호출하는 곳이 실제로는 **8곳**이었는데 그중 `paintOwnerView`
+**1곳만** 옵션을 넘기고 있었다. 나머지 중 `#dogamSection`(`host()`)에 실제로 쓰는 3곳이 옵션 없이
+호출돼서, 초기 렌더는 정상(배너 없음)이어도 아래 이벤트가 한 번이라도 발생하면 배너가 다시 그려졌다:
+- `watchEntries()`의 Firestore 실시간 구독 콜백(`onSnapshot`은 최초 데이터에도 즉시 호출된다 — 사실상
+  거의 매번 재발생)
+- `setEntryFilter()`(관계 칩 클릭)
+- `deleteEntry()`(명부에서 인연 삭제)
+
+세 곳 모두 `{ suppressKeepNotice: true }`를 추가했다. `syncLiveBlocks()`(`.arc-live-dogam`, 보관함
+전용)와 `renderIntoEl()`(보관함)은 `#dogamSection`이 아니므로 의도대로 그대로 뒀다. **교훈: 셀렉터
+하나를 스코프해서 고칠 때 그 함수를 부르는 모든 곳을 grep으로 다 훑어야 한다 — 절반만 고치면 "고쳤는데
+왜 안 되냐"는 재현하기 어려운 버그가 남는다.**
+
+**아코디언 컴포넌트 통일 — Small(도감 보관·삭제 안내) / Medium(상황별로 보면):**
+Figma 노드 29:5431(Delete Info, Small) / 24:2791(AccRow, Medium)을 다시 대조한 결과 둘 다 padding
+**12px 14px**(기존: Small 11px 14px, Medium 11px 14px — 미묘하게 둘 다 살짝 작았다), radius 12,
+반투명 흰 배경(`rgba(255,255,255,.72)`) + 네이비 톤 보더(`rgba(38,55,90,.3)`)로 완전히 같은 컴포넌트의
+두 사이즈였다 — `.char-detail-acc`(Medium)와 `.dogam-policy.dogam-policy-footer`(Small) 둘 다 padding을
+`12px 14px`로 맞췄다. 겸사겸사 `.dogam-policy.dogam-policy-footer > summary` 텍스트 색을 실측대로
+`--char-navy-deep` → `--text-sub`(#666666)로 고쳤다(상황별 아코디언의 진한 네이비와 헷갈려 잘못
+옮겨졌던 값으로 보인다). "삭제안내" 아코디언의 높이(Figma 40px)는 `<details>` 전체에 고정 높이를
+강제하면 펼친 상태(정책 문답 내용)가 깨지므로 억지로 넣지 않았다 — padding만 맞추면 닫힌 상태 높이가
+Figma와 거의 동일(38~40px 사이)해진다.
+
+**버튼 추가 컴포넌트화:** `.dogam-cta-btn`("관상에 사주까지 더해 깊게 보기")도 `.btn-solid-primary.btn-md`
+로 통일했다 — 아이콘 정렬용 `display:flex`/`gap`만 이 클래스 전용으로 남겼다.
+
+### 0.6j 사용자 직접 지정 값 — 리본 반짝이·캡션 위치·카드 여백 (2026-09-12)
+
+- **`.char-card-ribbon` 태그(예: "학자상, 어떤 사람일까요?" 위 알약)에 양옆 반짝이** — Figma
+  TaglinePill은 `✦ 텍스트 ✦`(양쪽) 구조인데 코드는 앞에만 `✦`가 있었다. `wireGwansangCharCardChip`
+  (`js/ai-analysis.js`)에서 `'✦ ' + tag` → `'✦ ' + tag + ' ✦'`로 수정.
+- **6가지 힘 캡션(`.char-trait-caption`) 위치 변경** — "당신을 만든 6가지 힘" 타이틀 **뒤**(바 차트
+  아래)에 있던 걸 타이틀 **앞**(섹션 맨 위, 리드 문장처럼)으로 옮겼다(`renderCharacterDetail`의
+  `traitHtml` 템플릿). 스타일도 `margin-top:12px;text-align:center` → `margin-bottom:6px;text-align:left`.
+- **`.dogam-keep` margin** `20px 0 0` → `16px 0 0`.
+- **`.char-detail` padding** `0 16px 16px` → `8px 16px 16px`(위쪽에 8px 다시 생김) — 대신
+  `.char-detail-collapse > .char-detail-sec:first-child { margin-top: 0; }`을 추가해 **첫 섹션만**
+  `.char-detail-sec`의 기본 `margin-top:16px`를 상쇄한다(그 아래 섹션들은 그대로 16px 유지) — 8px
+  padding과 16px margin이 첫 섹션에서만 겹쳐 유독 넓어 보이는 걸 막는다.
+
+### 0.7 요약
 아래 1~6은 "지금 코드에 실제로 쓰이는 값"을 기준으로 계층을 정리한 것이고, 7~10은 버튼/인풋/배지·라벨/
-안내박스를 컴포넌트 단위로 표로 정리한 것, 11은 새로 추가한 CSS 변수(값 변경 없이 additive)다.
+안내박스를 컴포넌트 단위로 표로 정리한 것, 11은 새로 추가한 CSS 변수(값 변경 없이 additive)다. 이 문서를 보고
+새 화면을 만들 때, 레이아웃 판단이 필요하면 이 0번 절차로 노드 구조부터 뽑고 시작한다.
 
 ---
 
@@ -200,7 +562,7 @@ line-height는 차방정처럼 전역 고정값(140%)을 쓰지 않고 요소별
 - **L3는 화면 영역에 따라 16px과 15px 두 값이 실제로 다 쓰인다** — 범위(15~16)가 아니라 두 개의 구체적 컨텍스트다: 인연도감처럼 "카드 = 하나의 완결된 액션 블록"이면 16px, 사주·궁합 리포트처럼 "카드 = 분석 항목 하나"면 15px. 새로 만들 때 둘 중 자기 화면이 어느 쪽에 더 가까운지 보고 고른다 — 애매하면 15px(더 일반적인 리포트 카드 기본값)을 쓴다.
 - L3와 L4는 둘 다 **weight 800**으로 통일한다. 코드에 `mypage-section-title`(14px/700), `dogam-detail-subhead`(14px/700), `saju-q-title`(16px/700)처럼 700을 쓴 타이틀도 있지만 소수(전체 타이틀류 중 약 1/4)이고, 새 화면에 지금 이 표대로 800을 쓰지 않으면 기존 다수 화면과 어긋난다 — 700 계열은 손대지 않고 그대로 두되, 새로 추가할 때 따라 쓰지 않는다.
 - L4보다 한 단계 더 안쪽(카드 안의 카드)에 타이틀이 또 필요하면, 13px보다 작은 새 크기를 즉흥적으로 만들지 않고 먼저 확인받는다 — 지금 코드에 그런 4단 중첩 타이틀 사례가 없다.
-- 서브타이틀(타이틀 바로 아래 보조 설명)은 타이틀 대비 **font-size 12px, font-weight 400, 색상 `--text-sub`**가 기본 조합이다. 실측: L5 타이틀(16px/800) + 서브텍스트(12px/400, `--text-sub`) — 인연도감 보관 안내 바텀시트.
+- 서브타이틀(타이틀 바로 아래 보조 설명)은 타이틀 대비 **font-size 12~12.5px, font-weight 400, 색상 `--text-sub`**가 기본 조합이다. 실측(0.6c, Figma REST API 재확인): L5 타이틀(16px/800) + 서브텍스트(**12.5px**/400, `--text-sub`) — 인연도감 보관 안내 바텀시트. 코드(`.dogam-guide` 인라인 스타일)도 이미 12.5px로 정확히 일치한다.
 - 타이틀에 색을 줄 때 `--jade`(짙은 민트)와 `--text-title`(거의 검정) 두 가지가 섞여 쓰인다 — **리포트 카드 내부(L3~L4)는 `--jade`, 그 외 화면(L1 페이지/L3 인연도감류/L5 바텀시트)은 `--text-title`**을 기본으로 한다.
 
 ### 2.2 레거시 타이틀 전체 목록 (실측)
@@ -220,7 +582,6 @@ line-height는 차방정처럼 전역 고정값(140%)을 쓰지 않고 요소별
 | `.z3-ai-title` | 14.5px | 800 | `--jade` | 관상 AI 코멘트 | L3(15px)와 L4(13px) 사이 |
 | `.z3-card-head` | 14px | 800 | `--text-title` | 관상 3존 카드 헤드 | L4(13px)에 근접 |
 | `.archetype-title` | 14px | 800 | `--text` | 궁합 아키타입 | L4에 근접 |
-| `.dogam-cta-title` | 14px | 800 | `--text-title` | 인연도감 CTA 카드 | L4에 근접 |
 | `.mypage-section-title` | 14px | 700 | `--text-strong` | 마이페이지 섹션 | L4에 근접 — 800이 아니라 700 |
 | `.dogam-detail-subhead` | 14px | 700 | `--text-title` | 인연도감 상세 | L4에 근접 — 800이 아니라 700 |
 | `.saju-q-title` | 16px | 700 | `--text-title` | 사주 질문 타이틀 | L3(16px)와 동일 크기지만 800이 아니라 700 |
@@ -366,9 +727,13 @@ overlay-backdrop (z:100, 딤)
 | 사이즈 | 클래스 | height | padding | font-size | 쓰는 곳 |
 |--------|--------|--------|---------|-----------|---------|
 | Large(기본값) | 클래스 없이 `.btn-solid-primary` 기본 | `--btn-h-lg`(54px 상당, 실제로는 `padding: 16px`로 구현) | `16px`(상하좌우 동일) | 18px | 하단 CTA 독, 폼팝업 주 제출 버튼 |
-| Medium | `.btn-md` | `--btn-h-md`(44px) | `0 18px` | 15px | 팝업 푸터, 리스트 내 인라인 액션 |
+| Medium | `.btn-md` | `--btn-h-md`(46px — 2026-09-11 사용자 지정으로 44px→46px 변경) | `0 18px` | 14px(2026-09-11 변경, 기존 15px) | 팝업 푸터, 리스트 내 인라인 액션, 인연도감 로그인 유도 배너/팝업의 Primary 버튼 |
 | Small | `.btn-sm` | `--btn-h-sm`(32px) | `0 14px` | 12px | 카드 안 보조 버튼, 태그형 액션 |
 
+- Medium 46px/14px은 인연도감 결과 화면의 "로그인하고 내 인연도감 보관하기"(`.dogam-keep` 배너)와
+  "인연도감 보관하기" 팝업의 Primary 버튼, 두 곳에서 사용자가 직접 확정한 값이다 — 이 두 버튼은
+  `.btn-solid-primary.btn-md`로 통일했다(기존엔 각자 인라인/스코프 CSS로 따로 46px/14px를 흉내내고
+  있었다).
 - 피그마 레퍼런스는 Large/Medium/Small/xsmall 4단(56·48·40·32px)이지만, **코드에는 xsmall이 없다** — 지금 당장 4단으로 늘리지 않는다. xsmall이 필요한 화면이 생기면 그때 `--btn-h-xs` 추가 여부를 확인받는다.
 - `.btn-md`/`.btn-sm`은 `margin-top: 0`이 같이 지정되어 있다 — `.submit-btn` 기본값(`margin-top: 8px`, 이전 요소와의 간격용)을 상쇄하는 용도이므로, 두 클래스를 쓸 때 별도로 margin을 또 건드리지 않는다.
 
@@ -539,7 +904,7 @@ padding: 3px 8~9px;        /* 세로 3px 고정, 가로 8~9px */
 --char-tag-clash: #a63d3d;
 ```
 
-> 기존 z-index CSS 규칙(`.bottom-nav { z-index: 40 }` 등)은 그대로 숫자를 쓰고 있다 — 지금 당장 `var(--z-bottom-nav)`로 바꾸지 않았다(동작 변경 없는 순수 리네이밍이라 안전하지만, 1400줄 스타일시트 전체를 훑어야 해서 범위가 크다). `--char-navy`/`--char-navy-deep`/`--char-tag-spark`/`--char-tag-clash` 4개는 범위가 작아(24곳) 이번에 바로 `var()`로 전체 치환했다 — 12번 참고.
+> 기존 z-index CSS 규칙(`.bottom-nav { z-index: 40 }` 등)은 그대로 숫자를 쓰고 있다 — 지금 당장 `var(--z-bottom-nav)`로 바꾸지 않았다(동작 변경 없는 순수 리네이밍이라 안전하지만, 1400줄 스타일시트 전체를 훑어야 해서 범위가 크다). `--char-navy`/`--char-navy-deep`/`--char-tag-spark`/`--char-tag-clash` 4개는 범위가 작아(24곳) 이번에 바로 `var()`로 전체 치환했다 — 실측: `index.html`에 `var(--char-navy)` 16곳·`var(--char-navy-deep)` 4곳·`var(--char-tag-spark)` 5곳이 이미 반영되어 있고 하드코딩 HEX는 `:root` 변수 선언 1곳씩만 남아있다 — 12번 참고.
 
 ---
 
@@ -556,6 +921,8 @@ padding: 3px 8~9px;        /* 세로 3px 고정, 가로 8~9px */
 - [ ] 타이틀 레거시 소수점 값(13.5px·14px·14.5px·11.5px·12.5px 등)을 2번 표의 정수 값으로 점진 치환
 - [x] `#26375a`/`#1c2942`/`#a15c12`/`#a63d3d` 하드코딩 24곳을 `var(--char-navy)`/`var(--char-navy-deep)`/`var(--char-tag-spark)`/`var(--char-tag-clash)`로 전체 치환 완료(2026-09-11)
 - [ ] `--char-tag-spark`(#a15c12)와 `--est`(#E68A2E) — 둘 다 "주황 계열 경고/강조" 역할인데 별도 토큰으로 존재. 하나로 합칠지, 역할이 명확히 다르니 유지할지 검토
-- [ ] 1.11에 정리한 피그마 전용 색상(CompatChip tint 3종, 아바타 배경, TaglinePill 등) — 실제 화면 구현 시점에 기존 토큰으로 대체 가능한지 먼저 확인, 안 되면 정식 토큰화
+- [x] 1.11의 TaglinePill 배경(`#eaf7f3`) — 인연도감 결과 화면(`.char-card-ribbon`)에 실제 적용하면서 `var(--mint-tint-10)`으로 매핑 완료(2026-09-11, 0.6b). CompatChip tint 3종·아바타 배경은 아직 미확정으로 남음(궁합 태그 `.char-tag`는 이미 mint/orange/red 계열 기존 토큰의 rgba 틴트로 구현돼 있어 그대로 유지, raw HEX 미사용)
+- [x] `.char-detail-origin` 배경·테두리 스타일 — 흰 배경+실선 네이비로 수정 완료(2026-09-11, 0.6d)
+- [x] `.upload-area` padding 불일치(0.6) — 인연도감(`#uploadArea`)은 `padding:16px` 오버라이드로 수정 완료(2026-09-11). 사주(`#cmbUploadArea`)·궁합(`#ggUploadA`/`#ggUploadB`)은 참고한 Figma 화면 구조 자체가 달라 이번엔 미반영 — 그 화면들 담당 노드를 별도로 뽑아 확인 후 진행
 
 이 항목들은 전부 기존 화면 다수에 영향을 주거나 새 색상 토큰 추가가 걸린 범위라, 하나씩 먼저 확인받고 진행한다.

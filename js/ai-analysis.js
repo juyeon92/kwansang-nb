@@ -1279,6 +1279,7 @@ function renderCharacterDetail(elId, characterResult, opts) {
   const top2 = [characterResult.primaryTrait, characterResult.secondaryTrait].filter(Boolean);
   const traitHtml = scores ? `
       <div class="char-detail-sec">
+        ${top2.length === 2 ? `<div class="char-trait-caption">${TRAIT_FACE_LINK[top2[0]]} ${TRAIT_FACE_PHRASE[top2[1]]}이 느껴지는 관상으로, <b>${character.name}</b>이 됐어요</div>` : ''}
         <div class="char-detail-sec-title">당신을 만든 6가지 힘</div>
         <div class="char-trait-bars">
           ${CHARACTER_TRAIT_AXES.map(a => {
@@ -1290,7 +1291,6 @@ function renderCharacterDetail(elId, characterResult, opts) {
             </div>`;
           }).join('')}
         </div>
-        ${top2.length === 2 ? `<div class="char-trait-caption">${TRAIT_FACE_LINK[top2[0]]} ${TRAIT_FACE_PHRASE[top2[1]]}이 느껴지는 관상으로, <b>${character.name}</b>이 됐어요</div>` : ''}
       </div>` : '';
 
   el.innerHTML = `
@@ -1426,7 +1426,7 @@ function wireGwansangCharCardChip(elId, characterId) {
   if (!nameEl || !ribbon || ribbon.dataset.chipWired) return;
   ribbon.dataset.chipWired = '1';
   const tag = characterId && GWANSANG_CARD_TAG[characterId];
-  if (tag) { ribbon.textContent = '✦ ' + tag; return; }
+  if (tag) { ribbon.textContent = '✦ ' + tag + ' ✦'; return; }
   // 맵에 없는 경우의 안전장치 — headline 끝의 캐릭터 이름만 잘라낸다.
   const name = nameEl.textContent.trim();
   const text = ribbon.textContent.trim();
