@@ -480,27 +480,32 @@
       console.error('[dogam] 이관 대상 조회 실패', e);
       return null;
     });
-    if (!local || local.ownerUid === uid) return; // 이미 내 것이면 이관할 게 없다
+    if (!local || local.ownerUid === uid) return; // 이미 내 것이면(서버 이관이 이미 끝났으면) 여기서 걸러진다
 
-    let mine = await ensureMyDogam().catch(function () { return null; });
-    const hadExistingAccountDogam = !!mine; // 승격(계정에 도감이 없어 이 기기 걸 새로 만든 것)과 구분하기 위해 미리 기록
+    const mine = await ensureMyDogam().catch(function () { return null; });
+    // ⚠️ 정책 변경(2026-09-11, 저장 원칙 점검 후) — 예전엔 계정에 도감이 없으면 여기서 새로
+    // 만들어(createMyDogam) 이 기기의 로컬 도감을 "승격"시켰다. 그런데 서버(functions/index.js
+    // kakaoLogin → migrateAnonymousData/settleDogamForUid)가 로그인 요청 안에서 이미 같은 일을
+    // 동기적으로 처리하고 users/{uid}.dogamSlug까지 확정해두므로, 여기 도달한 시점에 ensureMyDogam()이
+    // 그래도 못 찾았다면 "진짜 없음"보다는 "레이스/조회 실패" 쪽에 가깝다. 이 자리에서 또 하나 만들면
+    // 서버가 이미 정리한 상태 위에 원인 불명의 두 번째 도감이 얹혀 다음 로그인 때 "같은 도감인데
+    // 2개로 보이는" 충돌 팝업(사용자 리포트 2026-09-10)으로 이어진다. 이제 여기서는 새로 만들지
+    // 않고 건너뛴다 — 계정에 정말 도감이 없다면 다음 render()나 사용자의 명시적 "내 인연도감 만들기"
+    // 클릭이 정상 경로로 만든다.
     if (!mine) {
-      // 계정에 아직 도감이 없으면 이 기기의 캐릭터/이름으로 새로 만든다 — 등록만 해뒀지 계정을
-      // 안 만든 상태였다는 뜻이라, 이 기기의 도감을 그대로 계정의 도감으로 승격시키는 셈이다.
-      mine = await createMyDogam(local.ownerName).catch(function (e) {
-        console.error('[dogam] 이관용 내 도감 생성 실패', e);
-        return null;
-      });
+      console.warn('[dogam] 로그인 후에도 계정 도감을 못 찾음 — 새로 만들지 않고 이관을 건너뜀', { uid: uid, localSlug: localSlug });
+      return;
     }
-    if (!mine || mine.slug === local.slug) return;
+    if (mine.slug === local.slug) return;
 
     // ⚠️ 사용자 리포트(2026-08-19): 계정에 이미 진짜 도감이 있는데, 이 기기가 로그인 전(익명)에
     // 만든 도감은 그것과 전혀 다른 별개의 도감이다 — 그 도감을 분석했을 때 보관함(archive.js)에
     // 남겨둔 대기 스냅샷(PENDING_KEY)은 이제 미아라, 아래에서 이 기기의 참여 기록만 계정 도감으로
     // 옮기고 원본은 그대로 두는 것처럼, 보관함 쪽 미아 스냅샷도 버려야 한다. 안 그러면 잠시 뒤
     // Archive.commitPending()이 이걸 계정의 진짜 인연도감 기록에 덮어써 버린다("PC에서 로그인했더니
-    // 내 인연도감이 로그인 전 다른 도감으로 바뀌어 보인다").
-    if (hadExistingAccountDogam && window.Archive && Archive.discardPending) {
+    // 내 인연도감이 로그인 전 다른 도감으로 바뀌어 보인다"). (2026-09-11 — 위에서 mine은 이제 항상
+    // "계정에 이미 있던 도감"이라 예전의 hadExistingAccountDogam 분기 없이 항상 적용한다.)
+    if (window.Archive && Archive.discardPending) {
       Archive.discardPending('gwansang');
     }
 
@@ -854,7 +859,7 @@
       const lp = polar(FRMAX + 58, mid);
       const count = entries.filter(function (e) { return e.relation === key; }).length;
       wedgeLabels += '<div style="position:absolute;' + pctPos(lp.x, lp.y) + ';transform:translate(-50%,-50%);font-size:12.5px;font-weight:700;color:' + meta.deep + ';white-space:nowrap;">' + esc(key) + ' ' + count + '</div>';
-      legendChips.push('<div style="display:flex;align-items:center;gap:5px;font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid rgba(43,38,32,.15);background:linear-gradient(180deg,#fffdf6,#fbf3e2);box-shadow:0 1px 2px rgba(43,38,32,.08);color:#2b2620;"><div style="width:8px;height:8px;border-radius:50%;background:' + meta.color + ';flex:none;"></div><div>' + esc(key) + ' ' + count + '</div></div>');
+      legendChips.push('<div style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;padding:4px 9px;border-radius:999px;border:1px solid rgba(43,38,32,.12);background:#fffdf6;color:#2b2620;"><div style="width:8px;height:8px;border-radius:50%;background:' + meta.color + ';flex:none;"></div><div>' + esc(key) + ' ' + count + '</div></div>');
     });
     const p0 = polar(FRMAX + 34, 180);
     let bandPath = 'M ' + fmt(p0.x) + ' ' + fmt(p0.y);
@@ -1001,8 +1006,12 @@
       : (count ? '<p class="dogam-empty">이 조건에 맞는 인연이 없어요.</p>'
                : '<p class="dogam-empty">아직 어떤 인연도 등록되지 않았어요.<br>친구들과 공유해서 내 인연을 등록해보세요.</p>');
 
+    // 화면 순서는 Figma "공유인(오너)" 결과 화면(node 29:5444/5445) 기준 —
+    // 소장 안내 → 인연부채 → 명부 → 친구 초대 카드 → 사주 업셀 → 보관·삭제 안내(풋터).
+    // 예전엔 공유 버튼이 페이지 맨 위 단독 버튼이었는데, 이제 명부 아래 "친구에게 공유해보세요" 카드로
+    // 옮겨졌다(shareInviteCard 참고).
     return '' +
-      shareButtonBlock() +
+      keepNotice(loggedIn) +
       renderFanChart(entries, dogam ? dogam.ownerName : '') +
       '<div class="dogam-block">' +
         '<div class="dogam-head">' +
@@ -1015,10 +1024,10 @@
         '</div>' +
         filterChips(entries) +
         '<div class="dogam-list">' + list + '</div>' +
-        keepNotice(loggedIn) +
       '</div>' +
-      policyBlock(!!dogam, loggedIn) +
-      combinedAnalysisCta();
+      shareInviteCard(dogam ? dogam.ownerName : '') +
+      combinedAnalysisCta() +
+      policyBlock(!!dogam, loggedIn);
   }
 
   // 비로그인은 익명 신원이라 이 기기/브라우저에만 묶인다 — 기록을 지우거나 기기를 바꾸면 도감을 잃는다.
@@ -1069,7 +1078,7 @@
       '<div class="overlay-backdrop" onclick="Dogam.dismissLoginModal()"></div>' +
       '<div class="form-popup small">' +
         '<div class="popup-header">' +
-          '<span>인연도감 보관하기</span>' +
+          '<span style="font-size:18px;font-weight:700;">인연도감 보관하기</span>' +
           '<button class="overlay-close" onclick="Dogam.dismissLoginModal()"><span class="material-symbols-outlined">close</span></button>' +
         '</div>' +
         '<div class="popup-body">' +
@@ -1085,8 +1094,8 @@
           // 역전이 있었다. 이번엔 실측(getBoundingClientRect)으로 재확인했다 — 각 요소의 기존 margin을
           // 전부 0으로 죽이고 gap:8px 하나로만 통일해야 그룹 사이 20px가 확실히 더 크게 유지된다.
           '<div style="display:flex;flex-direction:column;gap:8px;">' +
-            '<p class="dogam-guide" style="margin-bottom:0;font-size:16px;font-weight:700;color:var(--text-title);">인연도감을 계정에 보관할까요?</p>' +
-            '<p class="dogam-guide" style="margin-bottom:0;">지금 로그인하면 접속 기기를 바꾸거나 브라우저 기록을 지워도 보관된 인연도감을 언제든지 펼치고 관리할 수 있어요.</p>' +
+            '<p class="dogam-guide" style="margin-bottom:0;font-size:16px;font-weight:800;color:var(--text-title);">인연도감을 계정에 보관할까요?</p>' +
+            '<p class="dogam-guide" style="margin-bottom:0;font-size:12.5px;color:var(--text-sub);">지금 로그인하면 접속 기기를 바꾸거나 브라우저 기록을 지워도 보관된 인연도감을 언제든지 펼치고 관리할 수 있어요.</p>' +
             '<div class="tip-box" style="margin-top:0;">' +
               '<span class="icon material-symbols-outlined">warning</span>' +
               '<p>지금 건너뛰면 이 인연도감은 현재 접속 기기에만 연결돼서, 사라질 수 있어요</p>' +
@@ -1324,10 +1333,25 @@
   async function chooseDogam(chosenSlug) {
     const uid = currentUid();
     if (!uid || !window.fbDb || !conflictCandidates) return;
+    const chosen = conflictCandidates.find(function (c) { return c.slug === chosenSlug; });
     const others = conflictCandidates.map(function (c) { return c.slug; }).filter(function (s) { return s !== chosenSlug; });
     try {
       await fbDb.collection('users').doc(uid).set({ dogamSlug: chosenSlug }, { merge: true });
       localStorage.setItem(SLUG_KEY, chosenSlug);
+      // ⚠️ 버그 수정(2026-09-11, 사용자 리포트 — 로그아웃하면 지운 도감이 부활) — 이 계정용 캐릭터
+      // 캐시(inyeonCharacterKey(), 로그인 상태라 항상 uid 접미사 키)가 방금 고르지 않아 삭제될
+      // 도감의 캐릭터를 그대로 들고 있을 수 있다. paintOwnerView는 "캐시가 비어 있을 때만" 채우고
+      // 있으면 덮어쓰지 않으므로(2026-08-18 로직), 그 캐시가 삭제된 도감의 캐릭터를 계속 가리키면
+      // 이후 화면에 새어 보일 수 있다 — 선택 확정 시점에 실제로 남긴 도감 기준으로 다시 맞춘다.
+      if (chosen && chosen.ownerCharacterId) {
+        try {
+          localStorage.setItem(inyeonCharacterKey(), JSON.stringify({
+            characterId: chosen.ownerCharacterId,
+            characterName: (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[chosen.ownerCharacterId]) ? CHARACTER_DB[chosen.ownerCharacterId].name : null,
+            ts: Date.now(),
+          }));
+        } catch (e) { /* 프라이빗 브라우징 등 localStorage 불가 — 조용히 스킵 */ }
+      }
       for (const slug of others) {
         const ref = fbDb.collection('dogam').doc(slug);
         const entriesSnap = await ref.collection('entries').get();
@@ -1354,7 +1378,7 @@
   // 화면에서는 이 아코디언 자체를 호출하지 않는다(showGuestView/renderGuestMergedResult 참고).
   function policyBlock(showDelete, loggedIn) {
     return '' +
-      '<details class="dogam-policy">' +
+      '<details class="dogam-policy dogam-policy-footer">' +
         '<summary>도감 보관·삭제 안내</summary>' +
         DOGAM_POLICY.map(function (p) {
           const answer = typeof p.a === 'function' ? p.a(!!loggedIn) : p.a;
@@ -1471,14 +1495,18 @@
     if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
   }
 
-  // 공유 버튼 — 인연도감 서비스 정책.md 7장: 오너 화면에서 캐릭터 결과 바로 아래(인연도감 영역보다
-  // 위)에 위치해야 한다(2026-09-09 확정). 그래서 renderOwnerView()의 다른 블록들보다 먼저, 맨 위에서
-  // 단독으로 렌더한다 — 공유 버튼은 마이페이지 "변경" 버튼(.mypage-rep-change)과 같은 그레이 라인 디자인.
-  function shareButtonBlock() {
-    return '<div class="dogam-actions">' +
-      '<button class="dogam-share-btn" onclick="Dogam.share()">' +
-        '<span class="material-symbols-outlined">link</span>친구에게 공유하기</button>' +
-    '</div>';
+  // 친구 초대 카드 — 인연도감 UI 리디자인(2026-09-11, Figma "공유인(오너)" node 29:6035 반영)으로
+  // 페이지 맨 위 단독 버튼에서 명부 카드 바로 아래 초대 카드로 옮겼다. 인원이 몇 명이든(0명이어도)
+  // 항상 노출되는 상시 초대 동선이라 renderOwnerView()가 명부 다음, 사주 업셀 카드 앞에서 부른다.
+  function shareInviteCard(ownerName) {
+    const who = ownerName ? esc(ownerName) + '님과' : '나와';
+    return '' +
+      '<div class="dogam-share-card">' +
+        '<div class="dogam-share-card-head">🙆 친구에게 공유해보세요</div>' +
+        '<p class="dogam-share-card-sub">친구가 자신의 관상 정보를 넣으면 ' + who + '<br>어떤 인연인지 인연 부채가 펼쳐집니다.</p>' +
+        '<button class="dogam-share-btn" onclick="Dogam.share()">' +
+          '<span class="material-symbols-outlined">link</span>친구에게 공유하기</button>' +
+      '</div>';
   }
 
   // 통합분석 유도 CTA — 로그인은 "도감을 계정에 묶어 오래 보관"하는 후킹일 뿐이라, 비로그인이어도

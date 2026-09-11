@@ -287,7 +287,7 @@
   // 일어나지 않는다(복원 시 id·onclick을 떼기 때문). 인연 도감처럼 실시간 데이터도 스냅샷에 맞지 않는다.
   const REPORT_CHROME = [
     '.report-back-btn', '.cta-dock', '.submit-btn', '.print-btn',
-    '.dogam-block', '.dogam-actions', '.dogam-cta', '.dogam-cta-label', '.dogam-keep', '.dogam-policy',
+    '.dogam-block', '.dogam-actions', '.dogam-share-card', '.dogam-cta', '.dogam-cta-label', '.dogam-keep', '.dogam-policy',
     '.dogam-share-btn', '.dogam-link-btn', '.dogam-delete-btn',
   ].join(', ');
   function stripChrome(rootEl) {
