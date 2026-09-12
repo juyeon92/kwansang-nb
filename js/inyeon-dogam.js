@@ -62,6 +62,17 @@
   // 다른 시점에 사라지면서 화면이 깜빡였다 — kakao-auth.js가 이 값을 보고 "게스트가 이미 자기
   // 오버레이를 띄운 상태"면 자기 것은 건드리지 않게 한다(isGuestActionInFlight 참고).
   let guestActionInFlight = false;
+  // 사용자 리포트(2026-09-12: "dogam-detail-cta 이거 좀 늦게뜨네") — maybeShowEntryDetailCta()가
+  // 참여자 상세 팝업을 연 "그 시점"에야 ensureMyDogam()(실제 Firestore 조회, 캐시 슬러그 조회부터
+  // users/{uid} 문서 조회까지 이어져 수백 ms가 걸림)을 처음 시작해서 CTA가 눈에 띄게 늦게 나타났다.
+  // 등록 직후 결과 화면(renderGuestMergedResult)이 뜨는 시점에 미리 백그라운드로 한 번 시작해두면,
+  // 사용자가 자기 항목을 눌러 팝업을 열 때쯤엔 이미 끝나 있거나 훨씬 덜 기다린다. showGuestView()도
+  // 이미 같은 목적으로 ensureMyDogam()을 부르므로, 그 결과도 그대로 재사용해 중복 조회를 없앤다.
+  let mineForCtaCache = null; // { uid, promise }
+  function cacheMineForCta(uid, promise) {
+    if (!uid) return;
+    mineForCtaCache = { uid: uid, promise: promise };
+  }
 
   // 화면에 그대로 노출하는 정책 문구 — 명세서를 관상 기준으로 다시 쓴 것.
   // 사용자 요청(2026-09-05, 16차 피드백) — "어떤 정보를 저장하나요?"/"이름은 누구에게 보이나요?"는
@@ -1383,7 +1394,12 @@
   async function maybeShowEntryDetailCta(e, ownerName) {
     const uid = currentUid();
     if (!uid || e.uid !== uid || !justRegistered) return;
-    const mine = await ensureMyDogam().catch(function () { return null; });
+    // 등록 직후 결과 화면이 미리 선점해둔 조회 결과가 있으면 그걸 그대로 기다린다(대개 이미 끝나
+    // 있거나 훨씬 덜 남았다) — 없을 때만(팝업을 곧장 다시 열었거나 캐시가 다른 uid 것일 때) 새로 조회.
+    const minePromise = (mineForCtaCache && mineForCtaCache.uid === uid)
+      ? mineForCtaCache.promise
+      : ensureMyDogam().catch(function () { return null; });
+    const mine = await minePromise;
     if (mine) return;
     const slot = document.getElementById('dogamEntryDetailCtaSlot');
     if (!slot) return; // 그 사이 시트를 닫음
@@ -1756,7 +1772,9 @@
   async function showGuestView(dogam, stale) {
     const el = prepGuestScreen();
     if (!el) return;
-    const mine = await ensureMyDogam().catch(function (e) { console.error('[dogam] 내 도감 확인 실패', e); return null; });
+    const minePromise = ensureMyDogam().catch(function (e) { console.error('[dogam] 내 도감 확인 실패', e); return null; });
+    cacheMineForCta(currentUid(), minePromise); // maybeShowEntryDetailCta가 이 결과를 재사용하도록 선점
+    const mine = await minePromise;
     // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "새로 등록하기로 등록해도 다시 원래 폼으로 돌아간다") —
     // 위 await ensureMyDogam()(실제 Firestore 조회, 수백 ms~수 초) 동안 kakao-auth.js의
     // onAuthStateChanged 등이 독립적으로 또 render()를 부르면(사진 분석처럼 오래 걸리는 작업 도중
@@ -1973,6 +1991,9 @@
     // 자체엔 무거운 await이 없지만, 호출부(render())가 sharedSlug 조회 등으로 이미 시간이 지난 뒤에
     // 부를 수 있어 방어적으로 넣는다.
     if (stale && stale()) return;
+    // mineForCtaCache 선점(위 선언부 참고) — 참여자 상세 팝업을 열기 한참 전인 지금 미리 백그라운드로
+    // 시작해둔다. 실패해도 여기선 무시하고 maybeShowEntryDetailCta 쪽에서 다시 처리한다.
+    cacheMineForCta(currentUid(), ensureMyDogam().catch(function () { return null; }));
     // 업로드 섹션은 이 화면엔 필요 없다(이미 등록을 마쳤으므로) — showGuestView와 달리 숨겨둔다.
     setDisplay('gwansangUploadSection', 'none');
     // 정책 문서 5-5(2026-09-09) — 방금 등록 직후(justRegistered)가 아니라 재방문으로 이 화면이 뜬
