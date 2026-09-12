@@ -652,8 +652,11 @@
       // guestEntriesBlock()이 count===0으로 보고 명부·인연부채 섹션을 통째로 숨겼다 — 실제 서비스라면
       // 이 시점엔 최소 1명(방금 등록한 나)이 있어야 한다. 방금 이 미리보기 도감에 등록했다면 그 결과를
       // entries에 합성해 넣어서, 실제 흐름과 같은 화면(명부+인연부채 포함)을 볼 수 있게 한다.
+      // uid는 'preview-self' 같은 고정 문자열이 아니라 실제 currentUid()를 써야 한다 — 참여자 상세
+      // 팝업의 "내 인연도감 만들기" CTA(maybeShowEntryDetailCta)가 currentUid()===e.uid를 조건으로
+      // 보는데, 고정 문자열이면 이 QA 훅으로는 그 조건을 절대 만족할 수 없어 CTA를 검증할 수 없었다.
       const previewEntries = justRegisteredHere
-        ? [{ uid: 'preview-self', name: justRegistered.name, characterId: justRegistered.characterId, score: justRegistered.score, relation: justRegistered.relation }]
+        ? [{ uid: currentUid(), name: justRegistered.name, characterId: justRegistered.characterId, score: justRegistered.score, relation: justRegistered.relation }]
         : [];
       guestDogam = {
         slug: 'preview', ownerUid: '__preview__', ownerName: '미리보기',
@@ -1340,7 +1343,7 @@
     root.id = 'dogamEntryDetailRoot';
     root.innerHTML = '' +
       '<div class="overlay-backdrop" onclick="Dogam.closeEntryDetail()"></div>' +
-      '<div class="form-popup">' +
+      '<div class="form-popup small">' +
         '<div class="popup-header">' +
           '<span>' + esc(ownerName) + '님과 ' + esc(e.name) + '님과의 인연</span>' +
           '<button class="overlay-close" onclick="Dogam.closeEntryDetail()"><span class="material-symbols-outlined">close</span></button>' +
