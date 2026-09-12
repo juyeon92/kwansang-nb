@@ -279,7 +279,7 @@ body {
 #cmbResult .z3-pair-card, #cmbSavedBody .z3-pair-card { background: #fff; border-color: var(--char-navy); }
 #cmbResult .z3-pair-title, #cmbSavedBody .z3-pair-title { color: var(--char-navy-deep); }
 
-.oh-headline-split { display: grid; grid-template-columns: 32px 1fr 52px 1fr 32px; gap: 6px; margin-top: 14px; }
+.oh-headline-split { display: grid; grid-template-columns: 32px 1fr 52px 1fr 32px; gap: 6px; margin-top: 8px; }
 .oh-headline-box { grid-column: span 2; font-size: 11.5px; font-weight: 800; line-height: 1.6; padding: 8px 9px; border-radius: 10px; text-align: center; }
 .oh-headline-box.face { grid-column: 1 / 3; background: var(--mint-10); color: var(--jade); }
 .oh-headline-box.saju { grid-column: 4 / 6; background: rgba(103,85,54,0.08); color: var(--beige-chip-text); }
@@ -922,7 +922,7 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
    아니라 12). 다른 탭(ggHeadline/gwansangHeadline)은 이 재실측 대상이 아니므로 그대로 두고
    .cmb-report로 스코프한다(id는 보관함 스냅샷에서 지워져 클래스로 스코프 — 위 zone-accordion
    주석 참고). */
-#cmbResult .headline-quote, #cmbSavedBody .headline-quote { padding: 16px; background: var(--mint); border-color: var(--mint-border); border-radius: 12px; font-size: 16px; color: var(--char-navy); }
+#cmbResult .headline-quote, #cmbSavedBody .headline-quote { padding: 16px; background: var(--mint-pale); border-color: var(--mint-border); border-radius: 12px; font-size: 16px; color: var(--char-navy); }
 .part-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .part-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
 .part-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
@@ -984,7 +984,6 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
    .cmb-origin-box의 OriginBox itemSpacing=8(node 72:2838)에 맞춰 4px→8px로 조정(라벨 바로 아래
    .cmb-z2-hr 구분선까지의 간격). */
 .cmb-cd-label { font-size: 12px; font-weight: 800; color: var(--char-navy-deep); margin-bottom: 8px; }
-.cmb-diff-row { padding: 10px 0; border-top: 1px dashed var(--border); }
 .cmb-diff-row:first-of-type { border-top: none; }
 .cmb-diff-row .face { font-size: 12px; font-weight: 700; color: var(--jade); }
 .cmb-diff-row .saju { font-size: 12px; font-weight: 700; color: var(--beige-chip-text); margin-top: 4px; }
@@ -996,11 +995,14 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
    파일에서 오직 zone2 마크업·렌더 함수에서만 쓰임) 스코프 없이 직접 정의해도 다른 화면에 영향 없다.
    (실제 Figma stroke는 opacity 0.4의 네이비였으나, 이 코드베이스 기존 규칙 — 새 rgba/불투명도 값을
    토큰 없이 즉흥적으로 만들지 않는다 — 을 따라 기존 --char-navy 솔리드 색을 그대로 썼다.) */
-.cmb-origin-box { background: #fff; border: 1px solid var(--char-navy); border-radius: 12px; padding: 12px; }
+.cmb-origin-box { background: #fff; border: 1px solid rgba(38,55,90,0.4); border-radius: 12px; padding: 12px; }
 /* Figma "Line 1"류(같은 노드) — OriginBox 타이틀 바로 아래 구분선(itemSpacing=8) 재현. ZONE2 바디
    최상위 직속 자식으로 쓰일 때는(위 #cmbResult .cmb-zone2 > div 규칙이 더 구체적이라) margin이
    16px 16px 0으로 덮어써져 ZONE2 바디를 가로지르는 Line1/Line2로도 그대로 재사용된다. */
 .cmb-z2-hr { height: 1px; background: var(--border); margin: 0 0 8px; }
+/* 사용자 지정 — .gg-item은 궁합보기 등과 공유하는 클래스라 margin-bottom 제거는 통합분석에만
+   스코프해서 적용한다(base .gg-item의 margin-bottom:10px는 그대로 유지). */
+#cmbResult .gg-item, #cmbSavedBody .gg-item { margin-bottom: 0; }
 
 .archetype-card { display: flex; gap: 14px; align-items: flex-start; border: 1.5px solid var(--mint-border); border-radius: var(--r); padding: 14px 16px; margin-top: 10px; background: var(--mint-tint-10); }
 .archetype-icon { flex-shrink: 0; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: var(--surface); border-radius: 12px; }
@@ -1980,7 +1982,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
               <div class="oh-headline-box face" id="cmbOhaengFaceHead"></div>
               <div class="oh-headline-box saju" id="cmbOhaengSajuHead"></div>
             </div>
-            <div id="cmbZone2OhaengReading" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
+            <div id="cmbZone2OhaengReading" class="gg-item" style="margin-top:8px;">사진 분석이 끝나면 표시돼요.</div>
           </div>
         </div>
         </div>
