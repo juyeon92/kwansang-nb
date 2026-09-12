@@ -342,6 +342,84 @@
     });
   }
 
+  // 사용자 리포트(2026-09-12: "섹션 2 아까 수정한것도 다 반영안되어있어") — 콘솔로 실제 저장된
+  // ZONE2 본문을 덤프해보니 오늘 Zone2를 재구성(.cmb-zone2-body 래핑, "같은 점"/"다른 점"을
+  // .cmb-origin-box 2개로 분리, .cmb-z2-hr 구분선 추가)하기 전, 옛 .z3-pair-card 통짜 박스 구조
+  // 그대로 얼어있었다. 아이콘과 같은 이유로 CSS만으로는 없는 태그를 못 만들어내므로, 리포트를
+  // 열 때 이 옛 구조를 지금 구조로 옮겨 짜맞춘다. ZONE2는 summary 텍스트("ZONE 2 · ...")로
+  // 특정한다 — cmb-zone2 class가 아예 없는 더 오래된 스냅샷에도 안전하게 걸리도록.
+  // 이미 새 구조(.cmb-zone2-body 있음)면 즉시 반환 — 멱등.
+  function repairZone2Structure(rootEl) {
+    const zone2 = Array.from(rootEl.querySelectorAll('.zone-accordion')).find(function (d) {
+      const s = d.querySelector(':scope > summary');
+      return s && s.textContent.indexOf('ZONE 2') === 0;
+    });
+    if (!zone2 || zone2.querySelector(':scope > .cmb-zone2-body')) return;
+    const summary = zone2.querySelector(':scope > summary');
+    const rest = Array.from(zone2.children).filter(function (c) { return c !== summary; });
+    if (!rest.length) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'cmb-zone2-body';
+    rest.forEach(function (child) {
+      if (!child.classList || !child.classList.contains('z3-pair-card')) { wrap.appendChild(child); return; }
+      const titleEl = child.querySelector('.z3-pair-title');
+      const title = titleEl ? titleEl.textContent : '';
+      const afterTitle = [];
+      let n = titleEl ? titleEl.nextElementSibling : null;
+      while (n) { afterTitle.push(n); n = n.nextElementSibling; }
+
+      const hr = document.createElement('div');
+      hr.className = 'cmb-z2-hr'; hr.style.margin = '16px 0';
+      wrap.appendChild(hr);
+      const section = document.createElement('div');
+      section.className = 'cmb-z2-section';
+      const newTitle = document.createElement('div');
+      newTitle.className = 'z3-pair-title';
+      newTitle.textContent = title;
+      section.appendChild(newTitle);
+
+      // "같은 점 · 다른 점"류(오행이 아니고, 옛 구조상 title 다음에 딱 하나의 래핑 div만 있는 경우)는
+      // 그 안의 두 .cmb-cd-label(같은 점/다른 점) 기준으로 잘라 각자 독립된 .cmb-origin-box로 분리.
+      // 그 외(오행 비교 등)는 title 다음 형제 전부를 통째로 .cmb-origin-box 하나로 감싼다.
+      let groups = null;
+      if (title.indexOf('오행') < 0 && afterTitle.length === 1) {
+        const labelCount = Array.from(afterTitle[0].childNodes).filter(function (nd) {
+          return nd.nodeType === 1 && nd.classList && nd.classList.contains('cmb-cd-label');
+        }).length;
+        if (labelCount === 2) {
+          groups = [[], []];
+          let gi = -1;
+          Array.from(afterTitle[0].childNodes).forEach(function (nd) {
+            if (nd.nodeType === 1 && nd.classList && nd.classList.contains('cmb-cd-label')) gi++;
+            if (gi >= 0) groups[gi].push(nd);
+          });
+        }
+      }
+      if (groups) {
+        groups.forEach(function (nodes, i) {
+          const box = document.createElement('div');
+          box.className = 'cmb-origin-box';
+          if (i > 0) box.style.marginTop = '12px';
+          nodes[0].removeAttribute('style'); // 옛 margin-top:14px 인라인 제거(.cmb-z2-hr이 대신 간격을 줌)
+          box.appendChild(nodes[0]);
+          const hrIn = document.createElement('div');
+          hrIn.className = 'cmb-z2-hr';
+          box.appendChild(hrIn);
+          nodes.slice(1).forEach(function (nd) { box.appendChild(nd); });
+          section.appendChild(box);
+        });
+      } else {
+        const box = document.createElement('div');
+        box.className = 'cmb-origin-box';
+        afterTitle.forEach(function (nd) { box.appendChild(nd); });
+        section.appendChild(box);
+      }
+      wrap.appendChild(section);
+      child.remove();
+    });
+    zone2.appendChild(wrap);
+  }
+
   function snapshot(type) {
     const wrap = document.createElement('div');
     (CONTAINERS[type] || []).forEach(function (id) {
@@ -802,6 +880,7 @@
     // 이미 저장돼 있던 리포트에도 조작 요소가 섞여 있을 수 있어 여는 시점에도 한 번 걷어낸다.
     stripChrome(body);
     repairZoneAccordionArrows(body, rec && rec.type === 'combined');
+    if (rec && rec.type === 'combined') repairZone2Structure(body);
     // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "보관함에서 리포트 보면 아코디언이 다 열려있음") — 여기서
     // innerHTML로 새로 찍은 zone-accordion들은 app.js의 initZoneAccordions()가 페이지 로드 시 한 번
     // 붙인 리스너 대상이 아니라 "하나 열면 나머지 닫힘" 규칙이 빠진다. 다시 불러 새 아코디언에도 연결.
@@ -830,6 +909,7 @@
     // 넘긴다.
     const rec = loadIndex().find(r => r.id === id);
     repairZoneAccordionArrows(el, rec && rec.type === 'combined');
+    if (rec && rec.type === 'combined') repairZone2Structure(el);
     return true;
   }
 
