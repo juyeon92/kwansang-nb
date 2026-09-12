@@ -22,6 +22,7 @@
   --mint-05: rgba(85,204,187,0.05);
   --mint-10: rgba(85,204,187,0.10);
   --mint-tint-10: rgba(85,204,187,0.10);   --mint-soft: #EDF9F6;
+  --mint-pale: #F4FCF9;
   --mint-border: #CBEDE6;
   --beige: #E6D1A7;
   --beige-bg: #F8F4EC;
@@ -1064,10 +1065,10 @@ body.overlay-open { overflow: hidden; }
 .dogam-row-score span { font-size: 12px; color: var(--text-sub2); margin-left: 1px; }
 /* "방금 맺은 인연" — 별도 카드 대신 해당 명부 항목 자체를 하이라이트+뱃지로 표시(entryRow 참고).
    인연도감 UI 리디자인 시안의 reg-row.just-registered와 같은 방식.
-   Figma node 32:7512 "DogamRow"(매칭 상태) 실측 — 배경이 옅은 틴트(--mint-10)가 아니라 진한 솔리드
-   민트(--mint)이고, padding도 좌우가 상하보다 큰 8/16(기존엔 반대로 10/8이었다) — 2026-09-12 대조로
-   수정. */
-.dogam-row.dogam-row-matched { position: relative; background: var(--mint); border-radius: var(--r-input); margin: 2px -8px; padding: 8px 16px; }
+   Figma node 32:7512 "DogamRow"(매칭 상태) 실측 — padding은 좌우가 상하보다 큰 8/16(기존엔 반대로
+   10/8이었다). 배경은 --mint-pale(#f4fcf9, 등록완료 카드 .dogam-my-result-inner와 같은 옅은 민트
+   틴트) — 2026-09-12 사용자 지정으로 --mint(솔리드)에서 수정. */
+.dogam-row.dogam-row-matched { position: relative; background: var(--mint-pale); border-radius: var(--r-input); margin: 2px -8px; padding: 8px 16px; }
 .dogam-row.dogam-row-matched + .dogam-row,
 .dogam-row + .dogam-row.dogam-row-matched { border-top: none; }
 /* 진한 민트 배경 위에서는 관계 태그(.dogam-row-tag, 기본은 옅은 민트 배경)가 묻히니 흰 배경으로
@@ -1094,7 +1095,7 @@ body.overlay-open { overflow: hidden; }
 .dogam-my-result { border: 1px solid var(--char-navy); border-radius: 20px; }
 .dogam-my-result-inner {
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
-  padding: 16px; border-radius: 16px; background: var(--mint-soft); border: 1px solid var(--char-navy);
+  padding: 16px; border-radius: 16px; background: var(--mint-pale); border: 1px solid var(--char-navy);
 }
 .dogam-my-result-head { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .dogam-my-result-title { font-size: 12px; font-weight: 700; color: var(--char-navy); }
@@ -2588,7 +2589,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/app.js?v=20260908b"></script>
 <script src="js/profile.js?v=20260903"></script>
 <script src="js/archive.js?v=20260905"></script>
-<script src="js/inyeon-dogam.js?v=20260912r"></script>
+<script src="js/inyeon-dogam.js?v=20260912s"></script>
 <script src="js/nyang-shop.js?v=20260904"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>
 <script src="js/pay-history.js?v=20260827c"></script>

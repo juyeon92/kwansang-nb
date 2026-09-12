@@ -2028,7 +2028,10 @@
             // 사용자 지정(2026-09-12) — 이 카드 안에서는 Large(.submit-btn 기본, 56px) 대신
             // Medium(.btn-solid-primary.btn-md, 46px) 버튼을 쓴다.
             '<button class="submit-btn btn-solid-primary btn-md" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
-            (isRevisit ? '<button type="button" class="dogam-link-btn" onclick="Dogam.showRegisterFormForOther()">내 정보가 아니에요 · 새로 등록하기</button>' : '') +
+            // Figma node 52:2810 "Frame 1261159294" 실측 — 텍스트 링크가 아니라 민트 아웃라인
+            // Medium 버튼(showGuestView의 "새로 등록하기"와 같은 .btn-outline-mint)이다(2026-09-12
+            // 노드 대조로 수정).
+            (isRevisit ? '<button type="button" class="btn-outline-primary btn-outline-mint btn-md" onclick="Dogam.showRegisterFormForOther()">내 정보가 아니에요 · 새로 등록하기</button>' : '') +
           '</div>' +
         '</div>' +
       '</div>' +
