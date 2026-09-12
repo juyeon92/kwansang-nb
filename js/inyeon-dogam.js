@@ -1342,7 +1342,7 @@
       '<div class="overlay-backdrop" onclick="Dogam.closeEntryDetail()"></div>' +
       '<div class="form-popup">' +
         '<div class="popup-header">' +
-          '<span>' + esc(e.name) + '님과의 인연</span>' +
+          '<span>' + esc(ownerName) + '님과 ' + esc(e.name) + '님과의 인연</span>' +
           '<button class="overlay-close" onclick="Dogam.closeEntryDetail()"><span class="material-symbols-outlined">close</span></button>' +
         '</div>' +
         '<div class="popup-body">' +
@@ -1352,8 +1352,6 @@
             '<div class="dogam-match-score" style="margin:8px 0;"><b>' + (e.score == null ? '-' : e.score) + '</b><span>점</span></div>' +
             (meta.def ? '<p class="dogam-detail-reason">' + esc(meta.def) + '</p>' : '') +
           '</div>' +
-          '<div class="dogam-detail-divider"></div>' +
-          '<div class="dogam-detail-subhead">' + esc(e.name) + '님은 어떤 사람일까요?</div>' +
           '<div id="dogamEntryDetailCard"></div>' +
           '<div id="dogamEntryDetailBrief"></div>' +
           '<div id="dogamEntryDetailCtaSlot"></div>' +
@@ -1366,7 +1364,7 @@
       renderCharacterDetail('dogamEntryDetailBrief', { characterId: e.characterId });
       if (typeof wireGwansangCharDetailToggle === 'function') wireGwansangCharDetailToggle('dogamEntryDetailBrief', 'dogamEntryDetailCard');
     }
-    maybeShowEntryDetailCta(e);
+    maybeShowEntryDetailCta(e, ownerName);
   }
 
   // 참여자 상세에 "내 인연도감 만들기" CTA를 다는 조건(인연도감 UI 리디자인 시안 5장) — ① 지금 보는
@@ -1379,7 +1377,7 @@
   // 보여준다 — 그 외(며칠 지나 재방문해 내 옛 등록 행을 누른 경우)는 눌러도 반응 없는 버튼을 보여줄
   // 수 없어 조건을 좁혔다. 그 케이스까지 지원하려면 createMyDogamFromInvite()를 justRegistered 없이도
   // (guestDogam 기준으로) 동작하도록 별도로 확장해야 한다 — 다음 작업으로 남겨둔다.
-  async function maybeShowEntryDetailCta(e) {
+  async function maybeShowEntryDetailCta(e, ownerName) {
     const uid = currentUid();
     if (!uid || e.uid !== uid || !justRegistered) return;
     const mine = await ensureMyDogam().catch(function () { return null; });
@@ -1388,8 +1386,8 @@
     if (!slot) return; // 그 사이 시트를 닫음
     slot.innerHTML = '' +
       '<div class="dogam-detail-cta">' +
-        '<p>🔒 ' + esc(e.name) + '님은 일할 때·연애할 때는 어떤 모습일까요? 다른 관상과는 어떤 궁합일까요? 내 인연도감을 만들면 더 볼 수 있어요</p>' +
-        '<button class="submit-btn" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
+        '<p>지금은 ' + esc(ownerName) + '님 도감에만 등록됐어요. 내 도감도 만들면 나만의 공유 링크가 생겨요.</p>' +
+        '<button class="submit-btn btn-solid-primary btn-md" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
       '</div>';
   }
   function closeEntryDetail() {

@@ -304,11 +304,12 @@ body {
 #cmbCharacterCard .char-card-badge { background: var(--mint-10); border-color: var(--jade); }
 #cmbCharacterCard .char-card-ribbon { background: var(--jade); color: #fff; }
 #cmbCharacterCard .char-card-img-wrap { border-color: var(--mint-border); }
-#gwansangCharacterCard .char-card-badge, #dogamOwnerCard .char-card-badge { display: none; }
-/* Figma node 56:1149 "CharIllustration" 실측: 150x150(기존 120x120보다 큼). */
-#gwansangCharacterCard .char-card-img-wrap, #dogamOwnerCard .char-card-img-wrap { width: 150px; height: 150px; }
+#gwansangCharacterCard .char-card-badge, #dogamOwnerCard .char-card-badge, #dogamEntryDetailCard .char-card-badge { display: none; }
+/* Figma node 56:1149 "CharIllustration" 실측: 150x150(기존 120x120보다 큼). 인연도감 참여자 상세
+   팝업(node 48:1337 "CardInner")도 같은 150x150. */
+#gwansangCharacterCard .char-card-img-wrap, #dogamOwnerCard .char-card-img-wrap, #dogamEntryDetailCard .char-card-img-wrap { width: 150px; height: 150px; }
 /* Figma node 56:1149 "학자상" 텍스트 실측: font-weight 800(기존 base .char-card-name는 900). */
-#gwansangCharacterCard .char-card-name, #dogamOwnerCard .char-card-name { font-weight: 800; }
+#gwansangCharacterCard .char-card-name, #dogamOwnerCard .char-card-name, #dogamEntryDetailCard .char-card-name { font-weight: 800; }
 /* Figma "Cnt"/"CardInner" 실측 — 이중 패딩 구조다: Cnt padding 16 + CardInner(안쪽 점선 박스) 자체
    padding 20 = 콘텐츠는 바깥 테두리에서 36px, 점선 테두리는 16px(Cnt의 padding 경계, 즉 CardInner의
    바깥 변)에 위치한다. DOM을 두 겹으로 새로 만드는 대신 .char-card 패딩을 36으로 늘리고 ::before
@@ -321,25 +322,30 @@ body {
    17px 튀어나가는 값)를 써버렸고, `.char-card`의 `overflow:hidden`에 그대로 잘려서 안 보이고
    있었다 — 실측(브라우저에서 직접 확인)해서 올바른 계산(테두리 두께 3px + 인셋 13px = 바깥
    테두리에서 16px)인 `inset:13px`로 고쳤다. */
-#gwansangCharacterCard .char-card, #dogamOwnerCard .char-card { padding: 36px; border-radius: 20px; }
-#gwansangCharacterCard .char-card::before, #dogamOwnerCard .char-card::before {
+#gwansangCharacterCard .char-card, #dogamOwnerCard .char-card, #dogamEntryDetailCard .char-card { padding: 36px; border-radius: 20px; }
+#gwansangCharacterCard .char-card::before, #dogamOwnerCard .char-card::before, #dogamEntryDetailCard .char-card::before {
   inset: 13px; border: 1.5px dashed var(--char-navy); border-radius: 14px;
 }
 /* 네 모서리 ✦는 Cnt(바깥 실선)가 아니라 CardInner(안쪽 점선) 모서리 기준 ~12px 인셋이다 — Cnt padding
    16 + CardInner 인셋 12 ≈ 28px(바깥 테두리 기준). 기존 14/16px는 바깥 테두리 기준값이라 너무 안쪽이었다. */
-#gwansangCharacterCard .char-card-corner.tl, #dogamOwnerCard .char-card-corner.tl { top: 28px; left: 28px; }
-#gwansangCharacterCard .char-card-corner.tr, #dogamOwnerCard .char-card-corner.tr { top: 28px; right: 28px; }
-#gwansangCharacterCard .char-card-corner.bl, #dogamOwnerCard .char-card-corner.bl { bottom: 28px; left: 28px; }
-#gwansangCharacterCard .char-card-corner.br, #dogamOwnerCard .char-card-corner.br { bottom: 28px; right: 28px; }
+#gwansangCharacterCard .char-card-corner.tl, #dogamOwnerCard .char-card-corner.tl, #dogamEntryDetailCard .char-card-corner.tl { top: 28px; left: 28px; }
+#gwansangCharacterCard .char-card-corner.tr, #dogamOwnerCard .char-card-corner.tr, #dogamEntryDetailCard .char-card-corner.tr { top: 28px; right: 28px; }
+#gwansangCharacterCard .char-card-corner.bl, #dogamOwnerCard .char-card-corner.bl, #dogamEntryDetailCard .char-card-corner.bl { bottom: 28px; left: 28px; }
+#gwansangCharacterCard .char-card-corner.br, #dogamOwnerCard .char-card-corner.br, #dogamEntryDetailCard .char-card-corner.br { bottom: 28px; right: 28px; }
 /* Figma node 22:1219 "TaglinePill" 실측: padding 16/7/16/7, radius 999, fill #eaf7f3(스트로크 없음),
    text 14px/700 #26375a. #eaf7f3는 1.11에 "미확정 색"으로 남아있어 그대로 쓰지 않고 가장 가까운
    기존 토큰(--mint-tint-10, mint 10% tint — 계산상 #eaf7f3와 거의 동일한 옅은 민트)으로 매핑했다.
    기존 값(반투명 흰 배경 65% + padding 5/14 + font 11.5px)은 흰 CardInner 위에서 거의 안 보였다. */
-#gwansangCharacterCard .char-card-ribbon, #dogamOwnerCard .char-card-ribbon {
+#gwansangCharacterCard .char-card-ribbon, #dogamOwnerCard .char-card-ribbon, #dogamEntryDetailCard .char-card-ribbon {
   display: inline-flex; align-items: center; background: var(--mint-tint-10);
   color: var(--char-navy); font-size: 14px; font-weight: 700;
   padding: 7px 16px; border-radius: 999px; line-height: 1.4;
 }
+/* Figma node 48:1337 "TaglinePill"(인연도감 참여자 상세 팝업) 실측 — 텍스트 양옆에 ✦ 장식이 붙는다.
+   다른 화면(22:1219/56:1149)엔 없는 이 팝업만의 디테일이라 공용 .char-card-ribbon이 아니라 여기서만
+   가상 요소로 붙인다. */
+#dogamEntryDetailCard .char-card-ribbon::before { content: '✦ '; }
+#dogamEntryDetailCard .char-card-ribbon::after { content: ' ✦'; }
 #canvasCard.shell-strip { margin-bottom: 0; }
 /* Figma node 22:1219 "Cnt"(fill #ffffff) / 26:3966 "Report Top"·"CardInner"(둘 다 fill #ffffff) 실측 —
    그라디언트(#f6fdfb→#e6f6f1)가 아니라 단색 흰색이다. 이 카드는 위(hero, .char-card)/아래(상세,
@@ -1122,8 +1128,6 @@ body.overlay-open { overflow: hidden; }
 .dogam-detail-chemistry { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .dogam-detail-sentence { font-size: 16px; font-weight: 700; color: var(--text-title); line-height: 1.4; }
 .dogam-detail-reason { font-size: 13px; line-height: 1.6; color: var(--text-sub2); margin: 0; }
-.dogam-detail-divider { height: 1px; background: var(--border-lavender); margin: 18px 0; }
-.dogam-detail-subhead { font-size: 14px; font-weight: 700; color: var(--text-title); margin-bottom: 12px; }
 .dogam-detail-cta { margin-top: 14px; }
 .dogam-detail-cta p { font-size: 12px; line-height: 1.6; color: var(--text-sub2); margin: 0 0 10px; }
 /* Figma "ControlGroup/CheckboxwithLabel" 실측 gap 4(체크박스-텍스트) — 기존 8px는 그 바깥
@@ -2587,7 +2591,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/app.js?v=20260908b"></script>
 <script src="js/profile.js?v=20260903"></script>
 <script src="js/archive.js?v=20260905"></script>
-<script src="js/inyeon-dogam.js?v=20260912s"></script>
+<script src="js/inyeon-dogam.js?v=20260912u"></script>
 <script src="js/nyang-shop.js?v=20260904"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>
 <script src="js/pay-history.js?v=20260827c"></script>
