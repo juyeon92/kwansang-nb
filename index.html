@@ -357,15 +357,20 @@ body {
    펼침 여부와 무관하게 항상 하나로 붙어 있다). 즉 "카드 아래에 아무것도 안 붙어있는 상태"는 애초에
    없어서, 조건 없이 항상 지워야 한다 — 원래대로 무조건 적용으로 되돌림. (진짜 원인이었던 건 이 조건이
    아니라 바로 위 ::before 인셋 계산 버그였다.) */
-#gwansangCharacterCard .char-card, #dogamOwnerCard .char-card {
+#gwansangCharacterCard .char-card, #dogamOwnerCard .char-card, #dogamEntryDetailCard .char-card {
   border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: none; margin-bottom: 0;
 }
-#gwansangCharacterDetail .char-detail, #dogamOwnerDetail .char-detail {
+#gwansangCharacterDetail .char-detail, #dogamOwnerDetail .char-detail, #dogamEntryDetailBrief .char-detail {
   background: #fff; border: 3px solid var(--char-navy); border-top: none;
   border-top-left-radius: 0; border-top-right-radius: 0; margin-top: 0;
   box-shadow: 0 4px 10px rgba(38,55,90,0.06);
 }
-#gwansangCharacterDetail .char-detail-headline, #dogamOwnerDetail .char-detail-headline { color: var(--char-navy); }
+#gwansangCharacterDetail .char-detail-headline, #dogamOwnerDetail .char-detail-headline, #dogamEntryDetailBrief .char-detail-headline { color: var(--char-navy); }
+/* 참여자 상세 팝업(node 48:1406 "Cnt")은 카드(CardInner)와 토글 알약(btn)이 하나의 네이비 테두리
+   박스 안에 같이 들어있다(Cnt 자체가 stroke 3px인 바깥 박스). 위 두 화면과 같은 "이어붙이기"
+   기법을 쓰되, .popup-body의 공용 gap:20px가 이 둘 사이에도 그대로 적용돼 떨어져 보이므로 그 gap만
+   상쇄한다. */
+#dogamEntryDetailBrief { margin-top: -20px; }
 #cmbCharacterBasis .zone-basis {
   border: 1px solid var(--border); border-top: none; border-radius: 0; margin-bottom: 0;
 }
