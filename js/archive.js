@@ -111,6 +111,19 @@
     }
     return cloudGates[uid];
   }
+  // 사용자 리포트(2026-09-12: "통합분석 목록이 나왔다가 사라져") — loadFromCloud()가 클라우드
+  // 응답을 기다리는 동안 "일단 로컬만으로 화면을 맞춘다"며 notifyChanged()를 먼저 한 번 부르는데,
+  // 이 기기의 로컬 캐시가 비어 있으면(다른 기기에서만 저장했거나, 이 오리진이 처음이거나) 그 즉시
+  // renderCombinedSavedReport()가 "기록 없음"으로 판단해 사진 등록 화면으로 바꿔버린다. 그리고
+  // 700ms~수백ms 뒤 클라우드 병합이 끝나 실제 목록이 들어오면 다시 목록 화면으로 바뀐다 — 이
+  // 왕복이 사용자 눈에 "나타났다 사라진다"로 보인다. isSyncPending()으로 "이 uid의 클라우드 병합이
+  // 아직 안 끝났다"를 알려주면, 호출 쪽에서 그동안은 "기록 없음"으로 단정 짓지 않고 기다릴 수 있다.
+  function isSyncPending() {
+    const uid = currentUid();
+    if (!uid) return false; // 비로그인은 기다릴 클라우드가 없다
+    const gate = cloudGates[uid];
+    return !!(gate && !gate.done);
+  }
   function saveIndex(list) {
     const uid = currentUid();
     if (!uid) return;
@@ -919,6 +932,6 @@
     save: save, commitPending: commitPending, discardPending: discardPending, remove: remove, removeDogam: removeDogam, removeReportsByType: removeReportsByType, removeReportsByProfile: removeReportsByProfile, debug: debug,
     toggle: toggle, toggleSort: toggleSort,
     openReport: openReport, backToList: backToList,
-    loadFromCloud: loadFromCloud, clearLocal: clearLocal,
+    loadFromCloud: loadFromCloud, clearLocal: clearLocal, isSyncPending: isSyncPending,
   };
 })();

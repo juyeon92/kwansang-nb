@@ -501,7 +501,16 @@ function renderCombinedSavedReport() {
   if (cmbWantsNewAnalysis) { showCombinedPhotoStep(); return; }
   if (state.combined.file) return; // 사진을 올리는 중이면 화면을 갈아끼우지 않는다
   const rows = (window.Archive && Archive.listOf) ? Archive.listOf('combined') : [];
-  if (!rows.length) { showCombinedPhotoStep(); return; }
+  if (!rows.length) {
+    // 사용자 리포트(2026-09-12: "목록이 나왔다가 사라져") — 이 기기의 로컬 캐시가 아직 비어있고
+    // 클라우드 병합이 진행 중이면, 진짜 "기록 없음"인지 아직 모른다. 여기서 바로 사진 등록
+    // 화면으로 바꾸면 병합이 끝나 목록이 들어올 때 다시 이 화면으로 되돌아오면서 화면이 깜빡인다
+    // — 병합이 끝날 때까지는 지금 상태를 그대로 두고 기다린다(끝나면 Archive가 notifyChanged로
+    // 이 함수를 다시 불러준다).
+    if (window.Archive && Archive.isSyncPending && Archive.isSyncPending()) return;
+    showCombinedPhotoStep();
+    return;
+  }
 
   // 사용자 요청(2026-09-12, Figma node 75:1362) — 삭제는 보관함(Archive)에서만 하도록 이 목록에서
   // 삭제 버튼을 뺐고, 처음엔 3개만 보이고 나머지는 "더보기"를 눌러야 나온다(Figma 실측 — DogamRow
