@@ -1635,6 +1635,10 @@ async function requestPersonalAi(ctx) {
   if (ctx === 'combined') {
     ruleBased = await classifyAndBuildCharacter(ctx, cfg, lm);
     renderCharacterCard('cmbCharacterCard', ruleBased.characterResult);
+    // Figma node 75:1361(통합분석 Zone1) 실측 — TaglinePill이 character.headline 원문이 아니라
+    // gwansang/dogam 카드와 같은 짧은 "✦ ~하는 타입 ✦" 문구(GWANSANG_CARD_TAG)다. 이 호출이 빠져
+    // 있어서 지금까지 통합분석 카드만 리본에 긴 headline 문장이 그대로 나가고 있었다.
+    wireGwansangCharCardChip('cmbCharacterCard', ruleBased.characterResult.characterId);
     renderCharacterBasis('cmbCharacterBasis', ruleBased.characterResult);
     // 기질 바는 바로 위 renderCharacterBasis가 이미 그린다 — 중복 노출 방지
     renderCharacterDetail('cmbCharacterDetail', ruleBased.characterResult, { skipTraitBars: true });

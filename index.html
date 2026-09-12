@@ -301,17 +301,32 @@ body {
 .zbasis-compare-arrow { flex: none; font-size: 18px; color: var(--jade); }
 
 #cmbCharacterCard, #cmbCharacterBasis, #cmbCharacterDetail { margin: 0; }
+/* Figma node 75:1361(통합분석 결과 화면 step1~4, 2026-09-12 재실측) — 이 카드는 gwansang/dogam
+   캐릭터 카드(§ "Figma node 56:1149" 주석들)와 같은 네이비 Cnt+CardInner 구조로 다시 그려졌다.
+   예전엔 이 3개 id만 별도로 jade/연회색 테마(border-gray, --card2, --jade)를 썼는데, 실측 결과
+   네이비 테마(--char-navy, 흰 배경)로 통일됐다 — 아래는 #gwansangCharacterCard 등과 같은 계산
+   (Cnt padding16 + CardInner padding20 = 36, dashed 인셋 = 테두리3px+13px, 모서리 ✦ = 28px)이되,
+   이 화면의 Cnt cornerRadius는 20이 아니라 16이라 그 값만 다르다. */
 #cmbCharacterCard .char-card {
-  border: 1px solid var(--border); border-bottom: none; border-radius: 18px 18px 0 0;
-  box-shadow: none; background: var(--card2);
+  padding: 36px; border-radius: 16px 16px 0 0; border: 3px solid var(--char-navy); border-bottom: none;
+  box-shadow: none; background: #fff;
 }
-#cmbCharacterCard .char-card::before { display: none; }
-#cmbCharacterCard .char-card-corner,
-#cmbCharacterCard .char-card-badge,
-#cmbCharacterCard .char-card-ribbon { color: var(--jade); }
-#cmbCharacterCard .char-card-badge { background: var(--mint-10); border-color: var(--jade); }
-#cmbCharacterCard .char-card-ribbon { background: var(--jade); color: #fff; }
-#cmbCharacterCard .char-card-img-wrap { border-color: var(--mint-border); }
+#cmbCharacterCard .char-card::before { inset: 13px; border: 1.5px dashed var(--char-navy); border-radius: 14px; }
+#cmbCharacterCard .char-card-corner.tl { top: 28px; left: 28px; }
+#cmbCharacterCard .char-card-corner.tr { top: 28px; right: 28px; }
+#cmbCharacterCard .char-card-corner.bl { bottom: 28px; left: 28px; }
+#cmbCharacterCard .char-card-corner.br { bottom: 28px; right: 28px; }
+#cmbCharacterCard .char-card-badge { display: none; }
+#cmbCharacterCard .char-card-name { font-weight: 800; }
+#cmbCharacterCard .char-card-img-wrap { width: 150px; height: 150px; }
+/* Figma "TaglinePill" 실측(22:1219와 동일): padding 16/7/16/7, radius999, fill #eaf7f3
+   (--mint-tint-10과 거의 동일한 옅은 민트), text 14px/700 네이비 — #gwansangCharacterCard의
+   .char-card-ribbon과 동일 스타일. */
+#cmbCharacterCard .char-card-ribbon {
+  display: inline-flex; align-items: center; background: var(--mint-tint-10);
+  color: var(--char-navy); font-size: 14px; font-weight: 700;
+  padding: 7px 16px; border-radius: 999px; line-height: 1.4;
+}
 #gwansangCharacterCard .char-card-badge, #dogamOwnerCard .char-card-badge, #dogamEntryDetailCard .char-card-badge { display: none; }
 /* Figma node 56:1149 "CharIllustration" 실측: 150x150(기존 120x120보다 큼). 인연도감 참여자 상세
    팝업(node 48:1337 "CardInner")도 같은 150x150. */
@@ -385,14 +400,22 @@ body {
    Figma "Cnt" 자체 padding(16px, 네 방향 동일)과 같은 값이라 그대로 둔다 — 한 번 0으로 지웠다가
    토글 알약이 박스 바닥에 바짝 붙어 답답해 보여 다시 16으로 되돌림. */
 #dogamEntryDetailBrief .char-detail { margin-bottom: 0; }
+/* Figma Cnt(node 75:1361)의 TraitBarsWrap 등은 CardInner가 아니라 Cnt의 직속 형제 요소라 Cnt 자체의
+   padding(16)만 받는다(카드처럼 이중 패딩(36)이 아님) — 그래서 기존 좌우 16px 패딩은 그대로 두고
+   테두리·배경색만 네이비/흰색으로 맞춘다. */
 #cmbCharacterBasis .zone-basis {
-  border: 1px solid var(--border); border-top: none; border-radius: 0; margin-bottom: 0;
+  border: 3px solid var(--char-navy); border-top: none; border-bottom: none; border-radius: 0;
+  background: #fff; margin-bottom: 0; padding: 16px;
 }
+#cmbCharacterBasis .zone-basis-title { color: var(--char-navy-deep); }
+#cmbCharacterBasis .ztrait-fill { background: var(--char-navy); }
+#cmbCharacterBasis .ztrait-row.is-top .ztrait-name { color: var(--char-navy-deep); }
+#cmbCharacterBasis .zone-basis-summary b { color: var(--char-navy); }
 #cmbCharacterDetail .char-detail {
-  border: 1px solid var(--border); border-top: none; border-radius: 0 0 18px 18px;
-  box-shadow: none; background: var(--card2); padding: 20px 16px;
+  border: 3px solid var(--char-navy); border-top: none; border-radius: 0 0 16px 16px;
+  box-shadow: none; background: #fff; padding: 8px 16px 16px;
 }
-#cmbCharacterDetail .char-detail-headline { color: var(--jade); margin-top: 0; margin-bottom: 4px; }
+#cmbCharacterDetail .char-detail-headline { color: var(--char-navy); margin-top: 0; margin-bottom: 4px; }
 
 .ai-skeleton { padding: 4px 0 2px; }
 .ai-skeleton-note { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-sub); margin-bottom: 12px; }
@@ -653,6 +676,29 @@ body {
 .report-accordion > summary::before { content: '▶ '; }
 .report-accordion[open] > summary::before { content: '▼ '; }
 
+/* Figma "ZoneAccordion"(node 75:1361, 통합분석 리포트 스텝1~4 재실측) — 통합분석 결과 화면(#cmbResult)의
+   4개 존 아코디언은 공용 .report-accordion(민트 점선 필)이 아니라 존마다 독립된 흰 카드(radius16)에
+   네이비 텍스트 헤더다: 평소엔 테두리 없이 텍스트만, 펼친 존만 네이비 2px 사각 테두리(각짐, radius 0)가
+   헤더를 감싼다. 카드 사이 간격은 Cnt Warp의 gap=20. 궁합 탭(.zone-accordion을 같이 쓰는 ggZone*)은
+   이 Figma 재실측 대상이 아니라 그대로 두고, #cmbResult로 스코프해서 통합분석에만 적용한다. */
+#cmbResult .zone-accordion {
+  background: #fff; border-radius: 16px; margin: 20px 0 0; padding: 0 16px 16px;
+}
+#cmbResult .zone-accordion:first-of-type { margin-top: 0; }
+#cmbResult .zone-accordion:not([open]) { padding-bottom: 0; }
+#cmbResult .zone-accordion > summary {
+  display: flex; align-items: center; gap: 4px; list-style: none; cursor: pointer; user-select: none;
+  margin: 0; background: none; font-size: 16px; font-weight: 700; color: var(--char-navy); line-height: 19px;
+  padding: 15px 0; border: 2px solid transparent; border-radius: 0; box-sizing: border-box;
+}
+#cmbResult .zone-accordion > summary::-webkit-details-marker { display: none; }
+#cmbResult .zone-accordion > summary::before { content: none; }
+#cmbResult .zone-accordion[open] > summary { border-color: var(--char-navy); padding: 13px 0; }
+#cmbResult .zone-accordion > summary .zone-accordion-arrow {
+  margin-left: auto; flex-shrink: 0; font-size: 18px; color: var(--text-sub); transition: transform .15s;
+}
+#cmbResult .zone-accordion[open] > summary .zone-accordion-arrow { transform: rotate(180deg); }
+
 .gender-btns { display: flex; gap: 8px; }
 .gender-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; font-family: inherit; }
 .gender-btn.on { background: var(--mint-soft); border-color: var(--mint); color: var(--jade); }
@@ -742,8 +788,10 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
 .pillar-col { text-align: center; }
 .pillar-label { font-size: 10px; color: var(--text2); font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
 .pillar-stem, .pillar-branch { padding: 12px 8px; border-radius: 10px; margin-bottom: 6px; }
-.pillar-stem { background: var(--mint-tint-10); border: 1px solid var(--mint-border); font-size: 20px; font-weight: 900; color: var(--ink); }
-.pillar-branch { background: var(--beige-bg); border: 1px solid var(--beige); font-size: 20px; font-weight: 900; color: var(--jade); }
+/* Figma "PillarStem"(node 75:1361, Zone3 사주 원국) 실측 — 옅은 민트 틴트가 아니라 솔리드 민트
+   배경이고 font-weight도 900이 아니라 800이다(.pillars-table은 이 화면 전용이라 스코프 없이 직접 수정). */
+.pillar-stem { background: var(--mint); border: 1px solid var(--mint-border); font-size: 20px; font-weight: 800; color: var(--ink); }
+.pillar-branch { background: var(--beige-bg); border: 1px solid var(--beige); font-size: 20px; font-weight: 800; color: var(--jade); }
 .pillar-hanja { font-size: 10px; color: var(--text2); margin-top: 4px; }
 .pillar-unseong { font-size: 11px; color: var(--jade); font-weight: 700; margin-top: 2px; }
 .pillar-gwiin { font-size: 10px; color: var(--beige-chip-text); margin-top: 2px; }
@@ -833,6 +881,11 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
 .combined-layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
 
 .headline-quote { text-align: center; padding: 20px 18px; margin-bottom: 16px; background: var(--mint-tint-10); border: 1px solid var(--mint-border); border-radius: var(--r); font-size: 15px; font-weight: 800; color: var(--ink); line-height: 1.6; }
+/* Figma "HeadlineQuote"(node 75:1361, 통합분석 Zone2) 실측 — 궁합/관상 탭과 공유하는 위 기본값과
+   달리 이 화면만 옅은 민트 틴트가 아니라 진한 솔리드 민트 배경 + 네이비 텍스트다(radius도 20이
+   아니라 12). 다른 탭(ggHeadline/gwansangHeadline)은 이 재실측 대상이 아니므로 그대로 두고
+   #cmbZone2Headline으로 스코프한다. */
+#cmbZone2Headline { padding: 16px; background: var(--mint); border-color: var(--mint-border); border-radius: 12px; font-size: 16px; color: var(--char-navy); }
 .part-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .part-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
 .part-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
@@ -1815,7 +1868,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       <div class="card-title" id="cmbResultTitle">🔮 AI 관상 X 사주 개운 리포트</div>
 
                   <details class="report-accordion zone-accordion" open id="cmbZone1">
-        <summary>ZONE 1 · 관상 캐릭터</summary>
+        <summary>ZONE 1 · 관상 캐릭터<span class="material-symbols-outlined zone-accordion-arrow">expand_more</span></summary>
         <div id="cmbCharacterCard"></div>
         <div id="cmbCharacterBasis"></div>
         <div id="cmbCharacterDetail"></div>
@@ -1824,7 +1877,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       <div id="cmbPhotoLoading" class="hidden" style="text-align:center;color:var(--text2);font-size:13px;padding:24px 0;">🔮 관상 분석중~</div>
 
             <details class="report-accordion zone-accordion" id="cmbZone2">
-        <summary>ZONE 2 · 관상x사주 총평</summary>
+        <summary>ZONE 2 · 관상x사주 총평<span class="material-symbols-outlined zone-accordion-arrow">expand_more</span></summary>
                 <div class="headline-quote" id="cmbZone2Headline"></div>
                 <div class="chemi-card" style="text-align:center;">
           <div class="chemi-title">🧠 관상·사주 싱크</div>
@@ -1861,7 +1914,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       </details>
 
             <details class="report-accordion zone-accordion" id="cmbZone3">
-        <summary>ZONE 3 · 관상x사주 데이터 풀이</summary>
+        <summary>ZONE 3 · 관상x사주 데이터 풀이<span class="material-symbols-outlined zone-accordion-arrow">expand_more</span></summary>
 
         <div class="z3-pair-card">
           <div class="z3-pair-title">☯ 사주 원국</div>
@@ -1887,7 +1940,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         </details>
 
             <details class="report-accordion zone-accordion" id="cmbZone4">
-        <summary>ZONE 4 · 관상x사주 스토리 풀이</summary>
+        <summary>ZONE 4 · 관상x사주 스토리 풀이<span class="material-symbols-outlined zone-accordion-arrow">expand_more</span></summary>
         <div id="cmbZone4Card1" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         <div id="cmbZone4Temperament" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         <div id="cmbZone4HiddenSelf" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
@@ -2659,7 +2712,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/character-api.js?v=20260908b"></script>
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
-<script src="js/ai-analysis.js?v=20260908c"></script>
+<script src="js/ai-analysis.js?v=20260912a"></script>
 <script src="js/app.js?v=20260912b"></script>
 <script src="js/profile.js?v=20260912b"></script>
 <script src="js/archive.js?v=20260905"></script>
