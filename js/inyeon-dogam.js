@@ -2297,14 +2297,13 @@
       // 중복으로 나타남 — 실제로 이렇게 재현됐다). 등록할 게 없으므로 조용히 내 도감 화면으로만
       // 전환한다.
       if (mine.slug === m.slug || m.inviterUid === currentUid()) {
-        myDogam = mine;
-        justRegistered = null;
+        // 사용자 요청(2026-09-12) — 피공유인(B)이 로그인해서 자기 도감이 생기는 순간, 그 자리에서
+        // DOM만 갈아치우는 대신 무조건 새로고침한다. users/{uid}.dogamSlug는 createMyDogam()/
+        // ensureMyDogam()에서 이미 Firestore에 durable하게 매핑돼 있으므로, 새로고침한 render()가
+        // (URL도 아래서 미리 정리해뒀으니) sharedSlug 없이 곧장 "내 도감(오너)" 화면으로 그린다 —
+        // guestDogam/justRegistered 등 게스트 전용 메모리 상태를 일일이 되돌릴 필요가 없어진다.
         history.replaceState(null, '', location.origin + location.pathname);
-        guestDogam = null;
-        const selfGh = document.getElementById('dogamGuestSection');
-        if (selfGh) { stashUploadNodes(); selfGh.remove(); }
-        setDisplay('gwansangHero', '');
-        await render();
+        location.reload();
         return;
       }
 
@@ -2318,19 +2317,11 @@
       });
       console.log('[dogam] 내 도감에 상대 등록 완료', { slug: mine.slug, entry: m.inviterUid, score: myScore });
 
-      // 등록 직후 화면에 "방금 맺은 인연"을 보여주기 위해 기억해둔다(이 페이지 세션 동안만).
-      lastMatch = { uid: m.inviterUid, name: m.inviterName, characterId: m.inviterCharacterId, score: myScore, relation: myRelation };
-      myDogam = null; // 다음 render에서 방금 쓴 항목까지 포함해 다시 읽도록 캐시를 비운다
-      justRegistered = null;
-      // "공유받은 사람"이 아니라 "내 도감 주인" 화면으로 전환한다.
+      // 위와 같은 이유로 여기서도 무조건 새로고침한다 — "공유받은 사람"이 아니라 "내 도감 주인"
+      // 화면으로 완전히 새로 시작한다. lastMatch("방금 맺은 인연" 하이라이트)는 일부러 메모리
+      // 변수라 새로고침하면 비워지는 게 이 프로젝트의 기존 원칙(위 lastMatch 선언부 참고)과 같다.
       history.replaceState(null, '', location.origin + location.pathname);
-      guestDogam = null;
-      const gh = document.getElementById('dogamGuestSection');
-      if (gh) { stashUploadNodes(); gh.remove(); }
-      setDisplay('gwansangHero', '');
-      await render();
-      const card = document.getElementById('canvasCard');
-      if (card) card.scrollIntoView({ behavior: 'smooth' });
+      location.reload();
     } catch (e) {
       console.error('[dogam] 내 도감 생성 실패', e);
       alert('도감을 만드는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
