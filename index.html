@@ -371,6 +371,11 @@ body {
    기법을 쓰되, .popup-body의 공용 gap:20px가 이 둘 사이에도 그대로 적용돼 떨어져 보이므로 그 gap만
    상쇄한다. */
 #dogamEntryDetailBrief { margin-top: -20px; }
+/* 공용 .char-detail의 padding-bottom:16px·margin-bottom:16px(다른 화면 — 관상 결과·오너 카드 —
+   에서는 아래 dogam-keep 버튼 등과 간격을 벌리려고 필요)는 이 팝업에선 토글 알약 바로 아래에
+   불필요한 빈 공간을 만든다(사용자 리포트 2026-09-12). 공용 .char-detail은 그대로 두고 이 팝업
+   스코프(#dogamEntryDetailBrief)에서만 0으로 상쇄. */
+#dogamEntryDetailBrief .char-detail { padding-bottom: 0; margin-bottom: 0; }
 #cmbCharacterBasis .zone-basis {
   border: 1px solid var(--border); border-top: none; border-radius: 0; margin-bottom: 0;
 }
@@ -1133,8 +1138,11 @@ body.overlay-open { overflow: hidden; }
 .dogam-detail-chemistry { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .dogam-detail-sentence { font-size: 16px; font-weight: 700; color: var(--text-title); line-height: 1.4; }
 .dogam-detail-reason { font-size: 13px; line-height: 1.6; color: var(--text-sub2); margin: 0; }
-.dogam-detail-cta { margin-top: 14px; }
 .dogam-detail-cta p { font-size: 12px; line-height: 1.6; color: var(--text-sub2); margin: 0 0 10px; }
+/* .dogam-detail-cta는 참여자 상세 팝업 전용이지만(다른 화면에서 안 씀), 스코프를 명시적으로 팝업
+   컨테이너 ID에 걸어 나중에라도 다른 곳에서 재사용될 때 이 margin-top이 새 나가지 않게 한다.
+   사용자 리포트(2026-09-12) — 카드+토글 바로 아래에 붙어야 하는데 위쪽 여백이 남아 있었다. */
+#dogamEntryDetailCtaSlot .dogam-detail-cta { margin-top: 0; }
 /* Figma "ControlGroup/CheckboxwithLabel" 실측 gap 4(체크박스-텍스트) — 기존 8px는 그 바깥
    "ConsentCheck" 레벨(현재 코드엔 별도 레벨이 없음)의 값이었다. */
 .dogam-check { display: flex; align-items: flex-start; gap: 4px; font-size: 12px; line-height: 1.6; color: var(--text-strong); cursor: pointer; }
