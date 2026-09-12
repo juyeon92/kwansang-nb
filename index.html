@@ -918,7 +918,11 @@ body.overlay-open { overflow: hidden; }
   background: var(--surface); border-radius: 20px 20px 0 0; display: flex; flex-direction: column;
   box-shadow: 0 -8px 24px rgba(23,32,31,0.12);
 }
-.form-popup.small { top: auto; bottom: 0; border-radius: 20px 20px 0 0; }
+/* 사용자 리포트(2026-09-12) — 참여자 상세 팝업에서 캐릭터 상세를 펼치면 콘텐츠가 뷰포트보다 길어지는데,
+   .small은 top을 안 정해서 높이가 콘텐츠 그대로 늘어나기만 하고 뷰포트 위로 잘려 스크롤도 안 됐다.
+   기본 .form-popup(top:8vh)과 같은 상한(92vh)을 줘서, 그 안에서는 콘텐츠 크기만큼 줄어들다가(hug)
+   넘어가면 .popup-body(overflow-y:auto)가 안에서 스크롤하도록 한다. */
+.form-popup.small { top: auto; bottom: 0; max-height: 92vh; border-radius: 20px 20px 0 0; }
 .popup-header { display: flex; align-items: center; justify-content: space-between; padding: 20px; font-size: 20px; font-weight: 500; color: var(--text-heading); border-bottom: 1px solid var(--border-lavender); }
 .popup-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 20px; }
 .popup-footer { display: flex; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--border-lavender); }
