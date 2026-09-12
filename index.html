@@ -156,6 +156,10 @@ body {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r); padding: 24px; margin-bottom: 16px;
 }
+/* 사용자 요청(2026-09-12) — 공용 .card의 radius/padding/margin-bottom을 통합분석 화면에서만
+   지운다(다른 탭은 이 3개 값을 그대로 써야 해서 공용 규칙 자체는 안 건드림). 통합분석 안의
+   .card 쓰는 자리(#cmbSavedList 등)는 각자 이미 자기 radius/padding을 따로 지정해뒀다. */
+#panel-combined .card { border-radius: 0; padding: 0; margin-bottom: 0; }
 .shell-strip { border: none; padding: 0; background: transparent; }
 
 .report-back-btn {
@@ -1255,9 +1259,13 @@ body.overlay-open { overflow: hidden; }
   position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
   background: linear-gradient(160deg, #EEFAF7 0%, #FFFFFF 75%);
   border: 1px solid var(--mint-border); border-radius: 22px;
-  padding: 22px 20px 20px; margin-bottom: 24px; overflow: hidden;
+  padding: 22px 20px 20px; overflow: hidden;
   box-shadow: 0 8px 20px rgba(38,55,90,0.06);
 }
+/* 사용자 요청(2026-09-12) — 통합분석(#cmbHero)은 .upload-section의 flex gap:20이 이미 간격을 주고
+   있어 margin-bottom:24가 이중 여백이었다. 궁합보기(#ggHeroBanner)는 지금 화면 그대로 유지해야
+   해서(요청 범위가 통합분석 한정) 공용 .cmb-hero-card에서 값을 빼고 그쪽에만 그대로 되돌려준다. */
+#ggHeroBanner { margin-bottom: 24px; }
 .cmb-hero-text { flex: 1; min-width: 0; position: relative; z-index: 1; }
 .cmb-hero-badge {
   display: inline-flex; align-items: center; gap: 6px; background: #fff;
@@ -1394,7 +1402,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 #ggSavedList .revisit-row + .revisit-row { margin-top: 12px; }
 /* Figma node 75:1362 "List" 실측 — 통합분석 저장 내역 목록만 테두리 색·반경을 맞춘다(공용
    .card/.revisit-card는 gungham(#ggSavedList)과도 같이 쓰므로 여기서만 덮어쓴다). */
-#cmbSavedList.card { border-color: var(--border-lavender); border-radius: 16px; }
+#cmbSavedList.card { border-color: var(--border-lavender); border-radius: 16px; padding: 16px; }
 /* 더보기 전에는 처음 3개만 보이고 나머지는 숨김(사용자 요청 2026-09-12, Figma 실측대로 3개+더보기). */
 #cmbSavedList .revisit-row.cmb-saved-extra { display: none; }
 #cmbSavedList.show-all .revisit-row.cmb-saved-extra { display: flex; }
