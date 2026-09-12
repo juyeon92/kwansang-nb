@@ -651,7 +651,7 @@
     const chip = document.getElementById('cmbSajuChip');
     if (!chip) return;
     if (!profile) {
-      chip.innerHTML = `<span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 사주 정보 선택</span>`;
+      chip.innerHTML = `<span class="mini-profile-placeholder">사주 정보를 선택해주세요</span><span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>`;
       chip.classList.add('select-mode');
       return;
     }
@@ -664,7 +664,7 @@
         </span>
         <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourLabel(profile.birthHour))}</span>
       </span>
-      <span class="mini-profile-chevron material-symbols-outlined">chevron_right</span>`;
+      <span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>`;
   }
   // 탭 재진입 등으로 화면을 다시 그릴 때 지금 선택 상태(cmbSajuSelectedId) 그대로 칩만 다시 렌더 —
   // 선택 자체를 초기화하지는 않는다(초기화는 resetCmbSajuSelection의 몫).

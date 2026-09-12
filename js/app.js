@@ -794,6 +794,8 @@ function startCombinedAnalysis() {
     return;
   }
   if (!state.combined.file) { alert('사진을 선택해주세요.'); return; }
+  const cmbAgree = document.getElementById('cmbAgree');
+  if (!cmbAgree || !cmbAgree.checked) { alert('필수 동의 항목에 체크해주세요.'); return; }
   if (!state.combined.q1) { alert('현재 연애 상태를 알려주세요.'); return; }
   if (!state.combined.q2) { alert('현재 직장(일) 상태를 알려주세요.'); return; }
   if (window.Profile && Profile.runCombined) Profile.runCombined();

@@ -30,7 +30,8 @@
   --beige-chip-text: #675536;
 
   --text-heading: #040404;     --text-title: #111111;       --text-strong: #333333;      --text-strong2: #3b3b3b;     --text-sub: #666666;         --text-sub2: #5b5b5b;        --text-caption: #706a72;
-  --border-gray: #d9d9d9;      --border-gray2: #dddddd;     --border-lavender: #e8e2e8;
+  --text-placeholder: #9aa0a6;
+  --border-gray: #d9d9d9;      --border-gray2: #dddddd;     --border-lavender: #e8e2e8;  --border-mint-soft: #e3e9e7;
   --bg-soft: #f3f6f8;          --bg-soft2: #f3f3f3;         --bg-info-yellow: #fffaef;   --icon-orange: #ff9533;
   --icon-purple-gray: #504250;
 
@@ -95,12 +96,15 @@ body {
    그대로 남아 이가 갈린다 — .wrap 자체에 줘야 프레임 끝까지 색이 이어진다. 다른 탭엔 영향 없게
    :has()로 인연도감 패널이 active일 때만 켠다(기존 .wrap:has(#cmbAnalyzing...) 패턴과 동일 기법). */
 .wrap:has(#panel-gwansang.active) { background: var(--card2); }
+/* 통합분석 탭도 같은 이유(Figma node 52:3243 "Warp" fill #f0f4f3=--card2) — 위 인연도감 규칙과
+   동일 기법으로 흰 Form Card가 이 배경 위에 떠 보이게 한다. */
+.wrap:has(#panel-combined.active) { background: var(--card2); }
 .upload-section { margin: 0 -16px; }
 
 .app-header { max-width: var(--frame-w); margin: 0 auto; background: var(--surface); }
 .header-topbar {
   display: flex; align-items: center; justify-content: space-between;
-  height: 64px; padding: 0 24px; background: var(--surface);
+  height: 53px; padding: 0 24px; background: var(--surface);
 }
 .header-topbar h1 {
   font-size: 20px; font-weight: 500; color: var(--text-heading); letter-spacing: -0.2px;
@@ -454,19 +458,23 @@ body {
   content: ''; width: 3px; height: 16px; background: var(--mint); border-radius: 999px;
 }
 
+/* Figma node 52:3243 "FieldInput" 실측(통합분석 최초 진입 — 사주 정보 칩) — 민트 틴트 필 배지가
+   아니라 흰 배경+회색 테두리의 드롭다운형 입력 필드처럼 보인다. 우측 화살표 아이콘도 이 실측 때
+   추가(기존엔 없었음). */
 .mini-profile-chip {
-  display: flex; flex-direction: row; align-items: center; gap: 2px;
-  background: var(--mint-10); border: none; border-radius: 8px;
-  padding: 12px; margin-bottom: 12px; width: 100%; text-align: left;
-  font-family: inherit; cursor: default;
+  display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px;
+  background: #fff; border: 1px solid var(--border-gray); border-radius: var(--r-input);
+  padding: 13px 14px; margin-bottom: 12px; width: 100%; text-align: left;
+  font-family: inherit; cursor: default; box-sizing: border-box;
 }
 .mini-profile-chip.select-mode { cursor: pointer; }
-.mini-profile-chip.select-mode:hover { background: rgba(85,204,187,0.16); }
+.mini-profile-chip.select-mode:hover { border-color: var(--mint); }
+.mini-profile-chip-arrow { font-size: 16px; color: var(--text-sub); flex-shrink: 0; }
 .mini-profile-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .mini-profile-name { font-size: 14px; font-weight: 500; color: var(--text-strong); }
 .mini-profile-badge { font-size: 10px; color: var(--text-sub); background: var(--surface); border: 1px solid var(--border-gray); border-radius: 50px; padding: 0 8px; }
 .mini-profile-sub { font-size: 11px; color: var(--text-sub); }
-.mini-profile-placeholder { font-size: 13px; font-weight: 700; color: var(--text-sub2); }
+.mini-profile-placeholder { font-size: 14px; font-weight: 400; color: var(--text-placeholder); }
 .mini-profile-empty { font-size: 12px; color: var(--text3); }
 .mini-profile-chevron { margin-left: auto; flex-shrink: 0; }
 
@@ -517,6 +525,11 @@ body {
 .saju-q-block { padding: 24px 0; }
 .saju-q-block:first-child { padding-top: 0; }
 .saju-divider { border-top: 1px solid var(--border-lavender); }
+/* Figma node 52:3243 "SajuQBlock" 실측 — Q1~Q3를 감싸는 옅은 민트-그레이 테두리 박스. */
+#cmbSajuQBlock { border: 1px solid var(--border-mint-soft); border-radius: var(--r-btn); padding: 16px; }
+#cmbSajuQBlock .saju-q-block { padding: 12px 0; }
+#cmbSajuQBlock .saju-q-block:first-child { padding-top: 0; }
+#cmbSajuQBlock .saju-q-block:last-child { padding-bottom: 0; }
 .saju-q-title { font-size: 16px; font-weight: 700; color: var(--text-title); line-height: 1.4; margin-bottom: 16px; }
 .saju-q-optional { font-size: 13px; font-weight: 400; color: var(--text-sub); margin-left: 4px; }
 .saju-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1256,6 +1269,12 @@ body.overlay-open { overflow: hidden; }
 .cmb-hero-img { width: 108px; height: 108px; flex-shrink: 0; }
 .cmb-hero-img img { width: 100%; height: 100%; object-fit: contain; }
 @media (max-width: 360px) { .cmb-hero-img { width: 84px; height: 84px; } }
+/* Figma node 52:3243 "Form Card" 실측 — 사주 정보/관상 정보/질문을 감싸는 흰 카드 + 제목. */
+.cmb-form-card { background: #fff; border-radius: 16px; padding: 16px; }
+.cmb-form-card-title { font-size: 16px; font-weight: 800; color: var(--text-title); margin-bottom: 16px; }
+/* "Background+Border" 안의 원형 아이콘 — 공용 .upload-icon-circle(옅은 민트 틴트+민트 아이콘)과 달리
+   이 화면만 꽉 찬 민트 배경+흰 아이콘, 크기도 54px(공용 48px)로 다르다. */
+#cmbUploadArea .upload-icon-circle { width: 54px; height: 54px; background: var(--mint); color: #fff; font-size: 22px; }
 .dogam-delete-btn { display: block; width: 100%; margin-top: 16px; padding: 11px; border: 1px solid var(--border-gray);
   border-radius: var(--r-btn); background: var(--surface); color: #b04a4a; font-size: 12px; font-weight: 700;
   cursor: pointer; font-family: inherit; }
@@ -1653,10 +1672,12 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <div class="cmb-hero-img"><img src="images/Logo.png" alt=""></div>
       </div>
 
-            <div id="cmbPhotoStep">
+            <div id="cmbPhotoStep" class="cmb-form-card">
+      <div class="cmb-form-card-title">내 도감 생성하기</div>
       <div class="upload-label">사주 정보</div>
       <button type="button" class="mini-profile-chip select-mode" id="cmbSajuChip" onclick="Profile.openCombinedSajuPicker()">
-        <span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 사주 정보 선택</span>
+        <span class="mini-profile-placeholder">사주 정보를 선택해주세요</span>
+        <span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>
       </button>
 
       <div class="upload-label">관상 정보</div>
@@ -1665,10 +1686,10 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
            onclick="document.getElementById('cmbFileInput').click()"
            ondrop="handleDrop('combined', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
         <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
-        <strong>관상을 살펴볼 사진 넣기</strong>
+        <strong>사진을 클릭하거나 드래그하여 업로드</strong>
         <div class="tip-box">
           <span class="icon material-symbols-outlined">warning</span>
-          <p>목선까지 보이는 정면사진을 올려주세요.<br>(얼굴 60% 이상)</p>
+          <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
         </div>
       </div>
       <input type="file" id="cmbFileInput" accept="image/*" style="display:none" onchange="handleFile('combined', event)">
@@ -1685,6 +1706,11 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <summary>🔒사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
         <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
       </details>
+
+      <label class="dogam-check" style="margin-bottom:12px;">
+        <input type="checkbox" id="cmbAgree">
+        <span>입력한 이름과 사진을 인연도감 생성/관리에 이용하는 데 동의해요. <b>(필수)</b></span>
+      </label>
 
             <div class="hidden" id="cmbSajuQBlock" style="margin-top:16px;">
         <div class="saju-q-block">
@@ -2614,8 +2640,8 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
 <script src="js/ai-analysis.js?v=20260908c"></script>
-<script src="js/app.js?v=20260908b"></script>
-<script src="js/profile.js?v=20260912a"></script>
+<script src="js/app.js?v=20260912a"></script>
+<script src="js/profile.js?v=20260912b"></script>
 <script src="js/archive.js?v=20260905"></script>
 <script src="js/inyeon-dogam.js?v=20260912zb"></script>
 <script src="js/nyang-shop.js?v=20260904"></script>
