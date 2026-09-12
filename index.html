@@ -1423,7 +1423,11 @@ body.overlay-open { overflow: hidden; }
    대상도 .site-footer 하나로 통일(노출 범위는 예전 .biz-footer와 동일하게 유지).
    2026-09-12 사용자 지적 — 이 푸터는 "인연도감 최초 진입(메인)" 화면에만 있어야 하는 규칙(정책
    문서 "공통 영역 노출 규칙" 참고)인데, 게스트(피공유인) 화면(#dogamGuestSection)에서도 계속
-   보이고 있었다 — 통합분석/궁합보기의 "리포트를 보여주는 화면"과 같은 이유로 여기도 추가한다. */
+   보이고 있었다 — 통합분석/궁합보기의 "리포트를 보여주는 화면"과 같은 이유로 여기도 추가한다.
+   2026-09-12 재수정(사용자 리포트: "통합분석 메인인데도 푸터가 나왔다 사라짐") — #dogamGuestSection은
+   guestHost()가 인연도감 탭이 활성화돼있지 않아도(로그인 직후 백그라운드 자가복구 중에도) 그냥
+   #panel-gwansang 안에 만들어버린다. :has(#dogamGuestSection)엔 활성 탭 조건이 없어서, 다른 탭을
+   보고 있는 중에도 이 배경 작업 때문에 전역 푸터가 사라졌다 — #panel-gwansang.active로 한정한다. */
 .wrap:has(#cmbAnalyzing:not(.hidden)) .site-footer,
 .wrap:has(#cmbResult:not(.hidden)) .site-footer,
 .wrap:has(#gwansangAnalyzing:not(.hidden)) .site-footer,
@@ -1431,7 +1435,7 @@ body.overlay-open { overflow: hidden; }
 .wrap:has(#ggAnalyzing:not(.hidden)) .site-footer,
 .wrap:has(#ggResult:not(.hidden)) .site-footer,
 .wrap:has(#ggSavedReport:not(.hidden)) .site-footer,
-.wrap:has(#dogamGuestSection) .site-footer {
+.wrap:has(#panel-gwansang.active #dogamGuestSection) .site-footer {
   display: none;
 }
 /* 공통 영역 설계 1-2 — 헤더 profileInfoBox 노출 범위 축소. 인연도감 탭은 대표 프로필 개념을 안
