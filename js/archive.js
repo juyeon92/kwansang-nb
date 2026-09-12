@@ -309,13 +309,25 @@
   // 이 함수는 그 두 상태(옛 폰트 마커, 방금 고친 mask 깨진 SVG) 모두를 찾아 지금의 안전한 path만
   // 있는 SVG로 바꿔치기한다. 이미 안전한 마커(mask 없는 svg, material-symbols-outlined 아님)는
   // 건드리지 않는다 — 멱등.
+  const ZONE_ARROW_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)">' +
+    '<path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg>';
   function repairZoneAccordionArrows(rootEl) {
+    // 1) 아이콘 요소 자체는 있는데 깨진 경우(옛 폰트 리게이처, mask id 유실) — 내용만 바꿔치기.
     rootEl.querySelectorAll('.zone-accordion-arrow').forEach(function (el) {
       const needsRepair = el.classList.contains('material-symbols-outlined') || el.querySelector('mask');
       if (!needsRepair) return;
       el.classList.remove('material-symbols-outlined');
-      el.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)">' +
-        '<path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg>';
+      el.innerHTML = ZONE_ARROW_SVG;
+    });
+    // 2) 통합분석 존 아코디언(cmb-zone1~4) summary인데 아이콘 요소 자체가 통째로 없는, 더 오래된
+    //    스냅샷(오늘 이 아이콘을 붙이기 전에 저장된 리포트) — 새로 만들어 붙인다. cmb-zone* class로만
+    //    한정해 궁합보기(ggZone/ggHero, 원래부터 아이콘 없이 ::before 텍스트로만 표시)는 건드리지 않는다.
+    rootEl.querySelectorAll('details.zone-accordion[class*="cmb-zone"] > summary').forEach(function (summary) {
+      if (summary.querySelector('.zone-accordion-arrow')) return;
+      const span = document.createElement('span');
+      span.className = 'zone-accordion-arrow';
+      span.innerHTML = ZONE_ARROW_SVG;
+      summary.appendChild(span);
     });
   }
 
