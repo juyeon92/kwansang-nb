@@ -99,7 +99,17 @@
       // 일찍 사라졌다 다시 나타나며 깜빡였다 — 게스트 쪽이 이미 처리 중이면 여기서는 건드리지 않는다.
       const guestActionOwnsOverlay = isGuestSession && window.Dogam && Dogam.isGuestActionInFlight && Dogam.isGuestActionInFlight();
       if (isGuestSession && !guestActionOwnsOverlay) showAuthLoading();
-      const dogamRenderPromise = window.Dogam ? Dogam.render() : Promise.resolve();
+      // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "인연등록하기 하면 로직이 한번 쭈욱 돌고 최종적으로
+      // 뜨는거 같은데") — 위 오버레이 가드는 "오버레이를 껐다 켰다"만 막았지, 이 render() 자체는
+      // guestActionOwnsOverlay여도 그대로 불렀다. registerEntry()/useManualGuestEntry()가 진행
+      // 중일 때(ensureAuthUid() 등으로 onAuthStateChanged가 흔히 같이 발동) 이 render()가 끼어들면
+      // showGuestView()가 폼 전체를 처음 상태로 새로 그려버려서, 등록 중이던 스피너/입력값이 통째로
+      // 사라지고 "아무 일도 안 일어나는 것처럼" 보이다가 한참 뒤 registerEntry() 자신의 마지막
+      // render()에서야 결과가 뜬다. 게스트 액션이 화면을 이미 책임지고 있으면 이 render() 자체를
+      // 건너뛴다 — 액션이 끝나면 그쪽이 알아서 최신 상태로 다시 그린다.
+      const dogamRenderPromise = (isGuestSession && guestActionOwnsOverlay)
+        ? Promise.resolve()
+        : (window.Dogam ? Dogam.render() : Promise.resolve());
       if (isGuestSession && !guestActionOwnsOverlay) dogamRenderPromise.catch(function () {}).then(hideAuthLoading);
       // 로그인 필요 탭(통합분석·사주보기·궁합보기)이 기본 활성 탭이거나 새로고침으로 복원된 경우,
       // switchTab()의 클릭 시점 검사를 거치지 않고 그려질 수 있어서 인증 상태가 확정되는 지금
