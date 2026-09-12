@@ -294,6 +294,31 @@
     rootEl.querySelectorAll(REPORT_CHROME).forEach(n => n.remove());
   }
 
+  // 사용자 리포트(2026-09-12: "ZONE 1 summary에 arrow 어디감", 이후 "지금도 안보여") — 두 가지 원인이
+  // 겹쳐 있었다.
+  // (1) 오늘 이 아이콘을 도입하기 전 저장된 리포트는 옛 <span class="material-symbols-outlined
+  //     zone-accordion-arrow">expand_more</span>(구글 폰트 리게이처) 그대로 얼어있다 — 이 폰트가
+  //     네트워크 문제로 안 불러와지면(사내망 등) 화살표가 안 보인다.
+  // (2) 오늘 이 아이콘을 SVG로 바꾼 직후 버전은 <mask id="..."> + <g mask="url(#...)">로 만들었는데,
+  //     Archive.snapshot()이 저장 시 모든 [id]를 떼버려서(§snapshot 주석) mask의 id도 같이 날아가고,
+  //     그 결과 g가 존재하지 않는 mask를 참조해 마스킹이 아예 안 먹혀 화살표 자리에 색칠된 사각형이
+  //     보였다(라이브 화면에서 clone+strip을 그대로 재현해 실측 확인). 그래서 지금 코드(index.html)
+  //     자체를 id/mask 없이 <path fill="currentColor">만 쓰도록 바꿨다 — 애초에 사각형을 마스킹해
+  //     보이려던 게 이 path 모양 자체였으므로 mask 없이 path만 채워도 결과는 완전히 동일하고,
+  //     id에 의존하지 않아 스냅샷 저장(id 제거)에도 안전하다.
+  // 이 함수는 그 두 상태(옛 폰트 마커, 방금 고친 mask 깨진 SVG) 모두를 찾아 지금의 안전한 path만
+  // 있는 SVG로 바꿔치기한다. 이미 안전한 마커(mask 없는 svg, material-symbols-outlined 아님)는
+  // 건드리지 않는다 — 멱등.
+  function repairZoneAccordionArrows(rootEl) {
+    rootEl.querySelectorAll('.zone-accordion-arrow').forEach(function (el) {
+      const needsRepair = el.classList.contains('material-symbols-outlined') || el.querySelector('mask');
+      if (!needsRepair) return;
+      el.classList.remove('material-symbols-outlined');
+      el.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)">' +
+        '<path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg>';
+    });
+  }
+
   function snapshot(type) {
     const wrap = document.createElement('div');
     (CONTAINERS[type] || []).forEach(function (id) {
@@ -753,6 +778,7 @@
     if (!html && confirmed) purgeOrphan(viewingId); // 본문 없음이 확인된 고아 항목만 정리(오류 시엔 그대로 둔다)
     // 이미 저장돼 있던 리포트에도 조작 요소가 섞여 있을 수 있어 여는 시점에도 한 번 걷어낸다.
     stripChrome(body);
+    repairZoneAccordionArrows(body);
     // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "보관함에서 리포트 보면 아코디언이 다 열려있음") — 여기서
     // innerHTML로 새로 찍은 zone-accordion들은 app.js의 initZoneAccordions()가 페이지 로드 시 한 번
     // 붙인 리스너 대상이 아니라 "하나 열면 나머지 닫힘" 규칙이 빠진다. 다시 불러 새 아코디언에도 연결.
@@ -775,6 +801,7 @@
     if (!html) { el.innerHTML = ''; if (confirmed) purgeOrphan(id); return false; }
     el.innerHTML = html;
     stripChrome(el);
+    repairZoneAccordionArrows(el);
     return true;
   }
 

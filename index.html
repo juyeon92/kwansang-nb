@@ -178,7 +178,7 @@ body {
   flex-shrink: 0; display: flex; align-items: center; justify-content: center;
   border: none; background: none; padding: 0; cursor: pointer; color: var(--text-sub);
 }
-.cmb-report-back .material-symbols-outlined { font-size: 24px; }
+.cmb-report-back svg { display: block; }
 .cmb-report-header h2 { font-size: 20px; font-weight: 800; color: var(--text-title); }
 
 /* 사용자 지정(2026-09-11) — 그라디언트 제거(흰색, Figma 실측과 일치·0.6d 참고), padding 20px 20px로 통일. */
@@ -321,6 +321,13 @@ body {
    항상 이김) 이 기본값에 영향받지 않는다. */
 #cmbCharacterCard, #cmbCharacterBasis, #cmbCharacterDetail,
 #cmbResult .zone-accordion > div, #cmbSavedBody .zone-accordion > div { margin: 0; }
+/* Zone2 안의 .z3-pair-title(공용 클래스, Zone3와 공유)만 제목-박스 사이 간격을 Figma(node 72:2838)
+   itemSpacing=12에 맞춘다 — .cmb-zone2로 스코프해 Zone3의 .z3-pair-title에는 영향 없음. */
+#cmbResult .cmb-zone2 .z3-pair-title, #cmbSavedBody .cmb-zone2 .z3-pair-title { margin-bottom: 12px; }
+/* Zone2(node 72:2838) 재실측 — Cnt(zone-accordion) 자체엔 패딩을 안 주고(요약줄이 자기 패딩을 가짐),
+   존 본문은 별도 wrap div(.cmb-zone2-body)로 감싸 상하좌우 16px을 준다(Figma Frame 1261159300의
+   좌우16·하단16 인셋 + summary 바로 다음 itemSpacing=16을 이 wrap의 padding-top으로 재현). */
+#cmbResult .cmb-zone2-body, #cmbSavedBody .cmb-zone2-body { padding: 16px; }
 /* Figma node 75:1361(통합분석 결과 화면 step1~4, 2026-09-12 재실측) — 이 카드는 gwansang/dogam
    캐릭터 카드(§ "Figma node 56:1149" 주석들)와 같은 네이비 Cnt+CardInner 구조로 다시 그려졌다.
    예전엔 이 3개 id만 별도로 jade/연회색 테마(border-gray, --card2, --jade)를 썼는데, 실측 결과
@@ -973,12 +980,27 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
 .gg-basis-acc > .gg-basis-content { font-size: 12px; line-height: 1.75; color: var(--text-sub); margin-top: 8px; padding-left: 10px; border-left: 2px solid var(--mint-border); }
 
 /* Figma "SecTitleRow"류(node 75:1361 Zone2 "같은점·다른점") 실측 — fill #1c2942(navy-deep). 이
-   클래스는 통합분석 전용(cmb- 접두)이라 스코프 없이 직접 수정. */
-.cmb-cd-label { font-size: 12px; font-weight: 800; color: var(--char-navy-deep); margin-bottom: 4px; }
+   클래스는 통합분석 전용(cmb- 접두)이라 스코프 없이 직접 수정. margin-bottom은 아래 새
+   .cmb-origin-box의 OriginBox itemSpacing=8(node 72:2838)에 맞춰 4px→8px로 조정(라벨 바로 아래
+   .cmb-z2-hr 구분선까지의 간격). */
+.cmb-cd-label { font-size: 12px; font-weight: 800; color: var(--char-navy-deep); margin-bottom: 8px; }
 .cmb-diff-row { padding: 10px 0; border-top: 1px dashed var(--border); }
 .cmb-diff-row:first-of-type { border-top: none; }
 .cmb-diff-row .face { font-size: 12px; font-weight: 700; color: var(--jade); }
 .cmb-diff-row .saju { font-size: 12px; font-weight: 700; color: var(--beige-chip-text); margin-top: 4px; }
+
+/* Figma "OriginBox"(node 72:2838, Zone2 "관상x사주 총평" 재실측, 2026-09-12) — 흰 배경 + 네이비
+   1px 테두리 + radius12 + padding12. 기존 .z3-pair-card(radius16, Zone2·Zone3 공용)와 얼핏
+   비슷하지만 radius가 다르고, .z3-pair-card는 Zone3와도 공유하는 클래스라 그 값을 덮어쓰면 Zone3에도
+   번져서 새 클래스로 분리했다. Zone2 "같은 점"/"다른 점"/"오행 에너지 비교" 안쪽 박스 전용이라(이
+   파일에서 오직 zone2 마크업·렌더 함수에서만 쓰임) 스코프 없이 직접 정의해도 다른 화면에 영향 없다.
+   (실제 Figma stroke는 opacity 0.4의 네이비였으나, 이 코드베이스 기존 규칙 — 새 rgba/불투명도 값을
+   토큰 없이 즉흥적으로 만들지 않는다 — 을 따라 기존 --char-navy 솔리드 색을 그대로 썼다.) */
+.cmb-origin-box { background: #fff; border: 1px solid var(--char-navy); border-radius: 12px; padding: 12px; }
+/* Figma "Line 1"류(같은 노드) — OriginBox 타이틀 바로 아래 구분선(itemSpacing=8) 재현. ZONE2 바디
+   최상위 직속 자식으로 쓰일 때는(위 #cmbResult .cmb-zone2 > div 규칙이 더 구체적이라) margin이
+   16px 16px 0으로 덮어써져 ZONE2 바디를 가로지르는 Line1/Line2로도 그대로 재사용된다. */
+.cmb-z2-hr { height: 1px; background: var(--border); margin: 0 0 8px; }
 
 .archetype-card { display: flex; gap: 14px; align-items: flex-start; border: 1.5px solid var(--mint-border); border-radius: var(--r); padding: 14px 16px; margin-top: 10px; background: var(--mint-tint-10); }
 .archetype-icon { flex-shrink: 0; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: var(--surface); border-radius: 12px; }
@@ -1875,7 +1897,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
             <div class="hidden" id="cmbSavedReport">
         <div class="cmb-report-header">
           <button type="button" class="cmb-report-back" onclick="closeCombinedSavedReport()" aria-label="분석 내역으로">
-            <span class="material-symbols-outlined">arrow_back</span>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
           </button>
           <h2 id="cmbSavedTitle"></h2>
         </div>
@@ -1913,7 +1935,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       <div class="card-title cmb-result-title" id="cmbResultTitle">🔮 AI 관상 X 사주 개운 리포트</div>
 
                   <details class="report-accordion zone-accordion cmb-zone1" open id="cmbZone1">
-        <summary>ZONE 1 · 관상 캐릭터<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><mask id="mask0_72_3517_z1" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></mask><g mask="url(#mask0_72_3517_z1)"><rect width="15.9999" height="15.9999" fill="currentColor"/></g></svg></span></summary>
+        <summary>ZONE 1 · 관상 캐릭터<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
         <div id="cmbCharacterCard"></div>
         <div id="cmbCharacterBasis"></div>
         <div id="cmbCharacterDetail"></div>
@@ -1922,8 +1944,9 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       <div id="cmbPhotoLoading" class="hidden" style="text-align:center;color:var(--text2);font-size:13px;padding:24px 0;">🔮 관상 분석중~</div>
 
             <details class="report-accordion zone-accordion cmb-zone2" id="cmbZone2">
-        <summary>ZONE 2 · 관상x사주 총평<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><mask id="mask0_72_3517_z2" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></mask><g mask="url(#mask0_72_3517_z2)"><rect width="15.9999" height="15.9999" fill="currentColor"/></g></svg></span></summary>
-                <div class="headline-quote" id="cmbZone2Headline"></div>
+        <summary>ZONE 2 · 관상x사주 총평<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
+                <div class="cmb-zone2-body">
+        <div class="headline-quote" id="cmbZone2Headline"></div>
                 <div class="chemi-card" style="text-align:center;">
           <div class="chemi-title">🧠 관상·사주 싱크</div>
           <div class="gg-hero-total" style="margin-top:6px;"><b id="cmbChemiScore">-</b><span>%</span></div>
@@ -1942,24 +1965,29 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
           <div class="chemi-role" style="text-align:left;margin-top:8px;" id="cmbZone2Review">사진 분석이 끝나면 표시돼요.</div>
         </div>
 
-                <div class="z3-pair-card" style="margin-top:16px;">
+                <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="cmb-z2-section">
           <div class="z3-pair-title">🤝 둘이 같은 점 · 다른 점</div>
           <div id="cmbZone2CommonDiff" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         </div>
 
-        <div class="z3-pair-card" style="margin-top:16px;">
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="cmb-z2-section">
           <div class="z3-pair-title">🌳 오행 에너지 비교</div>
-          <div id="cmbOhaengCompareTable" style="color:var(--text2);font-size:12px;">사진이 있어야 볼 수 있어요.</div>
-          <div class="oh-headline-split">
-            <div class="oh-headline-box face" id="cmbOhaengFaceHead"></div>
-            <div class="oh-headline-box saju" id="cmbOhaengSajuHead"></div>
+          <div class="cmb-origin-box">
+            <div id="cmbOhaengCompareTable" style="color:var(--text2);font-size:12px;">사진이 있어야 볼 수 있어요.</div>
+            <div class="oh-headline-split">
+              <div class="oh-headline-box face" id="cmbOhaengFaceHead"></div>
+              <div class="oh-headline-box saju" id="cmbOhaengSajuHead"></div>
+            </div>
+            <div id="cmbZone2OhaengReading" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
           </div>
-          <div id="cmbZone2OhaengReading" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
+        </div>
         </div>
       </details>
 
             <details class="report-accordion zone-accordion cmb-zone3" id="cmbZone3">
-        <summary>ZONE 3 · 관상x사주 데이터 풀이<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><mask id="mask0_72_3517_z3" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></mask><g mask="url(#mask0_72_3517_z3)"><rect width="15.9999" height="15.9999" fill="currentColor"/></g></svg></span></summary>
+        <summary>ZONE 3 · 관상x사주 데이터 풀이<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
 
         <div class="z3-pair-card">
           <div class="z3-pair-title">☯ 사주 원국</div>
@@ -1985,7 +2013,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         </details>
 
             <details class="report-accordion zone-accordion cmb-zone4" id="cmbZone4">
-        <summary>ZONE 4 · 관상x사주 스토리 풀이<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><mask id="mask0_72_3517_z4" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></mask><g mask="url(#mask0_72_3517_z4)"><rect width="15.9999" height="15.9999" fill="currentColor"/></g></svg></span></summary>
+        <summary>ZONE 4 · 관상x사주 스토리 풀이<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
         <div id="cmbZone4Card1" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         <div id="cmbZone4Temperament" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         <div id="cmbZone4HiddenSelf" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
@@ -2757,10 +2785,10 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/character-api.js?v=20260908b"></script>
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
-<script src="js/ai-analysis.js?v=20260912a"></script>
+<script src="js/ai-analysis.js?v=20260912b"></script>
 <script src="js/app.js?v=20260912c"></script>
 <script src="js/profile.js?v=20260912b"></script>
-<script src="js/archive.js?v=20260905"></script>
+<script src="js/archive.js?v=20260912b"></script>
 <script src="js/inyeon-dogam.js?v=20260912zb"></script>
 <script src="js/nyang-shop.js?v=20260904"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>

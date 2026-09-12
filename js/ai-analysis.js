@@ -441,18 +441,27 @@ function renderZone2Review(elId, data) {
 // Zone2 "둘이 같은 점 / 다른 점"(2026-08-22 추가) — 같은 점은 char-detail-list(✓ 아이콘)를 재사용,
 // 다른 점은 관상/사주 색 구분(dom-bar-labels·oh-headline-split과 같은 jade/beige 배색)을 그대로 써서
 // 관상=관상색, 사주=사주색이라는 화면 전체 색 규칙을 유지한다.
+// 2026-09-12(Figma node 72:2838 재실측) — "같은 점"/"다른 점"이 하나의 박스에 같이 들어있던 걸
+// Figma의 두 OriginBox(흰 배경+네이비 테두리, 각자 제목+구분선을 자기 안에 가짐)에 맞춰 완전히
+// 분리된 두 개의 .cmb-origin-box로 나눴다. 박스 사이 간격(12px)은 Figma Z3PairCard itemSpacing=12.
 function renderZone2CommonDiff(elId, common, different) {
   const commonHtml = (common && common.length)
-    ? `<div class="cmb-cd-label">✅ 둘이 같은 점</div>
-       <ul class="char-detail-list is-strength">${common.map(s => `<li>${s}</li>`).join('')}</ul>`
+    ? `<div class="cmb-origin-box">
+         <div class="cmb-cd-label">✅ 둘이 같은 점</div>
+         <div class="cmb-z2-hr"></div>
+         <ul class="char-detail-list is-strength">${common.map(s => `<li>${s}</li>`).join('')}</ul>
+       </div>`
     : '';
   const diffHtml = (different && different.length)
-    ? `<div class="cmb-cd-label" style="margin-top:14px;">⚖️ 둘이 다른 점</div>
-       ${different.map(d => `
-         <div class="cmb-diff-row">
-           <div class="face">🙂 관상 → ${d.face}</div>
-           <div class="saju">☯ 사주 → ${d.saju}</div>
-         </div>`).join('')}`
+    ? `<div class="cmb-origin-box" style="margin-top:12px;">
+         <div class="cmb-cd-label">⚖️ 둘이 다른 점</div>
+         <div class="cmb-z2-hr"></div>
+         ${different.map(d => `
+           <div class="cmb-diff-row">
+             <div class="face">🙂 관상 → ${d.face}</div>
+             <div class="saju">☯ 사주 → ${d.saju}</div>
+           </div>`).join('')}
+       </div>`
     : '';
   setHtmlIfExists(elId, commonHtml + diffHtml);
 }
