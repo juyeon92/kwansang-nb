@@ -1361,7 +1361,6 @@
         '</div>' +
         '<div class="popup-body">' +
           '<div class="dogam-detail-chemistry">' +
-            '<span class="dogam-row-tag" style="color:' + (meta.deep || '') + ';background:' + (meta.tint || '') + ';">A와의 인연</span>' +
             '<div class="dogam-detail-sentence">' + esc(ownerName) + '님한테 ' + esc(e.name) + '님은 <b>' + esc(e.relation || '') + '</b>케미예요</div>' +
             '<div class="dogam-match-score" style="margin:8px 0;"><b>' + (e.score == null ? '-' : e.score) + '</b><span>점</span></div>' +
             (meta.def ? '<p class="dogam-detail-reason">' + esc(meta.def) + '</p>' : '') +

@@ -371,11 +371,12 @@ body {
    기법을 쓰되, .popup-body의 공용 gap:20px가 이 둘 사이에도 그대로 적용돼 떨어져 보이므로 그 gap만
    상쇄한다. */
 #dogamEntryDetailBrief { margin-top: -20px; }
-/* 공용 .char-detail의 padding-bottom:16px·margin-bottom:16px(다른 화면 — 관상 결과·오너 카드 —
-   에서는 아래 dogam-keep 버튼 등과 간격을 벌리려고 필요)는 이 팝업에선 토글 알약 바로 아래에
-   불필요한 빈 공간을 만든다(사용자 리포트 2026-09-12). 공용 .char-detail은 그대로 두고 이 팝업
-   스코프(#dogamEntryDetailBrief)에서만 0으로 상쇄. */
-#dogamEntryDetailBrief .char-detail { padding-bottom: 0; margin-bottom: 0; }
+/* 공용 .char-detail의 margin-bottom:16px(다른 화면 — 관상 결과·오너 카드 — 에서는 아래 dogam-keep
+   버튼 등과 간격을 벌리려고 필요)는 이 팝업에선 토글 알약 바로 아래·CTA 사이에 불필요한 빈 공간을
+   만들어 이 팝업 스코프에서만 0으로 상쇄한다(사용자 리포트 2026-09-12). padding-bottom(16px)은
+   Figma "Cnt" 자체 padding(16px, 네 방향 동일)과 같은 값이라 그대로 둔다 — 한 번 0으로 지웠다가
+   토글 알약이 박스 바닥에 바짝 붙어 답답해 보여 다시 16으로 되돌림. */
+#dogamEntryDetailBrief .char-detail { margin-bottom: 0; }
 #cmbCharacterBasis .zone-basis {
   border: 1px solid var(--border); border-top: none; border-radius: 0; margin-bottom: 0;
 }
@@ -2604,7 +2605,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/app.js?v=20260908b"></script>
 <script src="js/profile.js?v=20260903"></script>
 <script src="js/archive.js?v=20260905"></script>
-<script src="js/inyeon-dogam.js?v=20260912w"></script>
+<script src="js/inyeon-dogam.js?v=20260912x"></script>
 <script src="js/nyang-shop.js?v=20260904"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>
 <script src="js/pay-history.js?v=20260827c"></script>
