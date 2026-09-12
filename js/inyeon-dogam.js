@@ -1982,6 +1982,22 @@
   // justRegistered를 채운 직후에만 render()가 이 함수로 분기한다(showGuestView 대신). 새로고침하면
   // justRegistered가 비워져 다음 render()는 자연히 showGuestView(등록 폼)로 돌아간다 — "1회성" 요구를
   // lastMatch와 같은 방식(메모리 변수만 사용)으로 만족시킨다.
+  // 등록완료 카드 맨 아래 CTA — 뷰어(게스트)가 이미 자기 인연도감을 갖고 있는지에 따라 문구/버튼이
+  // 갈린다(Figma node 52:1868 "이미 등록한 인연도감 있음" — node 52:2810류와 별개 변형). 렌더 시점엔
+  // 아직 모르는 값(ensureMyDogam, Firestore 조회)이라 일단 "없음" 가정으로 그리고, 뒤에서 비동기로
+  // 확인해 있으면 슬롯만 이 문구로 바꿔치운다(showEntryDetail의 CTA 슬롯과 같은 패턴).
+  function dogamMyResultFootHtml(dogam, hasOwnDogam, isRevisit) {
+    return '' +
+      (hasOwnDogam
+        ? '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. ' + esc(dogam.ownerName) + '님께 내 도감 링크를 공유하고 등록해보세요.</p>' +
+          '<button class="submit-btn btn-solid-primary btn-md" onclick="Dogam.goToMyDogam()">내 인연도감 보러가기</button>'
+        : '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. 내 도감도 만들면 나만의 공유 링크가 생겨요.</p>' +
+          '<button class="submit-btn btn-solid-primary btn-md" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>') +
+      // Figma node 52:2810 "Frame 1261159294" 실측 — 텍스트 링크가 아니라 민트 아웃라인
+      // Medium 버튼(showGuestView의 "새로 등록하기"와 같은 .btn-outline-mint)이다(2026-09-12
+      // 노드 대조로 수정).
+      (isRevisit ? '<button type="button" class="btn-outline-primary btn-outline-mint btn-md" onclick="Dogam.showRegisterFormForOther()">내 정보가 아니에요 · 새로 등록하기</button>' : '');
+  }
   function renderGuestMergedResult(dogam, match, opts, stale) {
     const el = prepGuestScreen();
     if (!el) return;
@@ -2044,15 +2060,10 @@
               '<div class="dogam-match-score"><b>' + (match.score == null ? '-' : match.score) + '</b><span>점</span></div>' +
             '</div>' +
           '</div>' +
-          '<div class="dogam-my-result-foot">' +
-            '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. 내 도감도 만들면 나만의 공유 링크가 생겨요.</p>' +
-            // 사용자 지정(2026-09-12) — 이 카드 안에서는 Large(.submit-btn 기본, 56px) 대신
-            // Medium(.btn-solid-primary.btn-md, 46px) 버튼을 쓴다.
-            '<button class="submit-btn btn-solid-primary btn-md" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
-            // Figma node 52:2810 "Frame 1261159294" 실측 — 텍스트 링크가 아니라 민트 아웃라인
-            // Medium 버튼(showGuestView의 "새로 등록하기"와 같은 .btn-outline-mint)이다(2026-09-12
-            // 노드 대조로 수정).
-            (isRevisit ? '<button type="button" class="btn-outline-primary btn-outline-mint btn-md" onclick="Dogam.showRegisterFormForOther()">내 정보가 아니에요 · 새로 등록하기</button>' : '') +
+          // 사용자 지정(2026-09-12) — 이 카드 안에서는 Large(.submit-btn 기본, 56px) 대신
+          // Medium(.btn-solid-primary.btn-md, 46px) 버튼을 쓴다. id는 아래 비동기 업그레이드용.
+          '<div class="dogam-my-result-foot" id="dogamMyResultFootSlot">' +
+            dogamMyResultFootHtml(dogam, false, isRevisit) +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -2069,6 +2080,21 @@
       renderCharacterDetail('dogamOwnerDetail', { characterId: dogam.ownerCharacterId });
       wireGwansangCharDetailToggle('dogamOwnerDetail', 'dogamOwnerCard');
     }
+    // 사용자 리포트(2026-09-12: "나 이미 인연도감 있는 상태로(로그인도 함)") — 위에서 "없음" 가정으로
+    // 그려둔 CTA를, 이미 위에서 선점해둔 mineForCtaCache(또는 새로 조회)로 확인해서 있으면 바꿔친다.
+    // 없으면(절대다수) 그대로 두므로 깜빡임이 없다.
+    (async function () {
+      const uidNow = currentUid();
+      const minePromise = (mineForCtaCache && mineForCtaCache.uid === uidNow)
+        ? mineForCtaCache.promise
+        : ensureMyDogam().catch(function () { return null; });
+      const mine = await minePromise;
+      if (stale && stale()) return;
+      if (!mine) return; // 이미 그려둔 "없음" 문구가 맞다
+      const slot = document.getElementById('dogamMyResultFootSlot');
+      if (!slot) return; // 그 사이 화면을 떠남
+      slot.innerHTML = dogamMyResultFootHtml(dogam, true, isRevisit);
+    })();
   }
 
   // 등록 폼 바로 아래에 "이 도감에 이미 몇 명이 등록했는지"를 보여준다(사용자 요청 2026-08-18:
@@ -2328,6 +2354,15 @@
     }
   }
 
+  // Figma node 52:1868 — 게스트가 남의 도감 링크로 등록했는데 이미 자기 인연도감이 있는 경우(로그인
+  // 상태에서 다른 사람 링크를 열어본 경우)의 CTA. 만들 게 없으니 createMyDogamFromInvite()처럼 로그인
+  // 게이트/Firestore 쓰기를 거칠 필요가 없다 — URL만 정리하고 새로고침하면 render()가 사용자 요청
+  // (2026-09-12) 그대로 곧장 "내 도감(오너)" 화면을 그린다(ensureMyDogam()이 이미 있는 도감을 찾음).
+  function goToMyDogam() {
+    history.replaceState(null, '', location.origin + location.pathname);
+    location.reload();
+  }
+
   // 공유 링크는 내 도감 문서의 slug 하나로 고정된다 — 한 번 만들어지면 계속 같은 주소이고,
   // 이 주소로 들어온 사람에게는 "내 도감"이 열린다(renderGuestView).
   async function share() {
@@ -2452,7 +2487,7 @@
 
   window.Dogam = {
     render: render, renderInto: renderIntoEl, share: share, registerEntry: registerEntry,
-    createMyDogamFromInvite: createMyDogamFromInvite,
+    createMyDogamFromInvite: createMyDogamFromInvite, goToMyDogam: goToMyDogam,
     showRegisterFormForOther: showRegisterFormForOther,
     useManualGuestEntry: useManualGuestEntry,
     // kakao-auth.js가 onAuthStateChanged에서 자기 로딩 오버레이를 띄울지 판단할 때 쓴다(guestActionInFlight 선언부 참고).
