@@ -311,18 +311,29 @@
   // 건드리지 않는다 — 멱등.
   const ZONE_ARROW_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)">' +
     '<path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg>';
-  function repairZoneAccordionArrows(rootEl) {
+  // 사용자 리포트(2026-09-12, 콘솔로 실제 #cmbSavedBody.innerHTML 확인) — cmb-zone1~4 class가
+  // 도입되기도 전에 저장된 훨씬 더 오래된 리포트는 <details class="report-accordion
+  // zone-accordion" ...>(cmb-zone class 자체가 없음)라 이전 버전의 [class*="cmb-zone"] 조건에
+  // 안 걸려서 아이콘이 끝내 안 붙었다. isCombinedOnly는 "이 rootEl 안 zone-accordion은 전부
+  // 통합분석 것"이 호출부에서 이미 확인된 경우에만 true로 넘긴다(#cmbSavedBody 전용 렌더, 또는
+  // 보관함 상세에서 rec.type==='combined'로 확인된 경우) — 궁합보기(ggZone/ggHero, 원래부터 아이콘
+  // 없이 ::before 텍스트로만 표시)와 같은 화면(#arcReportBody)을 함께 쓰는 보관함 탭에서 잘못
+  // 아이콘을 붙이지 않도록 이 플래그 없이는 2번 단계를 건너뛴다.
+  function repairZoneAccordionArrows(rootEl, isCombinedOnly) {
     // 1) 아이콘 요소 자체는 있는데 깨진 경우(옛 폰트 리게이처, mask id 유실) — 내용만 바꿔치기.
+    //    .zone-accordion-arrow 클래스 자체가 통합분석 전용이라(궁합보기는 이 클래스를 아예 안 씀)
+    //    isCombinedOnly 여부와 무관하게 항상 안전하다.
     rootEl.querySelectorAll('.zone-accordion-arrow').forEach(function (el) {
       const needsRepair = el.classList.contains('material-symbols-outlined') || el.querySelector('mask');
       if (!needsRepair) return;
       el.classList.remove('material-symbols-outlined');
       el.innerHTML = ZONE_ARROW_SVG;
     });
-    // 2) 통합분석 존 아코디언(cmb-zone1~4) summary인데 아이콘 요소 자체가 통째로 없는, 더 오래된
-    //    스냅샷(오늘 이 아이콘을 붙이기 전에 저장된 리포트) — 새로 만들어 붙인다. cmb-zone* class로만
-    //    한정해 궁합보기(ggZone/ggHero, 원래부터 아이콘 없이 ::before 텍스트로만 표시)는 건드리지 않는다.
-    rootEl.querySelectorAll('details.zone-accordion[class*="cmb-zone"] > summary').forEach(function (summary) {
+    if (!isCombinedOnly) return;
+    // 2) 통합분석 존 아코디언인데 아이콘 요소 자체가 통째로 없는, cmb-zone class보다도 더 오래된
+    //    스냅샷 — 새로 만들어 붙인다. isCombinedOnly가 true인 컨텍스트에서만 실행되므로 class
+    //    조건 없이 모든 .zone-accordion > summary를 대상으로 해도 안전하다.
+    rootEl.querySelectorAll('.zone-accordion > summary').forEach(function (summary) {
       if (summary.querySelector('.zone-accordion-arrow')) return;
       const span = document.createElement('span');
       span.className = 'zone-accordion-arrow';
@@ -790,7 +801,7 @@
     if (!html && confirmed) purgeOrphan(viewingId); // 본문 없음이 확인된 고아 항목만 정리(오류 시엔 그대로 둔다)
     // 이미 저장돼 있던 리포트에도 조작 요소가 섞여 있을 수 있어 여는 시점에도 한 번 걷어낸다.
     stripChrome(body);
-    repairZoneAccordionArrows(body);
+    repairZoneAccordionArrows(body, rec && rec.type === 'combined');
     // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "보관함에서 리포트 보면 아코디언이 다 열려있음") — 여기서
     // innerHTML로 새로 찍은 zone-accordion들은 app.js의 initZoneAccordions()가 페이지 로드 시 한 번
     // 붙인 리스너 대상이 아니라 "하나 열면 나머지 닫힘" 규칙이 빠진다. 다시 불러 새 아코디언에도 연결.
@@ -813,7 +824,12 @@
     if (!html) { el.innerHTML = ''; if (confirmed) purgeOrphan(id); return false; }
     el.innerHTML = html;
     stripChrome(el);
-    repairZoneAccordionArrows(el);
+    // renderInto는 통합분석(#cmbSavedBody)·궁합보기(#ggSavedBody) 양쪽에서 공용으로 쓰인다
+    // (js/app.js의 openCombinedSavedReport/openGunghamSavedReport 참고) — 옛 존 아코디언에
+    // 아이콘을 "새로 추가"하는 건 통합분석일 때만 해야 하므로 인덱스에서 이 id의 실제 type을 찾아
+    // 넘긴다.
+    const rec = loadIndex().find(r => r.id === id);
+    repairZoneAccordionArrows(el, rec && rec.type === 'combined');
     return true;
   }
 
