@@ -433,6 +433,21 @@
     zone2.appendChild(wrap);
   }
 
+  // 사용자 리포트(2026-09-12: "이거 안됐는데?" — 같은 오행 풀이 박스를 재차 지적) — Zone2 구조
+  // 자체(.cmb-zone2-body/.cmb-origin-box)는 이미 새 형태로 저장된 리포트라도, 그 안의 오행 풀이
+  // 텍스트만은 그보다 더 나중에 고친 "박스 안에 박스"(.gg-item > .gg-item-reading, margin-top:16px)
+  // 구조 그대로일 수 있다 — repairZone2Structure()는 이미 새 구조(.cmb-zone2-body 있음)면 통째로
+  // 건너뛰므로 이 안쪽 이중 래핑까지는 못 고친다. .cmb-origin-box는 통합분석 전용이라 스코프 없이
+  // 안전하게 찾아 편다.
+  function repairZone2OhaengReadingWrap(rootEl) {
+    rootEl.querySelectorAll('.cmb-origin-box > .gg-item').forEach(function (wrapper) {
+      const inner = wrapper.querySelector(':scope > .gg-item-reading');
+      if (!inner) return;
+      inner.style.marginTop = '8px';
+      wrapper.replaceWith(inner);
+    });
+  }
+
   function snapshot(type) {
     const wrap = document.createElement('div');
     (CONTAINERS[type] || []).forEach(function (id) {
@@ -894,6 +909,7 @@
     stripChrome(body);
     repairZoneAccordionArrows(body, rec && rec.type === 'combined');
     if (rec && rec.type === 'combined') repairZone2Structure(body);
+    repairZone2OhaengReadingWrap(body);
     // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "보관함에서 리포트 보면 아코디언이 다 열려있음") — 여기서
     // innerHTML로 새로 찍은 zone-accordion들은 app.js의 initZoneAccordions()가 페이지 로드 시 한 번
     // 붙인 리스너 대상이 아니라 "하나 열면 나머지 닫힘" 규칙이 빠진다. 다시 불러 새 아코디언에도 연결.
@@ -923,6 +939,7 @@
     const rec = loadIndex().find(r => r.id === id);
     repairZoneAccordionArrows(el, rec && rec.type === 'combined');
     if (rec && rec.type === 'combined') repairZone2Structure(el);
+    repairZone2OhaengReadingWrap(el);
     return true;
   }
 
