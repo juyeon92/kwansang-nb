@@ -500,6 +500,11 @@
   //   onDone과 달리 취소와 선택을 구분해야 하는 호출부(통합분석의 "다른 사람으로 통합분석하기")용.
   // opts.title: 바텀시트 제목 문구(기본 '사주 관리').
   let switcherOpts = {};
+  // 사용자 요청(2026-09-12, Figma node 48:1253) — 예전엔 행을 누르면(체크) 그 자리에서 바로 대표
+  // 프로필이 바뀌고 시트가 닫혔다. 이제는 행을 누르면 "후보"로만 표시되고(candidate, 하이라이트만
+  // 바뀜), 실제로 적용하려면 아래 "사주 선택하기" 버튼을 눌러야 한다 — 인연도감 도감 충돌 선택
+  // 화면(inyeon-dogam.js conflictCardHtml/selectConflictCandidate)과 같은 패턴.
+  let switcherCandidateId = null;
   function openSwitcher(opts) {
     opts = opts || {};
     switcherOpts = opts;
@@ -513,29 +518,7 @@
     // 'A'/'B'/null 3갈래로 넓혔다 — 궁합 리포트 구성.md §(대표 프로필 vs 분석 대상) 참고.
     const ggSlot = opts.ggSlot || null;
     const selectedId = ggSlot === 'A' ? gunghamAId : ggSlot === 'B' ? gunghamPartnerId : (rep && rep.id);
-    const rows = list.map(p => {
-      const selected = p.id === selectedId;
-      // 이미 이 프로필로 만든 리포트가 있으면 openForm()이 그 사주를 잠가 수정을 막는데(사용자 요청
-      // 2026-08-27, linkedReportCounts 주석 참고), 목록의 연필 아이콘은 그 조건을 안 보고 항상
-      // 떠 있어서 눌러도 "수정할 수 없어요" 안내만 나오는 죽은 버튼이었다(사용자 리포트 2026-08-27:
-      // "수정 안되게 하기로 했잖아 근데 여기 수정 버튼은 빼야지"). 잠긴 프로필은 연필 자체를 빼서
-      // 수정 가능한 프로필에서만 보이게 한다.
-      const locked = linkedReportCounts(p.id).total > 0;
-      return `
-        <div class="profile-row ${selected ? 'is-selected' : ''}" onclick="Profile._pickRow('${p.id}', '${ggSlot || ''}')">
-          <span class="profile-row-check">${selected ? '<span class="material-symbols-outlined" style="font-size:16px;color:var(--mint);">check_circle</span>' : ''}</span>
-          <div class="profile-row-body">
-            <div class="profile-row-top">
-              <span class="profile-row-name">${esc(p.name)}</span>
-              <span class="profile-row-badge">${esc(p.relationDetail || p.relation)}</span>
-            </div>
-            <div class="profile-row-sub">${esc(fmtYmd(...String(p.solarDate||'').split('-')))} · ${esc(hourLabel(p.birthHour))}</div>
-          </div>
-          ${locked ? '' : `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._editRow('${p.id}', '${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>`}
-          ${list.length > 1 ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._deleteRow('${p.id}')"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
-        </div>`;
-    }).join('');
-
+    switcherCandidateId = selectedId; // 시트를 열 때마다 "지금 실제로 적용된 것"을 후보 초기값으로.
     root().innerHTML = `
       <div class="overlay-backdrop" onclick="Profile._dismissSwitcher()"></div>
       <div class="bottomsheet">
@@ -543,10 +526,49 @@
           <span>${ggSlot === 'A' ? '내 프로필 선택' : ggSlot === 'B' ? '상대방 프로필 선택' : esc(opts.title || '사주 관리')}</span>
           <button class="overlay-close" onclick="Profile._dismissSwitcher()"><span class="material-symbols-outlined">close</span></button>
         </div>
-        <div class="profile-row-list">${rows}</div>
-        <button class="btn-solid-primary btn-add" onclick="Profile._openAdd('${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px;">add</span> 사주 추가하기</button>
+        <div class="profile-row-list" id="profileRowList"></div>
+        <div class="switcher-foot">
+          <button class="btn-outline-primary btn-outline-mint btn-md" onclick="Profile._openAdd('${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px;">add</span> 사주 추가하기</button>
+          <button class="btn-solid-primary btn-md" onclick="Profile._confirmSwitcher('${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px;">add</span> 사주 선택하기</button>
+        </div>
       </div>`;
     document.body.classList.add('overlay-open');
+    renderSwitcherRows(list, ggSlot);
+  }
+  // 후보(switcherCandidateId)가 바뀔 때마다 목록만 다시 그린다 — 시트 전체를 새로 열 필요는 없다.
+  function renderSwitcherRows(list, ggSlot) {
+    const el = document.getElementById('profileRowList');
+    if (!el) return;
+    el.innerHTML = list.map(p => {
+      const isCandidate = p.id === switcherCandidateId;
+      // 이미 이 프로필로 만든 리포트가 있으면 openForm()이 그 사주를 잠가 수정을 막는데(사용자 요청
+      // 2026-08-27, linkedReportCounts 주석 참고). Figma 실측 — 연필(수정) 아이콘은 지금 고른 후보
+      // 행에만 있고, 나머지 행은 삭제(X) 아이콘만 있다.
+      const locked = linkedReportCounts(p.id).total > 0;
+      return `
+        <div class="profile-row ${isCandidate ? 'is-selected' : ''}" onclick="Profile._selectCandidateRow('${p.id}', '${ggSlot || ''}')">
+          <span class="profile-row-check">${isCandidate ? '<span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>' : ''}</span>
+          <div class="profile-row-body">
+            <div class="profile-row-top">
+              <span class="profile-row-name">${esc(p.name)}</span>
+              <span class="profile-row-badge">${esc(p.relationDetail || p.relation)}</span>
+            </div>
+            <div class="profile-row-sub">${esc(fmtYmd(...String(p.solarDate||'').split('-')))} · ${esc(hourLabel(p.birthHour))}</div>
+          </div>
+          ${(isCandidate && !locked) ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._editRow('${p.id}', '${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>` : ''}
+          ${list.length > 1 ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._deleteRow('${p.id}')"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
+        </div>`;
+    }).join('');
+  }
+  // 행을 눌렀을 때 — 예전처럼 바로 적용하지 않고 후보만 바꾼다(위 switcherCandidateId 선언부 참고).
+  function selectCandidateRow(id, ggSlot) {
+    switcherCandidateId = id;
+    renderSwitcherRows(loadProfiles(), ggSlot || null);
+  }
+  // "사주 선택하기" 버튼 — 지금 고른 후보를 실제로 적용한다(예전 pickRow가 행 클릭에서 바로 하던 일).
+  function confirmSwitcher(ggSlot) {
+    if (!switcherCandidateId) return;
+    pickRow(switcherCandidateId, ggSlot || null);
   }
 
   function pickRow(id, ggSlot) {
@@ -578,6 +600,7 @@
   function finishSwitcher() {
     const onDone = switcherOpts.onDone;
     switcherOpts = {};
+    switcherCandidateId = null;
     if (onDone) onDone(); else closeOverlay();
   }
   // 수정/추가로 넘어갈 때도 onPick을 들고 간다 — 바텀시트에서 "사주 추가하기"로 새 사주를 만든 것도
@@ -1162,7 +1185,8 @@
     openGunghamAPicker: (opts) => openSwitcher(Object.assign({}, opts, { ggSlot: 'A' })),
     setGunghamRelation: setGunghamRelation,
     toggleGgAcc, syncGgAccordion,
-    _pickRow: pickRow, _editRow: editRow, _openAdd: openAdd, _deleteRow: deleteRow,
+    _selectCandidateRow: selectCandidateRow, _confirmSwitcher: confirmSwitcher,
+    _editRow: editRow, _openAdd: openAdd, _deleteRow: deleteRow,
     openCombinedSajuPicker, syncCombinedSajuChip, resetCmbSajuSelection, setCombinedSajuSelection,
     getCmbSajuSelectedId: function () { return cmbSajuSelectedId; },
     _draftSet: draftSet, _setRelation: setRelation, _setCalendarType: setCalendarType, _setGender: setGender,
