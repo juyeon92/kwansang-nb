@@ -541,10 +541,13 @@ function renderCombinedSavedReport() {
 // 내역 행 클릭 — 보관된 스냅샷을 그대로 펼친다.
 async function openCombinedSavedReport(id) {
   const body = document.getElementById('cmbSavedBody');
-  const meta = document.getElementById('cmbSavedMeta');
+  // 사용자 요청(2026-09-12, Figma node 72:2469) — 뒤로가기 링크+별도 메타 줄+색 있는 타이틀 바
+  // 3줄이던 헤더를 "‹ {이름}님의 통합 분석 리포트" 한 줄로 바꿨다. rec.sub(관계)/rec.when(일시)은
+  // 이제 화면에 안 보이므로 제목만 채운다.
+  const titleEl = document.getElementById('cmbSavedTitle');
   const rec = (window.Archive && Archive.listOf) ? Archive.listOf('combined').find(r => r.id === id) : null;
   if (!body || !rec) return;
-  if (meta) meta.textContent = [rec.title, rec.sub, rec.when].filter(Boolean).join(' · ');
+  if (titleEl) titleEl.textContent = rec.title + '님의 통합 분석 리포트';
   body.innerHTML = '<div class="arc-empty">리포트를 불러오는 중…</div>';
   document.getElementById('cmbSavedStep').classList.add('hidden');
   document.getElementById('cmbSavedReport').classList.remove('hidden');

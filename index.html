@@ -170,6 +170,17 @@ body {
 .report-back-btn:hover { color: var(--jade); }
 .report-back-btn .material-symbols-outlined { font-size: 19px; }
 
+/* Figma "Frame 1261159309"(node 72:2469/75:1361, 통합분석 저장 리포트 헤더) — 뒤로가기 링크+
+   별도 메타 줄+색 있는 타이틀 바 3줄이 아니라, 화살표 아이콘 + 이름 제목 한 줄이다. 통합분석
+   전용 마크업(#cmbSavedReport)이라 공용 .report-back-btn/.arc-report-meta는 건드리지 않는다. */
+.cmb-report-header { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.cmb-report-back {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  border: none; background: none; padding: 0; cursor: pointer; color: var(--text-sub);
+}
+.cmb-report-back .material-symbols-outlined { font-size: 24px; }
+.cmb-report-header h2 { font-size: 20px; font-weight: 800; color: var(--text-title); }
+
 /* 사용자 지정(2026-09-11) — 그라디언트 제거(흰색, Figma 실측과 일치·0.6d 참고), padding 20px 20px로 통일. */
 .char-card { position: relative; background: #fff; border: 3px solid var(--char-navy); border-radius: 22px; padding: 20px 20px; text-align: center; overflow: hidden; }
 .char-card::before { content: ''; position: absolute; inset: 9px; border: 1.5px dashed rgba(38,55,90,0.35); border-radius: 15px; pointer-events: none; }
@@ -300,29 +311,33 @@ body {
 .zbasis-compare-item.is-final .zbasis-compare-name { color: var(--jade); }
 .zbasis-compare-arrow { flex: none; font-size: 18px; color: var(--jade); }
 
-#cmbCharacterCard, #cmbCharacterBasis, #cmbCharacterDetail { margin: 0; }
+/* 위 id 3개는 스냅샷에서 지워지므로(§zone-accordion 주석 참고) class로도 스코프해 보관함 뷰에서도
+   유지되게 한다 — zone2~4의 다른 직속 div들은 대부분 inline style로 자기 margin을 갖고 있어(inline이
+   항상 이김) 이 기본값에 영향받지 않는다. */
+#cmbCharacterCard, #cmbCharacterBasis, #cmbCharacterDetail,
+.cmb-report .zone-accordion > div { margin: 0; }
 /* Figma node 75:1361(통합분석 결과 화면 step1~4, 2026-09-12 재실측) — 이 카드는 gwansang/dogam
    캐릭터 카드(§ "Figma node 56:1149" 주석들)와 같은 네이비 Cnt+CardInner 구조로 다시 그려졌다.
    예전엔 이 3개 id만 별도로 jade/연회색 테마(border-gray, --card2, --jade)를 썼는데, 실측 결과
    네이비 테마(--char-navy, 흰 배경)로 통일됐다 — 아래는 #gwansangCharacterCard 등과 같은 계산
    (Cnt padding16 + CardInner padding20 = 36, dashed 인셋 = 테두리3px+13px, 모서리 ✦ = 28px)이되,
    이 화면의 Cnt cornerRadius는 20이 아니라 16이라 그 값만 다르다. */
-#cmbCharacterCard .char-card {
+.cmb-report .char-card {
   padding: 36px; border-radius: 16px 16px 0 0; border: 3px solid var(--char-navy); border-bottom: none;
   box-shadow: none; background: #fff;
 }
-#cmbCharacterCard .char-card::before { inset: 13px; border: 1.5px dashed var(--char-navy); border-radius: 14px; }
-#cmbCharacterCard .char-card-corner.tl { top: 28px; left: 28px; }
-#cmbCharacterCard .char-card-corner.tr { top: 28px; right: 28px; }
-#cmbCharacterCard .char-card-corner.bl { bottom: 28px; left: 28px; }
-#cmbCharacterCard .char-card-corner.br { bottom: 28px; right: 28px; }
-#cmbCharacterCard .char-card-badge { display: none; }
-#cmbCharacterCard .char-card-name { font-weight: 800; }
-#cmbCharacterCard .char-card-img-wrap { width: 150px; height: 150px; }
+.cmb-report .char-card::before { inset: 13px; border: 1.5px dashed var(--char-navy); border-radius: 14px; }
+.cmb-report .char-card-corner.tl { top: 28px; left: 28px; }
+.cmb-report .char-card-corner.tr { top: 28px; right: 28px; }
+.cmb-report .char-card-corner.bl { bottom: 28px; left: 28px; }
+.cmb-report .char-card-corner.br { bottom: 28px; right: 28px; }
+.cmb-report .char-card-badge { display: none; }
+.cmb-report .char-card-name { font-weight: 800; }
+.cmb-report .char-card-img-wrap { width: 150px; height: 150px; }
 /* Figma "TaglinePill" 실측(22:1219와 동일): padding 16/7/16/7, radius999, fill #eaf7f3
    (--mint-tint-10과 거의 동일한 옅은 민트), text 14px/700 네이비 — #gwansangCharacterCard의
    .char-card-ribbon과 동일 스타일. */
-#cmbCharacterCard .char-card-ribbon {
+.cmb-report .char-card-ribbon {
   display: inline-flex; align-items: center; background: var(--mint-tint-10);
   color: var(--char-navy); font-size: 14px; font-weight: 700;
   padding: 7px 16px; border-radius: 999px; line-height: 1.4;
@@ -403,19 +418,19 @@ body {
 /* Figma Cnt(node 75:1361)의 TraitBarsWrap 등은 CardInner가 아니라 Cnt의 직속 형제 요소라 Cnt 자체의
    padding(16)만 받는다(카드처럼 이중 패딩(36)이 아님) — 그래서 기존 좌우 16px 패딩은 그대로 두고
    테두리·배경색만 네이비/흰색으로 맞춘다. */
-#cmbCharacterBasis .zone-basis {
+.cmb-report .zone-basis {
   border: 3px solid var(--char-navy); border-top: none; border-bottom: none; border-radius: 0;
   background: #fff; margin-bottom: 0; padding: 16px;
 }
-#cmbCharacterBasis .zone-basis-title { color: var(--char-navy-deep); }
-#cmbCharacterBasis .ztrait-fill { background: var(--char-navy); }
-#cmbCharacterBasis .ztrait-row.is-top .ztrait-name { color: var(--char-navy-deep); }
-#cmbCharacterBasis .zone-basis-summary b { color: var(--char-navy); }
-#cmbCharacterDetail .char-detail {
+.cmb-report .zone-basis-title { color: var(--char-navy-deep); }
+.cmb-report .ztrait-fill { background: var(--char-navy); }
+.cmb-report .ztrait-row.is-top .ztrait-name { color: var(--char-navy-deep); }
+.cmb-report .zone-basis-summary b { color: var(--char-navy); }
+.cmb-report .char-detail {
   border: 3px solid var(--char-navy); border-top: none; border-radius: 0 0 16px 16px;
   box-shadow: none; background: #fff; padding: 8px 16px 16px;
 }
-#cmbCharacterDetail .char-detail-headline { color: var(--char-navy); margin-top: 0; margin-bottom: 4px; }
+.cmb-report .char-detail-headline { color: var(--char-navy); margin-top: 0; margin-bottom: 4px; }
 
 .ai-skeleton { padding: 4px 0 2px; }
 .ai-skeleton-note { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-sub); margin-bottom: 12px; }
@@ -680,24 +695,31 @@ body {
    4개 존 아코디언은 공용 .report-accordion(민트 점선 필)이 아니라 존마다 독립된 흰 카드(radius16)에
    네이비 텍스트 헤더다: 평소엔 테두리 없이 텍스트만, 펼친 존만 네이비 2px 사각 테두리(각짐, radius 0)가
    헤더를 감싼다. 카드 사이 간격은 Cnt Warp의 gap=20. 궁합 탭(.zone-accordion을 같이 쓰는 ggZone*)은
-   이 Figma 재실측 대상이 아니라 그대로 두고, #cmbResult로 스코프해서 통합분석에만 적용한다. */
-#cmbResult .zone-accordion {
+   이 Figma 재실측 대상이 아니라 그대로 두고, .cmb-report로 스코프해서 통합분석에만 적용한다.
+   ⚠️ id가 아니라 class로 스코프하는 이유(2026-09-12 사용자 리포트: "보관함에서 열면 디자인 그대로")
+   — 보관함(archive.js snapshot())이 저장 시 모든 id를 지우고 class만 남기고 복제한다. #cmbResult로
+   스코프했던 이전 버전은 저장된 리포트를 다시 열면 이 스타일이 하나도 안 먹혀 예전 디자인처럼
+   보였다. .cmb-report는 class라서 스냅샷에도 그대로 남는다. */
+.cmb-report .zone-accordion {
   background: #fff; border-radius: 16px; margin: 20px 0 0; padding: 0 16px 16px;
 }
-#cmbResult .zone-accordion:first-of-type { margin-top: 0; }
-#cmbResult .zone-accordion:not([open]) { padding-bottom: 0; }
-#cmbResult .zone-accordion > summary {
+.cmb-report .zone-accordion:first-of-type { margin-top: 0; }
+.cmb-report .zone-accordion:not([open]) { padding-bottom: 0; }
+.cmb-report .zone-accordion > summary {
   display: flex; align-items: center; gap: 4px; list-style: none; cursor: pointer; user-select: none;
   margin: 0; background: none; font-size: 16px; font-weight: 700; color: var(--char-navy); line-height: 19px;
   padding: 15px 0; border: 2px solid transparent; border-radius: 0; box-sizing: border-box;
 }
-#cmbResult .zone-accordion > summary::-webkit-details-marker { display: none; }
-#cmbResult .zone-accordion > summary::before { content: none; }
-#cmbResult .zone-accordion[open] > summary { border-color: var(--char-navy); padding: 13px 0; }
-#cmbResult .zone-accordion > summary .zone-accordion-arrow {
+.cmb-report .zone-accordion > summary::-webkit-details-marker { display: none; }
+.cmb-report .zone-accordion > summary::before { content: none; }
+.cmb-report .zone-accordion[open] > summary { border-color: var(--char-navy); padding: 13px 0; }
+.cmb-report .zone-accordion > summary .zone-accordion-arrow {
   margin-left: auto; flex-shrink: 0; font-size: 18px; color: var(--text-sub); transition: transform .15s;
 }
-#cmbResult .zone-accordion[open] > summary .zone-accordion-arrow { transform: rotate(180deg); }
+.cmb-report .zone-accordion[open] > summary .zone-accordion-arrow { transform: rotate(180deg); }
+/* Figma 4개 step 어디에도 이 타이틀 바("🔮 AI 관상 X 사주 개운 리포트")가 없다 — 헤더(아래
+   .cmb-report-header)가 그 자리를 대신한다. id는 스냅샷에서 지워지므로 class로 숨긴다. */
+.cmb-report .cmb-result-title { display: none; }
 
 .gender-btns { display: flex; gap: 8px; }
 .gender-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; font-family: inherit; }
@@ -884,8 +906,9 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
 /* Figma "HeadlineQuote"(node 75:1361, 통합분석 Zone2) 실측 — 궁합/관상 탭과 공유하는 위 기본값과
    달리 이 화면만 옅은 민트 틴트가 아니라 진한 솔리드 민트 배경 + 네이비 텍스트다(radius도 20이
    아니라 12). 다른 탭(ggHeadline/gwansangHeadline)은 이 재실측 대상이 아니므로 그대로 두고
-   #cmbZone2Headline으로 스코프한다. */
-#cmbZone2Headline { padding: 16px; background: var(--mint); border-color: var(--mint-border); border-radius: 12px; font-size: 16px; color: var(--char-navy); }
+   .cmb-report로 스코프한다(id는 보관함 스냅샷에서 지워져 클래스로 스코프 — 위 zone-accordion
+   주석 참고). */
+.cmb-report .headline-quote { padding: 16px; background: var(--mint); border-color: var(--mint-border); border-radius: 12px; font-size: 16px; color: var(--char-navy); }
 .part-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .part-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
 .part-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
@@ -1830,10 +1853,12 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       </div>
 
             <div class="hidden" id="cmbSavedReport">
-        <button type="button" class="report-back-btn" onclick="closeCombinedSavedReport()">
-          <span class="material-symbols-outlined">arrow_back</span>분석 내역으로
-        </button>
-        <div class="arc-report-meta" id="cmbSavedMeta"></div>
+        <div class="cmb-report-header">
+          <button type="button" class="cmb-report-back" onclick="closeCombinedSavedReport()" aria-label="분석 내역으로">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <h2 id="cmbSavedTitle"></h2>
+        </div>
         <div class="arc-report" id="cmbSavedBody"></div>
         <button class="submit-btn" style="margin-top:20px;" onclick="startCombinedForOther()">다른 사람으로 통합분석하기</button>
       </div>
@@ -1864,8 +1889,8 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       <div style="text-align:center;"><div class="canvas-wrap"><canvas id="combinedCanvas"></canvas></div></div>
     </div>
 
-    <div class="card hidden shell-strip" id="cmbResult">
-      <div class="card-title" id="cmbResultTitle">🔮 AI 관상 X 사주 개운 리포트</div>
+    <div class="card hidden shell-strip cmb-report" id="cmbResult">
+      <div class="card-title cmb-result-title" id="cmbResultTitle">🔮 AI 관상 X 사주 개운 리포트</div>
 
                   <details class="report-accordion zone-accordion" open id="cmbZone1">
         <summary>ZONE 1 · 관상 캐릭터<span class="material-symbols-outlined zone-accordion-arrow">expand_more</span></summary>
@@ -2713,7 +2738,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
 <script src="js/ai-analysis.js?v=20260912a"></script>
-<script src="js/app.js?v=20260912b"></script>
+<script src="js/app.js?v=20260912c"></script>
 <script src="js/profile.js?v=20260912b"></script>
 <script src="js/archive.js?v=20260905"></script>
 <script src="js/inyeon-dogam.js?v=20260912zb"></script>
