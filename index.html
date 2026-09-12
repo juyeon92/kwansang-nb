@@ -31,7 +31,7 @@
 
   --text-heading: #040404;     --text-title: #111111;       --text-strong: #333333;      --text-strong2: #3b3b3b;     --text-sub: #666666;         --text-sub2: #5b5b5b;        --text-caption: #706a72;
   --text-placeholder: #9aa0a6;
-  --border-gray: #d9d9d9;      --border-gray2: #dddddd;     --border-lavender: #e8e2e8;  --border-mint-soft: #e3e9e7;
+  --border-gray: #d9d9d9;      --border-gray2: #dddddd;     --border-lavender: #e8e2e8;
   --bg-soft: #f3f6f8;          --bg-soft2: #f3f3f3;         --bg-info-yellow: #fffaef;   --icon-orange: #ff9533;
   --icon-purple-gray: #504250;
 
@@ -526,7 +526,7 @@ body {
 .saju-q-block:first-child { padding-top: 0; }
 .saju-divider { border-top: 1px solid var(--border-lavender); }
 /* Figma node 52:3243 "SajuQBlock" 실측 — Q1~Q3를 감싸는 옅은 민트-그레이 테두리 박스. */
-#cmbSajuQBlock { border: 1px solid var(--border-mint-soft); border-radius: var(--r-btn); padding: 16px; }
+#cmbSajuQBlock { border: 1px solid var(--border); border-radius: var(--r-btn); padding: 16px; }
 #cmbSajuQBlock .saju-q-block { padding: 12px 0; }
 #cmbSajuQBlock .saju-q-block:first-child { padding-top: 0; }
 #cmbSajuQBlock .saju-q-block:last-child { padding-bottom: 0; }
@@ -1392,6 +1392,18 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 .revisit-row:hover .revisit-arrow { color: var(--mint); }
 #cmbSavedList .revisit-row + .revisit-row { border-top: 1px solid var(--border-lavender); margin-top: 10px; padding-top: 10px; }
 #ggSavedList .revisit-row + .revisit-row { margin-top: 12px; }
+/* Figma node 75:1362 "List" 실측 — 통합분석 저장 내역 목록만 테두리 색·반경을 맞춘다(공용
+   .card/.revisit-card는 gungham(#ggSavedList)과도 같이 쓰므로 여기서만 덮어쓴다). */
+#cmbSavedList.card { border-color: var(--border-lavender); border-radius: 16px; }
+/* 더보기 전에는 처음 3개만 보이고 나머지는 숨김(사용자 요청 2026-09-12, Figma 실측대로 3개+더보기). */
+#cmbSavedList .revisit-row.cmb-saved-extra { display: none; }
+#cmbSavedList.show-all .revisit-row.cmb-saved-extra { display: flex; }
+.cmb-saved-more-btn {
+  display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%;
+  margin-top: 12px; padding: 8px; border: none; border-radius: 999px; background: #f5f5f5;
+  color: var(--text-title); font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer;
+}
+.cmb-saved-more-btn .material-symbols-outlined { font-size: 16px; }
 .revisit-mark {
   width: 34px; height: 34px; border-radius: 50%; background: var(--mint-10); color: var(--jade);
   display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
@@ -1750,8 +1762,8 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         </div>
       </div>
       </div>
-            <div class="hidden" id="cmbSavedStep">
-        <div class="upload-label">이미 분석한 내역이 있어요</div>
+            <div class="hidden cmb-form-card" id="cmbSavedStep">
+        <div class="cmb-form-card-title">이미 분석한 내역이 있어요</div>
         <div class="card revisit-card" id="cmbSavedList"></div>
         <button class="submit-btn" style="margin-top:20px;" onclick="startCombinedForOther()">다른 사람으로 통합분석하기</button>
       </div>
@@ -2640,7 +2652,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
 <script src="js/ai-analysis.js?v=20260908c"></script>
-<script src="js/app.js?v=20260912a"></script>
+<script src="js/app.js?v=20260912b"></script>
 <script src="js/profile.js?v=20260912b"></script>
 <script src="js/archive.js?v=20260905"></script>
 <script src="js/inyeon-dogam.js?v=20260912zb"></script>

@@ -503,18 +503,23 @@ function renderCombinedSavedReport() {
   const rows = (window.Archive && Archive.listOf) ? Archive.listOf('combined') : [];
   if (!rows.length) { showCombinedPhotoStep(); return; }
 
-  list.innerHTML = rows.map(rec =>
-    '<div class="revisit-row" role="button" tabindex="0" onclick="openCombinedSavedReport(\'' + rec.id + '\')">' +
+  // 사용자 요청(2026-09-12, Figma node 75:1362) — 삭제는 보관함(Archive)에서만 하도록 이 목록에서
+  // 삭제 버튼을 뺐고, 처음엔 3개만 보이고 나머지는 "더보기"를 눌러야 나온다(Figma 실측 — DogamRow
+  // 3개 + 더보기 버튼).
+  const CMB_SAVED_VISIBLE = 3;
+  list.innerHTML = rows.map((rec, i) =>
+    '<div class="revisit-row' + (i >= CMB_SAVED_VISIBLE ? ' cmb-saved-extra' : '') + '" role="button" tabindex="0" onclick="openCombinedSavedReport(\'' + rec.id + '\')">' +
       '<span class="revisit-mark material-symbols-outlined">description</span>' +
       '<div class="revisit-body">' +
         '<div class="revisit-name">' + cmbEsc(rec.title) + '</div>' +
         '<div class="revisit-desc">' + [rec.sub, rec.when].filter(Boolean).map(cmbEsc).join(' · ') + '</div>' +
       '</div>' +
-      '<button type="button" class="revisit-del" aria-label="삭제" title="삭제" ' +
-        'onclick="event.stopPropagation();Archive.remove(\'' + rec.id + '\')">' +
-        '<span class="material-symbols-outlined">delete</span></button>' +
       '<span class="revisit-arrow material-symbols-outlined">chevron_right</span>' +
-    '</div>').join('');
+    '</div>').join('') +
+    (rows.length > CMB_SAVED_VISIBLE
+      ? '<button type="button" class="cmb-saved-more-btn" onclick="event.stopPropagation();this.closest(\'#cmbSavedList\').classList.add(\'show-all\');this.remove();">더보기<span class="material-symbols-outlined">expand_more</span></button>'
+      : '');
+  list.classList.remove('show-all');
 
   // 리포트를 펼쳐 보던 중에 목록이 갱신된 경우(삭제 등) — 그 기록이 남아 있으면 보던 화면을 유지한다.
   const report = document.getElementById('cmbSavedReport');
