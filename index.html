@@ -1424,17 +1424,21 @@ body.overlay-open { overflow: hidden; }
    2026-09-12 사용자 지적 — 이 푸터는 "인연도감 최초 진입(메인)" 화면에만 있어야 하는 규칙(정책
    문서 "공통 영역 노출 규칙" 참고)인데, 게스트(피공유인) 화면(#dogamGuestSection)에서도 계속
    보이고 있었다 — 통합분석/궁합보기의 "리포트를 보여주는 화면"과 같은 이유로 여기도 추가한다.
-   2026-09-12 재수정(사용자 리포트: "통합분석 메인인데도 푸터가 나왔다 사라짐") — #dogamGuestSection은
-   guestHost()가 인연도감 탭이 활성화돼있지 않아도(로그인 직후 백그라운드 자가복구 중에도) 그냥
-   #panel-gwansang 안에 만들어버린다. :has(#dogamGuestSection)엔 활성 탭 조건이 없어서, 다른 탭을
-   보고 있는 중에도 이 배경 작업 때문에 전역 푸터가 사라졌다 — #panel-gwansang.active로 한정한다. */
-.wrap:has(#cmbAnalyzing:not(.hidden)) .site-footer,
-.wrap:has(#cmbResult:not(.hidden)) .site-footer,
-.wrap:has(#gwansangAnalyzing:not(.hidden)) .site-footer,
-.wrap:has(#gwansangResult:not(.hidden)) .site-footer,
-.wrap:has(#ggAnalyzing:not(.hidden)) .site-footer,
-.wrap:has(#ggResult:not(.hidden)) .site-footer,
-.wrap:has(#ggSavedReport:not(.hidden)) .site-footer,
+   2026-09-12 재수정(사용자 리포트 "통합분석 메인인데도 푸터가 나왔다 사라짐" — 실시간 로그로 재현·
+   확정) — #cmbAnalyzing/#cmbResult/#gwansangAnalyzing/#gwansangResult/#ggAnalyzing/#ggResult/
+   #ggSavedReport/#dogamGuestSection 전부, 로그인 직후 각 탭(관상·인연도감·통합분석·궁합보기)의
+   백그라운드 자가복구/동기화 로직이 "지금 그 탭이 화면에 보이고 있는지"와 무관하게 hidden을
+   떼거나 요소를 만들어버릴 수 있다(예: Dogam.render()가 #gwansangResult를, guestHost()가
+   #dogamGuestSection을 인연도감 탭이 비활성이어도 건드림). 조건에 활성 탭 여부가 전혀 없어서,
+   전혀 다른 탭(통합분석 등)을 보고 있는 도중에도 이 백그라운드 작업들 때문에 전역 푸터가
+   사라졌다 — 각 id를 자기 소속 패널의 .active 여부로 한정한다. */
+.wrap:has(#panel-combined.active #cmbAnalyzing:not(.hidden)) .site-footer,
+.wrap:has(#panel-combined.active #cmbResult:not(.hidden)) .site-footer,
+.wrap:has(#panel-gwansang.active #gwansangAnalyzing:not(.hidden)) .site-footer,
+.wrap:has(#panel-gwansang.active #gwansangResult:not(.hidden)) .site-footer,
+.wrap:has(#panel-gungham.active #ggAnalyzing:not(.hidden)) .site-footer,
+.wrap:has(#panel-gungham.active #ggResult:not(.hidden)) .site-footer,
+.wrap:has(#panel-gungham.active #ggSavedReport:not(.hidden)) .site-footer,
 .wrap:has(#panel-gwansang.active #dogamGuestSection) .site-footer {
   display: none;
 }
