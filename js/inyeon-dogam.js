@@ -2258,8 +2258,17 @@
     // pendingCreateAfterLogin을 보고 이 함수를 자동으로 다시 불러준다(아래 render() 수정 참고).
     if (!currentUid() || isAnonymousUser()) {
       pendingCreateAfterLogin = true;
+      // 사용자 요청(2026-09-12) — 참여자 상세 팝업(#dogamEntryDetailRoot) 안에서 이 버튼을 눌렀다면,
+      // 로그인 팝업을 그 위에 겹쳐 띄우는 대신 먼저 닫는다. 로그인 없이 로그인 팝업만 취소하면
+      // (X·배경 클릭) 원래 보고 있던 상세 팝업을 그대로 다시 띄워준다 — 로그인했을 때는 render()가
+      // pendingCreateAfterLogin을 보고 최종 화면으로 넘어가므로 다시 안 뜬다.
+      const reopenUid = document.getElementById('dogamEntryDetailRoot') ? currentUid() : null;
+      if (reopenUid) closeEntryDetail();
       if (window.KakaoAuth && KakaoAuth.openLoginPopup) {
-        KakaoAuth.openLoginPopup('내 인연도감을 만들려면 로그인이 필요해요.<br>지금까지 등록한 내용은 그대로 이어져요.');
+        KakaoAuth.openLoginPopup(
+          '내 인연도감을 만들려면 로그인이 필요해요.<br>지금까지 등록한 내용은 그대로 이어져요.',
+          reopenUid ? function () { showEntryDetail(reopenUid); } : null
+        );
       } else {
         alert('로그인이 필요해요.');
       }

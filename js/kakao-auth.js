@@ -585,16 +585,23 @@
   // message: 안내 문구를 다르게 보여줄 호출부용(사용자 요청 2026-08-19) — 통합분석·사주보기·궁합보기를
   // 로그인 없이 누른 경우엔 "로그인 후 이용하실 수 있는 서비스입니다."로, 그 외(그냥 로그인 버튼,
   // 인연도감 유지하기 등)는 기존 문구를 그대로 쓴다(생략 시 기본값).
-  function openLoginPopup(message) {
+  // onCancel(선택) — 로그인 없이(X·배경 클릭) 이 팝업을 닫으면 부르는 콜백. cancelLoginPopup()에서만
+  // 실행한다 — loginFromPopup()이 실제 카카오 로그인으로 넘어가려고 내부적으로 부르는 closePopup()은
+  // "취소"가 아니라서 이 콜백을 태우지 않는다(사용자 요청 2026-09-12 — 참여자 상세 팝업에서 "내
+  // 인연도감 만들기"를 누르면 그 팝업을 닫고 로그인 팝업을 띄우는데, 로그인 안 하고 취소하면 원래
+  // 보던 상세 팝업이 다시 떠야 한다).
+  let loginPopupCancelCb = null;
+  function openLoginPopup(message, onCancel) {
     const r = root();
     if (!r) { login(); return; }
+    loginPopupCancelCb = onCancel || null;
     const lead = message || '로그인하면 등록한 프로필과 분석 결과를<br>다른 기기에서도 이어서 볼 수 있어요.';
     r.innerHTML =
-      '<div class="overlay-backdrop" onclick="KakaoAuth.closePopup()"></div>' +
+      '<div class="overlay-backdrop" onclick="KakaoAuth.cancelLoginPopup()"></div>' +
       '<div class="form-popup small">' +
         '<div class="popup-header">' +
           '<span>로그인</span>' +
-          '<button class="overlay-close" onclick="KakaoAuth.closePopup()"><span class="material-symbols-outlined">close</span></button>' +
+          '<button class="overlay-close" onclick="KakaoAuth.cancelLoginPopup()"><span class="material-symbols-outlined">close</span></button>' +
         '</div>' +
         '<div class="popup-body login-popup-body">' +
           '<p class="login-popup-lead">' + lead + '</p>' +
@@ -613,8 +620,16 @@
       '</div>';
     document.body.classList.add('overlay-open');
   }
-  // 카카오 로그인은 팝업 창을 띄우므로, 오버레이를 먼저 닫아 화면이 겹치지 않게 한다.
-  function loginFromPopup() { closePopup(); login(); }
+  // 카카오 로그인은 팝업 창을 띄우므로, 오버레이를 먼저 닫아 화면이 겹치지 않게 한다. 실제 로그인으로
+  // "진행"하는 경로라 취소가 아니다 — loginPopupCancelCb를 실행하지 않고 그냥 비운다.
+  function loginFromPopup() { loginPopupCancelCb = null; closePopup(); login(); }
+  // X·배경 클릭으로 로그인 없이 팝업을 닫을 때만 부른다(위 openLoginPopup 주석 참고).
+  function cancelLoginPopup() {
+    const cb = loginPopupCancelCb;
+    loginPopupCancelCb = null;
+    closePopup();
+    if (cb) cb();
+  }
 
   // 문의하기(사용자 요청 2026-09-07) — 카카오톡 ID 안내 대신 이메일로 바로 연결한다.
   const INQUIRY_EMAIL = 'kwansang.nb@gmail.com';
@@ -814,6 +829,7 @@
     login: login, logout: logout, withdraw: withdraw,
     openLoginPopup: openLoginPopup, loginFromPopup: loginFromPopup, reviewLogin: reviewLogin,
     openMyPage: openMyPage, changeProfile: changeProfile, closePopup: closePopup,
+    cancelLoginPopup: cancelLoginPopup,
     // showConfirm은 원래 이 파일 안에서만 쓰던 헬퍼인데, 냥 차감 전 확인 다이얼로그(profile.js)에서도
     // 같은 디자인을 써야 해서 외부로 연다 — 브라우저 기본 confirm()을 쓰면 앱 톤과 따로 놀기 때문.
     showConfirm: showConfirm,
