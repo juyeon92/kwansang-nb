@@ -92,9 +92,15 @@
       // 불러오는 동안 아무 로딩 표시가 없어 화면이 잠깐 비거나 예전 내용이 그대로 보였다. 같은
       // 오버레이를 여기서도 재사용해서, Dogam.render()가 끝날 때까지만 덮어둔다.
       const isGuestSession = !user || user.isAnonymous;
-      if (isGuestSession) showAuthLoading();
+      // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "로딩이 한번 사라졌다 다시 뜬다") — 게스트가 인연도감에서
+      // 등록/새로 등록하기를 진행 중이면(Dogam.isGuestActionInFlight()) 그 화면이 이미 이 같은
+      // showAuthLoading/hideAuthLoading 오버레이를 자기 흐름 기준으로 띄워두고 있다. 여기서도 독립적으로
+      // 같은 오버레이를 껐다 켰다 하면, 이 render()가 게스트 쪽 흐름보다 먼저 끝나는 순간 오버레이가
+      // 일찍 사라졌다 다시 나타나며 깜빡였다 — 게스트 쪽이 이미 처리 중이면 여기서는 건드리지 않는다.
+      const guestActionOwnsOverlay = isGuestSession && window.Dogam && Dogam.isGuestActionInFlight && Dogam.isGuestActionInFlight();
+      if (isGuestSession && !guestActionOwnsOverlay) showAuthLoading();
       const dogamRenderPromise = window.Dogam ? Dogam.render() : Promise.resolve();
-      if (isGuestSession) dogamRenderPromise.catch(function () {}).then(hideAuthLoading);
+      if (isGuestSession && !guestActionOwnsOverlay) dogamRenderPromise.catch(function () {}).then(hideAuthLoading);
       // 로그인 필요 탭(통합분석·사주보기·궁합보기)이 기본 활성 탭이거나 새로고침으로 복원된 경우,
       // switchTab()의 클릭 시점 검사를 거치지 않고 그려질 수 있어서 인증 상태가 확정되는 지금
       // 한 번 더 확인한다. isRealLoggedIn()이면 아무 것도 하지 않는다.

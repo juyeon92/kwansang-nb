@@ -50,6 +50,18 @@
   // 다시 보여준다(아래 render()의 게스트 분기 참고). 그 화면에 있는 "내 정보가 아니에요" 버튼을 누르면
   // 이 값을 켜서 그 도감에 한해서만 등록 폼으로 돌아갈 수 있게 한다 — 새로고침하면 자연히 풀린다.
   let forceGuestRegisterForm = false;
+  // Figma node 32:7751 — 게스트가 이미 자기 인연도감을 갖고 있으면 새로 이름/사진을 입력하는 대신
+  // 자기 도감 요약(DogamRow)만 보여주고 그 정보 그대로 등록하게 한다(showGuestView 참고). "새로
+  // 등록하기"(useManualGuestEntry)를 누르면 이 값을 켜서 예전처럼 이름/사진 입력 폼으로 되돌아간다.
+  // forceGuestRegisterForm과 같은 이유로 새로고침하면 자연히 풀린다.
+  let guestWantsManualEntry = false;
+  // 사용자 리포트(2026-09-12: "로딩이 한번 사라졌다 다시 뜬다") — registerEntry()/useManualGuestEntry()가
+  // 각자 전체화면 로딩 오버레이를 띄우는 동안, kakao-auth.js의 onAuthStateChanged가 독립적으로 또
+  // 도는 경우(사진 분석처럼 오래 걸리는 작업 중 흔히 겹친다)가 있는데, 그쪽도 같은 종류의 오버레이
+  // (showAuthLoading/hideAuthLoading)를 자기 render() 완료 시점에 맞춰 따로 껐다 켰다 한다. 서로
+  // 다른 시점에 사라지면서 화면이 깜빡였다 — kakao-auth.js가 이 값을 보고 "게스트가 이미 자기
+  // 오버레이를 띄운 상태"면 자기 것은 건드리지 않게 한다(isGuestActionInFlight 참고).
+  let guestActionInFlight = false;
 
   // 화면에 그대로 노출하는 정책 문구 — 명세서를 관상 기준으로 다시 쓴 것.
   // 사용자 요청(2026-09-05, 16차 피드백) — "어떤 정보를 저장하나요?"/"이름은 누구에게 보이나요?"는
@@ -614,6 +626,49 @@
     const stale = function () { return mySeq !== renderSeq; };
     const sharedSlug = sharedSlugFromUrl();
 
+    // ⚠️ 로컬 QA 전용 훅 — 실제 공유 링크(Firestore의 진짜 slug) 없이 게스트(피공유인) 등록 화면을
+    // 그냥 열어보기 위한 것. URL에 ?dogamPreview=1을 붙이면 목업 데이터로 showGuestView()를 바로
+    // 그린다. 서비스 로직과는 무관 — 배포용 코드에서 지워도 되지만, Figma 대조 QA 편의상 남겨둔다.
+    if (new URLSearchParams(location.search).get('dogamPreview')) {
+      // 실제 게스트 분기(A-2/A-3, 아래)와 똑같이 탭 고정 타이틀을 숨긴다 — 안 숨기면 "여니님의
+      // 인연도감" 위에 "인연도감"(#gwansangPageHead) 제목이 하나 더 남아 Figma에 없는 중복 타이틀이
+      // 생긴다(2026-09-12 사용자 리포트로 발견).
+      setDisplay('gwansangPageHead', 'none');
+      const previewCharId = (typeof CHARACTER_DB !== 'undefined' && Object.keys(CHARACTER_DB)[0]) || null;
+      // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "도감에 인연 등록하기 눌러도 안 넘어간다") — 이 mock
+      // 객체를 showGuestView()에만 넘기고 모듈 전역 guestDogam엔 안 채워뒀었다. registerEntry()는
+      // guestDogam이 없으면 맨 앞에서 조용히 return해버려서(에러도 안 뜸), 이 QA 훅으로 테스트할 땐
+      // 등록 버튼을 눌러도 아무 일도 안 일어났다 — 실제 게스트 분기(A-2/A-3)와 동일하게 guestDogam도
+      // 채워야 한다.
+      // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "등록해도 계속 같은 화면에 머무른다") — registerEntry()가
+      // 성공하면 justRegistered를 채우고 render()를 다시 부르는데, 이 QA 분기는 그 값을 전혀 안 보고
+      // 매번 무조건 showGuestView(등록 폼)만 다시 그렸다 — 그래서 Firestore엔 실제로 등록이 됐는데
+      // (콘솔의 "상대 도감에 등록 완료" 로그가 그 증거) 화면은 폼에 그대로 멈춰 있었다. 실제 게스트
+      // 분기(renderGuestScreen)와 똑같이 justRegistered를 먼저 확인한다.
+      const justRegisteredHere = justRegistered && justRegistered.slug === 'preview';
+      // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "등록 완료 화면에 명부·인연부채가 없다") — 진짜
+      // Firestore 슬러그가 아니라서(registerEntry()가 등록 뒤 loadDogam('preview')로 새로고침해도
+      // 항상 빈 결과), 매번 entries를 무조건 []로 새로 만들면 방금 등록한 나 자신도 명부에 안 잡혀
+      // guestEntriesBlock()이 count===0으로 보고 명부·인연부채 섹션을 통째로 숨겼다 — 실제 서비스라면
+      // 이 시점엔 최소 1명(방금 등록한 나)이 있어야 한다. 방금 이 미리보기 도감에 등록했다면 그 결과를
+      // entries에 합성해 넣어서, 실제 흐름과 같은 화면(명부+인연부채 포함)을 볼 수 있게 한다.
+      const previewEntries = justRegisteredHere
+        ? [{ uid: 'preview-self', name: justRegistered.name, characterId: justRegistered.characterId, score: justRegistered.score, relation: justRegistered.relation }]
+        : [];
+      guestDogam = {
+        slug: 'preview', ownerUid: '__preview__', ownerName: '미리보기',
+        ownerCharacterId: previewCharId, createdAt: null, entries: previewEntries,
+      };
+      if (justRegisteredHere) {
+        await renderGuestMergedResult(guestDogam, justRegistered, undefined, stale);
+        return;
+      }
+      // await 없이 fire-and-forget하면 render()가 실제 화면보다 먼저 끝나버린다(renderGuestScreen과
+      // 같은 이유 — useManualGuestEntry의 로딩 오버레이 테스트용 QA 훅도 실제 흐름과 똑같이 맞춘다).
+      await showGuestView(guestDogam, stale);
+      return;
+    }
+
     if (sharedSlug) {
       guestDogam = await loadDogam(sharedSlug).catch(function (e) { console.error('[dogam] 공유 도감 조회 실패', e); return null; });
       if (stale()) return;
@@ -650,7 +705,12 @@
         // 어색하게 보였다. 게스트 화면엔 "OO님의 인연도감"이라는 제목이 이미 있어 중복이기도 하니,
         // 이 화면에서는 탭 타이틀 자체를 숨긴다(A-1/B 분기에서 다시 보여줌).
         setDisplay('gwansangPageHead', 'none');
-        renderGuestScreen(guestDogam);
+        // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "새로 등록하기 눌렀을 때 로딩이 폼 다 그려지기 전에
+        // 끝난다") — renderGuestScreen()이 await 없이 던져놓고 바로 다음 줄로 넘어가서, render()
+        // 자체는 실제 화면(showGuestView 내부의 캐릭터 카드 렌더링 등)이 끝나기 한참 전에 이미
+        // resolve돼버렸다. useManualGuestEntry()의 로딩 오버레이가 이 render() 완료를 기준으로 꺼지므로,
+        // 여기서 반드시 끝까지 기다려야 오버레이가 "화면이 실제로 다 그려진 뒤"에 사라진다.
+        await renderGuestScreen(guestDogam, stale);
         el.innerHTML = '';
         return;
       }
@@ -873,7 +933,6 @@
     const pctPos = function (x, y) { return 'left:' + (x / 580 * 100).toFixed(2) + '%;top:' + (y / 345 * 100).toFixed(2) + '%'; };
 
     let wedgePaths = '', wedgeLabels = '', dividers = '';
-    const legendChips = [];
     RELATION_LABELS.forEach(function (key, i) {
       const meta = RELATION_META[key];
       const mid = centerAngle(i);
@@ -885,7 +944,6 @@
       const lp = polar(FRMAX + 58, mid);
       const count = entries.filter(function (e) { return e.relation === key; }).length;
       wedgeLabels += '<div style="position:absolute;' + pctPos(lp.x, lp.y) + ';transform:translate(-50%,-50%);font-size:12px;font-weight:700;color:' + meta.deep + ';white-space:nowrap;">' + esc(key) + ' ' + count + '</div>';
-      legendChips.push('<div style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;padding:4px 9px;border-radius:999px;border:1px solid rgba(43,38,32,.12);background:#fffdf6;color:#2b2620;"><div style="width:8px;height:8px;border-radius:50%;background:' + meta.color + ';flex:none;"></div><div>' + esc(key) + ' ' + count + '</div></div>');
     });
     const p0 = polar(FRMAX + 34, 180);
     let bandPath = 'M ' + fmt(p0.x) + ' ' + fmt(p0.y);
@@ -964,7 +1022,10 @@
           pinLabels +
           '<div style="position:absolute;' + pctPos(FCX, FCY - 17) + ';transform:translate(-50%,-50%);font-size:15px;font-weight:700;color:#2b2620;white-space:nowrap;">' + esc(ownerName || '') + '</div>' +
         '</div>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">' + legendChips.join('') + '</div>' +
+        // Figma node 32:7493 "FanChartBlock" 실측 — 제목/차트/캡션 3개뿐이고 범례 칩 줄은 없다
+        // (2026-09-12 사용자 지적으로 삭제 — #dogamGuestSection > div:nth-child(3) > div:nth-child(3)).
+        // 캡션 문구도 그 대조 때 빠져 있던 걸 같이 발견해서 추가했다.
+        '<p style="font-size:12px;color:var(--text-sub);text-align:center;">인연부채는 더 길고 선이 두꺼울 수록 점수가 높아요.</p>' +
       '</div>';
   }
   // 칩을 눌렀을 때 — 지금 보고 있는 화면이 오너 화면인지 게스트 화면(등록 폼/병합 결과)인지에 맞춰
@@ -986,23 +1047,34 @@
   //    저장소 없이 "본인 항목" 여부를 확인할 수 있다. forceGuestRegisterForm이면(내 정보가 아니에요
   //    버튼) 이 판단을 건너뛰고 등록 폼을 보여준다.
   // 3) 그 외: 처음 보는 방문자 → 등록 폼(정책 문서 2-3 — 등록 이력과 무관하게 항상 동일한 폼)
-  function renderGuestScreen(dogam) {
+  // ⚠️ 반드시 이 함수가 실제로 화면을 다 그린 뒤에 resolve되는 값을 return한다 — 예전엔 그냥
+  // 호출만 하고 안 돌려줘서(await 없이 fire-and-forget), 위 render()가 이 함수보다 먼저 끝나버려
+  // "새로 등록하기"의 로딩 오버레이가 화면이 다 그려지기 전에 사라지는 버그가 있었다(2026-09-12
+  // 사용자 리포트, useManualGuestEntry 참고). renderGuestMergedResult는 원래 동기 함수라 호출이
+  // 끝나면 이미 다 그려진 상태지만, showGuestView는 async(ensureMyDogam 등 await)라 진짜로
+  // return해서 호출부가 기다릴 수 있게 해야 한다.
+  // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "새로 등록하기로 등록해도 다시 원래 폼으로 돌아간다") —
+  // showGuestView()가 await ensureMyDogam()(실제 Firestore 조회) 뒤에 el.innerHTML을 쓰는데, 그 사이에
+  // kakao-auth.js의 onAuthStateChanged 등이 독립적으로 또 Dogam.render()를 부르면(사진 분석처럼 오래
+  // 걸리는 작업 도중 흔히 겹친다) 먼저 시작된 이 오래된 render() 호출이 나중에(등록 완료 후 새로
+  // 시작된 render()가 병합 결과 화면을 이미 그린 다음에) 뒤늦게 끝나면서 그 결과를 다시 등록 폼으로
+  // 덮어썼다. render()가 이미 갖고 있던 stale()(다른 render()가 더 나중에 시작됐는지 확인하는 함수)를
+  // 받아서, 실제로 화면에 쓰기 직전에 한 번 더 확인한다.
+  function renderGuestScreen(dogam, stale) {
     if (justRegistered && justRegistered.slug === dogam.slug) {
-      renderGuestMergedResult(dogam, justRegistered);
-      return;
+      return renderGuestMergedResult(dogam, justRegistered, undefined, stale);
     }
     const myUid = currentUid();
     const myEntry = !forceGuestRegisterForm && myUid
       ? (dogam.entries || []).find(function (e) { return e.uid === myUid; })
       : null;
     if (myEntry) {
-      renderGuestMergedResult(dogam, {
+      return renderGuestMergedResult(dogam, {
         slug: dogam.slug, name: myEntry.name, characterId: myEntry.characterId,
         score: myEntry.score, relation: myEntry.relation,
-      }, { isRevisit: true });
-    } else {
-      showGuestView(dogam);
+      }, { isRevisit: true }, stale);
     }
+    return showGuestView(dogam, stale);
   }
 
   // 위 renderGuestScreen()의 "내 정보가 아니에요" 탈출구 — 이 도감에 한해 등록 폼으로 강제 전환한다.
@@ -1010,6 +1082,29 @@
   function showRegisterFormForOther() {
     forceGuestRegisterForm = true;
     render();
+  }
+
+  // Figma node 32:7751 "새로 등록하기" — 이미 있는 내 인연도감 요약(DogamRow) 대신, 예전 방식대로
+  // 이름/사진을 직접 입력하는 폼으로 전환한다(guestWantsManualEntry 선언부 참고).
+  // 사용자 요청(2026-09-12) — render()가 인증/카탈로그 재확인부터 다시 하느라 화면이 잠깐 멈춘 것처럼
+  // 보일 수 있어, kakao-auth.js의 로그인 후 리로드와 같은 딤+스피너 오버레이(.auth-loading-overlay,
+  // 전역 CSS)를 새로고침 동안 무조건 띄운다. showAuthLoading/hideAuthLoading은 kakao-auth.js 클로저
+  // 안에만 있어 여기서 못 부르니 같은 마크업으로 직접 만든다.
+  function useManualGuestEntry() {
+    guestWantsManualEntry = true;
+    const overlay = document.createElement('div');
+    overlay.className = 'auth-loading-overlay';
+    overlay.innerHTML = '<div class="spin-ring"></div>';
+    document.body.appendChild(overlay);
+    // ⚠️ 사용자 리포트(2026-09-12: "로딩 안 뜨는데?") — mine이 이미 캐시돼 있으면 render()가 거의
+    // 순간(수십 ms)에 끝나버려서 오버레이가 뜨자마자 사라져 눈에 안 보였다. "무조건 띄워달라"는 요청은
+    // 곧 최소 노출 시간 보장을 뜻하므로, render()가 아무리 빨리 끝나도 최소 400ms는 유지한다.
+    const minWait = new Promise(function (resolve) { setTimeout(resolve, 400); });
+    guestActionInFlight = true; // registerEntry()와 같은 이유(선언부 참고) — kakao-auth.js가 자기 오버레이를 안 건드리게.
+    Promise.all([
+      render().catch(function (e) { console.error('[dogam] 새로 등록하기 전환 실패', e); }),
+      minWait,
+    ]).then(function () { overlay.remove(); guestActionInFlight = false; });
   }
 
   function renderOwnerView(dogam, opts) {
@@ -1429,12 +1524,16 @@
     alert('다른 곳에서 만든 인연도감이 지금 도감으로 합쳐졌어요.\n(중복 도감 ' + count + '개, 등록됐던 인연은 모두 그대로 보존됐어요)');
   }
 
-  // A(오너) 결과 화면 전용 — DOGAM_POLICY가 이제 오너 항목(보관 기간·삭제)만 담고 있어서 B(게스트)
-  // 화면에서는 이 아코디언 자체를 호출하지 않는다(showGuestView/renderGuestMergedResult 참고).
+  // Figma node 56:1149/56:1281 실측 — "도감 보관·삭제 안내"는 오너 화면뿐 아니라 게스트(B) 화면
+  // 맨 아래에도 있다(2026-09-12 사용자 지적으로 추가 — 그 전엔 오너 전용으로 알고 B에서는 아예 안
+  // 부르고 있었다). DOGAM_POLICY 두 항목 다 "친구는/도감 주인은" 식으로 이미 양쪽 다 설명하는
+  // 문구라 게스트에게 그대로 보여줘도 된다 — 다만 showDelete(도감 전체 삭제 버튼)는 그 도감의
+  // 주인만 쓸 수 있는 동작이라 게스트 호출부(showGuestView/renderGuestMergedResult)에서는 항상
+  // false로 넘긴다.
   function policyBlock(showDelete, loggedIn) {
     return '' +
       '<details class="dogam-policy dogam-policy-footer">' +
-        '<summary>도감 보관·삭제 안내</summary>' +
+        '<summary>도감 보관·삭제 안내<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>' +
         DOGAM_POLICY.map(function (p) {
           const answer = typeof p.a === 'function' ? p.a(!!loggedIn) : p.a;
           return '<div class="dogam-policy-item"><b class="dogam-policy-q">' + esc(p.q) + '</b><p>' + answer + '</p></div>';
@@ -1653,10 +1752,17 @@
   // ② B의 인연도감이 아직 없다 → 사진 첨부 영역이 그대로 필요하다.
   // 판단 기준은 세션에만 남는 로컬 캐시(myCharacterId())가 아니라 ensureMyDogam()으로 확인하는
   // "진짜 내 도감 존재 여부"다 — 관상보기만 해보고 도감은 안 만든 경우까지 "있다"고 오판하면 안 된다.
-  async function showGuestView(dogam) {
+  async function showGuestView(dogam, stale) {
     const el = prepGuestScreen();
     if (!el) return;
     const mine = await ensureMyDogam().catch(function (e) { console.error('[dogam] 내 도감 확인 실패', e); return null; });
+    // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "새로 등록하기로 등록해도 다시 원래 폼으로 돌아간다") —
+    // 위 await ensureMyDogam()(실제 Firestore 조회, 수백 ms~수 초) 동안 kakao-auth.js의
+    // onAuthStateChanged 등이 독립적으로 또 render()를 부르면(사진 분석처럼 오래 걸리는 작업 도중
+    // 흔히 겹친다) 이 오래된 호출이 나중에 끝나면서 방금 등록 완료 화면을 다시 등록 폼으로 덮어썼다.
+    // stale()로 그 사이 더 최신 render()가 시작됐는지 확인하고, 그렇다면 조용히 물러난다(더 나중에
+    // 시작된 render()가 이미 옳은 화면을 그렸거나 그리는 중이므로 덮어쓰면 안 된다).
+    if (stale && stale()) return;
     const myChar = mine ? mine.ownerCharacterId : null;
     // registerEntry()는 myCharacterId()(세션 로컬 캐시)로 캐릭터를 읽는다 — 이 기기에서 이번 세션에
     // 아직 한 번도 분석을 안 했어도(예: 다른 기기에서 만든 도감으로 로그인) 그 캐시가 비어있을 수
@@ -1670,15 +1776,29 @@
         }));
       } catch (e) { /* 프라이빗 브라우징 등 localStorage 불가 — 조용히 스킵 */ }
     }
+    // Figma node 32:7751 — 게스트가 이미 자기 인연도감(mine)을 갖고 있으면, 이름/사진을 새로 입력하는
+    // 대신 그 도감 요약(DogamRow)만 보여주고 그 정보 그대로 등록하게 한다. "새로 등록하기"를 누르면
+    // (guestWantsManualEntry) 예전처럼 이름/사진 입력 폼으로 돌아간다.
+    // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "새로 등록하기 눌러도 사진 업로드 영역이 안 뜬다") —
+    // 아래 사진 업로드 하위 요소 숨김 여부를 원래 myChar만 보고 정했는데, guestWantsManualEntry로
+    // "이름/사진 새로 입력" 모드에 들어가도 myChar 자체는 여전히 참(내 캐릭터가 있으니까)이라 계속
+    // 숨겨진 채로 남아있었다 — showMineShortcut(둘 다 반영한 값)으로 바꿔야 한다.
+    const showMineShortcut = !!(myChar && !guestWantsManualEntry);
+    // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "사진 골랐는데 업로드 칸이 또 보인다") — showGuestView는
+    // "새로 등록하기" 클릭 말고도(실시간 리스너 등으로) 다시 돌 수 있는데, 그때 이미 사진을 골라서
+    // loadThumb()이 uploadArea를 style.display='none'으로 감춰둔 상태였더라도 아래 줄이 무조건 ''로
+    // 되돌려서 업로드 칸이 썸네일과 함께 다시 나타났다. 이미 고른 사진이 있으면(state.gwansang.file)
+    // uploadArea는 계속 숨겨야 한다 — loadThumb()/resetUpload()가 관리하는 상태를 존중한다.
+    const hasSelectedPhoto = !!(typeof state !== 'undefined' && state.gwansang && state.gwansang.file);
     // ⚠️ #gwansangUploadSection 자체는 항상 보임 상태로 둔다 — 그 안의 #gwansangInputCard에 스피너
     // (#gwansangSpinner)·에러 메시지(#gwansangErr)가 같이 들어있어서, 섹션째로 숨기면 사진 첨부를
     // 생략한 경우에도 registerEntry() 처리 중 로딩 표시가 안 보이는 회귀가 생긴다(2026-09-04에 이미
     // 한 번 고쳤던 문제). 대신 사진 관련 하위 요소만 개별적으로 숨긴다.
     setDisplay('gwansangUploadSection', '');
-    setDisplay('uploadArea', myChar ? 'none' : '');
-    setDisplay('thumbArea', myChar ? 'none' : '');
-    setDisplay('gwansangCharInfoLabel', myChar ? 'none' : '');
-    setDisplay('gwansangPhotoPrivacyNote', myChar ? 'none' : '');
+    setDisplay('uploadArea', (showMineShortcut || hasSelectedPhoto) ? 'none' : '');
+    setDisplay('thumbArea', showMineShortcut ? 'none' : '');
+    setDisplay('gwansangCharInfoLabel', showMineShortcut ? 'none' : '');
+    setDisplay('gwansangPhotoPrivacyNote', showMineShortcut ? 'none' : '');
     // ⚠️ 버그 수정(2026-09-04 사용자 리포트: "도감 공유하고 나서 보니 정책 안내 밑에 인연도감~이름
     // 또는 별명 입력창이 또 나온다") — #gwansangOwnerNameBlock(A 전용 닉네임 입력)과 #gwansangOwnerAgreeBlock
     // (A 전용 동의 체크박스, 2026-09-05 추가)은 gwansangInputCard 안에 중첩돼 있어 captureUploadNodes()가
@@ -1695,49 +1815,131 @@
     const rep = window.Profile ? Profile.getRepresentative() : null;
     const prefillName = (rep && rep.name) || '';
 
+    // 사용자 지적(2026-09-12) — DogamRow 캡션은 고정 문구가 아니라 내 캐릭터의 한줄 설명(headline,
+    // .char-card-ribbon/.dogam-row-desc 등에 이미 쓰는 같은 필드)이어야 한다(예: "익숙한 것에서도
+    // 새로운 답을 찾는 장군상"). 서버 카탈로그가 아직 안 채워져 headline이 없는 드문 경우에만 예전
+    // 고정 문구로 대체한다.
+    const dogamMineDesc = (myChar && CHARACTER_DB[myChar] && CHARACTER_DB[myChar].headline)
+      || '내 인연도감의 닉네임과 관상정보로 등록해요';
+
     const registerBlock = '' +
-      '<div class="dogam-block">' +
-        '<div class="dogam-head"><span class="dogam-title">내 인연 등록하기</span></div>' +
-        (myChar
-          ? '<p class="dogam-guide">내 관상 캐릭터 <b>' + esc(myName2) + '</b>으로 등록해요.</p>'
-          : '<p class="dogam-guide">사진을 올리고 등록하면 관상 분석까지 한번에 진행돼요.</p>') +
-        // 2026-09-05(2차 피드백) — A(오너) 화면(index.html #gwansangInputCard)과 순서·구성을 동일하게
-        // 맞췄다: 이름(입력+유의사항 콜아웃) → 관상 정보(dogamUploadSlot, A의 사진 영역을 그대로 캡처) →
-        // 동의 체크박스 순서. 문구도 A 쪽과 완전히 동일하게 맞춘다(하나만 고치고 다른 쪽을 깜빡하면
-        // 문구가 갈라지니 수정할 땐 두 곳 다 같이 봐야 한다 — 정책 문서 2-0 "A/B 항상 동기화" 참고).
-        '<label class="field-label" style="display:block;margin:16px 0 8px;">이름</label>' +
-        '<input type="text" class="field-input" id="dogamGuestName" maxlength="12" placeholder="이름" value="' + esc(prefillName) + '" style="margin-bottom:8px;">' +
-        '<details class="dogam-policy" style="margin-top:0;margin-bottom:12px;">' +
-          '<summary>💡실명 대신 별명으로 권장드려요</summary>' +
-          '<p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">개인정보 보호를 위해 실명 대신 별명을 권해요. 입력한 이름은 이 도감에 표시되고, 도감을 여는 다른 사람에게도 보여요. 전화번호·주소 등 다른 개인정보는 입력하지 마세요.</p>' +
-        '</details>' +
-        // dogamUploadSlot은 myChar 여부와 무관하게 항상 렌더링한다 — #gwansangInputCard 통째로
-        // 여기 옮겨와야 그 안의 스피너·에러 메시지도 같이 쓸 수 있다(사진 관련 하위 요소만 위에서
-        // 개별적으로 숨겼다).
-        '<div id="dogamUploadSlot"></div>' +
-        '<label class="dogam-check"><input type="checkbox" id="dogamAgree">' +
+      // Figma node 56:1170 "Form Card" 실측 — .dogam-form-card(오너 폼과 같은 카드 배경/radius/padding)를
+      // 쓰되, gap:16 레이아웃은 이 게스트 화면 전용 id(#dogamGuestFormCard)로만 준다 — 오너의
+      // #gwansangInputCard(같은 .dogam-form-card 클래스)는 기존 그대로(인라인 margin 구조) 두기 위해
+      // .dogam-form-card 자체를 flex로 바꾸지 않는다(2026-09-12, 오너 화면 원복 요청 — 0.6m 참고).
+      // 예전엔 .dogam-block(라벤더 테두리)을 썼는데, #dogamUploadSlot에 A의 #gwansangInputCard(역시
+      // .dogam-form-card)가 통째로 들어오면서 카드 안에 카드가 한 번 더 보이는 이중 박스 문제가 있었다
+      // — 같은 배경 클래스로 통일하면 그 문제가 사라진다(0.6l 참고).
+      '<div class="dogam-form-card" id="dogamGuestFormCard">' +
+        // 사용자 지적(2026-09-12) — 타이틀과 바로 아래 서브텍스트는 한 그룹(gap 12)이어야 하는데,
+        // 예전엔 둘 다 .dogam-form-card의 바깥 gap:16에 얹힌 개별 형제라 타이틀-서브텍스트 사이가
+        // 서브텍스트-다음 요소 사이와 똑같이 벌어져 보였다(0.0.0 골격 원칙 — 그룹은 전용 래퍼로 묶는다).
+        '<div class="dogam-form-card-head">' +
+          '<div class="dogam-form-card-title">내 인연 등록하기</div>' +
+          (showMineShortcut
+            // Figma "이미 등록한 인연 도감이 있네요. 내 관상 캐릭터로 등록 가능해요." 실측 문구.
+            ? '<p class="dogam-guide">이미 등록한 인연 도감이 있네요. 내 관상 캐릭터로 등록 가능해요.</p>'
+            // "새로 등록하기"로 넘어온 경우(guestWantsManualEntry)도 myChar 자체는 여전히 참이지만,
+            // 이젠 새 사진으로 다시 등록하겠다는 뜻이라 "내 관상 캐릭터로 등록해요"가 아니라 사진
+            // 올리는 화면과 같은 문구를 쓴다(2026-09-12 사용자 첨부 스크린샷 기준).
+            : '<p class="dogam-guide">사진을 올리고 등록하면 관상 분석까지 한번에 진행돼요.</p>'
+          ) +
+        '</div>' +
+        (showMineShortcut
+          ? (
+            // Figma 레이어명 "DogamRow" — 내 도감 닉네임+캐릭터 요약. 참여자 명부의 .dogam-row(썸네일
+            // 포함, 다른 레이아웃)와 헷갈리지 않게 dogam-mine-* 이름을 새로 쓴다.
+            '<div class="dogam-mine-row" id="dogamMineRow">' +
+              '<div class="dogam-mine-row-name">' + esc(mine.ownerName) + '님의 인연도감<span class="dogam-mine-row-tag">' + esc(myName2) + '</span></div>' +
+              '<p class="dogam-mine-row-desc">' + esc(dogamMineDesc) + '</p>' +
+            '</div>' +
+            // registerEntry()가 #dogamGuestName의 값을 그대로 읽으므로, 화면엔 안 보이지만 내 도감
+            // 닉네임을 미리 채운 hidden input으로 기존 등록 로직을 그대로 재사용한다.
+            '<input type="hidden" id="dogamGuestName" value="' + esc(mine.ownerName) + '">'
+          )
+          : (
+            // 2026-09-05(2차 피드백) — A(오너) 화면(index.html #gwansangInputCard)과 순서·구성을 동일하게
+            // 맞췄다: 이름(입력+유의사항 콜아웃) → 관상 정보(dogamUploadSlot, A의 사진 영역을 그대로 캡처) →
+            // 동의 체크박스 순서. 문구도 A 쪽과 완전히 동일하게 맞춘다(하나만 고치고 다른 쪽를 깜빡하면
+            // 문구가 갈라지니 수정할 땐 두 곳 다 같이 봐야 한다 — 정책 문서 2-0 "A/B 항상 동기화" 참고).
+            // Figma "NameField" 실측 gap 12 — .dogam-field-group(오너 폼과 동일 클래스)으로 감싼다.
+            // id는 Figma 레이어명(NameField)을 그대로 옮겨서, 나중에 노드 대조할 때 바로 찾을 수 있게 한다.
+            '<div class="dogam-field-group" id="dogamNameField">' +
+              '<div class="form-field-label">이름</div>' +
+              // placeholder는 Figma "FieldInput" 실측 문구("도감에 표시될 이름") — 오너 입력(#gwansangOwnerName)과도
+              // 동일하게 맞춘다(0.3b 4번 — A/B 같은 컴포넌트는 같은 클래스·문구를 쓴다).
+              '<input type="text" class="field-input" id="dogamGuestName" maxlength="12" placeholder="도감에 표시될 이름" value="' + esc(prefillName) + '">' +
+              '<details class="dogam-policy">' +
+                '<summary>💡실명 대신 별명으로 권장드려요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>' +
+                '<p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">개인정보 보호를 위해 실명 대신 별명을 권해요. 입력한 이름은 이 도감에 표시되고, 도감을 여는 다른 사람에게도 보여요. 전화번호·주소 등 다른 개인정보는 입력하지 마세요.</p>' +
+              '</details>' +
+            '</div>'
+          )
+        ) +
+        // dogamUploadSlot은 항상 렌더링한다 — #gwansangInputCard 통째로 여기 옮겨와야 그 안의 스피너를
+        // registerEntry()가 계속 재사용할 수 있다. 다만 showMineShortcut일 땐 사진/이름 입력이 아예
+        // 없어서 이 슬롯 안이 시각적으로 텅 비는데, 빈 채로 남겨두면 그 자체가 .dogam-form-card의
+        // gap:16 한 칸을 더 차지해서 위·아래에 "이중 gap"처럼 보였다(2026-09-12 사용자 스크린샷 지적)
+        // — display:none으로 완전히 flex 흐름에서 빼서 gap 계산에서 제외한다(스피너가 그 안에서 뜨는
+        // 짧은 순간만 안 보이는 대신, 그 상태에선 버튼 disabled로도 처리 중임을 알 수 있다).
+        '<div id="dogamUploadSlot"' + (showMineShortcut ? ' style="display:none"' : '') + '></div>' +
+        // Figma 레이어명 "ConsentCheck".
+        '<label class="dogam-check" id="dogamConsentCheck"><input type="checkbox" id="dogamAgree">' +
           '<span>입력한 이름과 사진을 인연도감 생성/관리에 이용하는 데 동의해요. <b>(필수)</b></span></label>' +
         // 사진 저장 안내는 이제 A와 같은 안심 콜아웃(dogamUploadSlot에 캡처돼 들어오는 .dogam-policy)이
         // 대신한다 — 여기서 같은 내용을 또 말하면 중복이라 뺐다. "관상 정보는 도감이 삭제되면..."
         // (A 전용, 도감 전체 삭제 안내)과는 의미가 달라서(이건 B 본인 엔트리 삭제 안내) 별도 문장으로
         // 남긴다. 2026-09-05(3차 피드백) — A의 CTA 버튼이 기본 노출로 바뀌면서 짝이던 이 안내도
         // 기본 노출로 통일(더 이상 사진 업로드 여부로 숨기지 않음, A/B 동기화).
-        // 2026-09-05(16차 피드백) — "등록하면 서로의 도감에 올라가나요?" FAQ 항목을 빼면서(위
-        // DOGAM_POLICY 참고), 그 내용을 등록 직전에 꼭 알아야 할 정보로 보고 이 안내문 앞에 합쳤다.
-        '<p class="dogam-notice" id="dogamDeleteNoticeGuest">등록하면 서로의 도감에 함께 올라가요 — 나도 상대 도감에, 상대도 내 도감에 올라가요. 등록한 기록은 이 기기에서 언제든 직접 삭제할 수 있고, 도감 주인도 삭제할 수 있어요.</p>' +
         // 사진 업로드는 렌더 이후에 일어나므로 disabled로 막지 않는다 — 누른 시점에 검사해 안내한다.
-        '<button class="submit-btn" id="dogamRegisterBtn" onclick="Dogam.registerEntry()">도감에 인연 등록하기</button>' +
+        // Figma node 56:1149 "SubmitBtn" 실측: height 46, 텍스트 14px/700 — Large(.submit-btn 기본,
+        // 56px/18px)가 아니라 Medium이다. 하단 고정 CTA 독이 아니라 폼 흐름 안의 인라인 버튼이라
+        // Large를 쓸 이유가 없다(7.2 "하단 CTA 독" 전용 규칙과 구분).
+        (showMineShortcut
+          ? (
+            // Figma "Frame 1261159288" 실측 gap 8 — SubmitBtn + 보조(outline) 버튼을 세로로 묶는다.
+            '<div class="dogam-btn-group">' +
+              '<button class="submit-btn btn-solid-primary btn-md" id="dogamRegisterBtn" onclick="Dogam.registerEntry()">도감에 인연 등록하기</button>' +
+              // Figma "새로 등록하기" — 민트 톤 아웃라인(기존 .btn-outline-primary는 라벤더 톤이라
+              // .btn-outline-mint로 색만 재정의).
+              '<button type="button" class="btn-outline-primary btn-outline-mint btn-md" onclick="Dogam.useManualGuestEntry()">새로 등록하기</button>' +
+            '</div>'
+          )
+          : '<button class="submit-btn btn-solid-primary btn-md" id="dogamRegisterBtn" onclick="Dogam.registerEntry()">도감에 인연 등록하기</button>'
+        ) +
+        // 2026-09-05(16차 피드백) — "등록하면 서로의 도감에 올라가나요?" FAQ 항목을 빼면서(위
+        // DOGAM_POLICY 참고), 그 내용을 등록 직전에 꼭 알아야 할 정보로 옮겼다. 위치는 Figma node
+        // 56:1149 실측대로 SubmitBtn 다음(맨 마지막)이다 — 2026-09-12 사용자 지적으로 버튼 앞에
+        // 있던 걸 버튼 밑으로 옮김.
+        '<p class="dogam-notice" id="dogamDeleteNoticeGuest">등록하면 서로의 도감에 함께 올라가요 — 나도 상대 도감에, 상대도 내 도감에 올라가요. 등록한 기록은 이 기기에서 언제든 직접 삭제할 수 있고, 도감 주인도 삭제할 수 있어요.</p>' +
       '</div>';
 
+    // Figma node 56:1149 "Cnt Warp" 실측 — 페이지 타이틀·오너 캐릭터 카드는 박스(카드) 없이 배경
+    // 위에 그대로 놓인다. 예전엔 .dogam-block(라벤더 테두리 흰 카드)로 감싸고 있었는데, Figma엔
+    // 그런 테두리 카드가 없다 — 캐릭터 카드 자체(renderCharacterCard/Detail)가 이미 자기 테두리를
+    // 갖고 있어서 한 번 더 감싸면 이중 박스로 보인다.
     el.innerHTML = '' +
-      '<div class="dogam-block">' +
-        '<div class="dogam-head"><span class="dogam-title">' + esc(dogam.ownerName) + '님의 인연도감</span></div>' +
-        '<p class="dogam-guide">' + esc(dogam.ownerName) + '님이 나를 인연도감에 초대했어요.</p>' +
-        '<div id="dogamOwnerCard"></div>' +
-        '<div id="dogamOwnerDetail"></div>' +
+      '<div class="dogam-top-group">' +
+        // "OOO님의 인연도감" + 서브타이틀 = 한 그룹(gap 8).
+        '<div class="dogam-intro">' +
+          // Figma 레이어명 "Page Tit".
+          '<div class="dogam-title dogam-page-title" id="dogamPageTitle">' + esc(dogam.ownerName) + '님의 인연도감</div>' +
+          '<p class="dogam-guide">' + esc(dogam.ownerName) + '님이 나를 인연도감에 초대했어요.</p>' +
+        '</div>' +
+        // Figma 레이어명 "report top" — 캐릭터 카드(Cnt)를 감싸는 래퍼, 타이틀 그룹과는 별도 그룹(gap 20).
+        // 지금은 카드+상세토글 두 요소를 함께 감싼다(Figma는 카드 한 장만 있지만, 우리 화면은 펼침
+        // 토글이 있어서 그렇다).
+        '<div id="dogamReportTop">' +
+          '<div id="dogamOwnerCard"></div>' +
+          '<div id="dogamOwnerDetail"></div>' +
+        '</div>' +
       '</div>' +
       registerBlock +
-      guestEntriesBlock(dogam);
+      guestEntriesBlock(dogam) +
+      // Figma node 56:1149/56:1281 "Delete Info" 실측 — 화면 맨 아래(policyBlock 선언부 참고,
+      // 2026-09-12 사용자 지적으로 게스트 화면에도 추가). showDelete는 항상 false(이 도감을 통째로
+      // 지우는 건 게스트가 아니라 도감 주인만 할 수 있는 동작).
+      policyBlock(false, !!currentUid() && !isAnonymousUser());
 
     // 2026-09-05(17차 피드백) — "A의 결과" 카드는 A 본인 화면과 항상 동일해야 한다는 정책(§2-3
     // 표준 규칙)에 따라, 예전엔 여기서만 축약해 보여주던 renderOwnerBrief 대신 A와 완전히 같은
@@ -1762,43 +1964,81 @@
   // justRegistered를 채운 직후에만 render()가 이 함수로 분기한다(showGuestView 대신). 새로고침하면
   // justRegistered가 비워져 다음 render()는 자연히 showGuestView(등록 폼)로 돌아간다 — "1회성" 요구를
   // lastMatch와 같은 방식(메모리 변수만 사용)으로 만족시킨다.
-  function renderGuestMergedResult(dogam, match, opts) {
+  function renderGuestMergedResult(dogam, match, opts, stale) {
     const el = prepGuestScreen();
     if (!el) return;
+    // showGuestView와 같은 이유(그 함수 선언부 참고)로, 이 함수를 부르기 전에 있었던 await 때문에
+    // 더 최신 render()가 이미 시작됐을 수 있다 — 화면에 쓰기 전에 한 번 더 확인한다. 지금은 이 함수
+    // 자체엔 무거운 await이 없지만, 호출부(render())가 sharedSlug 조회 등으로 이미 시간이 지난 뒤에
+    // 부를 수 있어 방어적으로 넣는다.
+    if (stale && stale()) return;
     // 업로드 섹션은 이 화면엔 필요 없다(이미 등록을 마쳤으므로) — showGuestView와 달리 숨겨둔다.
     setDisplay('gwansangUploadSection', 'none');
     // 정책 문서 5-5(2026-09-09) — 방금 등록 직후(justRegistered)가 아니라 재방문으로 이 화면이 뜬
     // 경우(renderGuestScreen 참고)엔 "등록 완료" 대신 "내 인연 등록 정보"로, "내 정보가 아니에요"
     // 탈출구도 함께 보여준다 — 같은 기기를 다른 사람이 이어 쓰는 경우를 위한 장치.
     const isRevisit = !!(opts && opts.isRevisit);
+    // Figma node 32:6912 "DogamCtaHead"/"Tag" — 게스트 자신의 캐릭터 아바타·이름·한줄설명(다른 곳의
+    // char-card-ribbon/headline과 같은 필드).
+    const myResultChar = (typeof CHARACTER_DB !== 'undefined' && CHARACTER_DB[match.characterId]) || null;
+    const myResultName = myResultChar ? myResultChar.name : '';
+    const myResultHeadline = myResultChar ? myResultChar.headline : '';
+    const myResultImg = (typeof getCharacterIllustration === 'function') ? getCharacterIllustration(match.characterId) : '';
 
     el.innerHTML = '' +
-      '<div class="dogam-block">' +
-        '<div class="dogam-head"><span class="dogam-title">' + esc(dogam.ownerName) + '님의 인연도감</span></div>' +
-        '<p class="dogam-guide">' + esc(dogam.ownerName) + '님이 나를 인연도감에 초대했어요.</p>' +
-        '<div id="dogamOwnerCard"></div>' +
-        '<div id="dogamOwnerDetail"></div>' +
-      '</div>' +
-      '<div class="dogam-block dogam-matched" id="dogamMergedResultBlock">' +
-        '<div class="dogam-head"><span class="dogam-title">' + (isRevisit ? '내 인연 등록 정보' : '인연도감 등록 완료') + '</span></div>' +
-        '<div id="dogamMyResultCard"></div>' +
-        '<div class="dogam-match-row">' +
-          '<div class="dogam-match-body">' +
-            '<div class="dogam-row-name">' + esc(dogam.ownerName) + '님과의 궁합' +
-              '<span class="dogam-row-tag">' + esc(match.relation || '') + '</span></div>' +
-          '</div>' +
-          '<div class="dogam-match-score"><b>' + (match.score == null ? '-' : match.score) + '</b><span>점</span></div>' +
+      // showGuestView와 같은 이유로 박스 없이(0.6l 참고).
+      '<div class="dogam-top-group">' +
+        // "OOO님의 인연도감" + 서브타이틀 = 한 그룹(gap 8).
+        '<div class="dogam-intro">' +
+          // Figma 레이어명 "Page Tit".
+          '<div class="dogam-title dogam-page-title" id="dogamPageTitle">' + esc(dogam.ownerName) + '님의 인연도감</div>' +
+          '<p class="dogam-guide">' + esc(dogam.ownerName) + '님이 나를 인연도감에 초대했어요.</p>' +
         '</div>' +
-        '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. 내 도감도 만들면 나만의 공유 링크가 생겨요.</p>' +
-        '<button class="submit-btn" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
-        (isRevisit ? '<button type="button" class="dogam-link-btn" onclick="Dogam.showRegisterFormForOther()">내 정보가 아니에요 · 새로 등록하기</button>' : '') +
+        // Figma 레이어명 "report top" — 캐릭터 카드(Cnt)를 감싸는 래퍼, 타이틀 그룹과는 별도 그룹(gap 20).
+        // 지금은 카드+상세토글 두 요소를 함께 감싼다(Figma는 카드 한 장만 있지만, 우리 화면은 펼침
+        // 토글이 있어서 그렇다).
+        '<div id="dogamReportTop">' +
+          '<div id="dogamOwnerCard"></div>' +
+          '<div id="dogamOwnerDetail"></div>' +
+        '</div>' +
       '</div>' +
-      guestEntriesBlock(dogam);
+      // Figma node 32:6912 "my"/"Contariner" 실측 — 이중 테두리 카드(dogam-my-result 참고, CSS 선언부).
+      // 예전엔 renderCharacterCard()로 오너 캐릭터 카드와 똑같은 풀사이즈 카드를 여기 또 넣었는데,
+      // Figma는 훨씬 간결하게(작은 태그 알약 + 동그란 아바타 + 한줄 설명) 보여준다 — 2026-09-12
+      // 사용자 지정으로 완전히 새로 짰다.
+      '<div class="dogam-my-result" id="dogamMergedResultBlock">' +
+        '<div class="dogam-my-result-inner">' +
+          '<div class="dogam-my-result-head">' +
+            '<div class="dogam-my-result-title">' + esc(match.name) + '님의 ' + (isRevisit ? '인연 등록 정보' : '인연 등록 완료!') + '</div>' +
+            '<div class="dogam-my-result-tag">✦ ' + esc(myResultName) + ' ✦</div>' +
+          '</div>' +
+          '<div class="dogam-my-result-avatar">' +
+            '<img src="' + esc(myResultImg) + '" alt="' + esc(myResultName) + '">' +
+            '<p class="dogam-my-result-headline">' + esc(myResultHeadline) + '</p>' +
+          '</div>' +
+          '<div class="dogam-my-result-matching">' +
+            '<div class="dogam-my-result-matching-row">' +
+              '<div class="dogam-row-name">' + esc(dogam.ownerName) + '님과의 궁합' +
+                '<span class="dogam-row-tag">' + esc(match.relation || '') + '</span></div>' +
+              '<div class="dogam-match-score"><b>' + (match.score == null ? '-' : match.score) + '</b><span>점</span></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="dogam-my-result-foot">' +
+            '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. 내 도감도 만들면 나만의 공유 링크가 생겨요.</p>' +
+            // 사용자 지정(2026-09-12) — 이 카드 안에서는 Large(.submit-btn 기본, 56px) 대신
+            // Medium(.btn-solid-primary.btn-md, 46px) 버튼을 쓴다.
+            '<button class="submit-btn btn-solid-primary btn-md" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
+            (isRevisit ? '<button type="button" class="dogam-link-btn" onclick="Dogam.showRegisterFormForOther()">내 정보가 아니에요 · 새로 등록하기</button>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      guestEntriesBlock(dogam) +
+      // showGuestView와 같은 이유(policyBlock 선언부 참고)로 여기도 맨 아래에 추가한다.
+      policyBlock(false, !!currentUid() && !isAnonymousUser());
 
     if (typeof renderCharacterCard === 'function') {
       renderCharacterCard('dogamOwnerCard', { characterId: dogam.ownerCharacterId });
       wireGwansangCharCardChip('dogamOwnerCard', dogam.ownerCharacterId);
-      renderCharacterCard('dogamMyResultCard', { characterId: match.characterId });
     }
     // showGuestView와 동일하게 A와 완전히 같은 상세 카드를 쓴다(정책 §2-3 표준 규칙 참고).
     if (typeof renderCharacterDetail === 'function') {
@@ -1815,19 +2055,27 @@
   // renderOwnerView()에만 붙였는데, 게스트(B) 화면(showGuestView/renderGuestMergedResult)은 둘 다
   // 이 함수를 거쳐 명부를 그린다. 오너 화면과 같은 자리(명부 바로 위)에 넣어서 오너·게스트 어느 쪽이
   // 봐도 같은 부채가 보이게 한다.
+  // 인연도감 콘텐츠_노출 분기정책.md — "친구와의 인연정보(인연부채·명부) — 등록 전: 미노출"은
+  // 오너(renderOwnerView)뿐 아니라 게스트에도 똑같이 적용한다(2026-09-12 사용자 지적 — 게스트
+  // 화면은 count===0일 때 "첫 번째로 등록해보세요" 문구로 블록 자체를 계속 보여주고 있었다). 오너와
+  // 마찬가지로 등록된 사람이 한 명도 없으면 명부(.dogam-block)와 인연부채(renderFanChart)를 통째로
+  // 그리지 않는다 — "이 조건에 맞는 인연이 없어요"(필터 결과 없음)만 count>0일 때 남는다.
   function guestEntriesBlock(dogam) {
     const entries = dogam.entries || [];
     const count = entries.length;
+    if (count === 0) return '';
     const filtered = applyEntryFilter(entries);
     const list = filtered.length
       ? filtered.map(function (e) { return entryRow(e); }).join('')
-      : (count ? '<p class="dogam-empty">이 조건에 맞는 인연이 없어요.</p>'
-               : '<p class="dogam-empty">아직 등록된 인연이 없어요. 첫 번째로 등록해보세요!</p>');
+      : '<p class="dogam-empty">이 조건에 맞는 인연이 없어요.</p>';
     return '' +
       renderFanChart(entries, dogam.ownerName) +
       '<div class="dogam-block">' +
         '<div class="dogam-head">' +
-          '<span class="dogam-title">인연 도감</span>' +
+          // Figma node 32:6891 "DogamListWrap" 실측 문구: "{오너}님의 인연 도감" — 오너 자기 화면
+          // (renderOwnerView dogamBlock)은 이미 이렇게 쓰는데 게스트 쪽만 이름 없이 "인연 도감"만
+          // 있었다(2026-09-12 사용자 지적으로 통일).
+          '<span class="dogam-title">' + esc(dogam.ownerName) + '님의 인연 도감</span>' +
           '<span class="dogam-count">' + count + '명</span>' +
         '</div>' +
         filterChips(entries) +
@@ -1849,7 +2097,19 @@
     const registerBtn = document.getElementById('dogamRegisterBtn');
     if (registerBtn) registerBtn.disabled = true;
     setSpinner(m.spinner, '등록을 준비하는 중...');
-    const stop = function () { hideSpinner(m.spinner); if (registerBtn) registerBtn.disabled = false; };
+    // 사용자 요청(2026-09-12) — 버튼 누르자마자 바로 화면 전체를 덮는 로딩(딤+스피너, "새로 등록하기"의
+    // useManualGuestEntry()와 같은 전역 오버레이)을 띄우고, 검증 실패로 되돌아가는 경로도 포함해 전부
+    // stop()에서 같이 끈다. 등록 성공 경로만 예외 — 그쪽은 render()가 새 등록완료 화면을 실제로 다
+    // 그릴 때까지(그 함수 안 stale() 가드 덕분에 "화면이 실제로 완성된 시점"과 일치한다) 안 끈다.
+    const overlay = document.createElement('div');
+    overlay.className = 'auth-loading-overlay';
+    overlay.innerHTML = '<div class="spin-ring"></div>';
+    document.body.appendChild(overlay);
+    // 사용자 리포트(2026-09-12: "로딩이 한번 사라졌다 다시 뜬다") — 이 오버레이가 떠 있는 동안
+    // kakao-auth.js가 onAuthStateChanged로 독립적으로 또 도는 자기 오버레이(showAuthLoading/
+    // hideAuthLoading)를 안 건드리게 이 플래그를 켜둔다(guestActionInFlight 선언부 참고).
+    guestActionInFlight = true;
+    const stop = function () { hideSpinner(m.spinner); if (registerBtn) registerBtn.disabled = false; overlay.remove(); guestActionInFlight = false; };
 
     let uid;
     try {
@@ -1893,7 +2153,18 @@
         alert('분석 기능을 불러오지 못했어요. 새로고침 후 다시 시도해주세요.'); return;
       }
       console.log('[dogam] 새 사진으로 관상 분석 실행');
-      await startAnalysis('gwansang'); // 내부에서 같은 스피너를 "관상 분석중~"으로 바꿔 보였다가, 끝나면 스스로 끈다.
+      // ⚠️ 버그 수정(2026-09-12 사용자 리포트: "분석중~ 에서 안 넘어간다") — startAnalysis()가 내부에서
+      // 부르는 CharacterAPI.classifyGwansang()은 실패하면 그냥 throw한다(네트워크 오류·서버 오류 등).
+      // 여기서 감싸지 않으면 registerEntry() 전체가 처리 안 된 예외로 끊겨서, "관상 분석중~" 스피너를
+      // 끄는 stop()/hideSpinner()가 전혀 불리지 않고 화면이 그 상태로 영원히 멈춰있었다(에러 알림도 없이).
+      try {
+        await startAnalysis('gwansang'); // 성공하면 내부에서 같은 스피너를 "관상 분석중~"으로 바꿔 보였다가, 끝나면 스스로 끈다.
+      } catch (e) {
+        console.error('[dogam] 관상 분석 실패', e);
+        stop();
+        alert('관상 분석 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.\n' + ((e && e.message) || e));
+        return;
+      }
       charId = myCharacterId();
       if (!charId) { if (registerBtn) registerBtn.disabled = false; return; } // 얼굴 인식 실패 — startAnalysis가 이미 사유를 화면에 표시한다
       // 분석은 끝났지만 궁합 점수 계산·서버 등록이 아직 남아있으니 스피너를 다시 켠다
@@ -1923,10 +2194,17 @@
         name: name, characterId: charId, score: score, relation: relationLabel(guestDogam.ownerCharacterId, charId),
       };
       forceGuestRegisterForm = false; // "내 정보가 아니에요"로 열어둔 폼이었다면, 새 등록이 끝났으니 원래대로.
+      guestWantsManualEntry = false; // "새로 등록하기"로 열어둔 폼이었다면 이것도 원래대로.
       // 참여자 목록에 방금 등록한 나를 포함해 최신화한다(guestEntriesBlock이 이 목록을 그대로 씀).
       guestDogam = await loadDogam(inviter.slug).catch(function () { return inviter; });
       hideSpinner(m.spinner); // render()가 이 폼 자체를 병합 결과 화면으로 갈아치우기 직전에 꺼둔다
+      // 오버레이는 아직 안 끈다 — render()가 실제로 등록완료 화면(renderGuestMergedResult)을 다 그릴
+      // 때까지 기다렸다가 그 다음에 끈다(showGuestView/renderGuestMergedResult의 stale() 가드 덕분에
+      // 이 render()가 최신 호출이면 반드시 그 화면까지 그리고 나서 resolve된다).
       await render();
+      if (registerBtn) registerBtn.disabled = false;
+      overlay.remove();
+      guestActionInFlight = false;
       // ⚠️ 사용자 요청(2026-09-04) — 등록·로딩이 끝나면 화면(특히 #dogamGuestSection 맨 위, A의
       // 카드가 다시 보이는 자리)이 아니라 "인연도감 등록 완료!" 병합 결과 블록(내 캐릭터가 보이는
       // 곳)으로 포커스를 옮긴다 — renderGuestMergedResult가 그 블록에 id를 붙여둔다.
@@ -2152,6 +2430,9 @@
     render: render, renderInto: renderIntoEl, share: share, registerEntry: registerEntry,
     createMyDogamFromInvite: createMyDogamFromInvite,
     showRegisterFormForOther: showRegisterFormForOther,
+    useManualGuestEntry: useManualGuestEntry,
+    // kakao-auth.js가 onAuthStateChanged에서 자기 로딩 오버레이를 띄울지 판단할 때 쓴다(guestActionInFlight 선언부 참고).
+    isGuestActionInFlight: function () { return guestActionInFlight; },
     showEntryDetail: showEntryDetail, closeEntryDetail: closeEntryDetail,
     deleteEntry: deleteEntry, setEntryFilter: setEntryFilter,
     showDogamConflict: showDogamConflict, closeDogamConflict: closeDogamConflict,

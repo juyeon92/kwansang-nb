@@ -87,7 +87,7 @@ body {
   box-shadow: 0 0 40px rgba(0,0,0,0.12);
   min-height: 100dvh;
 }
-.wrap { position: relative; z-index: 1; max-width: var(--frame-w); margin: 0 auto; padding: 0 16px 24px; }
+.wrap { position: relative; z-index: 1; max-width: var(--frame-w); margin: 0 auto; padding: 32px 20px 32px; }
 /* 인연도감 탭 배경 — Figma "Cnt Warp"(node 32:7145 등)가 타이틀부터 풋터까지 --card2(#f0f4f3) 배경
    위에 흰 카드를 띄우는 구조다. .panel은 .wrap의 좌우 16px 패딩 "안쪽"이라 배경을 .panel에 넣으면
    full-bleed 섹션(margin:0 -16px로 튀어나오는 업로드 영역 등)이 튀어나가는 양옆 16px 거터가 흰색
@@ -304,7 +304,32 @@ body {
 #cmbCharacterCard .char-card-ribbon { background: var(--jade); color: #fff; }
 #cmbCharacterCard .char-card-img-wrap { border-color: var(--mint-border); }
 #gwansangCharacterCard .char-card-badge, #dogamOwnerCard .char-card-badge { display: none; }
-#gwansangCharacterCard .char-card-img-wrap, #dogamOwnerCard .char-card-img-wrap { width: 120px; height: 120px; }
+/* Figma node 56:1149 "CharIllustration" 실측: 150x150(기존 120x120보다 큼). */
+#gwansangCharacterCard .char-card-img-wrap, #dogamOwnerCard .char-card-img-wrap { width: 150px; height: 150px; }
+/* Figma node 56:1149 "학자상" 텍스트 실측: font-weight 800(기존 base .char-card-name는 900). */
+#gwansangCharacterCard .char-card-name, #dogamOwnerCard .char-card-name { font-weight: 800; }
+/* Figma "Cnt"/"CardInner" 실측 — 이중 패딩 구조다: Cnt padding 16 + CardInner(안쪽 점선 박스) 자체
+   padding 20 = 콘텐츠는 바깥 테두리에서 36px, 점선 테두리는 16px(Cnt의 padding 경계, 즉 CardInner의
+   바깥 변)에 위치한다. DOM을 두 겹으로 새로 만드는 대신 .char-card 패딩을 36으로 늘리고 ::before
+   (점선)를 그 위치로 당겨서 같은 시각 결과를 낸다. radius도 20(기존 22)으로 정정.
+   기존 값(패딩20/radius22)은 이 두 화면 전용이 아니라 다른 카드(hero 등)와 공유하던 대략값이었다.
+   ⚠️ 버그 수정(2026-09-12 사용자 리포트: "여기 라인 없어") — `position:absolute`인 ::before의
+   inset은 부모(`position:relative`인 .char-card)의 "패딩 박스" 기준이고, 그 패딩 박스의 바깥
+   경계는 border 안쪽(테두리 두께만큼만 안쪽)이지 padding까지 지난 자리가 아니다. 그런데 기존 값은
+   "패딩(36)까지 지난 콘텐츠 경계가 기준"이라고 잘못 계산해서 `inset:-20px`(바깥 테두리 바깥쪽으로
+   17px 튀어나가는 값)를 써버렸고, `.char-card`의 `overflow:hidden`에 그대로 잘려서 안 보이고
+   있었다 — 실측(브라우저에서 직접 확인)해서 올바른 계산(테두리 두께 3px + 인셋 13px = 바깥
+   테두리에서 16px)인 `inset:13px`로 고쳤다. */
+#gwansangCharacterCard .char-card, #dogamOwnerCard .char-card { padding: 36px; border-radius: 20px; }
+#gwansangCharacterCard .char-card::before, #dogamOwnerCard .char-card::before {
+  inset: 13px; border: 1.5px dashed var(--char-navy); border-radius: 14px;
+}
+/* 네 모서리 ✦는 Cnt(바깥 실선)가 아니라 CardInner(안쪽 점선) 모서리 기준 ~12px 인셋이다 — Cnt padding
+   16 + CardInner 인셋 12 ≈ 28px(바깥 테두리 기준). 기존 14/16px는 바깥 테두리 기준값이라 너무 안쪽이었다. */
+#gwansangCharacterCard .char-card-corner.tl, #dogamOwnerCard .char-card-corner.tl { top: 28px; left: 28px; }
+#gwansangCharacterCard .char-card-corner.tr, #dogamOwnerCard .char-card-corner.tr { top: 28px; right: 28px; }
+#gwansangCharacterCard .char-card-corner.bl, #dogamOwnerCard .char-card-corner.bl { bottom: 28px; left: 28px; }
+#gwansangCharacterCard .char-card-corner.br, #dogamOwnerCard .char-card-corner.br { bottom: 28px; right: 28px; }
 /* Figma node 22:1219 "TaglinePill" 실측: padding 16/7/16/7, radius 999, fill #eaf7f3(스트로크 없음),
    text 14px/700 #26375a. #eaf7f3는 1.11에 "미확정 색"으로 남아있어 그대로 쓰지 않고 가장 가까운
    기존 토큰(--mint-tint-10, mint 10% tint — 계산상 #eaf7f3와 거의 동일한 옅은 민트)으로 매핑했다.
@@ -318,6 +343,13 @@ body {
 /* Figma node 22:1219 "Cnt"(fill #ffffff) / 26:3966 "Report Top"·"CardInner"(둘 다 fill #ffffff) 실측 —
    그라디언트(#f6fdfb→#e6f6f1)가 아니라 단색 흰색이다. 이 카드는 위(hero, .char-card)/아래(상세,
    .char-detail) DOM 두 조각으로 나뉘어 있지만 Figma에서는 하나의 흰 카드라 배경을 통일한다. */
+/* ⚠️ 2026-09-12 되돌림 — 바로 위 커밋에서 "상세가 펼쳐졌을 때만(.detail-open) 카드 아래 테두리를
+   지운다"로 바꿨었는데 잘못된 전제였다: wireGwansangCharDetailToggle()는 접혔을 때도 .char-detail을
+   통째로 숨기는 게 아니라 그 안의 "펼침 내용"(.char-detail-collapse)만 숨기고, 토글 알약 버튼
+   (.char-detail-headline-row)은 접힌 상태에서도 항상 보인다(node 56:1154 실측 — 카드와 토글 알약은
+   펼침 여부와 무관하게 항상 하나로 붙어 있다). 즉 "카드 아래에 아무것도 안 붙어있는 상태"는 애초에
+   없어서, 조건 없이 항상 지워야 한다 — 원래대로 무조건 적용으로 되돌림. (진짜 원인이었던 건 이 조건이
+   아니라 바로 위 ::before 인셋 계산 버그였다.) */
 #gwansangCharacterCard .char-card, #dogamOwnerCard .char-card {
   border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: none; margin-bottom: 0;
 }
@@ -420,9 +452,10 @@ body {
 .mini-profile-empty { font-size: 12px; color: var(--text3); }
 .mini-profile-chevron { margin-left: auto; flex-shrink: 0; }
 
-.upload-section { padding: 0 20px 40px; }
+/* Figma "Cnt Warp" 실측 gap 20 — 자식(hero-section/revisit/gwansangInputCard) 사이 균일 간격. */
+.upload-section { padding: 0 20px 32px; display: flex; flex-direction: column; gap: 20px; }
 
-.hero-section { text-align: center; padding: 8px 4px 28px; }
+.hero-section { text-align: center; }
 .hero-hook { font-size: 20px; line-height: 1.35; }
 .hero-subcopy { font-size: 13px; line-height: 1.65; text-align: left; white-space: normal; }
 .hero-note { font-size: 11.5px; color: var(--text-caption); line-height: 1.6; margin-top: 14px; }
@@ -542,6 +575,19 @@ body {
 
 .spinner { display: none; text-align: center; padding: 28px; }
 .spinner.show { display: block; }
+/* 사용자 요청(2026-09-12) — 게스트 등록 중(#gwansangSpinner, "관상 분석중~" 등)에는 작은 인라인
+   스피너만 뜨고 나머지 폼(이름/사진/동의/버튼)은 그대로 보여서 "중간에 붕 떠 보였다" — 스피너가
+   떠 있는 동안은 "내 인연 등록하기" 카드 전체를 로딩 화면으로 바꾼다(오너 쪽 #gwansangAnalyzing
+   풀카드 로딩과 같은 무게감). #dogamUploadSlot 밖의 형제 요소와, 캡처된 카드(#gwansangInputCard)
+   안에서 스피너 아닌 나머지(에러 메시지 등)를 모두 숨기고, 스피너 자리를 카드 전체 높이로 키운다. */
+#dogamGuestFormCard:has(#gwansangSpinner.show) > *:not(#dogamUploadSlot),
+#dogamGuestFormCard:has(#gwansangSpinner.show) #dogamUploadSlot > .dogam-form-card > *:not(#gwansangSpinner) {
+  display: none;
+}
+#dogamGuestFormCard:has(#gwansangSpinner.show) #dogamUploadSlot,
+#dogamGuestFormCard:has(#gwansangSpinner.show) #dogamUploadSlot > .dogam-form-card {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 240px;
+}
 .spin-ring { width: 44px; height: 44px; border: 3px solid var(--mint-border); border-top-color: var(--mint); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -604,12 +650,52 @@ body {
 .cta-dock .submit-btn { margin-top: 0; }
 /* 인연도감 등록 버튼은 Figma상 하단 고정 독이 아니라 폼 카드 흐름 안의 일반 버튼이다(node 32:6309가
    "Form Card"의 마지막 자식으로, 별도 fixed 레이어가 아님) — 이 패널의 CTA만 고정을 해제한다. */
-#gwansangCtaDock { position: static; box-shadow: none; padding: 0; margin-top: 16px; }
-/* "내 도감 생성하기" 카드(Figma node 22:431 "Form Card") — 이름/관상 정보/동의/버튼이 전부 이 흰
-   카드 하나 안에 있다. 지금까지는 #gwansangInputCard가 카드 배경 없이 .upload-section 여백 위에
-   그냥 나열돼 있었다. */
-.dogam-form-card { background: var(--surface); border-radius: 16px; padding: 16px; }
-.dogam-form-card-title { font-size: 16px; font-weight: 800; color: var(--text-title); margin-bottom: 16px; }
+/* .cta-dock 기본값의 margin:0 auto가 flex 부모 안에서 stretch를 깨서(auto 마진이 있으면 flex가
+   늘려주지 않고 콘텐츠 크기로 줄어든다) 버튼이 쪼그라들었다 — margin을 0으로 명시해 되돌린다.
+   margin-top도 이제 .dogam-form-card의 gap:16이 대신하므로 뺀다(2026-09-12, 버그 재수정). */
+#gwansangCtaDock { position: static; box-shadow: none; padding: 0; margin: 0; }
+/* "내 도감 생성하기" 카드(Figma node 22:431 / 56:1170 "Form Card") — gap:16(자식 사이 균일 간격).
+   기존엔 flex가 아니라 자식마다 제각각인 인라인 margin으로 흉내내고 있었다. */
+.dogam-form-card { background: var(--surface); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+/* 타이틀+바로 아래 서브텍스트 그룹(Figma "Frame 1261159296" 등, gap 12) — .dogam-form-card의 바깥
+   gap:16과 섞이지 않게 전용 래퍼로 감싼다(0.0.0 골격 원칙, 2026-09-12 사용자 지적으로 분리). */
+.dogam-form-card-head { display: flex; flex-direction: column; gap: 12px; }
+.dogam-form-card-title { font-size: 16px; font-weight: 800; color: var(--text-title); }
+/* NameField/Face Upload Area 내부 그룹 — Figma 실측 gap 12(라벨/입력/콜아웃 사이 균일). */
+.dogam-field-group { display: flex; flex-direction: column; gap: 12px; }
+/* Figma "Label"(이름/관상 정보 등, Form Card 안에서만) 실측: 14px/400/#111111 — 옆 화면들이 쓰는
+   .upload-label(16~13px/700)이나 .field-label(14px/500/--text-strong)과는 다른, 이 폼 전용 라벨. */
+.form-field-label { font-size: 14px; font-weight: 400; color: var(--text-title); }
+/* Figma node 32:7751 "DogamRow" — 게스트가 이미 자기 인연도감을 가진 경우, 그 닉네임+캐릭터를
+   요약해서 보여주는 박스. 참여자 명부용 .dogam-row(썸네일 포함, 다른 레이아웃/용도)와 헷갈리지 않게
+   dogam-mine-* 이름을 새로 쓴다. */
+.dogam-mine-row { display: flex; flex-direction: column; gap: 4px; background: var(--card2); border-radius: var(--r-input); padding: 12px; }
+.dogam-mine-row-name { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: var(--text-title); }
+.dogam-mine-row-tag { font-size: 11px; font-weight: 600; color: var(--jade); background: #fff; border-radius: 999px; padding: 1px 8px; }
+.dogam-mine-row-desc { font-size: 12px; color: var(--text-sub); }
+/* Figma "Frame 1261159288" 실측 gap 8 — SubmitBtn + 보조(outline) 버튼을 세로로 묶는다. */
+.dogam-btn-group { display: flex; flex-direction: column; gap: 8px; }
+.dogam-btn-group .btn-outline-primary { width: 100%; }
+/* 보조 버튼(Figma "새로 등록하기") — 기존 .btn-outline-primary(라벤더 톤)와 달리 민트 톤이다. */
+.btn-outline-mint { border-color: var(--mint); background: #fff; color: var(--mint); }
+.btn-outline-mint:hover { background: var(--mint-soft); }
+/* 게스트 화면에 오너의 #gwansangInputCard 전체가 그대로 옮겨와 캡처되는데(js/inyeon-dogam.js
+   captureUploadNodes), 그 안의 이 타이틀("내 도감 생성하기")은 오너 전용이라 게스트 쪽엔 없어야
+   한다 — 게스트는 이미 자기 타이틀("내 인연 등록하기")이 따로 있다. */
+#dogamUploadSlot > .dogam-form-card > .dogam-form-card-title { display: none; }
+/* 캡처된 #gwansangInputCard(.dogam-form-card)가 게스트의 진짜 카드(.dogam-form-card, registerBlock)
+   "안"에 한 번 더 들어가면서 카드 스타일(배경·radius·padding)이 두 겹으로 보이던 문제 — 안쪽은
+   레이아웃(flex/gap)만 남기고 카드 껍데기는 없앤다. */
+#dogamUploadSlot > .dogam-form-card { background: none; border-radius: 0; padding: 0; }
+/* ⚠️ 방어적 보강(2026-09-12 사용자 리포트: "새로 등록하기 누르니 화면 맨 아래에 내 도감 생성하기가
+   보인다") — render()가 다시 도는 짧은 순간(stashUploadNodes가 카드를 원래 자리 #gwansangUploadSection
+   으로 잠깐 돌려놨다가 다시 캡처하는 사이) 두 render() 호출이 겹치면, 카드가 #dogamUploadSlot 밖
+   (원래 자리)에 그대로 남는 경우가 있었다 — 그러면 위 두 규칙(부모 선택자가 #dogamUploadSlot이어야
+   적용됨)이 안 먹어서 오너 전용 타이틀·카드 껍데기가 그대로 노출됐다. 정확한 위치가 아니라 "게스트
+   화면이 떠 있는가"(#dogamGuestSection 존재)만으로 판단하도록 이중 방어한다 — 카드가 어디에 있든
+   게스트 세션 동안은 무조건 숨는다. */
+body:has(#dogamGuestSection) #gwansangInputCard > .dogam-form-card-title { display: none; }
+body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: none; border-radius: 0; padding: 0; }
 /* Figma node 22:425 "Background+Border"(Face Upload Area) 실측: padding 16px 4방향 전부, radius 12px
    (기존 --r-drop과 이미 일치), stroke #dddddd 2px(기존 --border-gray2와 이미 일치) — padding만
    공용 .upload-area 기본값(24px 20px)과 달라서 이 화면(#uploadArea)에서만 덮어쓴다. 사주(#cmbUploadArea),
@@ -948,8 +1034,21 @@ body.overlay-open { overflow: hidden; }
 .admin-grant-reason { padding: 8px; border: 1px solid var(--border-gray); border-radius: 8px; font-family: inherit; font-size: 12px; background: var(--surface); }
 
 .dogam-block { background: var(--surface); border: 1px solid var(--border-lavender); border-radius: 16px; padding: 16px 20px; margin-top: 20px; }
-.dogam-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+/* Figma "Frame 1261159287"(DogamListWrap 헤더) 실측: primaryAlign=SPACE_BETWEEN — 제목은 왼쪽,
+   참여자 수 배지(.dogam-count)는 오른쪽 끝(2026-09-12 사용자 지적으로 추가 — 그 전엔 gap 8px만
+   있어서 배지가 제목 바로 옆에 붙어 있었다). */
+.dogam-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+/* 게스트 화면 최상단 — Figma "Cnt Warp" 실측: 박스 없이 배경 위에 바로 놓이고 그 안에서
+   Page Tit(제목)/report top(카드) 두 그룹이 gap 20으로 떨어진다(0.6l). 사용자 지정(2026-09-12)대로
+   .dogam-intro는 이제 "제목+서브타이틀"만 묶는 안쪽 그룹(gap 8)이고, report top(#dogamReportTop)은
+   그 바깥의 .dogam-top-group이 gap 20으로 별도 그룹으로 감싼다. */
+.dogam-top-group { display: flex; flex-direction: column; gap: 20px; }
+.dogam-intro { display: flex; flex-direction: column; gap: 8px; }
+.dogam-intro > .dogam-guide, .dogam-form-card-head > .dogam-guide { margin: 0; }
 .dogam-title { font-size: 16px; font-weight: 800; color: var(--text-title); }
+/* Figma node 56:1149 "Page Tit"("OOO님의 인연도감") 실측: 20px/700 — L1 페이지 타이틀(2.1)이지
+   .dogam-title(카드 타이틀, 16px/800)과 같은 급이 아니다. 게스트 화면 최상단 제목에만 붙는다. */
+.dogam-page-title { font-size: 20px; font-weight: 700; }
 .dogam-count { display: inline-flex; align-items: center; font-size: 8px; font-weight: 700; color: #fff; background: var(--mint); border-radius: 4px; padding: 3px 9px; }
 .dogam-empty { font-size: 13px; line-height: 1.7; color: var(--text-sub2); text-align: center; padding: 18px 4px; }
 .dogam-list { display: flex; flex-direction: column; }
@@ -964,26 +1063,61 @@ body.overlay-open { overflow: hidden; }
 .dogam-row-score b { font-size: 17px; font-weight: 800; color: var(--jade); }
 .dogam-row-score span { font-size: 12px; color: var(--text-sub2); margin-left: 1px; }
 /* "방금 맺은 인연" — 별도 카드 대신 해당 명부 항목 자체를 하이라이트+뱃지로 표시(entryRow 참고).
-   인연도감 UI 리디자인 시안의 reg-row.just-registered와 같은 방식. */
-.dogam-row.dogam-row-matched { position: relative; background: var(--mint-10); border-radius: var(--r-input); margin: 2px -8px; padding: 10px 8px; }
+   인연도감 UI 리디자인 시안의 reg-row.just-registered와 같은 방식.
+   Figma node 32:7512 "DogamRow"(매칭 상태) 실측 — 배경이 옅은 틴트(--mint-10)가 아니라 진한 솔리드
+   민트(--mint)이고, padding도 좌우가 상하보다 큰 8/16(기존엔 반대로 10/8이었다) — 2026-09-12 대조로
+   수정. */
+.dogam-row.dogam-row-matched { position: relative; background: var(--mint); border-radius: var(--r-input); margin: 2px -8px; padding: 8px 16px; }
 .dogam-row.dogam-row-matched + .dogam-row,
 .dogam-row + .dogam-row.dogam-row-matched { border-top: none; }
+/* 진한 민트 배경 위에서는 관계 태그(.dogam-row-tag, 기본은 옅은 민트 배경)가 묻히니 흰 배경으로
+   바꾼다(Figma 실측: 이 상태의 Tag만 fill #ffffff). */
+.dogam-row.dogam-row-matched .dogam-row-tag { background: #fff; }
 .dogam-row-matched-tag {
   position: absolute; top: -8px; left: 6px; z-index: 1;
-  font-size: 10px; font-weight: 700; color: #fff; background: var(--mint);
+  font-size: 8px; font-weight: 700; color: #fff; background: var(--mint);
   padding: 3px 9px; border-radius: 4px; white-space: nowrap; transform: rotate(-6deg);
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
 .dogam-guide { font-size: 13px; color: var(--text-sub2); margin: 8px 0; }
-.dogam-matched { background: var(--mint-soft); border-color: var(--mint-border); }
 .dogam-match-row { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: var(--r-input); padding: 12px; margin-top: 8px; }
 .dogam-match-thumb { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--card2); }
 .dogam-match-body { flex: 1; min-width: 0; }
 .dogam-match-score { text-align: right; flex-shrink: 0; white-space: nowrap; }
 .dogam-match-score b { font-size: 22px; font-weight: 800; color: var(--mint); line-height: 1.1; }
 .dogam-match-score span { font-size: 10px; color: var(--text-sub); margin-left: 1px; }
-.dogam-notice { font-size: 11.5px; line-height: 1.7; color: var(--text-sub2); background: var(--bg-soft); border-radius: var(--r-input); padding: 12px; margin: 10px 0; }
+/* Figma node 32:6912 "my"/"Contariner" — 게스트가 등록을 마친 뒤 보는 "등록 완료" 카드. 이중 테두리
+   (바깥 20px 라운드 네이비 보더 + 안쪽 16px 라운드 네이비 보더+연민트 배경) 패턴은 캐릭터 카드의
+   Cnt/CardInner와 같은 방식이라 div 두 겹으로 그대로 옮긴다. 예전 .dogam-block.dogam-matched(민트
+   배경 단일 박스 + 풀사이즈 renderCharacterCard)를 이걸로 완전히 대체한다. */
+.dogam-my-result { border: 1px solid var(--char-navy); border-radius: 20px; }
+.dogam-my-result-inner {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
+  padding: 16px; border-radius: 16px; background: var(--mint-soft); border: 1px solid var(--char-navy);
+}
+.dogam-my-result-head { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.dogam-my-result-title { font-size: 12px; font-weight: 700; color: var(--char-navy); }
+/* "Tag"(캐릭터명 알약) — 상단 헤드용, 흰 배경+네이비 보더. Matching 행의 관계 태그(.dogam-row-tag,
+   민트 배경+jade 텍스트)와는 다른 컴포넌트라 새 클래스로 분리. */
+.dogam-my-result-tag {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px;
+  background: #fff; border: 1px solid var(--char-navy); color: var(--char-navy);
+  font-size: 16px; font-weight: 800; line-height: 1.2;
+}
+.dogam-my-result-avatar { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.dogam-my-result-avatar img { width: 65px; height: 65px; border-radius: 50%; object-fit: cover; }
+.dogam-my-result-headline { font-size: 14px; font-weight: 500; color: #555555; }
+.dogam-my-result-matching {
+  display: flex; flex-direction: column; gap: 8px; width: 100%; background: #fff;
+  border: 1px solid var(--border-lavender); border-radius: 12px; padding: 16px 12px;
+}
+.dogam-my-result-matching-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.dogam-my-result-foot { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+.dogam-my-result-foot .dogam-guide { margin: 0; text-align: center; color: var(--text-sub); }
+/* Figma "등록하면 서로의 도감에..." 실측: 배경/테두리 없는 순수 텍스트, 12px/400/#706a72(--text-caption)
+   — 기존엔 --bg-soft 배경 박스(11.5px/--text-sub2)로 감싸고 있었다. */
+.dogam-notice { font-size: 12px; line-height: 1.7; color: var(--text-caption); }
 
 /* 인연부채 + 참여자 상세 시트 재구성 (2026-09-10, 클로드 디자인 "인연도감 리디자인.dc.html" 반영) */
 .dogam-detail-chemistry { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
@@ -993,10 +1127,23 @@ body.overlay-open { overflow: hidden; }
 .dogam-detail-subhead { font-size: 14px; font-weight: 700; color: var(--text-title); margin-bottom: 12px; }
 .dogam-detail-cta { margin-top: 14px; }
 .dogam-detail-cta p { font-size: 12px; line-height: 1.6; color: var(--text-sub2); margin: 0 0 10px; }
-.dogam-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.6; color: var(--text-strong); margin-bottom: 12px; cursor: pointer; }
+/* Figma "ControlGroup/CheckboxwithLabel" 실측 gap 4(체크박스-텍스트) — 기존 8px는 그 바깥
+   "ConsentCheck" 레벨(현재 코드엔 별도 레벨이 없음)의 값이었다. */
+.dogam-check { display: flex; align-items: flex-start; gap: 4px; font-size: 12px; line-height: 1.6; color: var(--text-strong); cursor: pointer; }
 .dogam-check input { margin-top: 2px; flex-shrink: 0; }
-.dogam-policy { margin-top: 12px; background: var(--card2); border-radius: var(--r-input); padding: 11px 14px; }
-.dogam-policy > summary { font-size: 12px; font-weight: 600; color: var(--text-strong); cursor: pointer; }
+.dogam-policy { background: var(--card2); border-radius: var(--r-input); padding: 11px 14px; }
+/* Figma "Delete Info" 실측(node 22:425 "실명 대신 별명으로", 29:5431 "도감 보관·삭제 안내" 둘 다) 텍스트
+   색은 --text-strong(#333333)이 아니라 --text-sub(#666666)다. */
+/* Figma "Delete Info" 실측: 왼쪽에 여는 삼각형(브라우저 기본 <details> 마커)이 없고, 오른쪽 끝에
+   화살표 아이콘(Tailing Icon = Icon/Line/Arrow_Down)만 있다 — list-style을 꺼서 기본 마커를 없애고,
+   같은 자리에 오른쪽 정렬 화살표를 새로 그린다("+"/"−"를 쓰는 .char-detail-acc와는 다른 컴포넌트). */
+.dogam-policy > summary { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text-sub); cursor: pointer; list-style: none; }
+.dogam-policy > summary::-webkit-details-marker { display: none; }
+/* 순수 CSS(테두리 45도 회전)로 그리던 화살표를 마테리얼 아이콘(expand_more)으로 교체(2026-09-12
+   사용자 요청) — summary 안에 실제 <span class="material-symbols-outlined dogam-policy-arrow"> 요소를
+   둔다(다른 곳의 .char-detail-toggle과 같은 패턴, ::after content 트릭 아님). */
+.dogam-policy > summary .dogam-policy-arrow { margin-left: auto; flex-shrink: 0; font-size: 18px; color: var(--text-sub); transition: transform .15s; }
+.dogam-policy[open] > summary .dogam-policy-arrow { transform: rotate(180deg); }
 .dogam-policy-item { margin-top: 12px; }
 .dogam-policy-item b.dogam-policy-q { display: block; font-size: 12px; color: var(--text-strong); margin-bottom: 3px; }
 .dogam-policy-item p { font-size: 12px; line-height: 1.7; color: var(--text-sub2); }
@@ -1006,7 +1153,7 @@ body.overlay-open { overflow: hidden; }
    컴포넌트의 두 사이즈다. 텍스트 색도 Figma 실측대로 --text-sub(#666666)로 고쳤다(기존엔 --char-navy-deep,
    더 짙은 톤이었다 — 상황별 아코디언 라벨과 헷갈려서 그대로 옮겨온 값으로 보인다). */
 .dogam-policy.dogam-policy-footer { background: rgba(255,255,255,0.72); border: 1px solid rgba(38,55,90,0.3); border-radius: 12px; padding: 12px 14px; margin-top: 20px; }
-.dogam-policy.dogam-policy-footer > summary { color: var(--text-sub); }
+/* summary 색은 이제 base .dogam-policy > summary(--text-sub)와 같아져서 별도 오버라이드가 필요 없다. */
 .dogam-actions { margin-top: 16px; }
 .dogam-actions { text-align: center; }
 /* Figma node 22:1219 "DogamShareBtn" 실측: padding 14/8/14/8(좌우14·상하8) — 기존 12px 14px(상하가
@@ -1100,7 +1247,10 @@ body.overlay-open { overflow: hidden; }
 
 .biz-footer { padding: 12px 0 4px; text-align: center; font-size: 11px; line-height: 1.7; color: var(--text-sub2); }
 /* 공통 영역 설계(2026-09-09) 3-2 — legal-footer + biz-footer를 .site-footer로 합쳤으므로 숨김
-   대상도 .site-footer 하나로 통일(노출 범위는 예전 .biz-footer와 동일하게 유지). */
+   대상도 .site-footer 하나로 통일(노출 범위는 예전 .biz-footer와 동일하게 유지).
+   2026-09-12 사용자 지적 — 이 푸터는 "인연도감 최초 진입(메인)" 화면에만 있어야 하는 규칙(정책
+   문서 "공통 영역 노출 규칙" 참고)인데, 게스트(피공유인) 화면(#dogamGuestSection)에서도 계속
+   보이고 있었다 — 통합분석/궁합보기의 "리포트를 보여주는 화면"과 같은 이유로 여기도 추가한다. */
 .wrap:has(#cmbAnalyzing:not(.hidden)) .site-footer,
 .wrap:has(#cmbResult:not(.hidden)) .site-footer,
 .wrap:has(#cmbSavedReport:not(.hidden)) .site-footer,
@@ -1108,7 +1258,8 @@ body.overlay-open { overflow: hidden; }
 .wrap:has(#gwansangResult:not(.hidden)) .site-footer,
 .wrap:has(#ggAnalyzing:not(.hidden)) .site-footer,
 .wrap:has(#ggResult:not(.hidden)) .site-footer,
-.wrap:has(#ggSavedReport:not(.hidden)) .site-footer {
+.wrap:has(#ggSavedReport:not(.hidden)) .site-footer,
+.wrap:has(#dogamGuestSection) .site-footer {
   display: none;
 }
 /* 공통 영역 설계 1-2 — 헤더 profileInfoBox 노출 범위 축소. 인연도감 탭은 대표 프로필 개념을 안
@@ -1370,7 +1521,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 }
 .transition-loading p { font-size: 14px; color: var(--text-sub); }
 
-.arc-page-head { display: flex; align-items: center; gap: 8px; padding: 16px 0 8px; }
+.arc-page-head { display: flex; align-items: center; gap: 8px; padding-bottom: 20px; }
 .arc-page-head h2 { font-size: 20px; font-weight: 500; color: var(--text-heading); }
 /* 인연도감 탭 타이틀만 좌우 20px로 — 바로 아래 .upload-section이 margin:-16px+padding:20px로
    프레임 기준 20px를 맞춰둔 것과 같은 값으로 맞춘다(Figma "Cnt Warp" 좌우 패딩 20 — node 32:7145).
@@ -1502,7 +1653,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       </div>
 
       <details class="dogam-policy" style="margin-top:8px;margin-bottom:12px;">
-        <summary>🔒사진은 저장되지 않으니 안심하세요</summary>
+        <summary>🔒사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
         <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
       </details>
 
@@ -1697,16 +1848,17 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 
             <div id="gwansangInputCard" class="dogam-form-card">
                 <div class="dogam-form-card-title">내 도감 생성하기</div>
-                <div id="gwansangOwnerNameBlock">
-          <div class="upload-label">이름</div>
-          <input type="text" class="field-input" id="gwansangOwnerName" maxlength="12" placeholder="도감에 표시될 이름" style="margin-bottom:8px;">
-          <details class="dogam-policy" style="margin-top:0;margin-bottom:12px;">
-            <summary>💡 실명 대신 별명으로 권장드려요</summary>
+                <div id="gwansangOwnerNameBlock" class="dogam-field-group">
+          <div class="form-field-label">이름</div>
+          <input type="text" class="field-input" id="gwansangOwnerName" maxlength="12" placeholder="도감에 표시될 이름">
+          <details class="dogam-policy">
+            <summary>💡 실명 대신 별명으로 권장드려요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
             <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">개인정보 보호를 위해 실명 대신 별명을 권해요. 입력한 이름은 이 도감에 표시되고, 도감을 여는 다른 사람에게도 보여요. 전화번호·주소 등 다른 개인정보는 입력하지 마세요.</p>
           </details>
         </div>
 
-        <div class="upload-label" id="gwansangCharInfoLabel">관상 정보</div>
+        <div class="dogam-field-group">
+        <div class="form-field-label" id="gwansangCharInfoLabel">관상 정보</div>
 
         <div class="upload-area" id="uploadArea"
              onclick="document.getElementById('fileInput').click()"
@@ -1714,7 +1866,20 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
           <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
                     <strong>사진을 클릭하거나 드래그하여 업로드</strong>
           <div class="tip-box">
-            <span class="icon material-symbols-outlined">warning</span>
+            <!-- Figma "Message/InfoBox" > "Icon/Icons" 실측 SVG(fill #ff9533 = --icon-orange, 이미 색이
+                 일치해서 그대로 씀) — 마테리얼 "warning" 아이콘 대신 실제 아이콘 에셋으로 교체
+                 (2026-09-12 사용자 지정). #uploadArea(관상 탭/게스트 캡처 공용) 전용 — 다른 업로드
+                 영역(cmbUploadArea/ggUploadA/ggUploadB)은 그대로 둔다. -->
+            <span class="icon">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <mask id="mask0_32_7318" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="17" height="16">
+                  <path d="M8.00002 1.33325C4.32003 1.33325 1.33337 4.31992 1.33337 7.99992C1.33337 11.6799 4.32003 14.6666 8.00002 14.6666C11.68 14.6666 14.6667 11.6799 14.6667 7.99992C14.6667 4.31992 11.68 1.33325 8.00002 1.33325ZM8.00002 11.3333C7.63336 11.3333 7.33336 11.0333 7.33336 10.6666V7.99992C7.33336 7.63325 7.63336 7.33325 8.00002 7.33325C8.36669 7.33325 8.66669 7.63325 8.66669 7.99992V10.6666C8.66669 11.0333 8.36669 11.3333 8.00002 11.3333ZM8.66669 5.99992H7.33336V4.66659H8.66669V5.99992Z" fill="#5B5B5B"/>
+                </mask>
+                <g mask="url(#mask0_32_7318)">
+                  <rect width="15.9999" height="15.9999" fill="#FF9533"/>
+                </g>
+              </svg>
+            </span>
             <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
           </div>
         </div>
@@ -1728,16 +1893,17 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
           </div>
         </div>
 
-                <div class="err-msg" id="gwansangErr" style="margin-top:8px;margin-bottom:8px;"></div>
+                <div class="err-msg" id="gwansangErr"></div>
 
-                <details class="dogam-policy" id="gwansangPhotoPrivacyNote" style="margin-top:8px;margin-bottom:12px;">
-          <summary>🔒 사진은 저장되지 않으니 안심하세요</summary>
+                <details class="dogam-policy" id="gwansangPhotoPrivacyNote">
+          <summary>🔒 사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
           <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
         </details>
 
         <div class="spinner" id="gwansangSpinner">
           <div class="spin-ring"></div>
           <p style="color:var(--text2);font-size:13px;" id="spinnerMsg">얼굴 분석 중...</p>
+        </div>
         </div>
 
                 <div id="gwansangOwnerAgreeBlock">
@@ -2411,7 +2577,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/landmark-engine.js?v=20260908b"></script>
 <script src="js/config.js?v=20260908"></script>
 <script src="js/firebase-init.js?v=20260827c"></script>
-<script src="js/kakao-auth.js?v=20260908"></script>
+<script src="js/kakao-auth.js?v=20260912a"></script>
 <script src="js/wallet.js?v=20260904"></script>
 <script src="js/character/trait-labels.js?v=20260830a"></script>
 <script src="js/character/character-db.js?v=20260830b"></script>
@@ -2422,7 +2588,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/app.js?v=20260908b"></script>
 <script src="js/profile.js?v=20260903"></script>
 <script src="js/archive.js?v=20260905"></script>
-<script src="js/inyeon-dogam.js?v=20260910d"></script>
+<script src="js/inyeon-dogam.js?v=20260912r"></script>
 <script src="js/nyang-shop.js?v=20260904"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>
 <script src="js/pay-history.js?v=20260827c"></script>

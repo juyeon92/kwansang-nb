@@ -15,6 +15,13 @@
 > 3. ✅ AI 프롬프트 3종 + Gemini 호출 → `functions/engine/prompt-builders.js` + `generateDeepReport`/
 >    `generateAiEnhancement`/`generateGunghapReport` 엔드포인트(`geminiProxy`는 대조 검증 끝날 때까지 유지).
 >
+> **업데이트 (2026-09-12)**: 위 "미배포·미연결" 상태는 더 이상 사실이 아니다 — 커밋 `8d6bb53`("관상
+> 판정 로직을 landmark-engine.js에서 완전히 제거 — js/app.js 렌더링 함수까지 전부 서버 이관")에서
+> 클라이언트가 이미 `classifyGwansang`을 직접 호출하도록 바뀌었고(`js/character-api.js`
+> `classifyGwansang()` → `js/app.js` `startAnalysis()`가 그 결과로 렌더링), 실제 Firebase 프로젝트에도
+> 배포까지 끝나 있다(curl로 4개 엔드포인트 전부 직접 호출해 401 응답 확인 — 함수 자체는 살아있고
+> 인증 토큰만 없어서 거부된 것). 이 섹션과 아래 "진행 상황"의 "아직 미배포·미연결" 문구들은 이제
+> 스테일 상태다 — 실제 배포/연결 여부를 다시 확인하지 않고 이 문서 문구만 믿지 말 것.
 > 아래 본문(1~7)은 작성 당시 전체 스코프 기준으로 쓴 원문이다 — 이미 끝난 부분도 포함해 그대로
 > 남겨둔다(무엇이 왜 필요했는지 맥락 보존 목적). **실제 작업은 위 "아직 남은 작업" 3개 기준으로
 > 진행한다.**
