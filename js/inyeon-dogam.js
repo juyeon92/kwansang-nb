@@ -1987,16 +1987,20 @@
   // 아직 모르는 값(ensureMyDogam, Firestore 조회)이라 일단 "없음" 가정으로 그리고, 뒤에서 비동기로
   // 확인해 있으면 슬롯만 이 문구로 바꿔치운다(showEntryDetail의 CTA 슬롯과 같은 패턴).
   function dogamMyResultFootHtml(dogam, hasOwnDogam, isRevisit) {
+    if (hasOwnDogam) {
+      // Figma node 52:1868 "이미 등록한 인연도감 있음" — 이 변형엔 재방문 탈출구(새로 등록하기)가
+      // 따로 없다.
+      return '' +
+        '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. ' + esc(dogam.ownerName) + '님께 내 도감 링크를 공유하고 등록해보세요.</p>' +
+        '<button class="submit-btn btn-solid-primary btn-md" onclick="Dogam.goToMyDogam()">내 인연도감 보러가기</button>';
+    }
     return '' +
-      (hasOwnDogam
-        ? '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. ' + esc(dogam.ownerName) + '님께 내 도감 링크를 공유하고 등록해보세요.</p>' +
-          '<button class="submit-btn btn-solid-primary btn-md" onclick="Dogam.goToMyDogam()">내 인연도감 보러가기</button>'
-        : '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. 내 도감도 만들면 나만의 공유 링크가 생겨요.</p>' +
-          '<button class="submit-btn btn-solid-primary btn-md" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>') +
-      // Figma node 52:2810 "Frame 1261159294" 실측 — 텍스트 링크가 아니라 민트 아웃라인
-      // Medium 버튼(showGuestView의 "새로 등록하기"와 같은 .btn-outline-mint)이다(2026-09-12
-      // 노드 대조로 수정).
-      (isRevisit ? '<button type="button" class="btn-outline-primary btn-outline-mint btn-md" onclick="Dogam.showRegisterFormForOther()">내 정보가 아니에요 · 새로 등록하기</button>' : '');
+      '<p class="dogam-guide">지금은 ' + esc(dogam.ownerName) + '님 도감에만 등록됐어요. 내 도감도 만들면 나만의 공유 링크가 생겨요.</p>' +
+      '<button class="submit-btn btn-solid-primary btn-md" onclick="Dogam.createMyDogamFromInvite()">내 인연도감 만들기</button>' +
+      // Figma node 52:2790 "Frame 1261159294" 실측(재방문 상태) — 버튼 스타일은 52:2810과 같은 민트
+      // 아웃라인 Medium이지만, 텍스트는 "내 정보가 아니에요 · " 없이 "새로 등록하기"만 쓴다
+      // (2026-09-12 사용자 지정 — 이미 등록한 피공유인이 재방문했을 때의 탈출구).
+      (isRevisit ? '<button type="button" class="btn-outline-primary btn-outline-mint btn-md" onclick="Dogam.showRegisterFormForOther()">새로 등록하기</button>' : '');
   }
   function renderGuestMergedResult(dogam, match, opts, stale) {
     const el = prepGuestScreen();
