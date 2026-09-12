@@ -428,8 +428,8 @@ function setHtmlIfExists(elId, html) {
 // z3-pair-card 흰 배경으로 옮겨졌으므로, 텍스트도 그 카드 안에서 읽히는 gg-item 타이포를 그대로 쓴다).
 // basis가 없는 필드(zone3_ohaeng_reading·zone3_daeun_reading — 스키마에 대응 basis가 없음)는
 // 두 번째 인자를 생략하면 풀이만 렌더링된다.
-function renderReadingBasis(elId, reading, basis) {
-  setHtmlIfExists(elId, `<div class="gg-item-reading">${reading || ''}</div>${basis ? `<details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${basis}</div></details>` : ''}`);
+function renderReadingBasis(elId, reading, basis, readingStyle) {
+  setHtmlIfExists(elId, `<div class="gg-item-reading"${readingStyle ? ` style="${readingStyle}"` : ''}>${reading || ''}</div>${basis ? `<details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${basis}</div></details>` : ''}`);
 }
 
 // Zone2 총평 — 헤드/케미점수는 이미 룰베이스로 채워져 있으므로(buildChemiHeadline, computeGwansangSajuChemi)
@@ -681,7 +681,7 @@ async function requestDeepReport(ctx) {
       }
       if (cfg.sinsalReadingId) { renderReadingBasis(cfg.sinsalReadingId, data.sinsal_reading, data.sinsal_basis); clearAiSkeleton(cfg.sinsalReadingId); }
       if (cfg.zone3Reading1Id) { renderReadingBasis(cfg.zone3Reading1Id, data.zone3_manseryeok_reading, data.zone3_manseryeok_basis); clearAiSkeleton(cfg.zone3Reading1Id); }
-      if (cfg.zone2OhaengReadingId) { renderReadingBasis(cfg.zone2OhaengReadingId, data.zone3_ohaeng_reading); clearAiSkeleton(cfg.zone2OhaengReadingId); }
+      if (cfg.zone2OhaengReadingId) { renderReadingBasis(cfg.zone2OhaengReadingId, data.zone3_ohaeng_reading, null, 'margin-top:8px'); clearAiSkeleton(cfg.zone2OhaengReadingId); }
       if (cfg.zone3Reading3Id) { renderReadingBasis(cfg.zone3Reading3Id, data.zone3_daeun_reading); clearAiSkeleton(cfg.zone3Reading3Id); }
       if (cfg.zone4Card1Id) { renderZone4Card1(cfg.zone4Card1Id, data); clearAiSkeleton(cfg.zone4Card1Id); }
       if (cfg.zone4TemperamentId) { renderZone4FixedCard(cfg.zone4TemperamentId, '⚖️', '나의 기질과 에너지 밸런스', data.zone4_temperament_reading, data.zone4_temperament_basis); clearAiSkeleton(cfg.zone4TemperamentId); }
