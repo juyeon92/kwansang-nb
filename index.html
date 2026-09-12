@@ -1066,9 +1066,8 @@ body.overlay-open { overflow: hidden; }
 /* "방금 맺은 인연" — 별도 카드 대신 해당 명부 항목 자체를 하이라이트+뱃지로 표시(entryRow 참고).
    인연도감 UI 리디자인 시안의 reg-row.just-registered와 같은 방식.
    Figma node 32:7512 "DogamRow"(매칭 상태) 실측 — padding은 좌우가 상하보다 큰 8/16(기존엔 반대로
-   10/8이었다). 배경은 --mint-pale(#f4fcf9, 등록완료 카드 .dogam-my-result-inner와 같은 옅은 민트
-   틴트) — 2026-09-12 사용자 지정으로 --mint(솔리드)에서 수정. */
-.dogam-row.dogam-row-matched { position: relative; background: var(--mint-pale); border-radius: var(--r-input); margin: 2px -8px; padding: 8px 16px; }
+   10/8이었다). 배경은 --mint-soft — 2026-09-12 사용자 지정으로 --mint-pale에서 다시 수정. */
+.dogam-row.dogam-row-matched { position: relative; background: var(--mint-soft); border-radius: var(--r-input); margin: 2px -8px; padding: 8px 16px; }
 .dogam-row.dogam-row-matched + .dogam-row,
 .dogam-row + .dogam-row.dogam-row-matched { border-top: none; }
 /* 진한 민트 배경 위에서는 관계 태그(.dogam-row-tag, 기본은 옅은 민트 배경)가 묻히니 흰 배경으로
