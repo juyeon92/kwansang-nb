@@ -597,6 +597,7 @@
           lifeWrap.appendChild(item);
         });
         wrap.appendChild(lifeWrap);
+        oldDiv.remove();
         return;
       }
 
