@@ -307,6 +307,19 @@
     rootEl.querySelectorAll(REPORT_CHROME).forEach(n => n.remove());
   }
 
+  // 사용자 요청(2026-09-13) — CONTAINERS 설정은 snapshot() 대상 엘리먼트 자체(예: <div id="ggResult"
+  // class="card">)를 통째로 clone하므로, 그 결과를 담는 el.innerHTML엔 항상 그 엘리먼트가 한 겹 더
+  // 감싸고 있다("#ggSavedBody > div > 존 아코디언 4개"). 궁합보기는 Figma 구조(존 아코디언들이 바로
+  // 형제)와 맞추기 위해 이 바깥 껍데기 div를 벗기고 안의 자식들만 el의 직계 자식으로 끌어올린다.
+  // rootEl의 자식이 정확히 하나(그 껍데기)일 때만 동작해 멱등이다(이미 벗겨졌으면 자식이 여러 개라
+  // 아무 일도 안 함).
+  function unwrapOuterCard(rootEl) {
+    if (rootEl.children.length !== 1) return;
+    const wrapper = rootEl.firstElementChild;
+    while (wrapper.firstChild) rootEl.appendChild(wrapper.firstChild);
+    wrapper.remove();
+  }
+
   // 사용자 리포트(2026-09-12: "ZONE 1 summary에 arrow 어디감", 이후 "지금도 안보여") — 두 가지 원인이
   // 겹쳐 있었다.
   // (1) 오늘 이 아이콘을 도입하기 전 저장된 리포트는 옛 <span class="material-symbols-outlined
@@ -344,8 +357,7 @@
     // 여기서 지워야만 고쳐진다.
     rootEl.querySelectorAll('.zone-accordion[data-zac]').forEach(function (el) { el.removeAttribute('data-zac'); });
     // 1) 아이콘 요소 자체는 있는데 깨진 경우(옛 폰트 리게이처, mask id 유실) — 내용만 바꿔치기.
-    //    .zone-accordion-arrow 클래스 자체가 통합분석 전용이라(궁합보기는 이 클래스를 아예 안 씀)
-    //    isCombinedOnly 여부와 무관하게 항상 안전하다.
+    //    isCombinedOnly(2026-09-13부터 궁합보기도 포함) 여부와 무관하게 항상 안전하다.
     rootEl.querySelectorAll('.zone-accordion-arrow').forEach(function (el) {
       const needsRepair = el.classList.contains('material-symbols-outlined') || el.querySelector('mask');
       if (!needsRepair) return;
@@ -353,8 +365,8 @@
       el.innerHTML = ZONE_ARROW_SVG;
     });
     if (!isCombinedOnly) return;
-    // 2) 통합분석 존 아코디언인데 아이콘 요소 자체가 통째로 없는, cmb-zone class보다도 더 오래된
-    //    스냅샷 — 새로 만들어 붙인다. isCombinedOnly가 true인 컨텍스트에서만 실행되므로 class
+    // 2) 통합분석·궁합보기 존 아코디언인데 아이콘 요소 자체가 통째로 없는, 이 아이콘 도입보다도 더
+    //    오래된 스냅샷 — 새로 만들어 붙인다. isCombinedOnly가 true인 컨텍스트에서만 실행되므로 class
     //    조건 없이 모든 .zone-accordion > summary를 대상으로 해도 안전하다.
     rootEl.querySelectorAll('.zone-accordion > summary').forEach(function (summary) {
       if (summary.querySelector('.zone-accordion-arrow')) return;
@@ -574,6 +586,182 @@
       row.appendChild(ageEl);
       tags.forEach(function (t) { row.appendChild(t); });
     });
+  }
+
+  // 궁합보기 "종합 점수 & 케미 분석" 존을 Figma(node 81:3668)에 맞춰 재구성(2026-09-13)하기 전에
+  // 저장된 리포트는 옛 구조 그대로 얼어있다: 학자상×임금님상 서브카피가 headline-quote와 chemi-card
+  // 사이 독립된 줄("근거: " 접두어 포함)이었고, chemi-title이 "🧠 AI 궁합 종합 점수"였고, 총점 단위가
+  // "%"가 아니라 "점"이었다. summary 텍스트("종합 점수")로 존을 특정하고, headline-quote 바로
+  // 다음이 chemi-card가 아니면(=사이에 옛 서브카피 줄이 끼어 있으면) chemi-card 맨 앞으로 옮긴다.
+  // 이미 새 구조(서브카피가 이미 chemi-card 안)면 건드리지 않는다 — 멱등.
+  function repairGunghamHeroStructure(rootEl) {
+    const hero = Array.from(rootEl.querySelectorAll('.zone-accordion')).find(function (d) {
+      const s = d.querySelector(':scope > summary');
+      return s && s.textContent.indexOf('종합 점수') >= 0;
+    });
+    if (!hero) return;
+    const headline = hero.querySelector(':scope > .headline-quote');
+    if (!headline) return;
+    const between = headline.nextElementSibling;
+    const chemiCard = (between && between.classList.contains('chemi-card')) ? between : (between && between.nextElementSibling);
+    if (!chemiCard || !chemiCard.classList || !chemiCard.classList.contains('chemi-card')) return;
+
+    if (between !== chemiCard && between.classList.contains('chemi-role')) {
+      between.textContent = between.textContent.replace(/^근거:\s*/, '');
+      between.removeAttribute('style');
+      between.style.fontSize = '14px';
+      between.style.color = 'var(--text-sub)';
+      chemiCard.insertBefore(between, chemiCard.firstChild);
+    }
+
+    const titleEl = chemiCard.querySelector(':scope > .chemi-title');
+    if (titleEl && titleEl.textContent.indexOf('관상·사주 싱크') < 0) titleEl.textContent = '🧠 관상·사주 싱크';
+
+    const unitEl = chemiCard.querySelector(':scope > .gg-hero-total > span');
+    if (unitEl && unitEl.textContent.trim() === '점') unitEl.textContent = '%';
+
+    Array.from(chemiCard.querySelectorAll(':scope > .chemi-role')).forEach(function (row) {
+      if (row.textContent.indexOf('관상만') === 0) row.classList.add('chemi-score-breakdown');
+    });
+
+    // Figma "Line 2" 구분선 — chemi-card 다음의 "📊 영역별 궁합 점수 & 오행 분포" 타이틀 위 테두리는
+    // .gg-hero-oh-title 클래스로 그리는데, 이 클래스가 생기기 전에 저장된 리포트엔 당연히 없다.
+    // chemi-card 바로 다음 형제(.card-title)를 찾아 붙여준다.
+    const ohTitle = chemiCard.nextElementSibling;
+    if (ohTitle && ohTitle.classList.contains('card-title')) ohTitle.classList.add('gg-hero-oh-title');
+  }
+
+  // 궁합보기 Zone1("🎭 Zone 1 · 관상으로 보는 우리 케미")을 Figma(node 81:4583)에 맞춰 재구성
+  // (2026-09-13)하기 전에 저장된 리포트는 옛 구조 그대로 얼어있다: 총평/역할분담 제목이 박스 안
+  // .chemi-title이었고(지금은 밖으로 나온 .card-title), 관상오행 비교가 흰 테두리 박스로 안 감싸여
+  // 있었고(AI 관상형상 카드 .gg-item도 따로 떨어져 있었고), 얼굴형 조합 6개가 .chemi-card(jade
+  // 제목)였고(지금은 .gg-item), 재물관상 "근거" 줄이 항상 펼쳐진 텍스트였고(지금은 접이식
+  // .gg-basis-acc), 생애주기 요약이 그냥 .chemi-card였다(지금은 .gg-item.gg-life-summary).
+  // rest 배열은 항상 고정 순서(옛 정적 마크업이 항상 이 순서였음): [총평박스, "🤝"제목, 역할분담박스,
+  // "🌿"제목, 오행비교박스, AI형상박스, "👥"제목, 조합카드박스, "💰"제목, 재물박스, "⏳"제목, 생애박스]
+  // — id는 이미 지워졌으니(Archive.snapshot()) 위치와 클래스만으로 찾는다. 이미 새 구조
+  // (.gg-zone1-body 있음)면 건드리지 않는다 — 멱등.
+  function repairGunghamZone1Structure(rootEl) {
+    const zone1 = Array.from(rootEl.querySelectorAll('.zone-accordion')).find(function (d) {
+      const s = d.querySelector(':scope > summary');
+      return s && s.textContent.indexOf('Zone 1') >= 0;
+    });
+    if (!zone1 || zone1.querySelector(':scope > .gg-zone1-body')) return;
+    const summary = zone1.querySelector(':scope > summary');
+    const rest = Array.from(zone1.children).filter(function (c) { return c !== summary; });
+    if (rest.length < 12) return; // 예상 못한 구조 — 건드리지 않는다.
+
+    const wrap = document.createElement('div');
+    wrap.className = 'gg-zone1-body';
+    const mkTitle = function (text, extraClass) {
+      const t = document.createElement('div');
+      t.className = 'card-title' + (extraClass ? ' ' + extraClass : '');
+      t.textContent = text;
+      return t;
+    };
+    const mkHr = function () {
+      const hr = document.createElement('div');
+      hr.className = 'cmb-z2-hr'; hr.style.margin = '16px 0';
+      return hr;
+    };
+
+    let i = 0;
+    // ① 🎭 총평
+    const roleTotalDiv = rest[i++];
+    const totalChemiRole = roleTotalDiv && roleTotalDiv.querySelector('.chemi-role');
+    wrap.appendChild(mkTitle('🎭 관상 케미 한줄 총평'));
+    const totalBox = document.createElement('div');
+    totalBox.className = 'gg-origin-box';
+    totalBox.innerHTML = totalChemiRole ? totalChemiRole.innerHTML : (roleTotalDiv ? roleTotalDiv.innerHTML : '');
+    wrap.appendChild(totalBox);
+
+    // ② 🤝 역할분담 (옛 제목 자리는 건너뛰고 새 제목으로 교체)
+    if (rest[i] && rest[i].classList.contains('card-title')) i++;
+    const roleCardsDiv = rest[i++];
+    const roleTitle = mkTitle('🤝 두 사람의 역할분담 케미');
+    roleTitle.style.marginTop = '16px';
+    wrap.appendChild(roleTitle);
+    const roleBox = document.createElement('div');
+    roleBox.className = 'gg-role-box';
+    const roleRows = roleCardsDiv ? Array.from(roleCardsDiv.querySelectorAll('.chemi-role')) : [];
+    roleRows.forEach(function (row) {
+      const line = document.createElement('div');
+      line.className = 'gg-role-line';
+      line.innerHTML = row.innerHTML;
+      roleBox.appendChild(line);
+    });
+    wrap.appendChild(roleBox);
+
+    // ③ 🌿 관상오행 비교 — 오행비교박스 + AI형상박스를 흰 테두리 OriginBox 하나로 합친다.
+    if (rest[i] && rest[i].classList.contains('card-title')) i++;
+    const ohCompareDiv = rest[i++];
+    const aiShapeDiv = rest[i++];
+    wrap.appendChild(mkHr());
+    wrap.appendChild(mkTitle('🌿 관상오행 비교', 'gg-oh-compare-title'));
+    const ohBox = document.createElement('div');
+    ohBox.className = 'gg-oh-origin-box';
+    if (ohCompareDiv) { ohCompareDiv.removeAttribute('style'); ohBox.appendChild(ohCompareDiv); }
+    if (aiShapeDiv) { aiShapeDiv.classList.add('gg-item'); ohBox.appendChild(aiShapeDiv); }
+    wrap.appendChild(ohBox);
+
+    // ④ 👥 얼굴형·눈·코·입·턱 조합 6개 — .chemi-card를 .gg-item으로.
+    if (rest[i] && rest[i].classList.contains('card-title')) i++;
+    const comboDiv = rest[i++];
+    wrap.appendChild(mkHr());
+    wrap.appendChild(mkTitle('👥 얼굴형·눈·코·입·턱 조합으로 보는 궁합'));
+    if (comboDiv) {
+      comboDiv.classList.add('gg-combo-cards');
+      Array.from(comboDiv.querySelectorAll(':scope > .chemi-card')).forEach(function (card) {
+        card.classList.remove('chemi-card'); card.classList.add('gg-item');
+        const t = card.querySelector(':scope > .chemi-title');
+        if (t) { t.classList.remove('chemi-title'); t.classList.add('gg-item-head'); }
+        const r = card.querySelector(':scope > .chemi-role');
+        if (r) { r.classList.remove('chemi-role'); r.classList.add('gg-item-reading'); }
+      });
+      wrap.appendChild(comboDiv);
+    }
+
+    // ⑤ 💰 재물관상 케미 — 항상 펼쳐진 "근거" 줄을 접이식 아코디언으로.
+    if (rest[i] && rest[i].classList.contains('card-title')) i++;
+    const moneyDiv = rest[i++];
+    wrap.appendChild(mkHr());
+    wrap.appendChild(mkTitle('💰 재물관상 케미'));
+    if (moneyDiv) {
+      moneyDiv.classList.add('gg-money-item');
+      const moneyRows = Array.from(moneyDiv.querySelectorAll('.chemi-role'));
+      const mainText = moneyRows[0] ? moneyRows[0].innerHTML : moneyDiv.innerHTML;
+      const basisText = moneyRows[1] ? moneyRows[1].textContent.replace(/^근거:\s*/, '') : '';
+      moneyDiv.innerHTML = `<div class="gg-item-reading">${mainText}</div>` +
+        (basisText ? `<details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">💰 ${basisText}</div></details>` : '');
+      wrap.appendChild(moneyDiv);
+    }
+
+    // ⑥ ⏳ 생애주기 — 막대그래프(ls-stack-block)는 그대로 두고, 요약 .chemi-card만 .gg-item으로.
+    if (rest[i] && rest[i].classList.contains('card-title')) i++;
+    const lifeDiv = rest[i++];
+    wrap.appendChild(mkHr());
+    wrap.appendChild(mkTitle('⏳ 생애주기 궁합 (초년·중년·말년)'));
+    if (lifeDiv) {
+      const lifeChemiCard = lifeDiv.querySelector(':scope > .chemi-card');
+      if (lifeChemiCard) {
+        const roleEl = lifeChemiCard.querySelector('.chemi-role');
+        const summaryEl = document.createElement('div');
+        summaryEl.className = 'gg-item gg-life-summary';
+        summaryEl.innerHTML = roleEl ? roleEl.innerHTML : lifeChemiCard.innerHTML;
+        lifeChemiCard.replaceWith(summaryEl);
+      }
+      wrap.appendChild(lifeDiv);
+    }
+
+    // 옛 구조 잔재 제거 — roleTotalDiv/roleCardsDiv는 내용만 복사해 썼을 뿐 원본 노드를 wrap으로
+    // 옮긴 적이 없고, "옛 제목 자리는 건너뛰고"로 스킵한 rest[i] 타이틀들도 인덱스만 넘어갔을 뿐
+    // 실제 노드는 그대로 zone1의 자식으로 남아 있었다(사용자 리포트 2026-09-13: "여기 반복적으로
+    // 들어간게 있어" — 총평/역할분담 옛 박스와 옛 타이틀 5개가 새 .gg-zone1-body 옆에 그대로 겹쳐
+    // 보이던 버그). wrap으로 옮겨진 요소는 이미 zone1의 자식이 아니므로 아래 루프는 옮겨지지 않고
+    // 남은 요소만 골라 제거한다.
+    rest.forEach(function (el) { if (el.parentElement === zone1) el.remove(); });
+
+    zone1.appendChild(wrap);
   }
 
   // Zone2/Zone3와 같은 이유(2026-09-13 Zone4를 Figma 72:4069에 맞춰 재구성) — 오늘 고치기 전에
@@ -1134,8 +1322,10 @@
     if (!html && confirmed) purgeOrphan(viewingId); // 본문 없음이 확인된 고아 항목만 정리(오류 시엔 그대로 둔다)
     // 이미 저장돼 있던 리포트에도 조작 요소가 섞여 있을 수 있어 여는 시점에도 한 번 걷어낸다.
     stripChrome(body);
-    repairZoneAccordionArrows(body, rec && rec.type === 'combined');
+    if (rec && rec.type === 'gungham') unwrapOuterCard(body);
+    repairZoneAccordionArrows(body, rec && (rec.type === 'combined' || rec.type === 'gungham'));
     if (rec && rec.type === 'combined') { repairZone2Structure(body); repairZone3Structure(body); repairZone4Structure(body); repairLifelineTagPosition(body); }
+    if (rec && rec.type === 'gungham') { repairGunghamHeroStructure(body); repairGunghamZone1Structure(body); }
     repairZone2OhaengReadingWrap(body);
     // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "보관함에서 리포트 보면 아코디언이 다 열려있음") — 여기서
     // innerHTML로 새로 찍은 zone-accordion들은 app.js의 initZoneAccordions()가 페이지 로드 시 한 번
@@ -1164,8 +1354,10 @@
     // 아이콘을 "새로 추가"하는 건 통합분석일 때만 해야 하므로 인덱스에서 이 id의 실제 type을 찾아
     // 넘긴다.
     const rec = loadIndex().find(r => r.id === id);
-    repairZoneAccordionArrows(el, rec && rec.type === 'combined');
+    if (rec && rec.type === 'gungham') unwrapOuterCard(el);
+    repairZoneAccordionArrows(el, rec && (rec.type === 'combined' || rec.type === 'gungham'));
     if (rec && rec.type === 'combined') { repairZone2Structure(el); repairZone3Structure(el); repairZone4Structure(el); repairLifelineTagPosition(el); }
+    if (rec && rec.type === 'gungham') { repairGunghamHeroStructure(el); repairGunghamZone1Structure(el); }
     repairZone2OhaengReadingWrap(el);
     return true;
   }

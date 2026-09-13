@@ -752,10 +752,12 @@ function ggCollapseSavedList() {
 // 내역 행 클릭 — 보관된 스냅샷을 그대로 펼친다.
 async function openGunghamSavedReport(id) {
   const body = document.getElementById('ggSavedBody');
-  const meta = document.getElementById('ggSavedMeta');
+  const titleEl = document.getElementById('ggSavedTitle');
   const rec = (window.Archive && Archive.listOf) ? Archive.listOf('gungham').find(r => r.id === id) : null;
   if (!body || !rec) return;
-  if (meta) meta.textContent = [rec.title, rec.sub, rec.when].filter(Boolean).join(' · ');
+  // 통합분석(closeCombinedSavedReport 쌍둥이 함수)과 같은 헤더 패턴(뒤로가기+한 줄 제목)으로 통일
+  // (사용자 요청 2026-09-13) — rec.title은 "이름A ✕ 이름B" 형태라 "님의"를 붙이지 않는다.
+  if (titleEl) titleEl.textContent = rec.title + ' 궁합 리포트';
   body.innerHTML = '<div class="arc-empty">리포트를 불러오는 중…</div>';
   document.getElementById('ggSavedStep').classList.add('hidden');
   document.getElementById('ggSavedReport').classList.remove('hidden');
@@ -2532,7 +2534,7 @@ function renderFaceOhaengCompare(compare, elId) {
       <div class="gg-manse-name">상대방</div>
     </div>
     ${rows}
-    <div style="display:flex;gap:10px;margin-top:12px;">
+    <div style="display:flex;gap:8px;margin-top:12px;">
       ${ohaengBadge(topA)}
       ${ohaengBadge(topB)}
     </div>`;
@@ -2541,12 +2543,11 @@ function renderFaceOhaengCompare(compare, elId) {
 function renderMoneyChemi(money, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
+  // Figma "GgItem"(💰 재물관상 케미, node 81:4583) — 소제목 없이 설명 + "왜 이렇게 풀이했나요?"
+  // 아코디언 1개. 컨테이너(#ggMoneyChemiCard) 자체가 이미 .gg-money-item 박스라 안에는 내용만 채운다.
+  // 옛 구조는 "근거: ..." 줄이 항상 펼쳐져 있었는데, 이제 다른 gg-item들처럼 접이식 아코디언으로 맞춘다.
   el.innerHTML = money
-    ? `<div class="chemi-card">
-        <div class="chemi-title">재물관상 케미</div>
-        <div class="chemi-role">${money.text}</div>
-        <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 재백궁(콧볼) 크기 나 ${money.levelA}% · 상대 ${money.levelB}% · 유사도 ${money.similarity}%</div>
-      </div>`
+    ? `<div class="gg-item-reading">${money.text}</div>${basisAccordion('💰', `재백궁(콧볼) 크기 나 ${money.levelA}% · 상대 ${money.levelB}% · 유사도 ${money.similarity}%`)}`
     : `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 재물관상 케미를 볼 수 있어요.</div>`;
 }
 // 생애주기(초년·중년·말년) 궁합(4-1) 렌더 — 좌우 대칭 diverging bar(gg-ohaeng-row) 대신, 오행
@@ -2578,7 +2579,9 @@ function renderLifeStageChemi(life, elId) {
     return;
   }
   const stacks = lifeStageStackHTML(life.a, '나') + lifeStageStackHTML(life.b, '상대방');
-  el.innerHTML = stacks + `<div class="chemi-card" style="margin-top:10px;"><div class="chemi-role">${life.text}</div></div>`;
+  // Figma "GgItem"(⏳ 생애주기 요약, node 81:4583) — #eef2f8 배경, 아코디언 없이 설명만. 위 막대그래프
+  // (stacks)는 Figma가 장식용 목업 이미지로 대체해둔 자리라 그대로 두고, 이 요약 박스만 새 스타일.
+  el.innerHTML = stacks + `<div class="gg-item gg-life-summary">${life.text}</div>`;
 }
 
 // ═══ COMBINED ═══
@@ -3474,7 +3477,8 @@ function renderHeadlineSub() {
   const idB = state.gunghamB.characterResult && state.gunghamB.characterResult.characterId;
   const nameA = idA && CHARACTER_DB[idA] && CHARACTER_DB[idA].name;
   const nameB = idB && CHARACTER_DB[idB] && CHARACTER_DB[idB].name;
-  el.textContent = (nameA && nameB) ? `근거: ${nameA} × ${nameB}` : '';
+  // Figma node 81:3668 실측 — "근거:" 접두어 없이 캐릭터 조합만 보여준다.
+  el.textContent = (nameA && nameB) ? `${nameA} × ${nameB}` : '';
 }
 // "왜 이렇게 풀이했나요?" 아코디언(gg-basis-acc, 2026-08-22 도입) — 이제는 유형 축만 따로 보여주는
 // 게 아니라 combineAxisCombo가 크기 축+유형 축을 합쳐 원인→결과 순으로 만든 basis 전체를 보여준다
@@ -3491,13 +3495,11 @@ function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lif
   renderFaceOhaengCompare(faceOhaengCompare, 'ggFaceOhaengCompare');
 
   // STEP3 — 관상 케미 (한줄 총평 + 역할 분담) — 2026-08-22 재편으로 총평을 Zone1 맨 위로 독립시켰다.
-  document.getElementById('ggRoleTotal').innerHTML =
-    `<div class="chemi-card"><div class="chemi-title">🎭 관상 케미 한줄 총평</div><div class="chemi-role">${chemi.total}</div></div>`;
+  document.getElementById('ggRoleTotal').innerHTML = `<div class="gg-origin-box">${chemi.total}</div>`;
   document.getElementById('ggRoleCards').innerHTML = `
-    <div class="chemi-card">
-      <div class="chemi-title">역할 분담 케미</div>
-      <div class="chemi-role">👤 나 → <strong>${chemi.roleA}</strong></div>
-      <div class="chemi-role">👤 상대 → <strong>${chemi.roleB}</strong></div>
+    <div class="gg-role-box">
+      <div class="gg-role-line">👤 나 → <strong>${chemi.roleA}</strong></div>
+      <div class="gg-role-line">👤 상대 → <strong>${chemi.roleB}</strong></div>
     </div>`;
 
   renderMoneyChemi(moneyChemi, 'ggMoneyChemiCard');
@@ -3507,12 +3509,12 @@ function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lif
   // 유형(눈/코/입/턱/얼굴형 6종 룰베이스 분류) 조합 보조 줄을 덧붙인다(4-5, 광대는 유형 ID가 없어 제외).
   document.getElementById('ggFaceComboCards').innerHTML = faceCombo
     ? `
-    <div class="chemi-card"><div class="chemi-title">눈 크기 조합</div><div class="chemi-role">${faceCombo.eye.text}</div>${basisAccordion('👁️', faceCombo.eye.basis)}</div>
-    <div class="chemi-card"><div class="chemi-title">코 조합</div><div class="chemi-role">${faceCombo.nose.text}</div>${basisAccordion('👃', faceCombo.nose.basis)}</div>
-    <div class="chemi-card"><div class="chemi-title">광대뼈 조합</div><div class="chemi-role">${faceCombo.cheek.text}</div></div>
-    <div class="chemi-card"><div class="chemi-title">입 크기 조합</div><div class="chemi-role">${faceCombo.mouth.text}</div>${basisAccordion('👄', faceCombo.mouth.basis)}</div>
-    <div class="chemi-card"><div class="chemi-title">턱 조합</div><div class="chemi-role">${faceCombo.chin.text}</div>${basisAccordion('🦴', faceCombo.chin.basis)}</div>
-    <div class="chemi-card"><div class="chemi-title">얼굴형 조합 (${faceCombo.faceShape.a} × ${faceCombo.faceShape.b})</div><div class="chemi-role">${faceCombo.faceShape.text}</div>${basisAccordion('🙂', faceCombo.faceShape.basis)}</div>`
+    <div class="gg-item"><div class="gg-item-head">눈 크기 조합</div><div class="gg-item-reading">${faceCombo.eye.text}</div>${basisAccordion('👁️', faceCombo.eye.basis)}</div>
+    <div class="gg-item"><div class="gg-item-head">코 조합</div><div class="gg-item-reading">${faceCombo.nose.text}</div>${basisAccordion('👃', faceCombo.nose.basis)}</div>
+    <div class="gg-item"><div class="gg-item-head">광대뼈 조합</div><div class="gg-item-reading">${faceCombo.cheek.text}</div></div>
+    <div class="gg-item"><div class="gg-item-head">입 크기 조합</div><div class="gg-item-reading">${faceCombo.mouth.text}</div>${basisAccordion('👄', faceCombo.mouth.basis)}</div>
+    <div class="gg-item"><div class="gg-item-head">턱 조합</div><div class="gg-item-reading">${faceCombo.chin.text}</div>${basisAccordion('🦴', faceCombo.chin.basis)}</div>
+    <div class="gg-item"><div class="gg-item-head">얼굴형 조합 (${faceCombo.faceShape.a} × ${faceCombo.faceShape.b})</div><div class="gg-item-reading">${faceCombo.faceShape.text}</div>${basisAccordion('🙂', faceCombo.faceShape.basis)}</div>`
     : `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 얼굴형·눈·입·광대 조합으로 보는 궁합을 볼 수 있어요.</div>`;
 
   renderLifeStageChemi(lifeStage, 'ggLifeStageCard');

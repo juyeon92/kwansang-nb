@@ -44,6 +44,7 @@
   --bg: #FFFFFF;
   --surface: #FFFFFF;
   --card2: #F0F4F3;
+  --oh-badge-bg: #FFF5DD;
   --text: #17201F;
   --text2: #68716F;
   --text3: #9AA3A1;
@@ -570,7 +571,7 @@ body {
 .char-detail-acc > .char-detail-row-text { margin-top: 8px; }
 
 .card-title {
-  font-size: 15px; font-weight: 800; color: var(--jade); letter-spacing: 0.2px;
+  font-size: 16px; font-weight: 800; color: var(--jade); letter-spacing: 0.2px;
   margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
 }
 .card-title::before {
@@ -779,37 +780,51 @@ body {
 .report-accordion > summary::before { content: '▶ '; }
 .report-accordion[open] > summary::before { content: '▼ '; }
 
-/* Figma "ZoneAccordion"(node 75:1361, 통합분석 리포트 스텝1~4 재실측) — 통합분석 결과 화면(#cmbResult)의
-   4개 존 아코디언은 공용 .report-accordion(민트 점선 필)이 아니라 존마다 독립된 흰 카드(radius16)에
-   네이비 텍스트 헤더다: 평소엔 테두리 없이 텍스트만, 펼친 존만 네이비 2px 사각 테두리(각짐, radius 0)가
-   헤더를 감싼다. 카드 사이 간격은 Cnt Warp의 gap=20. 궁합 탭(.zone-accordion을 같이 쓰는 ggZone*)은
-   이 Figma 재실측 대상이 아니라 그대로 두고, .cmb-report로 스코프해서 통합분석에만 적용한다.
+/* Figma "ZoneAccordion"(node 75:1361 통합분석, 81:3668 궁합보기) — 결과 화면의 존 아코디언은
+   공용 .report-accordion(민트 점선 필)이 아니라 존마다 독립된 흰 카드(radius16)에 네이비 텍스트
+   헤더다: 평소엔 테두리 없이 텍스트만, 펼친 존만 네이비 밑줄(border-bottom)이 헤더에 붙는다.
+   카드 사이 간격은 Cnt Warp의 gap=20. 처음엔 통합분석(#cmbResult)에만 적용했다가(궁합 탭은
+   재실측 대상이 아니라며 제외) 2026-09-13 사용자 요청으로 궁합보기(#ggResult)도 같은 스펙이라
+   확장했다.
    ⚠️ id가 아니라 class로 스코프하는 이유(2026-09-12 사용자 리포트: "보관함에서 열면 디자인 그대로")
    — 보관함(archive.js snapshot())이 저장 시 모든 id를 지우고 class만 남기고 복제한다. #cmbResult로
    스코프했던 이전 버전은 저장된 리포트를 다시 열면 이 스타일이 하나도 안 먹혀 예전 디자인처럼
    보였다. .cmb-report는 class라서 스냅샷에도 그대로 남는다. */
-#cmbResult .zone-accordion, #cmbSavedBody .zone-accordion {
-  background: #fff; border-radius: 16px; margin: 20px 0 0;
+#cmbResult .zone-accordion, #cmbSavedBody .zone-accordion, #ggResult .zone-accordion, #ggSavedBody .zone-accordion {
+  background: #fff; border-radius: 16px; margin: 20px 0 0; padding: 0 16px;
 }
-#cmbResult .zone-accordion:first-of-type, #cmbSavedBody .zone-accordion:first-of-type { margin-top: 0; }
-#cmbResult .zone-accordion > summary, #cmbSavedBody .zone-accordion > summary {
+#cmbResult .zone-accordion:first-of-type, #cmbSavedBody .zone-accordion:first-of-type,
+#ggResult .zone-accordion:first-of-type, #ggSavedBody .zone-accordion:first-of-type { margin-top: 0; }
+#cmbResult .zone-accordion > summary, #cmbSavedBody .zone-accordion > summary,
+#ggResult .zone-accordion > summary, #ggSavedBody .zone-accordion > summary {
   display: flex; align-items: center; gap: 4px; list-style: none; cursor: pointer; user-select: none;
   margin: 0; background: none; font-size: 16px; font-weight: 700; color: var(--char-navy); line-height: 19px;
-  padding: 16px; border: none; border-bottom: 1px solid transparent; border-radius: 0; box-sizing: border-box;
+  padding: 16px 0; border: none; border-bottom: 1px solid transparent; border-radius: 0; box-sizing: border-box;
 }
-#cmbResult .zone-accordion > summary::-webkit-details-marker, #cmbSavedBody .zone-accordion > summary::-webkit-details-marker { display: none; }
-#cmbResult .zone-accordion > summary::before, #cmbSavedBody .zone-accordion > summary::before { content: none; }
-#cmbResult .zone-accordion[open] > summary, #cmbSavedBody .zone-accordion[open] > summary { border-bottom-color: var(--char-navy); padding: 16px; }
-#cmbResult .zone-accordion > summary .zone-accordion-arrow, #cmbSavedBody .zone-accordion > summary .zone-accordion-arrow {
+#cmbResult .zone-accordion > summary::-webkit-details-marker, #cmbSavedBody .zone-accordion > summary::-webkit-details-marker,
+#ggResult .zone-accordion > summary::-webkit-details-marker, #ggSavedBody .zone-accordion > summary::-webkit-details-marker { display: none; }
+#cmbResult .zone-accordion > summary::before, #cmbSavedBody .zone-accordion > summary::before,
+#ggResult .zone-accordion > summary::before, #ggSavedBody .zone-accordion > summary::before { content: none; }
+#cmbResult .zone-accordion[open] > summary, #cmbSavedBody .zone-accordion[open] > summary,
+#ggResult .zone-accordion[open] > summary, #ggSavedBody .zone-accordion[open] > summary { border-bottom-color: var(--char-navy); padding: 16px 0; }
+#cmbResult .zone-accordion > summary .zone-accordion-arrow, #cmbSavedBody .zone-accordion > summary .zone-accordion-arrow,
+#ggResult .zone-accordion > summary .zone-accordion-arrow, #ggSavedBody .zone-accordion > summary .zone-accordion-arrow {
   display: flex; align-items: center; margin-left: auto; flex-shrink: 0; color: var(--text-sub); transition: transform .15s;
 }
-#cmbResult .zone-accordion[open] > summary .zone-accordion-arrow, #cmbSavedBody .zone-accordion[open] > summary .zone-accordion-arrow { transform: rotate(180deg); }
+#cmbResult .zone-accordion[open] > summary .zone-accordion-arrow, #cmbSavedBody .zone-accordion[open] > summary .zone-accordion-arrow,
+#ggResult .zone-accordion[open] > summary .zone-accordion-arrow, #ggSavedBody .zone-accordion[open] > summary .zone-accordion-arrow { transform: rotate(180deg); }
 /* Figma 4개 step 어디에도 이 타이틀 바("🔮 AI 관상 X 사주 개운 리포트")가 없다 — 헤더(위
    .cmb-report-header)가 그 자리를 대신한다. .cmb-result-title(방금 추가한 클래스)만으로 스코프하면
    "이 클래스가 생기기 전에 이미 저장된" 옛 리포트 스냅샷엔 이 클래스가 없어 안 지워진다 — 그 시절에도
-   항상 있었던 위치(맨 첫 자식)+공용 .card-title 클래스로도 같이 잡아서 옛 스냅샷도 지운다. */
+   항상 있었던 위치(맨 첫 자식)+공용 .card-title 클래스로도 같이 잡아서 옛 스냅샷도 지운다.
+   궁합보기(#ggResult)도 2026-09-13부터 같은 이유로 같은 헤더(.cmb-report-header)를 쓰게 되어
+   같이 스코프한다 — #ggResultTitle도 .gg-result-title 클래스를 추가로 달았다. #ggSavedBody 쪽은
+   archive.js의 unwrapOuterCard()가 바깥 껍데기 div를 벗겨서 구조가 평평하므로(#cmbSavedBody와
+   달리 중간에 div가 없다) :first-child 폴백도 그 구조에 맞춘다. */
 #cmbResult .cmb-result-title, #cmbSavedBody .cmb-result-title,
-#cmbResult > .card-title:first-child, #cmbSavedBody > div > .card-title:first-child { display: none; }
+#cmbResult > .card-title:first-child, #cmbSavedBody > div > .card-title:first-child,
+#ggResult .gg-result-title, #ggSavedBody .gg-result-title,
+#ggResult > .card-title:first-child, #ggSavedBody > .card-title:first-child { display: none; }
 
 .gender-btns { display: flex; gap: 8px; }
 .gender-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; font-family: inherit; }
@@ -965,12 +980,13 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
 .compat-num { font-size: 64px; font-weight: 900; color: var(--ink); }
 .compat-grade { font-size: 20px; font-weight: 800; color: var(--jade); margin: 4px 0; }
 .compat-desc { font-size: 13px; color: var(--text2); }
-.compat-bars { display: flex; flex-direction: column; gap: 10px; }
+.compat-bars { display: flex; flex-direction: column; gap: 10px; padding-bottom: 16px; }
 .compat-bar-row { display: flex; align-items: center; gap: 10px; }
 .compat-bar-label { font-size: 11.5px; color: var(--text2); width: 96px; flex-shrink: 0; text-align: right; line-height: 1.3; }
 .compat-bar-bg { flex: 1; height: 10px; background: var(--card2); border-radius: 999px; overflow: hidden; }
 .compat-bar-fill { height: 100%; border-radius: 999px; background: var(--mint); transition: width 0.8s ease; }
-.compat-bar-pct { font-size: 12px; color: var(--text2); width: 36px; flex-shrink: 0; }
+/* Figma node 81:3668 "OhCompareRow" 퍼센트 실측 — 트랙 채움색(--mint)과 같은 민트, 굵게. */
+.compat-bar-pct { font-size: 12px; color: var(--mint); font-weight: 700; width: 36px; flex-shrink: 0; }
 
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
@@ -1004,6 +1020,9 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
    .cmb-report로 스코프한다(id는 보관함 스냅샷에서 지워져 클래스로 스코프 — 위 zone-accordion
    주석 참고). */
 #cmbResult .headline-quote, #cmbSavedBody .headline-quote { padding: 16px; background: var(--mint-pale); border-color: var(--mint-border); border-radius: 12px; font-size: 16px; color: var(--char-navy); }
+/* Figma node 81:3668 "HeadlineQuote"(궁합보기 종합 점수 & 케미 분석) 실측 — 통합분석과 달리 옅은
+   틴트가 아니라 진한 솔리드 민트(#55ccbb=--mint) 배경 + 네이비 텍스트다. */
+#ggResult .headline-quote, #ggSavedBody .headline-quote { padding: 16px; background: var(--mint-pale); border-color: var(--mint-border); border-radius: 12px; font-size: 16px; color: var(--char-navy); margin-top: 16px; }
 .part-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .part-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
 .part-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
@@ -1025,9 +1044,17 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
    스코프하면 안 되고(보관함 스냅샷에서 지워지거나, 이미 저장된 옛 리포트엔 아예 없음), 옛
    스냅샷에도 항상 있던 구조적 관계 — "바로 앞 형제가 .headline-quote인 .chemi-card는 Zone2뿐"
    — 로 특정한다. */
-#cmbResult .headline-quote + .chemi-card, #cmbSavedBody .headline-quote + .chemi-card { background: none; border: none; padding: 0; }
+#cmbResult .headline-quote + .chemi-card, #cmbSavedBody .headline-quote + .chemi-card,
+#ggResult .headline-quote + .chemi-card, #ggSavedBody .headline-quote + .chemi-card { background: none; border: none; padding: 0; margin-bottom: 16px; }
 .chemi-title { font-size: 13px; font-weight: 800; color: var(--jade); margin-bottom: 8px; }
-.chemi-role { font-size: 12px; color: var(--text); line-height: 1.8; margin-bottom: 4px; }
+/* Figma node 81:3668 — 궁합보기 쪽 "🧠 관상·사주 싱크" 타이틀만 16px(공용 .chemi-title은 그대로 둔다). */
+#ggResult .chemi-title, #ggSavedBody .chemi-title { font-size: 16px; }
+.chemi-role { font-size: 12px; color: var(--text); line-height: 1.8; }
+/* Figma node 81:3668 "관상만 67점 · 사주만 64점" 줄만 굵게+회색(공용 .chemi-role 기본값과 다름). */
+.chemi-score-breakdown { font-weight: 700; color: var(--text-sub); }
+/* Figma node 81:3668 "Line 2"(케미 카드와 "영역별 궁합 점수" 사이 구분선, stroke #e3e9e7=--border) —
+   공용 .card-title에는 없는 위 테두리라 이 자리만 좁혀서 추가한다. */
+.gg-hero-oh-title { padding-top: 16px; border-top: 1px solid var(--border); justify-content: center; }
 .dom-bar { margin-top: 14px; }
 .dom-bar-track { display: flex; height: 10px; border-radius: 999px; overflow: hidden; }
 .dom-bar-fill { height: 100%; }
@@ -1089,6 +1116,53 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
    같이 사라졌던 것을 뒤늦게 발견 — 원래 margin-bottom 값(10px)과 같은 간격을 flex+gap으로
    대신 준다. id는 보관함 스냅샷에서 지워지므로 클래스(.cmb-zone4-cards)로 스코프한다. */
 #cmbResult .cmb-zone4-cards, #cmbSavedBody .cmb-zone4-cards { display: flex; flex-direction: column; gap: 12px; }
+
+/* ═══ 궁합보기 Zone1(#ggZone1, Figma node 81:4583) 재구성 — 2026-09-13 ═══
+   이 존 전용 wrap div(.gg-zone1-body)와 그 안에서만 쓰는 새 클래스들이다. id는 보관함 스냅샷에서
+   지워지므로(Archive.snapshot()) 전부 class로 스코프한다. */
+.gg-zone1-body { padding: 16px 0; }
+/* 공용 .card-title(민트 바 + jade + 왼쪽정렬)과 달리 이 존의 제목들은 장식 바 없이 16/800/
+   #1c2942(--char-navy-deep) 가운데 정렬이다(Figma 텍스트 노드 실측). "🌿 관상오행 비교"만 HUG폭+
+   왼쪽 정렬이라 .gg-oh-compare-title로 되돌린다. */
+.gg-zone1-body .card-title { color: var(--char-navy-deep); justify-content: center; text-align: center; margin-top: 0; margin-bottom: 12px; }
+.gg-zone1-body .card-title::before { display: none; }
+.gg-zone1-body .gg-oh-compare-title { justify-content: flex-start; text-align: left; }
+/* Figma "OriginBox"(🎭 총평) — 카드2 배경, 텍스트 #33455f(이 파일 .char-detail-origin이 이미 쓰는
+   리터럴 재사용, 새 hex 아님). */
+.gg-origin-box { background: var(--card2); border-radius: 12px; padding: 13px 12px; font-size: 12px; font-weight: 400; line-height: 1.4; color: #33455f; }
+/* Figma "OriginBox"(🤝 역할분담) — 같은 카드2 배경이지만 4방향 패딩 12 동일 + 안에 두 줄 gap 8. */
+.gg-role-box { background: var(--card2); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.gg-role-line { font-size: 12px; font-weight: 700; color: var(--char-navy); line-height: 1.2; }
+/* Figma "OriginBox"(🌿 관상오행 비교) — 흰 배경 + 네이비 실선 1px(위 .cmb-origin-box는 opacity 0.4로
+   실측된 Zone2 전용 값이라 다르다 — 이 노드는 solid stroke=#26375a로 실측돼 새로 분리). */
+.gg-oh-origin-box { background: #fff; border: 1px solid var(--char-navy); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+/* 이 박스 안의 gg-manse-head/gg-ohaeng-label/gg-ohaeng-badge.wide/gg-item(AI 관상형상 카드)만
+   Figma 실측값으로 덮는다 — 이 클래스들은 Zone2 만세력 비교(#ggManseryeokCompare)와도 공유해서
+   넓게 덮지 않고 .gg-oh-origin-box 안으로만 스코프한다. */
+.gg-oh-origin-box .gg-manse-head { margin-bottom: 0; }
+.gg-oh-origin-box .gg-manse-name, .gg-oh-origin-box .gg-manse-heart { font-size: 14px; color: var(--char-navy-deep); }
+.gg-oh-origin-box .gg-ohaeng-label { font-size: 14px; }
+/* Figma "OhFace" 배지 — 지금까지의 오행바 그라디언트+흰 글씨 배지(.gg-ohaeng-badge.wide 기본값)와
+   달리 옅은 크림 배경(--oh-badge-bg) + 오행별 글자색이다(이 파일 .oh-목/.oh-화/.oh-토/.oh-금/.oh-수의
+   기존 리터럴 색을 그대로 재사용, 새 hex 아님). */
+.gg-oh-origin-box .gg-ohaeng-badge.wide { background: var(--oh-badge-bg); border-radius: 8px; padding: 9px 8px; font-size: 12px; text-shadow: none; }
+.gg-oh-origin-box .gg-ohaeng-badge.wide.oh-목-bar { color: #2e9e5b; }
+.gg-oh-origin-box .gg-ohaeng-badge.wide.oh-화-bar { color: #e35b5b; }
+.gg-oh-origin-box .gg-ohaeng-badge.wide.oh-토-bar { color: #b8860b; }
+.gg-oh-origin-box .gg-ohaeng-badge.wide.oh-금-bar { color: #6b7280; }
+.gg-oh-origin-box .gg-ohaeng-badge.wide.oh-수-bar { color: #2563eb; }
+/* Figma "GgItem"(AI 관상형상 풀이) — bg 카드2, radius8(다른 gg-item과 달리 이 박스 안에서만). */
+.gg-oh-origin-box .gg-item { border: none; border-radius: 8px; background: var(--card2); padding: 12px; margin-bottom: 0; }
+/* Figma "GgItem" x6(👥 얼굴형·눈·코·입·턱 조합) — 흰 배경 + 연회색 테두리 + radius12, 소제목 navy-deep. */
+.gg-zone1-body .gg-combo-cards { display: flex; flex-direction: column; gap: 12px; }
+.gg-zone1-body .gg-combo-cards .gg-item { border-radius: 12px; padding: 12px; margin-bottom: 0; }
+.gg-zone1-body .gg-combo-cards .gg-item-head { font-size: 12px; color: var(--char-navy-deep); }
+/* Figma "GgItem"(💰 재물관상 케미) — 카드2 배경(테두리 없음), 소제목 없이 설명+아코디언만. */
+.gg-zone1-body .gg-money-item { background: var(--card2); border: none; border-radius: 12px; padding: 12px; margin-bottom: 0; }
+/* Figma "GgItem"(⏳ 생애주기 요약) — #eef2f8(이 파일 .char-card-badge/.char-detail-role/
+   .cmb-lifeline-reading 등이 이미 쓰는 리터럴, 새 hex 아님). 생애주기 막대그래프는 Figma가 장식용
+   목업 이미지("image 8")로 대체해둔 자리라 재현 대상이 아니고, 그 아래 요약 설명만 이 박스다. */
+.gg-zone1-body .gg-life-summary { background: #eef2f8; border: none; border-radius: 12px; padding: 12px; margin-top: 12px; margin-bottom: 0; font-size: 12px; }
 
 .archetype-card { display: flex; gap: 14px; align-items: flex-start; border: 1.5px solid var(--mint-border); border-radius: var(--r); padding: 14px 16px; margin-top: 10px; background: var(--mint-tint-10); }
 .archetype-icon { flex-shrink: 0; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: var(--surface); border-radius: 12px; }
@@ -1805,9 +1879,11 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 .arc-page-head { display: flex; align-items: center; gap: 8px; padding-bottom: 20px; }
 /* 사용자 요청(2026-09-12, Figma node 72:2469) — 리포트 상세(방금 분석한 결과 화면이거나 저장된
    리포트를 펼친 화면)에서는 탭 제목("통합분석") 대신 리포트 자체 헤더(‹ {이름}님의 통합 분석
-   리포트)만 보여야 한다. */
+   리포트)만 보여야 한다. 궁합보기도 2026-09-13부터 같은 헤더 패턴을 쓰므로 같이 적용한다. */
 #panel-combined:has(#cmbResult:not(.hidden)) > .arc-page-head,
-#panel-combined:has(#cmbSavedReport:not(.hidden)) > .arc-page-head { display: none; }
+#panel-combined:has(#cmbSavedReport:not(.hidden)) > .arc-page-head,
+#panel-gungham:has(#ggResult:not(.hidden)) > .arc-page-head,
+#panel-gungham:has(#ggSavedReport:not(.hidden)) > .arc-page-head { display: none; }
 .arc-page-head h2 { font-size: 20px; font-weight: 500; color: var(--text-heading); }
 /* Figma node 79:2722 실측 — 궁합보기 타이틀만 700(다른 화면과 공유하는 .arc-page-head는 그대로 둔다). */
 #panel-gungham .arc-page-head h2 { font-weight: 700; }
@@ -2759,10 +2835,12 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
     </div>
 
         <div class="hidden" id="ggSavedReport">
-      <button type="button" class="report-back-btn" onclick="closeGunghamSavedReport()">
-        <span class="material-symbols-outlined">arrow_back</span>궁합 내역으로
-      </button>
-      <div class="arc-report-meta" id="ggSavedMeta"></div>
+      <div class="cmb-report-header">
+        <button type="button" class="cmb-report-back" onclick="closeGunghamSavedReport()" aria-label="궁합 내역으로">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.0444 3.62249C15.4039 3.34207 15.9243 3.37327 16.2466 3.7094C16.5904 4.06834 16.5782 4.639 16.2192 4.98284L8.89307 11.9994L16.2192 19.018L16.2827 19.0854C16.5784 19.4326 16.5689 19.954 16.2466 20.2905C15.9243 20.6267 15.404 20.6586 15.0444 20.3783L14.9741 20.3178L6.96924 12.6498C6.79232 12.4802 6.69196 12.2456 6.69189 12.0004C6.69189 11.7551 6.79211 11.5198 6.96924 11.35L14.9741 3.68206L15.0444 3.62249Z" fill="currentColor"/></svg>
+        </button>
+        <h2 id="ggSavedTitle"></h2>
+      </div>
       <div class="arc-report" id="ggSavedBody"></div>
       <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">다른 상대와 궁합보기</button>
     </div>
@@ -2796,48 +2874,57 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
     </div>
 
         <div class="card hidden" id="ggResult" style="margin-top:16px;">
-      <div class="card-title" id="ggResultTitle">👩‍❤️‍👨 AI 관상 &amp; 사주 궁합 리포트</div>
+      <div class="card-title gg-result-title" id="ggResultTitle">👩‍❤️‍👨 AI 관상 &amp; 사주 궁합 리포트</div>
 
             <details class="report-accordion zone-accordion" open id="ggHero">
-        <summary>🧠 종합 점수 &amp; 케미 분석</summary>
+        <summary>🧠 종합 점수 &amp; 케미 분석<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
         <div class="headline-quote" id="ggHeadline"></div>
-        <div class="chemi-role" id="ggHeadlineSub" style="text-align:center;color:var(--text2);font-size:12px;margin-top:4px;"></div>
 
-        <div class="chemi-card" style="text-align:center;margin-top:16px;">
-          <div class="chemi-title">🧠 AI 궁합 종합 점수</div>
-          <div class="gg-hero-total" style="margin-top:6px;"><b id="ggHeroTotalNum">-</b><span>점</span></div>
-          <div class="chemi-role" style="margin-top:8px;">관상만 <span id="ggHeroGwansangNum">-</span>점 · 사주만 <span id="ggHeroSajuNum">-</span>점</div>
-          <div class="chemi-role" style="text-align:left;" id="ggHeroReason"></div>
+        <div class="chemi-card" style="text-align:center;">
+          <div class="chemi-role" id="ggHeadlineSub" style="font-size:14px;color:var(--text-sub);"></div>
+          <div class="chemi-title">🧠 관상·사주 싱크</div>
+          <div class="gg-hero-total" style="margin-top:6px;"><b id="ggHeroTotalNum">-</b><span>%</span></div>
+          <div class="chemi-role chemi-score-breakdown" style="margin-top:8px;">관상만 <span id="ggHeroGwansangNum">-</span>점 · 사주만 <span id="ggHeroSajuNum">-</span>점</div>
+          <div class="chemi-role" style="text-align:left;margin-top:8px;" id="ggHeroReason"></div>
         </div>
 
-        <div class="card-title" style="margin-top:20px;margin-bottom:12px;">📊 영역별 궁합 점수 &amp; 오행 분포</div>
+        <div class="card-title gg-hero-oh-title">📊 영역별 궁합 점수 &amp; 오행 분포</div>
         <div class="compat-bars" id="ggBars"></div>
       </details>
 
             <details class="report-accordion zone-accordion" id="ggZone1">
-        <summary>🎭 Zone 1 · 관상으로 보는 우리 케미</summary>
+        <summary>🎭 Zone 1 · 관상으로 보는 우리 케미<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
 
-                <div id="ggRoleTotal"></div>
+                <div class="gg-zone1-body">
+        <div class="card-title">🎭 관상 케미 한줄 총평</div>
+        <div id="ggRoleTotal"></div>
 
-                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🤝 두 사람의 역할분담 케미</div>
+        <div class="card-title" style="margin-top:16px;">🤝 두 사람의 역할분담 케미</div>
         <div id="ggRoleCards"></div>
 
-                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🌿 관상오행 비교</div>
-        <div id="ggFaceOhaengCompare" style="padding-bottom:20px;"></div>
-        <div class="gg-item" id="ggZone1AiShape"></div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="card-title gg-oh-compare-title">🌿 관상오행 비교</div>
+        <div class="gg-oh-origin-box">
+          <div id="ggFaceOhaengCompare"></div>
+          <div class="gg-item" id="ggZone1AiShape"></div>
+        </div>
 
-                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">👥 얼굴형·눈·코·입·턱 조합으로 보는 궁합</div>
-        <div id="ggFaceComboCards"></div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="card-title">👥 얼굴형·눈·코·입·턱 조합으로 보는 궁합</div>
+        <div id="ggFaceComboCards" class="gg-combo-cards"></div>
 
-                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">💰 재물관상 케미</div>
-        <div id="ggMoneyChemiCard"></div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="card-title">💰 재물관상 케미</div>
+        <div id="ggMoneyChemiCard" class="gg-money-item"></div>
 
-                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">⏳ 생애주기 궁합 (초년·중년·말년)</div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="card-title">⏳ 생애주기 궁합 (초년·중년·말년)</div>
         <div id="ggLifeStageCard"></div>
+        </div>
       </details>
 
             <details class="report-accordion zone-accordion" id="ggZone2">
-        <summary>☯️ Zone 2 · 사주 궁합</summary>
+        <summary>☯️ Zone 2 · 사주 궁합<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
 
                 <div id="ggOverallRelationship"></div>
 
@@ -2858,7 +2945,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       </details>
 
             <details class="report-accordion zone-accordion" id="ggZone3">
-        <summary>💌 Zone 3 · 관계 실전 가이드</summary>
+        <summary>💌 Zone 3 · 관계 실전 가이드<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
 
         <div class="card-title" style="margin-top:0;margin-bottom:12px;">🚨 티격태격 모먼트 &amp; 극복 전략</div>
         <div id="ggMomentCards"></div>
@@ -2925,9 +3012,9 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
 <script src="js/ai-analysis.js?v=20260913b"></script>
-<script src="js/app.js?v=20260913f"></script>
+<script src="js/app.js?v=20260913i"></script>
 <script src="js/profile.js?v=20260913h"></script>
-<script src="js/archive.js?v=20260913g"></script>
+<script src="js/archive.js?v=20260913l"></script>
 <script src="js/inyeon-dogam.js?v=20260913c"></script>
 <script src="js/nyang-shop.js?v=20260913a"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>
