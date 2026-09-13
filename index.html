@@ -99,6 +99,10 @@ body {
 /* 통합분석 탭도 같은 이유(Figma node 52:3243 "Warp" fill #f0f4f3=--card2) — 위 인연도감 규칙과
    동일 기법으로 흰 Form Card가 이 배경 위에 떠 보이게 한다. */
 .wrap:has(#panel-combined.active) { background: var(--card2); }
+/* 궁합보기 탭도 같은 이유(Figma node 79:2035 등 "Warp" fill #f0f4f3=--card2) — 나/상대 카드·
+   저장 내역 카드가 이 배경 위에 떠 보여야 하는데, 페이지 배경이 흰색이라 카드 테두리만으로는
+   거의 안 보였다(사용자 리포트 2026-09-13). */
+.wrap:has(#panel-gungham.active) { background: var(--card2); }
 .upload-section { margin: 0 -16px; }
 
 .app-header { max-width: var(--frame-w); margin: 0 auto; background: var(--surface); }
@@ -1609,15 +1613,14 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 .revisit-del:hover { color: #b04a4a; }
 .revisit-del .material-symbols-outlined { font-size: 19px; }
 .revisit-row:hover .revisit-arrow { color: var(--mint); }
-#cmbSavedList .revisit-row + .revisit-row { border-top: 1px solid var(--border-lavender); margin-top: 10px; padding-top: 10px; }
-#ggSavedList .revisit-row + .revisit-row { margin-top: 12px; }
-/* Figma node 75:1362 "List" 실측 — 통합분석 저장 내역 목록만 테두리 색·반경을 맞춘다(공용
-   .card/.revisit-card는 gungham(#ggSavedList)과도 같이 쓰므로 여기서만 덮어쓴다). */
-#cmbSavedList.card { border-color: var(--border-lavender); border-radius: 16px; padding: 16px; }
+#cmbSavedList .revisit-row + .revisit-row, #ggSavedList .revisit-row + .revisit-row { border-top: 1px solid var(--border-lavender); margin-top: 10px; padding-top: 10px; }
+/* Figma node 75:1362/79:2035 "List" 실측 — 통합분석·궁합보기 저장 내역 목록 둘 다 테두리 색·반경을
+   맞춘다(공용 .card/.revisit-card 자체는 다른 화면과도 같이 쓰므로 id로 좁혀서만 덮어쓴다). */
+#cmbSavedList.card, #ggSavedList.card { border-color: var(--border-lavender); border-radius: 16px; padding: 16px; }
 /* 더보기 전에는 처음 3개만 보이고 나머지는 숨김(사용자 요청 2026-09-12/13 — 3개씩 단계적으로
    열리고 다 열리면 "더보기 닫기"로 다시 접힘). 몇 개까지 보일지는 렌더 시점에 JS가
    cmb-saved-extra class를 매겨서 정하므로 여기선 그 class만 숨기면 된다. */
-#cmbSavedList .revisit-row.cmb-saved-extra { display: none; }
+#cmbSavedList .revisit-row.cmb-saved-extra, #ggSavedList .revisit-row.cmb-saved-extra { display: none; }
 .cmb-saved-more-btn {
   display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%;
   margin-top: 12px; padding: 8px; border: none; border-radius: 999px; background: #f5f5f5;
@@ -2749,8 +2752,8 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 
         <div class="err-msg" id="ggErr" style="margin:16px 4px 0;"></div>
     </div>
-        <div class="hidden" id="ggSavedStep">
-      <div class="upload-label">이미 확인한 궁합이 있어요</div>
+        <div class="hidden cmb-form-card" id="ggSavedStep">
+      <div class="cmb-form-card-title">이미 확인한 궁합이 있어요</div>
       <div class="card revisit-card" id="ggSavedList"></div>
       <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">다른 상대와 궁합보기</button>
     </div>
@@ -2922,7 +2925,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
 <script src="js/ai-analysis.js?v=20260913b"></script>
-<script src="js/app.js?v=20260913e"></script>
+<script src="js/app.js?v=20260913f"></script>
 <script src="js/profile.js?v=20260913h"></script>
 <script src="js/archive.js?v=20260913g"></script>
 <script src="js/inyeon-dogam.js?v=20260913c"></script>

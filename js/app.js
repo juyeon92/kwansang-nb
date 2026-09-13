@@ -668,6 +668,8 @@ function backToGunghamMain() {
 // 호출 시점: 보관 목록이 바뀔 때마다 archive.js가 부른다(저장·삭제·로그인·로그아웃).
 let ggWantsNewAnalysis = false; // "다른 상대와 궁합보기"를 눌러 새 분석을 진행 중인지
 let ggViewingReportId = null;   // 내역에서 펼쳐 본 리포트 id
+// Figma node 79:2035 — 통합분석 저장 목록(cmbSavedRevealCount)과 같은 3개씩 단계적 노출/"더보기 닫기".
+let ggSavedRevealCount = 3;
 
 // 진입 배너(#ggHeroBanner)는 setCmbHeroVisible()과 같은 원칙 — 목록·입력 단계에서는 보이고,
 // 상세 리포트를 펼쳐 읽는 화면에서는 맥락에 맞지 않아 감춘다(사용자 요청 2026-08-20).
@@ -703,18 +705,24 @@ function renderGunghamSavedReport() {
   const rows = (window.Archive && Archive.listOf) ? Archive.listOf('gungham') : [];
   if (!rows.length) { showGunghamInputStep(); return; }
 
-  list.innerHTML = rows.map(rec =>
-    '<div class="revisit-row" role="button" tabindex="0" onclick="openGunghamSavedReport(\'' + rec.id + '\')">' +
+  // Figma node 79:2035 "DogamRow" — 삭제 아이콘 없음(삭제는 보관함 전용, 통합분석과 동일 정책),
+  // 3개까지 우선 노출 후 "더보기"를 누른 만큼 3개씩 추가 노출, 전부 열리면 "더보기 닫기"로 복귀.
+  const GG_SAVED_STEP = 3;
+  const ggVisibleCount = Math.min(Math.max(ggSavedRevealCount, GG_SAVED_STEP), rows.length);
+  list.innerHTML = rows.map((rec, i) =>
+    '<div class="revisit-row' + (i >= ggVisibleCount ? ' cmb-saved-extra' : '') + '" role="button" tabindex="0" onclick="openGunghamSavedReport(\'' + rec.id + '\')">' +
       '<span class="revisit-mark material-symbols-outlined">favorite</span>' +
       '<div class="revisit-body">' +
         '<div class="revisit-name">' + cmbEsc(rec.title) + '</div>' +
         '<div class="revisit-desc">' + [rec.sub, rec.when].filter(Boolean).map(cmbEsc).join(' · ') + '</div>' +
       '</div>' +
-      '<button type="button" class="revisit-del" aria-label="삭제" title="삭제" ' +
-        'onclick="event.stopPropagation();Archive.remove(\'' + rec.id + '\')">' +
-        '<span class="material-symbols-outlined">delete</span></button>' +
       '<span class="revisit-arrow material-symbols-outlined">chevron_right</span>' +
-    '</div>').join('');
+    '</div>').join('') +
+    (rows.length > GG_SAVED_STEP
+      ? (ggVisibleCount < rows.length
+          ? '<button type="button" class="cmb-saved-more-btn" onclick="event.stopPropagation();ggRevealMoreSaved();">더보기<span class="material-symbols-outlined">expand_more</span></button>'
+          : '<button type="button" class="cmb-saved-more-btn" onclick="event.stopPropagation();ggCollapseSavedList();">더보기 닫기<span class="material-symbols-outlined">expand_less</span></button>')
+      : '');
 
   // 리포트를 펼쳐 보던 중에 목록이 갱신된 경우(삭제 등) — 그 기록이 남아 있으면 보던 화면을 유지한다.
   const report = document.getElementById('ggSavedReport');
@@ -729,6 +737,16 @@ function renderGunghamSavedReport() {
   input.classList.add('hidden');
   saved.classList.remove('hidden');
   setGgHeroVisible(true);
+}
+
+// "더보기"/"더보기 닫기" — 통합분석의 cmbRevealMoreSaved/cmbCollapseSavedList와 동일 패턴.
+function ggRevealMoreSaved() {
+  ggSavedRevealCount += 3;
+  renderGunghamSavedReport();
+}
+function ggCollapseSavedList() {
+  ggSavedRevealCount = 3;
+  renderGunghamSavedReport();
 }
 
 // 내역 행 클릭 — 보관된 스냅샷을 그대로 펼친다.
