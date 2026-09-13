@@ -457,6 +457,11 @@ function resetUpload(ctx) {
 // 호출 시점: 보관 목록이 바뀔 때마다 archive.js가 부른다(저장·삭제·로그인·로그아웃).
 let cmbWantsNewAnalysis = false; // "다른 사람으로 통합분석하기"를 눌러 새 분석을 진행 중인지
 let cmbViewingReportId = null;   // 내역에서 펼쳐 본 리포트 id
+// 사용자 요청(2026-09-13, Figma node 79:1894) — "더보기"를 누른 만큼만 3개씩 더 열리고(전부
+// 한번에 열리는 게 아니라), 다 열리고 나면 버튼이 "더보기 닫기"로 바뀌어 다시 3개로 접을 수
+// 있어야 한다. renderCombinedSavedReport()가 호출될 때마다 목록을 통째로 다시 그리므로, 지금
+// 몇 개까지 펼쳤는지를 이 변수에 기억해뒀다가 매번 그 값 기준으로 다시 그린다.
+let cmbSavedRevealCount = 3;
 
 // 진입 배너(#cmbHero)는 "사진 올려보세요"를 권하는 후킹 카드라, 저장된 리포트를 펼쳐 읽는 화면에서는
 // 맥락에 맞지 않아 감춘다(사용자 요청 2026-08-18). 목록·사진 등록 화면에서는 그대로 보인다.
@@ -512,12 +517,14 @@ function renderCombinedSavedReport() {
     return;
   }
 
-  // 사용자 요청(2026-09-12, Figma node 75:1362) — 삭제는 보관함(Archive)에서만 하도록 이 목록에서
-  // 삭제 버튼을 뺐고, 처음엔 3개만 보이고 나머지는 "더보기"를 눌러야 나온다(Figma 실측 — DogamRow
-  // 3개 + 더보기 버튼).
-  const CMB_SAVED_VISIBLE = 3;
+  // 사용자 요청(2026-09-12, Figma node 75:1362 / 2026-09-13, node 79:1894) — 삭제는 보관함
+  // (Archive)에서만 하도록 이 목록에서 삭제 버튼을 뺐고, 처음엔 3개만 보이고 나머지는 "더보기"를
+  // 누른 만큼 3개씩만 열린다(한 번에 전부 열리지 않음). 다 열리면 버튼이 "더보기 닫기"로 바뀌어
+  // 다시 3개로 접을 수 있다.
+  const CMB_SAVED_STEP = 3;
+  const visibleCount = Math.min(Math.max(cmbSavedRevealCount, CMB_SAVED_STEP), rows.length);
   list.innerHTML = rows.map((rec, i) =>
-    '<div class="revisit-row' + (i >= CMB_SAVED_VISIBLE ? ' cmb-saved-extra' : '') + '" role="button" tabindex="0" onclick="openCombinedSavedReport(\'' + rec.id + '\')">' +
+    '<div class="revisit-row' + (i >= visibleCount ? ' cmb-saved-extra' : '') + '" role="button" tabindex="0" onclick="openCombinedSavedReport(\'' + rec.id + '\')">' +
       '<span class="revisit-mark material-symbols-outlined">description</span>' +
       '<div class="revisit-body">' +
         '<div class="revisit-name">' + cmbEsc(rec.title) + '</div>' +
@@ -525,10 +532,11 @@ function renderCombinedSavedReport() {
       '</div>' +
       '<span class="revisit-arrow material-symbols-outlined">chevron_right</span>' +
     '</div>').join('') +
-    (rows.length > CMB_SAVED_VISIBLE
-      ? '<button type="button" class="cmb-saved-more-btn" onclick="event.stopPropagation();this.closest(\'#cmbSavedList\').classList.add(\'show-all\');this.remove();">더보기<span class="material-symbols-outlined">expand_more</span></button>'
+    (rows.length > CMB_SAVED_STEP
+      ? (visibleCount < rows.length
+          ? '<button type="button" class="cmb-saved-more-btn" onclick="event.stopPropagation();cmbRevealMoreSaved();">더보기<span class="material-symbols-outlined">expand_more</span></button>'
+          : '<button type="button" class="cmb-saved-more-btn" onclick="event.stopPropagation();cmbCollapseSavedList();">더보기 닫기<span class="material-symbols-outlined">expand_less</span></button>')
       : '');
-  list.classList.remove('show-all');
 
   // 리포트를 펼쳐 보던 중에 목록이 갱신된 경우(삭제 등) — 그 기록이 남아 있으면 보던 화면을 유지한다.
   const report = document.getElementById('cmbSavedReport');
@@ -545,6 +553,17 @@ function renderCombinedSavedReport() {
   saved.classList.remove('hidden');
   setCmbHeroVisible(true);
   setCmbCtaVisible(false);
+}
+
+// "더보기" — 누를 때마다 3개씩만 더 연다(전부 한번에 열리지 않음).
+function cmbRevealMoreSaved() {
+  cmbSavedRevealCount += 3;
+  renderCombinedSavedReport();
+}
+// "더보기 닫기" — 처음 3개로 다시 접는다.
+function cmbCollapseSavedList() {
+  cmbSavedRevealCount = 3;
+  renderCombinedSavedReport();
 }
 
 // 내역 행 클릭 — 보관된 스냅샷을 그대로 펼친다.
@@ -1884,7 +1903,8 @@ function renderLifeline(nowElId, listElId, daeun, dayStemIdx, samjeong, age) {
       groupHead = `<div class="lifeline-group-head ${stage}"><span class="lifeline-group-name">${LIFELINE_STAGE_LABEL[stage]}</span><span class="lifeline-group-pct">${pctByStage[stage]}%</span></div>`;
       lastStage = stage;
     }
-    const tags = (isNow ? '<span class="lifeline-now-tag">지금</span>' : '') + (isGood ? '<span class="lifeline-good-tag">⭐ 좋은 시기</span>' : '');
+    // Figma "NowTag"(node 72:3282 LifelineCard) 실측 — 배지 문구가 "지금"이 아니라 "현재"다.
+    const tags = (isNow ? '<span class="lifeline-now-tag">현재</span>' : '') + (isGood ? '<span class="lifeline-good-tag">⭐ 좋은 시기</span>' : '');
     return `${groupHead}<div class="lifeline-item ${stage}${isNow ? ' is-now' : ''}"><span class="lifeline-dot"></span><span class="lifeline-unseong"><span class="age">${d.startAge}세 ~ ${d.endAge}세</span>${unseong || ''}${meaning ? ' · ' + meaning : ''}</span>${tags}</div>`;
   }).join('');
   listEl.innerHTML = html;

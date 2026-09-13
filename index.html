@@ -330,6 +330,35 @@ body {
    존 본문은 별도 wrap div(.cmb-zone2-body)로 감싸 상하좌우 16px을 준다(Figma Frame 1261159300의
    좌우16·하단16 인셋 + summary 바로 다음 itemSpacing=16을 이 wrap의 padding-top으로 재현). */
 #cmbResult .cmb-zone2-body, #cmbSavedBody .cmb-zone2-body { padding: 16px; }
+
+/* Zone3(node 72:3282 "Frame 1261159300", 2026-09-13 재실측) — Zone2와 완전히 같은 패턴: Cnt
+   자체엔 패딩 없이 본문을 별도 wrap div(.cmb-zone3-body)로 감싸 상하좌우 16px을 준다. Figma의
+   ChemiCard/Frame 1261159304/Frame 1261159305는 셋 다 fill/stroke가 없는 투명 프레임이라(재확인
+   완료), 기존처럼 각 섹션을 .z3-pair-card(네이비 테두리 박스)로 감싸지 않고 Zone2의
+   .cmb-z2-hr(1px 구분선)로만 섹션을 나눈다. */
+#cmbResult .cmb-zone3-body, #cmbSavedBody .cmb-zone3-body { padding: 16px; }
+/* .pillars-table의 기본 margin-bottom:20px(다른 화면과 공유하는 값)은 그대로 두고, Zone3에서만
+   구분선(.cmb-z2-hr)이 그 16px 간격을 대신 담당하도록 0으로 덮는다 — 스코프가 .cmb-zone3-body 안
+   .pillars-table이라 궁합·사주 등 다른 화면의 .pillars-table엔 영향 없음. */
+#cmbResult .cmb-zone3-body .pillars-table, #cmbSavedBody .cmb-zone3-body .pillars-table { margin-bottom: 0; }
+/* Figma "DogamRow" — fill #f0f4f3(기존 --card2와 동일 값), radius8, padding12, 가운데 정렬. */
+#cmbResult .cmb-dogam-row, #cmbSavedBody .cmb-dogam-row {
+  background: var(--card2); border-radius: 8px; padding: 12px; margin-bottom: 12px;
+  font-size: 12px; color: var(--char-navy); text-align: center;
+}
+#cmbResult .cmb-dogam-row:empty, #cmbSavedBody .cmb-dogam-row:empty { display: none; margin-bottom: 0; }
+/* Figma "LifelineCard" — 흰 배경 + --border(#e3e9e7) 1px + radius14 + padding12. .z3-pair-card는
+   네이비 테두리라 이 카드엔 안 맞아서(Figma 실측상 테두리색이 다름) Zone3 전용 새 클래스로 분리. */
+#cmbResult .cmb-lifeline-card, #cmbSavedBody .cmb-lifeline-card {
+  background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 12px;
+}
+/* Figma "GgItem"(대운x삼정 종합풀이 박스만) — fill #eef2f8, 다른 gg-item과 달리 옅은 블루 배경.
+   #eef2f8는 새 hex가 아니라 이 파일의 .char-card-badge/.char-detail-role이 이미 쓰는 리터럴 값이라
+   그대로 재사용(STYLE_GUIDE.md 1.9 — 토큰 없는 값은 즉흥적으로 새로 만들지 않고 기존 리터럴 확인 후 사용). */
+#cmbResult .cmb-lifeline-reading, #cmbSavedBody .cmb-lifeline-reading { background: #eef2f8; border-color: #eef2f8; }
+/* Figma "Frame 1261159308"(관상 정보 카드의 라벨) — 10px/600/gray. */
+#cmbResult .cmb-part-label, #cmbSavedBody .cmb-part-label { font-size: 10px; font-weight: 600; color: var(--text2); margin-bottom: 4px; }
+
 /* Figma node 75:1361(통합분석 결과 화면 step1~4, 2026-09-12 재실측) — 이 카드는 gwansang/dogam
    캐릭터 카드(§ "Figma node 56:1149" 주석들)와 같은 네이비 Cnt+CardInner 구조로 다시 그려졌다.
    예전엔 이 3개 id만 별도로 jade/연회색 테마(border-gray, --card2, --jade)를 썼는데, 실측 결과
@@ -1531,9 +1560,10 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 /* Figma node 75:1362 "List" 실측 — 통합분석 저장 내역 목록만 테두리 색·반경을 맞춘다(공용
    .card/.revisit-card는 gungham(#ggSavedList)과도 같이 쓰므로 여기서만 덮어쓴다). */
 #cmbSavedList.card { border-color: var(--border-lavender); border-radius: 16px; padding: 16px; }
-/* 더보기 전에는 처음 3개만 보이고 나머지는 숨김(사용자 요청 2026-09-12, Figma 실측대로 3개+더보기). */
+/* 더보기 전에는 처음 3개만 보이고 나머지는 숨김(사용자 요청 2026-09-12/13 — 3개씩 단계적으로
+   열리고 다 열리면 "더보기 닫기"로 다시 접힘). 몇 개까지 보일지는 렌더 시점에 JS가
+   cmb-saved-extra class를 매겨서 정하므로 여기선 그 class만 숨기면 된다. */
 #cmbSavedList .revisit-row.cmb-saved-extra { display: none; }
-#cmbSavedList.show-all .revisit-row.cmb-saved-extra { display: flex; }
 .cmb-saved-more-btn {
   display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%;
   margin-top: 12px; padding: 8px; border: none; border-radius: 999px; background: #f5f5f5;
@@ -2004,26 +2034,26 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
             <details class="report-accordion zone-accordion cmb-zone3" id="cmbZone3">
         <summary>ZONE 3 · 관상x사주 데이터 풀이<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
 
-        <div class="z3-pair-card">
-          <div class="z3-pair-title">☯ 사주 원국</div>
-          <div class="pillars-table" id="cmbPillarsTable"></div>
+        <div class="cmb-zone3-body">
+        <div class="z3-pair-title">☯ 사주 원국</div>
+        <div class="pillars-table" id="cmbPillarsTable"></div>
 
-                  <div id="cmbSinsalReading" class="gg-item" style="margin-top:10px;">사진 분석이 끝나면 표시돼요.</div>
-          <div id="cmbZone3Reading1" class="gg-item" style="margin-top:10px;">사진 분석이 끝나면 표시돼요.</div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div id="cmbSinsalReading" class="gg-item" style="margin-bottom:12px;">사진 분석이 끝나면 표시돼요.</div>
+        <div id="cmbZone3Reading1" class="gg-item" style="margin-bottom:0;">사진 분석이 끝나면 표시돼요.</div>
 
-        </div>
-
-        <div class="z3-pair-card" style="margin-top:16px;">
-          <div class="z3-pair-title">🌊 대운 x 🎭 삼정 — 인생 타임라인</div>
-          <div class="metric-caption" style="margin-bottom:8px;">%는 실제 얼굴에서 이마(초년)·눈코(중년)·인중~턱(말년)이 차지하는 비율이에요 — 셋을 합치면 100%인 파이 조각이라 낮다고 그 시기가 나쁜 게 아니에요. ⭐좋은 시기는 이 얼굴 비율과 무관하게, 사주로 계산한 그 10년의 십이운성이 상승기라는 별개의 표시예요.</div>
-          <div id="cmbLifelineNow" style="font-size:12px;color:var(--text);margin-bottom:6px;"></div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="z3-pair-title">🌊 대운 x 🎭 삼정 — 인생 타임라인</div>
+        <div class="metric-caption" style="margin-bottom:8px;">%는 실제 얼굴에서 이마(초년)·눈코(중년)·인중~턱(말년)이 차지하는 비율이에요 — 셋을 합치면 100%인 파이 조각이라 낮다고 그 시기가 나쁜 게 아니에요. ⭐좋은 시기는 이 얼굴 비율과 무관하게, 사주로 계산한 그 10년의 십이운성이 상승기라는 별개의 표시예요.</div>
+        <div class="cmb-dogam-row" id="cmbLifelineNow"></div>
+        <div class="cmb-lifeline-card">
           <div class="lifeline" id="cmbLifeline" style="color:var(--text2);font-size:12px;">사진이 있어야 볼 수 있어요.</div>
-                    <div id="cmbZone3Reading3" class="gg-item" style="margin-top:16px;">사진 분석이 끝나면 표시돼요.</div>
+          <div id="cmbZone3Reading3" class="gg-item cmb-lifeline-reading" style="margin-top:12px;margin-bottom:0;">사진 분석이 끝나면 표시돼요.</div>
         </div>
 
-                <div class="z3-pair-card" style="margin-top:16px;">
-          <div class="z3-pair-title">🔮 관상 정보</div>
-          <div id="cmbPartDeepDive" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="z3-pair-title">🔮 관상 정보</div>
+        <div id="cmbPartDeepDive" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         </div>
         </details>
 
@@ -2800,8 +2830,8 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/character-api.js?v=20260908b"></script>
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
-<script src="js/ai-analysis.js?v=20260912d"></script>
-<script src="js/app.js?v=20260912d"></script>
+<script src="js/ai-analysis.js?v=20260913a"></script>
+<script src="js/app.js?v=20260913b"></script>
 <script src="js/profile.js?v=20260912b"></script>
 <script src="js/archive.js?v=20260912g"></script>
 <script src="js/inyeon-dogam.js?v=20260912zb"></script>
