@@ -358,6 +358,14 @@ body {
 #cmbResult .cmb-lifeline-reading, #cmbSavedBody .cmb-lifeline-reading { background: #eef2f8; border-color: #eef2f8; }
 /* Figma "Frame 1261159308"(관상 정보 카드의 라벨) — 10px/600/gray. */
 #cmbResult .cmb-part-label, #cmbSavedBody .cmb-part-label { font-size: 10px; font-weight: 600; color: var(--text2); margin-bottom: 4px; }
+/* 사용자 지정(2026-09-13) — Zone3 전용 스타일. .z3-pair-title/.gg-item은 Zone2·Zone4와도 공유하는
+   클래스라 .cmb-zone3-body 안으로만 스코프해서 Zone2/Zone4에는 영향 없게 한다. */
+#cmbResult .cmb-zone3-body .z3-pair-title, #cmbSavedBody .cmb-zone3-body .z3-pair-title { font-size: 16px; text-align: center; }
+#cmbResult .cmb-zone3-body .gg-item, #cmbSavedBody .cmb-zone3-body .gg-item { border-radius: 12px; padding: 12px; margin-bottom: 0; }
+/* "관상 정보" 카드 5개(#cmbPartDeepDive)는 각 gg-item 자체 margin-bottom을 없앤 대신, 이 컨테이너가
+   flex+gap 12로 간격을 대신 담당한다(요청: nth-child(13), Zone3 body의 13번째 자식). id는 보관함
+   스냅샷에서 지워지므로 클래스(.cmb-part-deep-dive)로 스코프한다. */
+#cmbResult .cmb-part-deep-dive, #cmbSavedBody .cmb-part-deep-dive { display: flex; flex-direction: column; gap: 12px; }
 
 /* Figma node 75:1361(통합분석 결과 화면 step1~4, 2026-09-12 재실측) — 이 카드는 gwansang/dogam
    캐릭터 카드(§ "Figma node 56:1149" 주석들)와 같은 네이비 Cnt+CardInner 구조로 다시 그려졌다.
@@ -1034,6 +1042,11 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
 /* 사용자 지정 — .gg-item은 궁합보기 등과 공유하는 클래스라 margin-bottom 제거는 통합분석에만
    스코프해서 적용한다(base .gg-item의 margin-bottom:10px는 그대로 유지). */
 #cmbResult .gg-item, #cmbSavedBody .gg-item { margin-bottom: 0; }
+/* 위에서 .gg-item의 margin-bottom을 0으로 지웠더니, 카드 여러 개를 한 컨테이너에 이어 붙이는
+   #cmbZone4Cards(renderZone4Cards, 항목 사이 간격을 그 margin-bottom에 의존)의 카드 사이 간격이
+   같이 사라졌던 것을 뒤늦게 발견 — 원래 margin-bottom 값(10px)과 같은 간격을 flex+gap으로
+   대신 준다. id는 보관함 스냅샷에서 지워지므로 클래스(.cmb-zone4-cards)로 스코프한다. */
+#cmbResult .cmb-zone4-cards, #cmbSavedBody .cmb-zone4-cards { display: flex; flex-direction: column; gap: 10px; }
 
 .archetype-card { display: flex; gap: 14px; align-items: flex-start; border: 1.5px solid var(--mint-border); border-radius: var(--r); padding: 14px 16px; margin-top: 10px; background: var(--mint-tint-10); }
 .archetype-icon { flex-shrink: 0; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: var(--surface); border-radius: 12px; }
@@ -2054,7 +2067,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 
         <div class="cmb-z2-hr" style="margin:16px 0;"></div>
         <div class="z3-pair-title">🔮 관상 정보</div>
-        <div id="cmbPartDeepDive" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+        <div id="cmbPartDeepDive" class="cmb-part-deep-dive" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         </div>
         </details>
 
@@ -2063,7 +2076,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <div id="cmbZone4Card1" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         <div id="cmbZone4Temperament" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
         <div id="cmbZone4HiddenSelf" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-        <div id="cmbZone4Cards" style="margin-top:16px;"></div>
+        <div id="cmbZone4Cards" class="cmb-zone4-cards" style="margin-top:16px;"></div>
         <div id="cmbZone4Advice" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
       </details>
 
@@ -2834,7 +2847,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/ai-analysis.js?v=20260913a"></script>
 <script src="js/app.js?v=20260913b"></script>
 <script src="js/profile.js?v=20260913c"></script>
-<script src="js/archive.js?v=20260913a"></script>
+<script src="js/archive.js?v=20260913b"></script>
 <script src="js/inyeon-dogam.js?v=20260913c"></script>
 <script src="js/nyang-shop.js?v=20260904"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>

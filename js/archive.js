@@ -507,6 +507,7 @@
       } else if (title.indexOf('관상 정보') >= 0) {
         const outer = body[0]; // 옛 구조: title 다음 유일한 형제가 다크 테마 카드들을 감싼 래퍼 div
         const partDeepDive = document.createElement('div');
+        partDeepDive.className = 'cmb-part-deep-dive';
         const oldCards = outer ? Array.from(outer.querySelectorAll(':scope > .face-reading-card')) : [];
         oldCards.forEach(function (fc) {
           const divs = Array.from(fc.children).filter(function (c) { return c.tagName === 'DIV'; });
