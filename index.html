@@ -639,7 +639,7 @@ body {
 
 #gwansangUploadSection .upload-label { font-size: 13px; }
 
-.upload-label { font-size: 16px; font-weight: 700; color: var(--text-title); margin-bottom: 16px; }
+.upload-label { font-size: 14px; font-weight: 400; color: var(--text-title); margin-bottom: 8px; }
 .reassure-box { background: var(--bg-soft); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
 .reassure-head { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
 .reassure-head .icon { font-size: 16px; color: var(--text-sub); }
@@ -669,7 +669,7 @@ body {
 
 .upload-area {
   border: 2px solid var(--border-gray2); border-radius: var(--r-drop);
-  padding: 24px 20px; text-align: center; cursor: pointer;
+  padding: 16px; text-align: center; cursor: pointer;
   transition: border-color .2s; background: var(--surface);
 }
 .upload-area:hover, .upload-area.drag { border-color: var(--mint); }
@@ -863,6 +863,10 @@ body {
    늘려주지 않고 콘텐츠 크기로 줄어든다) 버튼이 쪼그라들었다 — margin을 0으로 명시해 되돌린다.
    margin-top도 이제 .dogam-form-card의 gap:16이 대신하므로 뺀다(2026-09-12, 버그 재수정). */
 #gwansangCtaDock { position: static; box-shadow: none; padding: 0; margin: 0; }
+/* 통합분석·궁합보기 CTA도 같은 이유로 고정 해제(2026-09-13 사용자 요청) — 폼 카드 안(#cmbPhotoStep/
+   #ggInputStep)으로 옮겨 넣었다. 이 둘은 gwansang의 .dogam-form-card와 달리 flex gap이 없는 카드라
+   버튼 자체에 margin-top을 줘서 위 요소와 간격을 띄운다. */
+#cmbCtaDock, #ggCtaDock { position: static; box-shadow: none; padding: 0; margin: 16px 0 0; }
 /* "내 도감 생성하기" 카드(Figma node 22:431 / 56:1170 "Form Card") — gap:16(자식 사이 균일 간격).
    기존엔 flex가 아니라 자식마다 제각각인 인라인 margin으로 흉내내고 있었다. */
 .dogam-form-card { background: var(--surface); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
@@ -1604,9 +1608,9 @@ body.overlay-open { overflow: hidden; }
 /* Figma node 52:3243 "Form Card" 실측 — 사주 정보/관상 정보/질문을 감싸는 흰 카드 + 제목. */
 .cmb-form-card { background: #fff; border-radius: 16px; padding: 16px; }
 .cmb-form-card-title { font-size: 16px; font-weight: 800; color: var(--text-title); margin-bottom: 16px; }
-/* "Background+Border" 안의 원형 아이콘 — 공용 .upload-icon-circle(옅은 민트 틴트+민트 아이콘)과 달리
-   이 화면만 꽉 찬 민트 배경+흰 아이콘, 크기도 54px(공용 48px)로 다르다. */
-#cmbUploadArea .upload-icon-circle { width: 54px; height: 54px; background: var(--mint); color: #fff; font-size: 22px; }
+/* "Background+Border" 안의 원형 아이콘 — 공용 .upload-icon-circle과 색은 같은 옅은 민트 틴트+민트
+   아이콘이고, 크기만 54px(공용 48px)로 이 화면이 더 크다. */
+#cmbUploadArea .upload-icon-circle { width: 54px; height: 54px; background: var(--mint-10); color: var(--mint); font-size: 22px; }
 .dogam-delete-btn { display: block; width: 100%; margin-top: 16px; padding: 11px; border: 1px solid var(--border-gray);
   border-radius: var(--r-btn); background: var(--surface); color: #b04a4a; font-size: 12px; font-weight: 700;
   cursor: pointer; font-family: inherit; }
@@ -2035,7 +2039,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       </div>
 
             <div id="cmbPhotoStep" class="cmb-form-card">
-      <div class="cmb-form-card-title">내 도감 생성하기</div>
+      <div class="cmb-form-card-title">내 풀이 정보 입력하기</div>
       <div class="upload-label">사주 정보</div>
       <button type="button" class="mini-profile-chip select-mode" id="cmbSajuChip" onclick="Profile.openCombinedSajuPicker()">
         <span class="mini-profile-placeholder">사주 정보를 선택해주세요</span>
@@ -2050,7 +2054,16 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
         <strong>사진을 클릭하거나 드래그하여 업로드</strong>
         <div class="tip-box">
-          <span class="icon material-symbols-outlined">warning</span>
+          <span class="icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <mask id="mask0_cmb_a" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="17" height="16">
+                <path d="M8.00002 1.33325C4.32003 1.33325 1.33337 4.31992 1.33337 7.99992C1.33337 11.6799 4.32003 14.6666 8.00002 14.6666C11.68 14.6666 14.6667 11.6799 14.6667 7.99992C14.6667 4.31992 11.68 1.33325 8.00002 1.33325ZM8.00002 11.3333C7.63336 11.3333 7.33336 11.0333 7.33336 10.6666V7.99992C7.33336 7.63325 7.63336 7.33325 8.00002 7.33325C8.36669 7.33325 8.66669 7.63325 8.66669 7.99992V10.6666C8.66669 11.0333 8.36669 11.3333 8.00002 11.3333ZM8.66669 5.99992H7.33336V4.66659H8.66669V5.99992Z" fill="#5B5B5B"/>
+              </mask>
+              <g mask="url(#mask0_cmb_a)">
+                <rect width="15.9999" height="15.9999" fill="#FF9533"/>
+              </g>
+            </svg>
+          </span>
           <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
         </div>
       </div>
@@ -2111,6 +2124,10 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
           <div class="saju-char-counter" id="cmbQ3Counter">0/100</div>
         </div>
       </div>
+
+      <div class="cta-dock" id="cmbCtaDock">
+        <button class="submit-btn" onclick="startCombinedAnalysis()">통합분석 풀이 보기</button>
+      </div>
       </div>
             <div class="hidden cmb-form-card" id="cmbSavedStep">
         <div class="cmb-form-card-title">이미 분석한 내역이 있어요</div>
@@ -2137,10 +2154,6 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <p style="color:var(--text2);font-size:13px;" id="cmbSpinnerMsg">분석 중...</p>
       </div>
       <div class="err-msg" id="cmbErr"></div>
-    </div>
-
-    <div class="cta-dock" id="cmbCtaDock">
-      <button class="submit-btn" onclick="startCombinedAnalysis()">통합분석 풀이 보기</button>
     </div>
 
         <div class="cmb-analyzing hidden" id="cmbAnalyzing">
@@ -2873,6 +2886,10 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
     </div>
 
         <div class="err-msg" id="ggErr" style="margin:16px 4px 0;"></div>
+
+        <div class="cta-dock hidden" id="ggCtaDock">
+          <button class="submit-btn" onclick="Profile.runGungham()">궁합 분석하기</button>
+        </div>
     </div>
         <div class="hidden cmb-form-card" id="ggSavedStep">
       <div class="cmb-form-card-title">이미 확인한 궁합이 있어요</div>
@@ -2889,10 +2906,6 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       </div>
       <div class="arc-report" id="ggSavedBody"></div>
       <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">다른 상대와 궁합보기</button>
-    </div>
-
-    <div class="cta-dock hidden" id="ggCtaDock">
-      <button class="submit-btn" onclick="Profile.runGungham()">궁합 분석하기</button>
     </div>
 
         <div class="cmb-analyzing hidden" id="ggAnalyzing">
