@@ -584,6 +584,10 @@ body {
 }
 .mini-profile-chip.select-mode { cursor: pointer; }
 .mini-profile-chip.select-mode:hover { border-color: var(--mint); }
+/* 사용자 요청(2026-09-13) — 궁합보기 나/상대 카드 안의 "사주 정보" 선택 칩은 인연도감 "이름"
+   필드그룹(.dogam-field-group)과 같은 방식으로 감싸므로 칩 자체의 margin-bottom은 끄고 부모의
+   gap에 맡긴다(안 그러면 두 배가 됨). 테두리는 공용 .mini-profile-chip 값 그대로 유지. */
+.gg-saju-chip { margin-bottom: 0; }
 .mini-profile-chip-arrow { font-size: 16px; color: var(--text-sub); flex-shrink: 0; }
 .mini-profile-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .mini-profile-name { font-size: 14px; font-weight: 500; color: var(--text-strong); }
@@ -591,7 +595,6 @@ body {
 .mini-profile-sub { font-size: 11px; color: var(--text-sub); }
 .mini-profile-placeholder { font-size: 14px; font-weight: 400; color: var(--text-placeholder); }
 .mini-profile-empty { font-size: 12px; color: var(--text3); }
-.mini-profile-chevron { margin-left: auto; flex-shrink: 0; }
 
 /* Figma "Cnt Warp" 실측 gap 20 — 자식(hero-section/revisit/gwansangInputCard) 사이 균일 간격. */
 .upload-section { padding: 0 20px 32px; display: flex; flex-direction: column; gap: 20px; }
@@ -680,7 +683,15 @@ body {
 .tip-box .icon { font-size: 16px; color: var(--icon-orange); flex-shrink: 0; }
 .tip-box p { font-size: 12px !important; font-weight: 500; color: var(--text-sub2) !important; margin: 0 !important; }
 .upload-hint { display: none; }
-#panel-gungham .upload-section { border: 0; padding: 0; margin: 16px 0 0; }
+/* .gg-acc-body가 이제 flex gap:16으로 필드그룹 사이 간격을 주므로 margin-top은 더 이상 필요 없다
+   (안 그러면 16+16으로 두 배가 됨). */
+#panel-gungham .upload-section { border: 0; padding: 0; margin: 0; }
+/* Figma node 81:6024 "SajuQBlock" 실측 — 흰 카드(테두리 var(--border), radius16, padding16, gap12)
+   안에 라벨(14/700/#111111)+칩 줄. .field-label/.chip-row는 앱 전역 공용 클래스라 여기서는
+   #ggRelAsk로 좁혀서만 덮어쓴다. */
+.gg-rel-ask { margin: 16px 4px 0; background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.gg-rel-ask .field-label { font-size: 14px; font-weight: 700; color: var(--text-title); }
+.gg-rel-ask .chip-row { flex-wrap: wrap; overflow-x: visible; }
 
 .thumb-area { display: none; align-items: center; gap: 16px; padding: 16px; background: var(--card2); border: 1px solid var(--border); border-radius: var(--r-drop); margin-bottom: 0; }
 .thumb-area.show { display: flex; }
@@ -840,7 +851,7 @@ body {
 .dogam-form-card-head { display: flex; flex-direction: column; gap: 12px; }
 .dogam-form-card-title { font-size: 16px; font-weight: 800; color: var(--text-title); }
 /* NameField/Face Upload Area 내부 그룹 — Figma 실측 gap 12(라벨/입력/콜아웃 사이 균일). */
-.dogam-field-group { display: flex; flex-direction: column; gap: 12px; }
+.dogam-field-group { display: flex; flex-direction: column; gap: 8px; }
 /* Figma "Label"(이름/관상 정보 등, Form Card 안에서만) 실측: 14px/400/#111111 — 옆 화면들이 쓰는
    .upload-label(16~13px/700)이나 .field-label(14px/500/--text-strong)과는 다른, 이 폼 전용 라벨. */
 .form-field-label { font-size: 14px; font-weight: 400; color: var(--text-title); }
@@ -964,16 +975,21 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
 .person-block + .person-block { margin-top: 12px; }
 .person-block:last-of-type { margin-bottom: 40px; }
 
+/* Figma node 79:2722/79:2172 "Form Card" 실측 — 헤더(민트 배경)+본문을 하나의 흰 카드(테두리
+   var(--border-lavender), radius 16)로 감싼다. 접힘/펼침 모두 이 바깥 테두리는 그대로라 헤더에
+   따로 radius를 토글할 필요가 없다(overflow:hidden이 안쪽 모서리를 잘라준다). */
+.person-block { background: #fff; border: 1px solid var(--border-lavender); border-radius: 16px; overflow: hidden; }
 .gg-acc-head {
   display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 14px 16px; border: 1px solid var(--mint-border); border-radius: var(--r-input);
-  background: var(--mint-soft); cursor: pointer; font-family: inherit; text-align: left;
+  padding: 16px; background: var(--mint-soft); cursor: pointer; font-family: inherit; text-align: left;
+  border: none;
 }
-.person-block.is-open .gg-acc-head { border-radius: var(--r-input) var(--r-input) 0 0; border-bottom-color: transparent; }
-.person-label { font-size: 16px; font-weight: 700; color: var(--jade); }
-.gg-acc-icon { margin-left: auto; font-size: 20px; color: var(--jade); }
-.gg-acc-body { display: none; border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--r) var(--r); padding: 16px; }
-.person-block.is-open .gg-acc-body { display: block; }
+.person-label { font-size: 16px; font-weight: 800; color: var(--text-title); }
+.gg-acc-icon { margin-left: auto; font-size: 20px; color: var(--text-sub); }
+/* 인연도감 .dogam-form-card(gap:16, "이름"/"관상 정보" 필드그룹 사이 간격)와 같은 값 — 궁합보기의
+   "사주 정보"/"관상 정보" 필드그룹도 같은 간격으로 맞춘다. */
+.gg-acc-body { display: none; flex-direction: column; gap: 16px; padding: 16px; }
+.person-block.is-open .gg-acc-body { display: flex; }
 
 .combined-layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
 
@@ -1790,6 +1806,8 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 #panel-combined:has(#cmbResult:not(.hidden)) > .arc-page-head,
 #panel-combined:has(#cmbSavedReport:not(.hidden)) > .arc-page-head { display: none; }
 .arc-page-head h2 { font-size: 20px; font-weight: 500; color: var(--text-heading); }
+/* Figma node 79:2722 실측 — 궁합보기 타이틀만 700(다른 화면과 공유하는 .arc-page-head는 그대로 둔다). */
+#panel-gungham .arc-page-head h2 { font-weight: 700; }
 /* 인연도감 탭 타이틀만 좌우 20px로 — 바로 아래 .upload-section이 margin:-16px+padding:20px로
    프레임 기준 20px를 맞춰둔 것과 같은 값으로 맞춘다(Figma "Cnt Warp" 좌우 패딩 20 — node 32:7145).
    .arc-page-head 자체는 통합분석/궁합보기와 공유하는 클래스라 여기서 손대지 않고 id로 좁힌다. */
@@ -2606,8 +2624,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
     <div class="arc-page-head"><h2>궁합보기</h2></div>
         <div class="cmb-hero-card" id="ggHeroBanner">
       <div class="cmb-hero-text">
-        <div class="cmb-hero-badge">🐱 관상냥반</div>
-        <div class="cmb-hero-title">냥반이<br>두 분의 궁합을<br>봐드릴게요</div>
+        <div class="cmb-hero-title">냥반이 두 분의 궁합을 봐드릴게요</div>
         <p class="cmb-hero-sub">두 사람의 사진과 생년월일이면, 얼굴형·눈·코·입·턱 조합부터 사주 신살·귀인까지 짚어서 궁합 점수와 케미를 알려드려요.</p>
       </div>
       <div class="cmb-hero-img"><img src="images/Logo.png" alt=""></div>
@@ -2617,85 +2634,117 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <div class="person-block is-open" id="ggBlockA">
       <button type="button" class="gg-acc-head" onclick="Profile.toggleGgAcc('A')">
         <span class="person-label" id="ggLabelA">나</span>
-        <span class="gg-acc-icon material-symbols-outlined" id="ggAccIconA">remove</span>
+        <span class="gg-acc-icon material-symbols-outlined" id="ggAccIconA">expand_less</span>
       </button>
       <div class="gg-acc-body">
-      <button class="mini-profile-chip select-mode" id="ggProfileChipA" onclick="Profile.openGunghamAPicker()">
-        <span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 내 프로필 선택</span>
+      <div class="dogam-field-group">
+      <div class="form-field-label">사주 정보</div>
+      <button class="mini-profile-chip select-mode gg-saju-chip" id="ggProfileChipA" onclick="Profile.openGunghamAPicker()">
+        <span class="mini-profile-placeholder">내 프로필 선택</span>
+        <span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>
       </button>
+      </div>
 
       <div class="upload-section" id="ggUploadSectionA">
-        <div class="upload-label">관상 정보</div>
-        <div class="reassure-box">
-          <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
-          <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
-        </div>
+        <div class="dogam-field-group">
+        <div class="form-field-label">관상 정보</div>
         <div class="upload-area" id="ggUploadA"
              onclick="document.getElementById('ggFileA').click()"
              ondrop="handleDrop('gunghamA', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
           <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
           <strong>사진을 클릭하거나 드래그하여 업로드</strong>
-        </div>
-        <div class="tip-box">
-          <span class="icon material-symbols-outlined">warning</span>
-          <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+          <div class="tip-box">
+            <span class="icon">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <mask id="mask0_gg_a" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="17" height="16">
+                  <path d="M8.00002 1.33325C4.32003 1.33325 1.33337 4.31992 1.33337 7.99992C1.33337 11.6799 4.32003 14.6666 8.00002 14.6666C11.68 14.6666 14.6667 11.6799 14.6667 7.99992C14.6667 4.31992 11.68 1.33325 8.00002 1.33325ZM8.00002 11.3333C7.63336 11.3333 7.33336 11.0333 7.33336 10.6666V7.99992C7.33336 7.63325 7.63336 7.33325 8.00002 7.33325C8.36669 7.33325 8.66669 7.63325 8.66669 7.99992V10.6666C8.66669 11.0333 8.36669 11.3333 8.00002 11.3333ZM8.66669 5.99992H7.33336V4.66659H8.66669V5.99992Z" fill="#5B5B5B"/>
+                </mask>
+                <g mask="url(#mask0_gg_a)">
+                  <rect width="15.9999" height="15.9999" fill="#FF9533"/>
+                </g>
+              </svg>
+            </span>
+            <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+          </div>
         </div>
         <input type="file" id="ggFileA" accept="image/*" style="display:none" onchange="handleFile('gunghamA', event)">
-        <div class="thumb-area" id="ggThumbA" style="margin-top:12px;">
+        <div class="thumb-area" id="ggThumbA">
           <img id="ggImgA" class="thumb-img" src="" alt="">
           <div class="thumb-info"><div class="thumb-name">나</div></div>
           <button class="reupload-btn" onclick="resetUpload('gunghamA')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
         </div>
         <input type="hidden" id="ggBirthA" value="">
         <input type="hidden" id="ggBirthHourA" value="-1">
+        <details class="dogam-policy">
+          <summary>🔒 사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
+          <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
+        </details>
+        </div>
       </div>
       </div>    </div>
 
         <div class="person-block" id="ggBlockB">
       <button type="button" class="gg-acc-head" onclick="Profile.toggleGgAcc('B')">
         <span class="person-label" id="ggLabelB">상대</span>
-        <span class="gg-acc-icon material-symbols-outlined" id="ggAccIconB">add</span>
+        <span class="gg-acc-icon material-symbols-outlined" id="ggAccIconB">expand_more</span>
       </button>
       <div class="gg-acc-body">
-      <button class="mini-profile-chip select-mode" id="ggProfileChipB" onclick="Profile.openPartnerPicker()">
-        <span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 상대방 프로필 선택</span>
+      <div class="dogam-field-group">
+      <div class="form-field-label">사주 정보</div>
+      <button class="mini-profile-chip select-mode gg-saju-chip" id="ggProfileChipB" onclick="Profile.openPartnerPicker()">
+        <span class="mini-profile-placeholder">상대방 프로필 선택</span>
+        <span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>
       </button>
+      </div>
 
       <div class="upload-section" id="ggUploadSectionB">
-        <div class="upload-label">관상 정보</div>
-        <div class="reassure-box">
-          <div class="reassure-head"><span class="icon material-symbols-outlined">lock</span><span class="label">안심하세요</span></div>
-          <p class="reassure-sub">사진은 AI 정밀 분석을 위해서 사용 후 별도 서버 저장없이 삭제 됩니다.</p>
-        </div>
+        <div class="dogam-field-group">
+        <div class="form-field-label">관상 정보</div>
         <div class="upload-area" id="ggUploadB"
              onclick="document.getElementById('ggFileB').click()"
              ondrop="handleDrop('gunghamB', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
           <div class="upload-icon-circle material-symbols-outlined">photo_camera</div>
           <strong>사진을 클릭하거나 드래그하여 업로드</strong>
-        </div>
-        <div class="tip-box">
-          <span class="icon material-symbols-outlined">warning</span>
-          <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+          <div class="tip-box">
+            <span class="icon">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <mask id="mask0_gg_b" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="17" height="16">
+                  <path d="M8.00002 1.33325C4.32003 1.33325 1.33337 4.31992 1.33337 7.99992C1.33337 11.6799 4.32003 14.6666 8.00002 14.6666C11.68 14.6666 14.6667 11.6799 14.6667 7.99992C14.6667 4.31992 11.68 1.33325 8.00002 1.33325ZM8.00002 11.3333C7.63336 11.3333 7.33336 11.0333 7.33336 10.6666V7.99992C7.33336 7.63325 7.63336 7.33325 8.00002 7.33325C8.36669 7.33325 8.66669 7.63325 8.66669 7.99992V10.6666C8.66669 11.0333 8.36669 11.3333 8.00002 11.3333ZM8.66669 5.99992H7.33336V4.66659H8.66669V5.99992Z" fill="#5B5B5B"/>
+                </mask>
+                <g mask="url(#mask0_gg_b)">
+                  <rect width="15.9999" height="15.9999" fill="#FF9533"/>
+                </g>
+              </svg>
+            </span>
+            <p>목선까지 보이는 정면 사진을 올려주세요 (얼굴 60% 이상)</p>
+          </div>
         </div>
         <input type="file" id="ggFileB" accept="image/*" style="display:none" onchange="handleFile('gunghamB', event)">
-        <div class="thumb-area" id="ggThumbB" style="margin-top:12px;">
+        <div class="thumb-area" id="ggThumbB">
           <img id="ggImgB" class="thumb-img" src="" alt="">
           <div class="thumb-info"><div class="thumb-name">상대방</div></div>
           <button class="reupload-btn" onclick="resetUpload('gunghamB')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
         </div>
         <input type="hidden" id="ggBirthB" value="">
         <input type="hidden" id="ggBirthHourB" value="-1">
+        <details class="dogam-policy">
+          <summary>🔒 사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
+          <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
+        </details>
+        </div>
       </div>
       </div>    </div>
 
-        <div class="gg-rel-ask hidden" id="ggRelAsk" style="margin:16px 4px 0;">
-      <label class="field-label">두 사람의 관계는?</label>
+        <div class="gg-rel-ask hidden" id="ggRelAsk">
+      <label class="field-label">두 분의 관계는?</label>
       <div class="chip-row">
-        <button class="rel-chip" onclick="Profile.setGunghamRelation('연인/배우자', this)">연인/배우자</button>
-        <button class="rel-chip" onclick="Profile.setGunghamRelation('가족', this)">가족</button>
-        <button class="rel-chip" onclick="Profile.setGunghamRelation('친구', this)">친구</button>
-        <button class="rel-chip" onclick="Profile.setGunghamRelation('지인', this)">지인</button>
+        <button type="button" class="rel-chip" onclick="Profile.setGunghamRelation('연인/배우자', this)">연인/배우자</button>
+        <button type="button" class="rel-chip" onclick="Profile.setGunghamRelation('가족', this)">가족</button>
+        <button type="button" class="rel-chip" onclick="Profile.setGunghamRelation('친구', this)">친구</button>
+        <button type="button" class="rel-chip" onclick="Profile.setGunghamRelation('지인', this)">지인</button>
+        <button type="button" class="rel-chip" onclick="Profile.setGunghamRelation('직접 입력', this)">직접 입력</button>
       </div>
+      <input type="text" class="field-input saju-q-custom hidden" id="ggRelCustom" placeholder="관계를 입력해주세요" oninput="Profile.setGunghamRelationCustom(this.value)">
     </div>
 
         <div class="err-msg" id="ggErr" style="margin:16px 4px 0;"></div>
@@ -2873,8 +2922,8 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
 <script src="js/ai-analysis.js?v=20260913b"></script>
-<script src="js/app.js?v=20260913d"></script>
-<script src="js/profile.js?v=20260913f"></script>
+<script src="js/app.js?v=20260913e"></script>
+<script src="js/profile.js?v=20260913h"></script>
 <script src="js/archive.js?v=20260913g"></script>
 <script src="js/inyeon-dogam.js?v=20260913c"></script>
 <script src="js/nyang-shop.js?v=20260913a"></script>

@@ -364,13 +364,25 @@
   }
   // #ggRelAsk 칩 클릭 핸들러 — setRelation(ctx,...)과 같은 토글 패턴이지만 궁합보기 전용 상태
   // (state.gungham.relation)를 다루므로 별도 함수로 둔다.
+  // Figma node 81:6024 — "직접 입력" 칩은 통합분석 사전질문(Q1/Q2)의 "직접 입력할게요"와 같은
+  // 패턴으로 입력창을 펼친다.
   function setGunghamRelation(rel, btn) {
-    state.gungham.relation = rel;
     if (btn) {
       const container = btn.parentElement;
       if (container) container.querySelectorAll('.rel-chip').forEach(b => b.classList.remove('on'));
       btn.classList.add('on');
     }
+    const custom = document.getElementById('ggRelCustom');
+    if (rel === '직접 입력') {
+      if (custom) { custom.classList.remove('hidden'); custom.focus(); }
+      state.gungham.relation = custom ? custom.value.trim() : '';
+    } else {
+      if (custom) { custom.classList.add('hidden'); custom.value = ''; }
+      state.gungham.relation = rel;
+    }
+  }
+  function setGunghamRelationCustom(value) {
+    state.gungham.relation = value.trim();
   }
   function applyRepresentativeEverywhere() {
     const rep = getRepresentative();
@@ -423,7 +435,7 @@
     const chip = document.getElementById('ggProfileChipA');
     if (!chip) { syncGgAccordion(); return; }
     if (!profile) {
-      chip.innerHTML = `<span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 내 프로필 선택</span>`;
+      chip.innerHTML = `<span class="mini-profile-placeholder">내 프로필 선택</span><span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>`;
       chip.classList.add('select-mode');
       syncGgAccordion();
       return;
@@ -437,7 +449,7 @@
         </span>
         <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourLabel(profile.birthHour))}</span>
       </span>
-      <span class="mini-profile-chevron material-symbols-outlined">chevron_right</span>`;
+      <span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>`;
     syncGgAccordion();
   }
 
@@ -449,7 +461,7 @@
     const chip = document.getElementById('ggProfileChipB');
     if (!chip) { syncGgAccordion(); return; }
     if (!profile) {
-      chip.innerHTML = `<span class="mini-profile-placeholder"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> 상대방 프로필 선택</span>`;
+      chip.innerHTML = `<span class="mini-profile-placeholder">상대방 프로필 선택</span><span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>`;
       chip.classList.add('select-mode');
       syncGgAccordion();
       return;
@@ -463,7 +475,7 @@
         </span>
         <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourLabel(profile.birthHour))}</span>
       </span>
-      <span class="mini-profile-chevron material-symbols-outlined">chevron_right</span>`;
+      <span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>`;
     syncGgAccordion();
   }
 
@@ -479,7 +491,7 @@
     const block = document.getElementById('ggBlock' + who);
     const icon = document.getElementById('ggAccIcon' + who);
     if (block) block.classList.toggle('is-open', open);
-    if (icon) icon.textContent = open ? 'remove' : 'add';
+    if (icon) icon.textContent = open ? 'expand_less' : 'expand_more';
   }
   function toggleGgAcc(who) { setGgAccOpen(who, !ggOpen[who]); }
   function syncGgAccordion() {
@@ -1221,7 +1233,7 @@
     runCombined: runCombinedWrapped, runGungham: runGunghamWrapped,
     openPartnerPicker: (opts) => openSwitcher(Object.assign({}, opts, { ggSlot: 'B' })),
     openGunghamAPicker: (opts) => openSwitcher(Object.assign({}, opts, { ggSlot: 'A' })),
-    setGunghamRelation: setGunghamRelation,
+    setGunghamRelation: setGunghamRelation, setGunghamRelationCustom: setGunghamRelationCustom,
     toggleGgAcc, syncGgAccordion,
     _selectCandidateRow: selectCandidateRow, _confirmSwitcher: confirmSwitcher,
     _editRow: editRow, _openAdd: openAdd, _deleteRow: deleteRow,

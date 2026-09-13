@@ -328,7 +328,10 @@ function markAnalyzed(ctx) {
   const dock = ctaDockMap[ctx] && document.getElementById(ctaDockMap[ctx]);
   if (dock) dock.classList.add('hidden');
   if (ctx === 'gungham') { // 나/상대방 프로필 블록 전체(#ggBlockA·B)를 접어 리포트가 바로 보이게 한다
-    ['ggBlockA', 'ggBlockB'].forEach(id => {
+    // ⚠️ 버그 수정(2026-09-13 사용자 리포트: "리포트 쓸 때 두 분의 관계는? 카드가 안 숨겨짐") —
+    // 블록 두 개만 숨기고 #ggRelAsk(관계 질문 카드)·#ggErr는 빠져 있어서 분석 중 화면에 그대로
+    // 남아있었다.
+    ['ggBlockA', 'ggBlockB', 'ggRelAsk', 'ggErr'].forEach(id => {
       const b = document.getElementById(id);
       if (b) b.classList.add('hidden');
     });
