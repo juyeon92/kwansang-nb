@@ -531,8 +531,8 @@
         </div>
         <div class="profile-row-list" id="profileRowList"></div>
         <div class="switcher-foot">
-          <button class="btn-outline-primary btn-outline-mint btn-md" onclick="Profile._openAdd('${ggSlot || ''}')">사주 추가하기</button>
-          <button class="btn-solid-primary btn-md" onclick="Profile._confirmSwitcher('${ggSlot || ''}')">사주 선택하기</button>
+          <button class="btn-outline-primary btn-outline-mint" onclick="Profile._openAdd('${ggSlot || ''}')">사주 추가하기</button>
+          <button class="btn-solid-primary" onclick="Profile._confirmSwitcher('${ggSlot || ''}')">사주 선택하기</button>
         </div>
       </div>`;
     document.body.classList.add('overlay-open');
