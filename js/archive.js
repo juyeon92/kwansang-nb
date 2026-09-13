@@ -764,6 +764,187 @@
     zone1.appendChild(wrap);
   }
 
+  // 궁합보기 Zone2("☯️ Zone 2 · 사주 궁합")를 Figma(node 81:3802)에 맞춰 재구성(2026-09-13)하기 전에
+  // 저장된 리포트는 옛 구조 그대로 얼어있다: "🌡️ 우리 관계" 소제목이 밖이 아니라 아이템 카드 안에
+  // 있었고(gunghapItemCardHtml이 head까지 같이 찍었었음), 십성 2장이 .chemi-card(문장이 두 줄로
+  // 나뉘고 "근거"가 11px 회색줄)였고, 에너지·용신 4장도 전부 .chemi-card였다. summary 텍스트("Zone
+  // 2")로 존을 특정하고, rest 배열은 항상 고정 순서였다(id는 이미 지워졌으니 위치와 클래스만으로
+  // 찾는다): [우리관계박스, "☯️만세력"제목, 만세력박스, "🎴십성"제목, 십성박스, "📖AI풀이"제목,
+  // AI풀이박스, "☯️에너지"제목, 에너지박스, "🧭용신"제목, 용신박스] = 11개. 이미 새 구조
+  // (.gg-zone2-body 있음)면 건드리지 않는다 — 멱등. Zone1과 같은 이유로 마지막에 이관 안 된 rest
+  // 잔재를 전부 지운다(2026-09-13 사용자 리포트로 발견된 Zone1 중복 렌더링 버그의 재발 방지).
+  function repairGunghamZone2Structure(rootEl) {
+    const zone2 = Array.from(rootEl.querySelectorAll('.zone-accordion')).find(function (d) {
+      const s = d.querySelector(':scope > summary');
+      return s && s.textContent.indexOf('Zone 2') >= 0;
+    });
+    if (!zone2 || zone2.querySelector(':scope > .gg-zone2-body')) return;
+    const summary = zone2.querySelector(':scope > summary');
+    const rest = Array.from(zone2.children).filter(function (c) { return c !== summary; });
+    if (rest.length < 11) return; // 예상 못한 구조 — 건드리지 않는다.
+
+    const wrap = document.createElement('div');
+    wrap.className = 'gg-zone2-body';
+    const mkTitle = function (text, extraClass) {
+      const t = document.createElement('div');
+      t.className = 'card-title' + (extraClass ? ' ' + extraClass : '');
+      t.textContent = text;
+      return t;
+    };
+    const mkHr = function () {
+      const hr = document.createElement('div');
+      hr.className = 'cmb-z2-hr'; hr.style.margin = '16px 0';
+      return hr;
+    };
+    const chemiCardToItem = function (rootDiv, tint) {
+      if (!rootDiv) return;
+      Array.from(rootDiv.querySelectorAll(':scope > .chemi-card')).forEach(function (card) {
+        card.classList.remove('chemi-card'); card.classList.add('gg-item');
+        if (tint) card.classList.add('gg-item-tint');
+        const t = card.querySelector(':scope > .chemi-title');
+        if (t) { t.classList.remove('chemi-title'); t.classList.add('gg-item-head'); }
+        const r = card.querySelector(':scope > .chemi-role');
+        if (r) { r.classList.remove('chemi-role'); r.classList.add('gg-item-reading'); }
+      });
+    };
+
+    let i = 0;
+    // ① 🌡️ 우리 관계 — 옛 구조는 head가 아이템 카드 "안"에 있었다. 밖으로 꺼내 새 제목으로 쓰고,
+    // 카드 안의 head는 제거해 중복을 없앤다(내용은 이미 새 title에 고정 문구로 있으니 head 텍스트
+    // 자체는 버려도 된다 — 항상 "🌡️ 우리 관계, 한 줄로 말하면" 고정이었다).
+    const overallDiv = rest[i++];
+    wrap.appendChild(mkTitle('🌡️ 우리 관계, 한 줄로 말하면', 'gg-overall-title'));
+    if (overallDiv) {
+      const item = overallDiv.querySelector(':scope > .gg-item');
+      if (item) {
+        item.classList.add('gg-item-tint');
+        const head = item.querySelector(':scope > .gg-item-head');
+        if (head) head.remove();
+      }
+      wrap.appendChild(overallDiv);
+    }
+
+    // ② ☯️ 만세력 비교 — 박스 자체가 이미 있던 .gg-oh-origin-box를 재사용.
+    if (rest[i] && rest[i].classList.contains('card-title')) i++;
+    const manseDiv = rest[i++];
+    wrap.appendChild(mkHr());
+    wrap.appendChild(mkTitle('☯️ 만세력 비교'));
+    if (manseDiv) { manseDiv.classList.add('gg-oh-origin-box'); manseDiv.removeAttribute('style'); wrap.appendChild(manseDiv); }
+
+    // ③ 🎴 십성으로 보는 서로의 역할 — 옛 chemi-card 2장을 gg-item(tint)으로, 두 문장을 하나의
+    // reading으로 합치고, "근거" 줄은 아코디언이 아니라 항상 펼쳐진 텍스트로 유지.
+    if (rest[i] && rest[i].classList.contains('card-title')) i++;
+    const sipseongDiv = rest[i++];
+    wrap.appendChild(mkHr());
+    wrap.appendChild(mkTitle('🎴 십성으로 보는 서로의 역할'));
+    if (sipseongDiv) {
+      Array.from(sipseongDiv.querySelectorAll(':scope > .chemi-card')).forEach(function (card) {
+        card.classList.remove('chemi-card'); card.classList.add('gg-item', 'gg-item-tint');
+        const headEl = card.querySelector(':scope > .chemi-title');
+        if (headEl) { headEl.classList.remove('chemi-title'); headEl.classList.add('gg-item-head', 'gg-sipseong-head'); }
+        const rows = Array.from(card.querySelectorAll(':scope > .chemi-role'));
+        if (rows[0] && rows[1]) {
+          const reading = document.createElement('div');
+          reading.className = 'gg-item-reading';
+          reading.innerHTML = rows[0].innerHTML + ' ' + rows[1].innerHTML;
+          rows[0].replaceWith(reading);
+          rows[1].remove();
+        }
+        if (rows[2]) { rows[2].removeAttribute('style'); rows[2].classList.remove('chemi-role'); rows[2].classList.add('gg-item-basis-visible'); }
+      });
+      wrap.appendChild(sipseongDiv);
+    }
+
+    // ④ 📖 사주 관계 풀이 — 이미 .gg-item(gunghapItemCardHtml) 구조라 그대로 이관만 한다.
+    if (rest[i] && rest[i].classList.contains('card-title')) i++;
+    const aiItemsDiv = rest[i++];
+    wrap.appendChild(mkHr());
+    wrap.appendChild(mkTitle('📖 사주 관계 풀이'));
+    if (aiItemsDiv) wrap.appendChild(aiItemsDiv);
+
+    // ⑤ ☯️ 사주 기운의 케미 — 옛 chemi-card 2장을 gg-item(tint)으로.
+    if (rest[i] && rest[i].classList.contains('card-title')) i++;
+    const energyDiv = rest[i++];
+    wrap.appendChild(mkHr());
+    wrap.appendChild(mkTitle('☯️ 사주 기운의 케미 (에너지의 합)'));
+    chemiCardToItem(energyDiv, true);
+    if (energyDiv) wrap.appendChild(energyDiv);
+
+    // ⑥ 🧭 용신 궁합 — 옛 chemi-card 2장 + 마지막 안내문 한 줄.
+    if (rest[i] && rest[i].classList.contains('card-title')) i++;
+    const yongsinDiv = rest[i++];
+    wrap.appendChild(mkHr());
+    wrap.appendChild(mkTitle('🧭 용신 궁합'));
+    if (yongsinDiv) {
+      chemiCardToItem(yongsinDiv, true);
+      const note = yongsinDiv.querySelector(':scope > .chemi-role');
+      if (note) { note.classList.remove('chemi-role'); note.classList.add('gg-item-basis-visible'); }
+      wrap.appendChild(yongsinDiv);
+    }
+
+    // 옛 구조 잔재 제거(Zone1과 같은 이유 — 이관 안 된 노드가 남으면 중복 렌더링된다).
+    rest.forEach(function (el) { if (el.parentElement === zone2) el.remove(); });
+
+    zone2.appendChild(wrap);
+  }
+
+  // 궁합보기 Zone3("💌 Zone 3 · 관계 실전 가이드")를 Figma(node 81:3997)에 맞춰 재구성(2026-09-13)
+  // 하기 전에 저장된 리포트는 옛 구조 그대로 얼어있다: "티격태격 모먼트" 카드가 베이지 톤
+  // .moment-card(.moment-title/.part-tip/.moment-tip)였고 소제목에 "1. " 번호가 붙어 있었다.
+  // "그래서 우리는 이렇게 만나요" 섹션은 이미 .gg-item(gunghapItemCardHtml) 구조라 감싸는 wrap과
+  // 구분선만 추가하면 된다. rest는 항상 [title, momentCardsDiv, practicalSectionDiv] 3개 고정
+  // (practicalSectionDiv는 연인/배우자 아니면 hidden 클래스만 있을 뿐 구조 자체는 항상 존재).
+  // 이미 새 구조(.gg-zone3-body 있음)면 건드리지 않는다 — 멱등.
+  function repairGunghamZone3Structure(rootEl) {
+    const zone3 = Array.from(rootEl.querySelectorAll('.zone-accordion')).find(function (d) {
+      const s = d.querySelector(':scope > summary');
+      return s && s.textContent.indexOf('Zone 3') >= 0;
+    });
+    if (!zone3 || zone3.querySelector(':scope > .gg-zone3-body')) return;
+    const summary = zone3.querySelector(':scope > summary');
+    const rest = Array.from(zone3.children).filter(function (c) { return c !== summary; });
+    if (rest.length < 3) return; // 예상 못한 구조 — 건드리지 않는다.
+
+    const wrap = document.createElement('div');
+    wrap.className = 'gg-zone3-body';
+
+    // 이 존은 Zone1·Zone2와 달리 항상 고정 순서 3개뿐이라(제목이 빠지거나 늘어날 일이 없다)
+    // 인덱스 보정 없이 그대로 분해한다.
+    const titleDiv = rest[0]; // ① "🚨 티격태격 모먼트" 제목 — 그대로 재사용.
+    wrap.appendChild(titleDiv);
+    const momentCardsDiv = rest[1];
+    if (momentCardsDiv) {
+      Array.from(momentCardsDiv.querySelectorAll(':scope > .moment-card')).forEach(function (card) {
+        card.classList.remove('moment-card'); card.classList.add('gg-item', 'gg-item-tint');
+        const t = card.querySelector(':scope > .moment-title');
+        if (t) {
+          t.classList.remove('moment-title'); t.classList.add('gg-item-head');
+          t.textContent = t.textContent.replace(/^\d+\.\s*/, '');
+        }
+        const d = card.querySelector(':scope > .part-tip');
+        if (d) { d.classList.remove('part-tip'); d.classList.add('gg-item-reading'); }
+        const tip = card.querySelector(':scope > .moment-tip');
+        if (tip) { tip.classList.remove('moment-tip'); tip.classList.add('gg-moment-tip'); }
+      });
+      wrap.appendChild(momentCardsDiv);
+    }
+
+    // ② "💌 그래서 우리는 이렇게 만나요" 섹션 — 이미 #ggPracticalSection 래퍼+.gg-item 구조라
+    // 구분선만 맨 앞에 끼워 넣고 통째로 옮긴다(hidden 클래스가 있으면 구분선도 같이 숨는다).
+    const practicalDiv = rest[2];
+    if (practicalDiv) {
+      const hr = document.createElement('div');
+      hr.className = 'cmb-z2-hr'; hr.style.margin = '16px 0';
+      practicalDiv.insertBefore(hr, practicalDiv.firstChild);
+      wrap.appendChild(practicalDiv);
+    }
+
+    // 옛 구조 잔재 제거(Zone1·Zone2와 같은 이유).
+    rest.forEach(function (el) { if (el.parentElement === zone3) el.remove(); });
+
+    zone3.appendChild(wrap);
+  }
+
   // Zone2/Zone3와 같은 이유(2026-09-13 Zone4를 Figma 72:4069에 맞춰 재구성) — 오늘 고치기 전에
   // 저장된 리포트는 옛 구조 그대로 얼어있다: "인생의 흐름" 3카드가 .card-title+.chemi-card(회색
   // 카드) 였고, 고정/가변 카드의 .gg-item-head가 jade색이었고, "관상과 사주로본 내 모습은" 섹션
@@ -1325,7 +1506,7 @@
     if (rec && rec.type === 'gungham') unwrapOuterCard(body);
     repairZoneAccordionArrows(body, rec && (rec.type === 'combined' || rec.type === 'gungham'));
     if (rec && rec.type === 'combined') { repairZone2Structure(body); repairZone3Structure(body); repairZone4Structure(body); repairLifelineTagPosition(body); }
-    if (rec && rec.type === 'gungham') { repairGunghamHeroStructure(body); repairGunghamZone1Structure(body); }
+    if (rec && rec.type === 'gungham') { repairGunghamHeroStructure(body); repairGunghamZone1Structure(body); repairGunghamZone2Structure(body); repairGunghamZone3Structure(body); }
     repairZone2OhaengReadingWrap(body);
     // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "보관함에서 리포트 보면 아코디언이 다 열려있음") — 여기서
     // innerHTML로 새로 찍은 zone-accordion들은 app.js의 initZoneAccordions()가 페이지 로드 시 한 번
@@ -1357,7 +1538,7 @@
     if (rec && rec.type === 'gungham') unwrapOuterCard(el);
     repairZoneAccordionArrows(el, rec && (rec.type === 'combined' || rec.type === 'gungham'));
     if (rec && rec.type === 'combined') { repairZone2Structure(el); repairZone3Structure(el); repairZone4Structure(el); repairLifelineTagPosition(el); }
-    if (rec && rec.type === 'gungham') { repairGunghamHeroStructure(el); repairGunghamZone1Structure(el); }
+    if (rec && rec.type === 'gungham') { repairGunghamHeroStructure(el); repairGunghamZone1Structure(el); repairGunghamZone2Structure(el); repairGunghamZone3Structure(el); }
     repairZone2OhaengReadingWrap(el);
     return true;
   }

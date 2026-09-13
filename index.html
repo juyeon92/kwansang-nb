@@ -45,6 +45,7 @@
   --surface: #FFFFFF;
   --card2: #F0F4F3;
   --oh-badge-bg: #FFF5DD;
+  --gg-tip-text: #4a4a4a;
   --text: #17201F;
   --text2: #68716F;
   --text3: #9AA3A1;
@@ -1163,6 +1164,51 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
    .cmb-lifeline-reading 등이 이미 쓰는 리터럴, 새 hex 아님). 생애주기 막대그래프는 Figma가 장식용
    목업 이미지("image 8")로 대체해둔 자리라 재현 대상이 아니고, 그 아래 요약 설명만 이 박스다. */
 .gg-zone1-body .gg-life-summary { background: #eef2f8; border: none; border-radius: 12px; padding: 12px; margin-top: 12px; margin-bottom: 0; font-size: 12px; }
+
+/* ═══ 궁합보기 Zone2(#ggZone2, Figma node 81:3802) 재구성 — 2026-09-13 ═══
+   Zone1과 같은 이유로 wrap div(.gg-zone2-body)와 그 안에서만 쓰는 클래스는 전부 class로 스코프한다
+   (id는 Archive.snapshot()이 지운다). 세로 padding만 필요(가로 16px는 이미 .zone-accordion 공용
+   규칙이 담당) — Figma 컨텐츠 프레임 padding이 top=미지정(0)/bottom=16이라 bottom만 준다. */
+.gg-zone2-body { padding: 16px 0; }
+/* Zone1과 같은 이유(공용 .card-title 장식 바 없이 16/800 가운데 정렬, --char-navy-deep) — "🌡️ 우리
+   관계"만 이 자리에서 GgItem 소제목을 대신하고 있어(Figma 실측: 아이템 안에 소제목이 따로 없다) 색이
+   다르다(char-navy, Figma 실측 #26375a). */
+.gg-zone2-body .card-title { color: var(--char-navy-deep); justify-content: center; text-align: center; margin-top: 0; margin-bottom: 12px; }
+.gg-zone2-body .card-title::before { display: none; }
+.gg-zone2-body .gg-overall-title { color: var(--char-navy); }
+/* ☯️ 만세력 비교 — 원국표를 Figma가 이미지 목업으로 대체해둔 자리라 실측 대상은 아니지만, 그 자리를
+   감싸는 박스는 Zone1의 "🌿 관상오행 비교"와 같은 흰 배경+네이비 테두리 OriginBox라 이미 있는
+   .gg-oh-origin-box를 그대로 재사용한다(새 클래스 아님). */
+/* Figma "GgItem"(Zone2 전용) — 공용 .gg-item(radius14, 이 파일 기존 규칙)과 달리 이 존은 radius12로
+   실측. 옅은 크림 배경(.gg-item-tint, #eef2f8 — .char-card-badge 등이 이미 쓰는 리터럴 재사용, 새
+   hex 아님)은 우리 관계·십성·에너지·용신 4곳에, "사주 관계 풀이" 9개는 공용 흰 배경(var(--surface))
+   그대로 쓴다. */
+.gg-zone2-body .gg-item { border-radius: 12px; }
+.gg-zone2-body .gg-item.gg-item-tint { background: #eef2f8; }
+.gg-zone2-body .gg-item-head { font-size: 12px; color: var(--char-navy-deep); }
+.gg-zone2-body .gg-item-reading { font-size: 12px; }
+/* 십성 아이템 소제목("상대 → 나"/"나 → 상대")만 14px로 다른 gg-item-head보다 크다(Figma 실측). */
+.gg-zone2-body .gg-sipseong-head { font-size: 14px; }
+/* 십성 "근거" 줄 — 다른 gg-item과 달리 아코디언이 아니라 항상 펼쳐진 텍스트다(Figma 실측, #666666 =
+   이 파일 --text-sub와 동일값). 용신 궁합 하단 안내문도 같은 톤이라 재사용한다. */
+.gg-item-basis-visible { font-size: 12px; color: var(--text-sub); }
+
+/* ═══ 궁합보기 Zone3(#ggZone3, Figma node 81:3997) 재구성 — 2026-09-13 ═══
+   Zone1·Zone2와 같은 이유로 wrap div(.gg-zone3-body)로 스코프한다(id는 스냅샷에서 지워진다). */
+.gg-zone3-body { padding: 16px 0; }
+/* Zone1·Zone2와 같은 장식 없는 가운데 정렬이지만, 이 존 제목만 14px로 더 작다(Figma 실측 — 16px가
+   아니라 14px). */
+.gg-zone3-body .card-title { color: var(--char-navy-deep); justify-content: center; text-align: center; margin-top: 0; margin-bottom: 12px; font-size: 14px; }
+.gg-zone3-body .card-title::before { display: none; }
+/* "티격태격 모먼트"(tint) 2장 + "그래서 우리는 이렇게 만나요"(흰 배경, 이미 gunghapItemCardHtml의
+   공용 .gg-item 구조라 배경은 그대로 둔다) — Zone2와 같은 이유로 radius/소제목만 스코프. */
+.gg-zone3-body .gg-item { border-radius: 12px; }
+.gg-zone3-body .gg-item.gg-item-tint { background: #eef2f8; }
+.gg-zone3-body .gg-item-head { font-size: 12px; color: var(--char-navy-deep); }
+.gg-zone3-body .gg-item-reading { font-size: 12px; }
+/* Figma "Frame 1261159317"(💡 해결책 박스) — tint 카드 안에 흰 배경 radius8 박스로 한 번 더 강조.
+   --gg-tip-text(#4a4a4a)는 이 화면에서만 쓰는 진짜 새 값이라 STYLE_GUIDE.md 1.7에 먼저 등록했다. */
+.gg-moment-tip { background: #fff; border-radius: 8px; padding: 8px; font-size: 12px; color: var(--gg-tip-text); margin-top: 8px; }
 
 .archetype-card { display: flex; gap: 14px; align-items: flex-start; border: 1.5px solid var(--mint-border); border-radius: var(--r); padding: 14px 16px; margin-top: 10px; background: var(--mint-tint-10); }
 .archetype-icon { flex-shrink: 0; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: var(--surface); border-radius: 12px; }
@@ -2926,33 +2972,44 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
             <details class="report-accordion zone-accordion" id="ggZone2">
         <summary>☯️ Zone 2 · 사주 궁합<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
 
-                <div id="ggOverallRelationship"></div>
+                <div class="gg-zone2-body">
+        <div class="card-title gg-overall-title">🌡️ 우리 관계, 한 줄로 말하면</div>
+        <div id="ggOverallRelationship"></div>
 
-                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 만세력 비교</div>
-        <div id="ggManseryeokCompare" style="margin-bottom:16px;"></div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="card-title">☯️ 만세력 비교</div>
+        <div id="ggManseryeokCompare" class="gg-oh-origin-box"></div>
 
-                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🎴 십성으로 보는 서로의 역할</div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="card-title">🎴 십성으로 보는 서로의 역할</div>
         <div id="ggSipseongCross"></div>
 
-                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">📖 사주 관계 풀이</div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="card-title">📖 사주 관계 풀이</div>
         <div id="ggZone2AiItems"></div>
 
-                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">☯️ 사주 기운의 케미 (에너지의 합)</div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="card-title">☯️ 사주 기운의 케미 (에너지의 합)</div>
         <div id="ggEnergyCards"></div>
 
-                <div class="card-title" style="margin-top:20px;margin-bottom:12px;">🧭 용신 궁합</div>
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="card-title">🧭 용신 궁합</div>
         <div id="ggYongsinCard"></div>
+        </div>
       </details>
 
             <details class="report-accordion zone-accordion" id="ggZone3">
         <summary>💌 Zone 3 · 관계 실전 가이드<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
 
-        <div class="card-title" style="margin-top:0;margin-bottom:12px;">🚨 티격태격 모먼트 &amp; 극복 전략</div>
+        <div class="gg-zone3-body">
+        <div class="card-title">🚨 티격태격 모먼트 &amp; 극복 전략</div>
         <div id="ggMomentCards"></div>
 
         <div id="ggPracticalSection" class="hidden">
-          <div class="card-title" style="margin-top:20px;margin-bottom:12px;">💌 그래서 우리는 이렇게 만나요</div>
+          <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+          <div class="card-title">💌 그래서 우리는 이렇게 만나요</div>
           <div id="ggPracticalItems"></div>
+        </div>
         </div>
       </details>
 
@@ -3011,10 +3068,10 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/character-api.js?v=20260908b"></script>
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
-<script src="js/ai-analysis.js?v=20260913b"></script>
-<script src="js/app.js?v=20260913i"></script>
+<script src="js/ai-analysis.js?v=20260913c"></script>
+<script src="js/app.js?v=20260913k"></script>
 <script src="js/profile.js?v=20260913h"></script>
-<script src="js/archive.js?v=20260913l"></script>
+<script src="js/archive.js?v=20260913n"></script>
 <script src="js/inyeon-dogam.js?v=20260913c"></script>
 <script src="js/nyang-shop.js?v=20260913a"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>

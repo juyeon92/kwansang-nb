@@ -876,8 +876,16 @@ function renderGunghapResult(data) {
   (data.zone2_items || []).forEach(it => { itemsByKey[it.key] = it; });
 
   // ① 사주 궁합 한줄 총평 — overall_relationship만 목록에서 떼어내 Zone2 맨 위에 단독 노출(2026-08-22).
+  // Figma(81:3802) 실측 — 이 소제목("🌡️ 우리 관계, 한 줄로 말하면")은 아이템 카드 안이 아니라 밖의
+  // 정적 .card-title로 이미 index.html에 있다(gunghapItemCardHtml을 그대로 쓰면 안 안에도 같은
+  // 제목이 중복된다) — 여기서는 tint 배경 카드 안에 풀이+근거 아코디언만 채운다.
   const overall = itemsByKey.overall_relationship;
-  setHtml('ggOverallRelationship', overall ? gunghapItemCardHtml(GUNGHAP_ZONE2_META.overall_relationship, overall) : '');
+  setHtml('ggOverallRelationship', overall
+    ? `<div class="gg-item gg-item-tint">
+        <div class="gg-item-reading">${overall.reading}</div>
+        <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${overall.basis}</div></details>
+      </div>`
+    : '');
 
   // ④ 사주 관계 풀이 — overall_relationship을 뺀 나머지 9개.
   const zone2Html = GUNGHAP_ZONE2_ORDER

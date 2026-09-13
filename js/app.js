@@ -1402,18 +1402,18 @@ function renderSipseongCross(cross, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
   if (!cross) { el.innerHTML = ''; return; }
+  // Figma(81:3802) 실측 — 소제목만 14px(다른 gg-item-head보다 큼), 두 문장이 한 문단으로 이어지고
+  // "근거:" 줄은 아코디언이 아니라 항상 펼쳐진 회색 텍스트다(다른 gg-item과 다른 점).
   el.innerHTML = `
-    <div class="chemi-card">
-      <div class="chemi-title">상대 → 나</div>
-      <div class="chemi-role">상대는 나에게 <strong>${cross.partnerToMe}</strong> 같은 존재예요.</div>
-      <div class="chemi-role" style="margin-top:4px;">${sipseongMeaningSentence(cross.partnerToMe, cross.meaningPartnerToMe)}</div>
-      <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 내 일간(${cross.dayOhA}) 기준 상대 일간(${cross.dayOhB}) → ${cross.partnerToMe}</div>
+    <div class="gg-item gg-item-tint">
+      <div class="gg-item-head gg-sipseong-head">상대 → 나</div>
+      <div class="gg-item-reading">상대는 나에게 <strong>${cross.partnerToMe}</strong> 같은 존재예요. ${sipseongMeaningSentence(cross.partnerToMe, cross.meaningPartnerToMe)}</div>
+      <div class="gg-item-basis-visible">근거: 내 일간(${cross.dayOhA}) 기준 상대 일간(${cross.dayOhB}) → ${cross.partnerToMe}</div>
     </div>
-    <div class="chemi-card">
-      <div class="chemi-title">나 → 상대</div>
-      <div class="chemi-role">나는 상대에게 <strong>${cross.meToPartner}</strong> 같은 존재예요.</div>
-      <div class="chemi-role" style="margin-top:4px;">${sipseongMeaningSentence(cross.meToPartner, cross.meaningMeToPartner)}</div>
-      <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:6px;">근거: 상대 일간(${cross.dayOhB}) 기준 내 일간(${cross.dayOhA}) → ${cross.meToPartner}</div>
+    <div class="gg-item gg-item-tint">
+      <div class="gg-item-head gg-sipseong-head">나 → 상대</div>
+      <div class="gg-item-reading">나는 상대에게 <strong>${cross.meToPartner}</strong> 같은 존재예요. ${sipseongMeaningSentence(cross.meToPartner, cross.meaningMeToPartner)}</div>
+      <div class="gg-item-basis-visible">근거: 상대 일간(${cross.dayOhB}) 기준 내 일간(${cross.dayOhA}) → ${cross.meToPartner}</div>
     </div>`;
 }
 
@@ -1510,15 +1510,15 @@ function renderYongsinChemi(yongsin, elId) {
     ? `상대에게 필요한 ${yongsinOhB} 기운을 내가 넉넉히 갖고 있어요(${aHasForB}%) — 상대에게 내가 힘이 되어주는 조합이에요.`
     : `상대에게 필요한 ${yongsinOhB} 기운이 나에게도 부족한 편이에요(${aHasForB}%) — 둘 다 외부에서 채워야 하는 기운이에요.`;
   el.innerHTML = `
-    <div class="chemi-card">
-      <div class="chemi-title">나에게 필요한 오행 — ${yongsinOhA}</div>
-      <div class="chemi-role">${textForA}</div>
+    <div class="gg-item gg-item-tint">
+      <div class="gg-item-head">나에게 필요한 오행 — ${yongsinOhA}</div>
+      <div class="gg-item-reading">${textForA}</div>
     </div>
-    <div class="chemi-card">
-      <div class="chemi-title">상대에게 필요한 오행 — ${yongsinOhB}</div>
-      <div class="chemi-role">${textForB}</div>
+    <div class="gg-item gg-item-tint">
+      <div class="gg-item-head">상대에게 필요한 오행 — ${yongsinOhB}</div>
+      <div class="gg-item-reading">${textForB}</div>
     </div>
-    <div class="chemi-role" style="font-size:11px;color:var(--text2);margin-top:4px;">💡 이 판정은 간이 억부법 기준의 참고용 해석이에요.</div>`;
+    <div class="gg-item-basis-visible" style="margin-top:4px;">💡 이 판정은 간이 억부법 기준의 참고용 해석이에요.</div>`;
 }
 
 // ═══ 천을귀인(天乙貴人) — 일간 기준으로 가장 잘 알려진 길신(吉神). 학파 차이가 거의 없는 표준 공식 ═══
@@ -3521,16 +3521,18 @@ function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lif
 
   // STEP3 — 사주 기운 케미
   document.getElementById('ggEnergyCards').innerHTML = `
-    <div class="chemi-card"><div class="chemi-title">에너지 시너지 (사주 대 사주)</div><div class="chemi-role">${energy.synergy}</div></div>
-    <div class="chemi-card"><div class="chemi-title">마음의 안식처 케미</div><div class="chemi-role">${energy.haven}</div></div>`;
+    <div class="gg-item gg-item-tint"><div class="gg-item-head">에너지 시너지 (사주 대 사주)</div><div class="gg-item-reading">${energy.synergy}</div></div>
+    <div class="gg-item gg-item-tint"><div class="gg-item-head">마음의 안식처 케미</div><div class="gg-item-reading">${energy.haven}</div></div>`;
 
   renderYongsinChemi(yongsinChemi, 'ggYongsinCard');
 
-  document.getElementById('ggMomentCards').innerHTML = moments.map((m, i) => `
-    <div class="moment-card">
-      <div class="moment-title">${i+1}. ${m.title}</div>
-      <div class="part-tip">${m.desc}</div>
-      <div class="moment-tip">💡 해결책 — ${m.tip}</div>
+  // Figma(81:3997) 실측 — 소제목엔 번호 접두어가 없고, 해결책 줄은 tint 카드 안의 흰 배경 박스로
+  // 한 번 더 강조된 형태다.
+  document.getElementById('ggMomentCards').innerHTML = moments.map(m => `
+    <div class="gg-item gg-item-tint">
+      <div class="gg-item-head">${m.title}</div>
+      <div class="gg-item-reading">${m.desc}</div>
+      <div class="gg-moment-tip">💡 해결책 — ${m.tip}</div>
     </div>`).join('');
 }
 
