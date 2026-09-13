@@ -547,7 +547,7 @@
       const locked = linkedReportCounts(p.id).total > 0;
       return `
         <div class="profile-row ${isCandidate ? 'is-selected' : ''}" onclick="Profile._selectCandidateRow('${p.id}', '${ggSlot || ''}')">
-          <span class="profile-row-check">${isCandidate ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;"><path d="M12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2ZM15.8535 9.31348C15.6583 9.11821 15.3417 9.11821 15.1465 9.31348L11 13.46L8.85352 11.3135C8.65825 11.1182 8.34175 11.1182 8.14648 11.3135C7.95139 11.5088 7.95128 11.8253 8.14648 12.0205L10.6465 14.5205C10.8417 14.7156 11.1583 14.7156 11.3535 14.5205L15.8535 10.0205C16.0487 9.8253 16.0486 9.50875 15.8535 9.31348Z" fill="currentColor"/></svg>' : ''}</span>
+          <span class="profile-row-check">${isCandidate ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;"><path d="M12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2ZM15.8535 9.31348C15.6583 9.11821 15.3417 9.11821 15.1465 9.31348L11 13.46L8.85352 11.3135C8.65825 11.1182 8.34175 11.1182 8.14648 11.3135C7.95139 11.5088 7.95128 11.8253 8.14648 12.0205L10.6465 14.5205C10.8417 14.7156 11.1583 14.7156 11.3535 14.5205L15.8535 10.0205C16.0487 9.8253 16.0486 9.50875 15.8535 9.31348Z" fill="currentColor"/></svg>' : ''}</span>
           <div class="profile-row-body">
             <div class="profile-row-top">
               <span class="profile-row-name">${esc(p.name)}</span>
@@ -911,7 +911,7 @@
     if (draft._locked) return;
     const rows = BIRTH_HOUR_OPTIONS.map(o => `
       <div class="profile-row hour-row ${draft.birthHour===o.value?'is-selected':''}" onclick="Profile._pickHour('${o.value}')">
-        <span class="profile-row-check">${draft.birthHour===o.value?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;"><path d="M12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2ZM15.8535 9.31348C15.6583 9.11821 15.3417 9.11821 15.1465 9.31348L11 13.46L8.85352 11.3135C8.65825 11.1182 8.34175 11.1182 8.14648 11.3135C7.95139 11.5088 7.95128 11.8253 8.14648 12.0205L10.6465 14.5205C10.8417 14.7156 11.1583 14.7156 11.3535 14.5205L15.8535 10.0205C16.0487 9.8253 16.0486 9.50875 15.8535 9.31348Z" fill="currentColor"/></svg>':''}</span>
+        <span class="profile-row-check">${draft.birthHour===o.value?'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;"><path d="M12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2ZM15.8535 9.31348C15.6583 9.11821 15.3417 9.11821 15.1465 9.31348L11 13.46L8.85352 11.3135C8.65825 11.1182 8.34175 11.1182 8.14648 11.3135C7.95139 11.5088 7.95128 11.8253 8.14648 12.0205L10.6465 14.5205C10.8417 14.7156 11.1583 14.7156 11.3535 14.5205L15.8535 10.0205C16.0487 9.8253 16.0486 9.50875 15.8535 9.31348Z" fill="currentColor"/></svg>':''}</span>
         <div class="profile-row-body"><div class="profile-row-top"><span class="profile-row-name">${o.label}</span></div>
         ${o.range?`<div class="profile-row-sub">${o.range}</div>`:''}</div>
       </div>`).join('');
