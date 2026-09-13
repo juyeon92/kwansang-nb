@@ -1908,8 +1908,12 @@ function renderLifeline(nowElId, listElId, daeun, dayStemIdx, samjeong, age) {
       lastStage = stage;
     }
     // Figma "NowTag"(node 72:3282 LifelineCard) 실측 — 배지 문구가 "지금"이 아니라 "현재"다.
+    // Figma node 81:3326 실측 — 배지(현재/좋은 시기)는 설명 문장이 아니라 연령대 라벨과 한 줄에
+    // 나란히 붙는다("Frame 1261159314": age 텍스트 + NowTag, gap 8). 예전엔 tags를 .lifeline-unseong
+    // 전체(연령대+설명 2줄) 옆의 형제로 뒀더니 배지가 그 블록 세로 가운데로 쏠려 설명문 옆에
+    // 떠 있는 것처럼 보였다.
     const tags = (isNow ? '<span class="lifeline-now-tag">현재</span>' : '') + (isGood ? '<span class="lifeline-good-tag">⭐ 좋은 시기</span>' : '');
-    return `${groupHead}<div class="lifeline-item ${stage}${isNow ? ' is-now' : ''}"><span class="lifeline-dot"></span><span class="lifeline-unseong"><span class="age">${d.startAge}세 ~ ${d.endAge}세</span>${unseong || ''}${meaning ? ' · ' + meaning : ''}</span>${tags}</div>`;
+    return `${groupHead}<div class="lifeline-item ${stage}${isNow ? ' is-now' : ''}"><span class="lifeline-dot"></span><span class="lifeline-unseong"><span class="lifeline-age-row"><span class="age">${d.startAge}세 ~ ${d.endAge}세</span>${tags}</span>${unseong || ''}${meaning ? ' · ' + meaning : ''}</span></div>`;
   }).join('');
   listEl.innerHTML = html;
   if (nowEl) {

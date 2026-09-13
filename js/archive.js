@@ -333,6 +333,16 @@
   // 없이 ::before 텍스트로만 표시)와 같은 화면(#arcReportBody)을 함께 쓰는 보관함 탭에서 잘못
   // 아이콘을 붙이지 않도록 이 플래그 없이는 2번 단계를 건너뛴다.
   function repairZoneAccordionArrows(rootEl, isCombinedOnly) {
+    // 0) 버그 수정(2026-09-13 사용자 리포트: "저장된 리포트에서 존 아코디언 인터랙션이 끊겨있다") —
+    // app.js의 initZoneAccordions()는 리스너를 붙인 zone-accordion에 data-zac="1" 마커를 남겨 중복
+    // 바인딩을 막는데, 스냅샷 당시(snapshot()) 라이브 화면의 zone-accordion에 이미 이 마커가 붙어있던
+    // 상태 그대로 저장된 옛 리포트들은 그 마커까지 통째로 얼어붙어 있다. 그 상태로 새로 그리면
+    // initZoneAccordions()가 "이미 리스너 붙었음"으로 착각해 실제로는 리스너 없는 새 DOM에 바인딩을
+    // 건너뛰어 "하나 열면 나머지 닫힘"이 전혀 동작하지 않았다. 이 함수는 매번 리포트를 그릴 때마다
+    // 호출되므로(통합분석·궁합보기 공통), 여기서 마커를 지워 항상 다시 바인딩되게 한다. snapshot()
+    // 자체도 이제 저장 시점에 이 마커를 지우지만(이후 저장분), 이미 저장된 옛 리포트는 표시 시점에
+    // 여기서 지워야만 고쳐진다.
+    rootEl.querySelectorAll('.zone-accordion[data-zac]').forEach(function (el) { el.removeAttribute('data-zac'); });
     // 1) 아이콘 요소 자체는 있는데 깨진 경우(옛 폰트 리게이처, mask id 유실) — 내용만 바꿔치기.
     //    .zone-accordion-arrow 클래스 자체가 통합분석 전용이라(궁합보기는 이 클래스를 아예 안 씀)
     //    isCombinedOnly 여부와 무관하게 항상 안전하다.
@@ -543,6 +553,29 @@
     zone3.appendChild(wrap);
   }
 
+  // 버그 수정(2026-09-13 사용자 리포트: "좋은 시기 배지가 연령대 옆이 아니라 설명 문장 끝에 붙어있다") —
+  // app.js의 renderLifeline()이 예전엔 현재/좋은 시기 배지를 .lifeline-unseong 전체(연령대+설명 2줄)
+  // 뒤에 형제로 붙였는데, Figma(node 81:3326) 실측대로 연령대 라벨과 한 줄(.lifeline-age-row)에
+  // 나란히 붙게 고쳤다. 이 함수(repairZone3Structure)의 "이미 .cmb-zone3-body 있으면 건드리지 않는다"
+  // 가드 때문에, 이 배지 위치 수정 이전에 저장된 리포트는 Zone3 전체 구조는 이미 새 형태라도(그래서
+  // 위 repairZone3Structure가 스킵됨) 배지만 옛 위치 그대로 얼어있다 — 그래서 이 함수는 Zone3 구조와
+  // 무관하게 항상 독립적으로 돈다. .lifeline-item 직계 자식으로 태그가 있으면(옛 구조) .lifeline-unseong
+  // 안 .age 옆으로 옮긴다. 이미 새 구조(.lifeline-age-row 있음)면 건드리지 않는다 — 멱등.
+  function repairLifelineTagPosition(rootEl) {
+    rootEl.querySelectorAll('.lifeline-item').forEach(function (item) {
+      const unseongEl = item.querySelector(':scope > .lifeline-unseong');
+      if (!unseongEl || unseongEl.querySelector(':scope > .lifeline-age-row')) return;
+      const ageEl = unseongEl.querySelector(':scope > .age');
+      if (!ageEl) return;
+      const tags = Array.from(item.querySelectorAll(':scope > .lifeline-now-tag, :scope > .lifeline-good-tag'));
+      const row = document.createElement('span');
+      row.className = 'lifeline-age-row';
+      unseongEl.insertBefore(row, unseongEl.firstChild);
+      row.appendChild(ageEl);
+      tags.forEach(function (t) { row.appendChild(t); });
+    });
+  }
+
   // Zone2/Zone3와 같은 이유(2026-09-13 Zone4를 Figma 72:4069에 맞춰 재구성) — 오늘 고치기 전에
   // 저장된 리포트는 옛 구조 그대로 얼어있다: "인생의 흐름" 3카드가 .card-title+.chemi-card(회색
   // 카드) 였고, 고정/가변 카드의 .gg-item-head가 jade색이었고, "관상과 사주로본 내 모습은" 섹션
@@ -645,6 +678,15 @@
     wrap.querySelectorAll('canvas, script').forEach(n => n.remove());
     wrap.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
     wrap.querySelectorAll('[onclick]').forEach(n => n.removeAttribute('onclick'));
+    // ⚠️ 버그 수정(2026-09-13 사용자 리포트: "저장된 리포트에서 존 아코디언 인터랙션이 끊겨있다") —
+    // app.js의 initZoneAccordions()는 리스너를 한 번 붙인 zone-accordion에 data-zac="1"을 마커로
+    // 남겨 중복 바인딩을 막는데, 라이브 화면(#cmbResult)의 zone-accordion은 페이지 로드 시 이미 이
+    // 마커가 붙어있다. 그 상태 그대로 clone해서 스냅샷을 찍으면 이 data-zac 속성까지 문자열에 같이
+    // 얼어붙어, 저장된 리포트를 나중에 새로 그릴 때 initZoneAccordions()가 "이미 리스너 붙었음"으로
+    // 착각해 실제로는 리스너가 하나도 없는 새 DOM에 바인딩을 건너뛰었다 — 그래서 열기는 되는데
+    // "하나 열면 나머지 닫힘"이 전혀 동작하지 않았다. id처럼 저장 시점에 걷어내 새로 열 때 반드시
+    // 다시 바인딩되게 한다.
+    wrap.querySelectorAll('[data-zac]').forEach(n => n.removeAttribute('data-zac'));
     // 저장 시점에 접혀 있던 상세(details)는 그대로 두되, 카드 자체가 숨겨지진 않게 한다.
     Array.from(wrap.children).forEach(n => n.classList.remove('hidden'));
     return wrap.innerHTML;
@@ -1093,7 +1135,7 @@
     // 이미 저장돼 있던 리포트에도 조작 요소가 섞여 있을 수 있어 여는 시점에도 한 번 걷어낸다.
     stripChrome(body);
     repairZoneAccordionArrows(body, rec && rec.type === 'combined');
-    if (rec && rec.type === 'combined') { repairZone2Structure(body); repairZone3Structure(body); repairZone4Structure(body); }
+    if (rec && rec.type === 'combined') { repairZone2Structure(body); repairZone3Structure(body); repairZone4Structure(body); repairLifelineTagPosition(body); }
     repairZone2OhaengReadingWrap(body);
     // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "보관함에서 리포트 보면 아코디언이 다 열려있음") — 여기서
     // innerHTML로 새로 찍은 zone-accordion들은 app.js의 initZoneAccordions()가 페이지 로드 시 한 번
@@ -1123,7 +1165,7 @@
     // 넘긴다.
     const rec = loadIndex().find(r => r.id === id);
     repairZoneAccordionArrows(el, rec && rec.type === 'combined');
-    if (rec && rec.type === 'combined') { repairZone2Structure(el); repairZone3Structure(el); repairZone4Structure(el); }
+    if (rec && rec.type === 'combined') { repairZone2Structure(el); repairZone3Structure(el); repairZone4Structure(el); repairLifelineTagPosition(el); }
     repairZone2OhaengReadingWrap(el);
     return true;
   }
