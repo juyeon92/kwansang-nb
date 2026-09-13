@@ -189,12 +189,26 @@ function partDeepDiveCardHtml(p) {
 
 // 통합분석 Zone1 전용(2026-08-21 추가) — part_deep_dive(관상 부위별 상세해설)는 이미 관상 탭에서
 // AI에게 요청·생성되고 있었는데 통합분석 화면엔 담을 곳이 없어 계속 버려지고 있었다(사용자 피드백:
-// "눈이 작다·코가 좋다 같은 실측 데이터 때문에 이렇게 해석된다는 상세 풀이가 있었으면 좋겠다"). 카드
-// HTML은 관상 탭과 완전히 같은 partDeepDiveCardHtml을 그대로 재사용해 톤·구조를 통일한다.
+// "눈이 작다·코가 좋다 같은 실측 데이터 때문에 이렇게 해석된다는 상세 풀이가 있었으면 좋겠다").
+// (2026-09-13 Zone3 "🔮 관상 정보" Figma(72:3282) 재실측) — 관상 탭과 같은 partDeepDiveCardHtml을
+// 그대로 재사용하면 그 카드가 다크 톤(반투명 흰 배경·보라 라벨)이라 Zone3의 흰 배경·네이비/재이드
+// 톤과 완전히 충돌한다. 데이터(section_key/title/interpretation/analysis_basis/principle)는 관상
+// 탭과 똑같이 재사용하되, 마크업은 Zone4(renderZone4FixedCard)와 같은 .gg-item 패턴으로 새로 그린다
+// — Figma GgItem이 라벨(10px/600/gray)+헤드라인(12px/800/navy) 두 줄을 먼저 보여주는 것까지 반영.
 function renderPartDeepDive(elId, data) {
   const el = document.getElementById(elId);
   if (!el) return;
-  el.innerHTML = (data.part_deep_dive || []).map(partDeepDiveCardHtml).join('');
+  el.innerHTML = (data.part_deep_dive || []).map(p => {
+    const label = getDeepSectionLabel(p.section_key);
+    const basis = [p.analysis_basis, p.principle].filter(Boolean).join('<br><br>');
+    return `
+      <div class="gg-item">
+        <div class="cmb-part-label">${label}</div>
+        <div class="gg-item-head" style="color:var(--char-navy-deep);margin-top:2px;">${p.title || ''}</div>
+        <div class="gg-item-reading">${p.interpretation || ''}</div>
+        <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${basis}</div></details>
+      </div>`;
+  }).join('');
 }
 
 function renderDeepReport(elId, data) {
