@@ -448,6 +448,100 @@
     });
   }
 
+  // 사용자 리포트(2026-09-13: "zone3 바꿨다고 하는데 안바뀌어 있거든") — Zone2와 같은 이유: 오늘 Zone3를
+  // 재구성(.cmb-zone3-body 래핑, .z3-pair-card 3개를 구분선으로, "관상 정보" 카드를 다크 테마에서
+  // gg-item 라이트 테마로)하기 전에 저장된 리포트는 옛 구조 그대로 얼어있다. 콘솔로 실제 옛 구조를
+  // 확인해 그대로 재현한다. ZONE3는 summary 텍스트로 특정(cmb-zone3 class가 없는 더 오래된 스냅샷도
+  // 커버). 이미 새 구조(.cmb-zone3-body 있음)면 건드리지 않는다 — 멱등.
+  function repairZone3Structure(rootEl) {
+    const zone3 = Array.from(rootEl.querySelectorAll('.zone-accordion')).find(function (d) {
+      const s = d.querySelector(':scope > summary');
+      return s && s.textContent.indexOf('ZONE 3') === 0;
+    });
+    if (!zone3 || zone3.querySelector(':scope > .cmb-zone3-body')) return;
+    const summary = zone3.querySelector(':scope > summary');
+    const rest = Array.from(zone3.children).filter(function (c) { return c !== summary; });
+    if (!rest.length) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'cmb-zone3-body';
+    const mkHr = function () {
+      const hr = document.createElement('div');
+      hr.className = 'cmb-z2-hr'; hr.style.margin = '16px 0';
+      return hr;
+    };
+
+    rest.forEach(function (card, idx) {
+      if (!card.classList || !card.classList.contains('z3-pair-card')) { wrap.appendChild(card); return; }
+      const titleEl = card.querySelector(':scope > .z3-pair-title');
+      const title = titleEl ? titleEl.textContent : '';
+      const body = Array.from(card.children).filter(function (c) { return c !== titleEl; });
+
+      if (idx > 0) wrap.appendChild(mkHr());
+      if (titleEl) wrap.appendChild(titleEl);
+
+      if (title.indexOf('사주 원국') >= 0) {
+        const pillars = body.find(function (c) { return c.classList.contains('pillars-table'); });
+        if (pillars) wrap.appendChild(pillars);
+        wrap.appendChild(mkHr());
+        body.filter(function (c) { return c !== pillars; }).forEach(function (n) { wrap.appendChild(n); });
+      } else if (title.indexOf('대운') >= 0) {
+        const caption = body.find(function (c) { return c.classList.contains('metric-caption'); });
+        const lifelineEl = body.find(function (c) { return c.classList.contains('lifeline'); });
+        const readingBox = body.find(function (c) { return c.classList.contains('gg-item'); });
+        const dogamRow = body.find(function (c) { return c !== caption && c !== lifelineEl && c !== readingBox; });
+        if (caption) wrap.appendChild(caption);
+        if (dogamRow) {
+          dogamRow.className = 'cmb-dogam-row';
+          dogamRow.removeAttribute('style');
+          wrap.appendChild(dogamRow);
+        }
+        const lifelineCard = document.createElement('div');
+        lifelineCard.className = 'cmb-lifeline-card';
+        if (lifelineEl) lifelineCard.appendChild(lifelineEl);
+        if (readingBox) {
+          readingBox.classList.add('cmb-lifeline-reading');
+          readingBox.style.marginTop = '12px'; readingBox.style.marginBottom = '0';
+          lifelineCard.appendChild(readingBox);
+        }
+        wrap.appendChild(lifelineCard);
+      } else if (title.indexOf('관상 정보') >= 0) {
+        const outer = body[0]; // 옛 구조: title 다음 유일한 형제가 다크 테마 카드들을 감싼 래퍼 div
+        const partDeepDive = document.createElement('div');
+        const oldCards = outer ? Array.from(outer.querySelectorAll(':scope > .face-reading-card')) : [];
+        oldCards.forEach(function (fc) {
+          const divs = Array.from(fc.children).filter(function (c) { return c.tagName === 'DIV'; });
+          const label = divs[0] ? divs[0].textContent.trim() : '';
+          const headline = divs[1] ? divs[1].textContent.trim() : '';
+          const reading = divs[2] ? divs[2].textContent.trim() : '';
+          const basisAcc = fc.querySelector(':scope > details.gg-basis-acc');
+          const item = document.createElement('div');
+          item.className = 'gg-item';
+          const labelDiv = document.createElement('div');
+          labelDiv.className = 'cmb-part-label'; labelDiv.textContent = label;
+          const headDiv = document.createElement('div');
+          headDiv.className = 'gg-item-head';
+          headDiv.style.color = 'var(--char-navy-deep)'; headDiv.style.marginTop = '2px';
+          headDiv.textContent = headline;
+          const readDiv = document.createElement('div');
+          readDiv.className = 'gg-item-reading'; readDiv.textContent = reading;
+          item.appendChild(labelDiv); item.appendChild(headDiv); item.appendChild(readDiv);
+          if (basisAcc) {
+            const content = basisAcc.querySelector('.gg-basis-content');
+            if (content) content.removeAttribute('style');
+            item.appendChild(basisAcc);
+          }
+          partDeepDive.appendChild(item);
+        });
+        wrap.appendChild(partDeepDive);
+      } else {
+        body.forEach(function (n) { wrap.appendChild(n); });
+      }
+      card.remove();
+    });
+
+    zone3.appendChild(wrap);
+  }
+
   function snapshot(type) {
     const wrap = document.createElement('div');
     (CONTAINERS[type] || []).forEach(function (id) {
@@ -908,7 +1002,7 @@
     // 이미 저장돼 있던 리포트에도 조작 요소가 섞여 있을 수 있어 여는 시점에도 한 번 걷어낸다.
     stripChrome(body);
     repairZoneAccordionArrows(body, rec && rec.type === 'combined');
-    if (rec && rec.type === 'combined') repairZone2Structure(body);
+    if (rec && rec.type === 'combined') { repairZone2Structure(body); repairZone3Structure(body); }
     repairZone2OhaengReadingWrap(body);
     // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "보관함에서 리포트 보면 아코디언이 다 열려있음") — 여기서
     // innerHTML로 새로 찍은 zone-accordion들은 app.js의 initZoneAccordions()가 페이지 로드 시 한 번
@@ -938,7 +1032,7 @@
     // 넘긴다.
     const rec = loadIndex().find(r => r.id === id);
     repairZoneAccordionArrows(el, rec && rec.type === 'combined');
-    if (rec && rec.type === 'combined') repairZone2Structure(el);
+    if (rec && rec.type === 'combined') { repairZone2Structure(el); repairZone3Structure(el); }
     repairZone2OhaengReadingWrap(el);
     return true;
   }
