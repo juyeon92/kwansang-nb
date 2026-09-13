@@ -509,7 +509,10 @@
     opts = opts || {};
     switcherOpts = opts;
     const list = loadProfiles();
-    if (list.length === 0) { openForm(null, opts); return; }
+    // P4(통합분석 사주 선택 바텀시트, 정책 3-2)만 0건이어도 빈 상태 문구를 보여주며 시트를 그대로 연다.
+    // 그 외(사주 관리·궁합보기 A/B 픽커)는 기존처럼 바로 등록 폼으로 보낸다 — 이 문서 범위 밖이라
+    // 손대지 않는다.
+    if (list.length === 0 && opts.title !== '분석할 사주 선택') { openForm(null, opts); return; }
     const rep = getRepresentative();
     // ggSlot(2026-08-22 재편) — 'A'/'B'면 궁합보기의 나/상대 자리를 독립적으로 고르는 것이고(대표
     // 프로필을 건드리지 않음), 없으면(null) 기존처럼 "내 대표 프로필 자체를 바꾸는" 시트다(헤더의
@@ -528,8 +531,8 @@
         </div>
         <div class="profile-row-list" id="profileRowList"></div>
         <div class="switcher-foot">
-          <button class="btn-outline-primary btn-outline-mint btn-md" onclick="Profile._openAdd('${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px;">add</span> 사주 추가하기</button>
-          <button class="btn-solid-primary btn-md" onclick="Profile._confirmSwitcher('${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-4px;">add</span> 사주 선택하기</button>
+          <button class="btn-outline-primary btn-outline-mint btn-md" onclick="Profile._openAdd('${ggSlot || ''}')">사주 추가하기</button>
+          <button class="btn-solid-primary btn-md" onclick="Profile._confirmSwitcher('${ggSlot || ''}')">사주 선택하기</button>
         </div>
       </div>`;
     document.body.classList.add('overlay-open');
@@ -539,14 +542,31 @@
   function renderSwitcherRows(list, ggSlot) {
     const el = document.getElementById('profileRowList');
     if (!el) return;
-    el.innerHTML = list.map(p => {
+    if (!list.length) { el.innerHTML = '<p class="dogam-empty">등록된 사주가 없어요. 사주를 추가해주세요.</p>'; return; }
+    // P4(통합분석 사주 선택 바텀시트, 정책 3-2)에서만 — 이미 리포트가 있는 사주는 선택 자체를 막는다.
+    // "사주 관리"(대표 프로필 변경)·궁합보기 A/B 픽커는 리포트 보유 여부와 무관하게 그대로 고를 수
+    // 있어야 해서 이 타이틀일 때만 적용한다(openCombinedSajuPicker/startCombinedForOther 전용).
+    const lockLinked = switcherOpts.title === '분석할 사주 선택';
+    // 정렬: 활성화 항목 우선, 잠긴(리포트 보유) 항목은 아래로 — 각 그룹 내에서는 등록순 유지(Array.sort는
+    // stable이라 원래 순서가 보존된다).
+    const rows = lockLinked
+      ? list.slice().sort((a, b) => {
+          const la = linkedReportCounts(a.id).total > 0, lb = linkedReportCounts(b.id).total > 0;
+          return la === lb ? 0 : (la ? 1 : -1);
+        })
+      : list;
+    el.innerHTML = rows.map(p => {
       const isCandidate = p.id === switcherCandidateId;
       // 이미 이 프로필로 만든 리포트가 있으면 openForm()이 그 사주를 잠가 수정을 막는데(사용자 요청
       // 2026-08-27, linkedReportCounts 주석 참고). Figma 실측 — 연필(수정) 아이콘은 지금 고른 후보
       // 행에만 있고, 나머지 행은 삭제(X) 아이콘만 있다.
       const locked = linkedReportCounts(p.id).total > 0;
+      const lockRow = lockLinked && locked;
+      const rowClick = lockRow
+        ? `alert('이미 이 사주로 분석한 리포트가 있어요. 보관함에서 삭제하면 다시 분석할 수 있어요.')`
+        : `Profile._selectCandidateRow('${p.id}', '${ggSlot || ''}')`;
       return `
-        <div class="profile-row ${isCandidate ? 'is-selected' : ''}" onclick="Profile._selectCandidateRow('${p.id}', '${ggSlot || ''}')">
+        <div class="profile-row ${isCandidate ? 'is-selected' : ''} ${lockRow ? 'is-locked' : ''}" onclick="${rowClick}">
           ${isCandidate ? '<span class="profile-row-check"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;"><path d="M12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2ZM15.8535 9.31348C15.6583 9.11821 15.3417 9.11821 15.1465 9.31348L11 13.46L8.85352 11.3135C8.65825 11.1182 8.34175 11.1182 8.14648 11.3135C7.95139 11.5088 7.95128 11.8253 8.14648 12.0205L10.6465 14.5205C10.8417 14.7156 11.1583 14.7156 11.3535 14.5205L15.8535 10.0205C16.0487 9.8253 16.0486 9.50875 15.8535 9.31348Z" fill="currentColor"/></svg></span>' : ''}
           <div class="profile-row-body">
             <div class="profile-row-top">
@@ -815,8 +835,8 @@
 
   function saveDraft() {
     if (draft._locked) return; // 잠긴 프로필은 저장 버튼 자체가 안 그려지지만 이중 방어로 남겨둔다.
-    if (!draft.name || !draft.name.trim()) { alert('이름을 입력해주세요.'); return; }
     if (!draft.birthYear) { alert('생년월일을 선택해주세요.'); return; }
+    if (!draft.name || !draft.name.trim()) { alert('이름을 입력해주세요.'); return; }
     const solar = resolveSolarDate(draft);
     if (!solar) { alert('생년월일 변환에 실패했습니다. 날짜를 다시 선택해주세요.'); return; }
     draft.solarDate = solar;
@@ -937,12 +957,14 @@
   // "냥 구매하기"로 바뀌어 구매 페이지로 넘어간다(사용자 요청 2026-08-16).
   // 반환: 'ok'(진행) | 'cancel'(취소·배경 클릭) | 'buy'(구매 페이지로)
   let pendingSpendResolve = null;
-  let spendView = null; // 팝업을 다시 그릴 때 필요한 값 — {title, need, balance, pickProfile}
+  let spendView = null; // 팝업을 다시 그릴 때 필요한 값 — {title, need, balance, pickProfile, busy, execute}
   function spendDialogRoot() {
     let r = document.getElementById('nyangSpendRoot');
     if (!r) { r = document.createElement('div'); r.id = 'nyangSpendRoot'; document.body.appendChild(r); }
     return r;
   }
+  // 'ok'는 더 이상 여기로 오지 않는다(아래 spendGo가 처리) — 취소·구매 이동처럼 즉시 닫아도 되는
+  // 경우에만 쓴다.
   function closeSpendDialog(result) {
     spendView = null;
     spendDialogRoot().innerHTML = '';
@@ -956,8 +978,10 @@
   function spendProfileRowHtml() {
     const d = describeProfile(getRepresentative());
     if (!d) return '';
+    // 정보 노출만 — 탭해도 반응 없음(정책 3-4). 분석 대상을 바꾸려면 취소 후 S2의 사주 정보에서
+    // 다시 골라야 한다(예전엔 여기서 바로 바꿀 수 있었으나, 정책상 변경 불가로 확정됨).
     return '<p class="nyang-dialog-profile-label">분석할 사주</p>' +
-      '<button type="button" class="nyang-dialog-profile" onclick="Profile._changeSpendProfile()">' +
+      '<div class="nyang-dialog-profile">' +
         '<span class="np-body">' +
           '<span class="np-top">' +
             '<span class="np-name">' + esc(d.name) + '</span>' +
@@ -965,18 +989,20 @@
           '</span>' +
           '<span class="np-sub">' + esc(d.birth) + '</span>' +
         '</span>' +
-        '<span class="material-symbols-outlined np-arrow">chevron_right</span>' +
-      '</button>' +
-      '<p class="nyang-dialog-profile-hint">이 사주로 분석해요. 다른 사주라면 눌러서 바꿔주세요.</p>';
+      '</div>' +
+      '<p class="nyang-dialog-profile-hint">이 사주로 분석해요. 다른 사주로 바꾸려면 취소 후 사주 정보에서 다시 선택해주세요.</p>';
   }
 
-  // 팝업을 그린다(사주를 바꾼 뒤 다시 그릴 때도 이 함수를 쓴다 — 대기 중인 Promise는 그대로 유지).
+  // 팝업을 그린다(로딩 상태로 다시 그릴 때도 이 함수를 쓴다 — 대기 중인 Promise는 그대로 유지).
+  // 정책 3-4 2단계 — "확인"을 누르면 팝업을 닫는 대신 v.busy를 세워 그 자리에서 로딩 상태로 바꾼다
+  // (버튼 비활성화 + "확인" 라벨을 로딩 표시로). 배경 클릭으로 취소하는 것도 로딩 중엔 막는다.
   function renderSpendDialog() {
     const v = spendView;
     if (!v) return;
     const enough = v.balance >= v.need;
+    const busy = !!v.busy;
     spendDialogRoot().innerHTML =
-      '<div class="overlay-backdrop confirm-backdrop" onclick="Profile._closeSpend(\'cancel\')"></div>' +
+      '<div class="overlay-backdrop confirm-backdrop"' + (busy ? '' : ' onclick="Profile._closeSpend(\'cancel\')"') + '></div>' +
       '<div class="nyang-dialog" role="alertdialog">' +
         '<p class="nyang-dialog-title">' + v.title + '</p>' +
         '<p class="nyang-dialog-sub">' + v.need + '냥이 사용됩니다</p>' +
@@ -989,29 +1015,18 @@
         '</div>' +
         (enough ? '' : '<p class="nyang-dialog-short">냥이 부족해요 — 구매 후 이용해주세요.</p>') +
         '<div class="confirm-actions">' +
-          '<button class="btn-outline-primary" onclick="Profile._closeSpend(\'cancel\')">취소</button>' +
+          '<button class="btn-outline-primary"' + (busy ? ' disabled' : '') + ' onclick="Profile._closeSpend(\'cancel\')">취소</button>' +
           (enough
-            ? '<button class="btn-solid-primary" onclick="Profile._closeSpend(\'ok\')">확인</button>'
+            ? '<button class="btn-solid-primary"' + (busy ? ' disabled' : '') + ' onclick="Profile._spendGo()">' + (busy ? '처리 중...' : '확인') + '</button>'
             : '<button class="btn-solid-primary" onclick="Profile._closeSpend(\'buy\')">냥 구매하기</button>') +
         '</div>' +
       '</div>';
     document.body.classList.add('overlay-open');
   }
 
-  // 팝업의 "분석할 사주"를 누른 경우 — 차감은 일어나지 않는다. 사주 선택 시트가 팝업(z-index 103)보다
-  // 아래층(101)이라 겹쳐 띄우면 시트가 가려지므로, 고르는 동안만 팝업을 감췄다가 끝나면 다시 그린다.
-  // 대기 중인 Promise(pendingSpendResolve)는 건드리지 않으므로 흐름은 그대로 이어진다.
-  function changeSpendProfile() {
-    if (!spendView) return;
-    spendDialogRoot().innerHTML = '';
-    openSwitcher({
-      title: '분석할 사주 선택',
-      onDone: function () { closeOverlay(); renderSpendDialog(); },
-      onPick: function () { renderSpendDialog(); }, // 새로 추가한 사주가 대표로 잡히게 하는 역할도 겸한다
-    });
-  }
-
-  // opts.pickProfile: 팝업 안에서 분석 대상 사주를 보여주고 바꿀 수 있게 한다(통합분석 전용).
+  // opts.pickProfile: 팝업 안에 분석 대상 사주를 보여준다(정보 노출만, 통합분석 전용).
+  // opts.execute: "확인"을 누른 뒤 실행할 비동기 작업(얼굴 인식·냥 차감 등) — 성공하면 true를
+  // 반환해 팝업을 닫고, 실패하면 false를 반환해 팝업이 로딩만 풀고 그대로 남아 재시도할 수 있게 한다.
   function confirmSpend(title, need, opts) {
     return new Promise(async resolve => {
       // 잔액은 팝업을 띄우기 전에 서버에서 새로 받아온다 — 캐시만 믿으면 다른 기기에서 쓴 뒤
@@ -1024,14 +1039,42 @@
         return;
       }
       pendingSpendResolve = resolve;
-      spendView = { title: title, need: need, balance: balance, pickProfile: !!(opts && opts.pickProfile) };
+      spendView = { title: title, need: need, balance: balance, pickProfile: !!(opts && opts.pickProfile), busy: false, execute: opts && opts.execute };
       renderSpendDialog();
     });
   }
+  // "확인" 버튼 — 팝업을 닫지 않고 로딩 상태로 바꾼 뒤 execute()를 실행한다(정책 3-4 2단계).
+  async function spendGo() {
+    const v = spendView;
+    if (!v || v.busy) return;
+    v.busy = true;
+    renderSpendDialog();
+    let ok = false;
+    try { ok = v.execute ? await v.execute() : true; } catch (e) { console.error('[nyang] 확인 처리 실패', e); ok = false; }
+    if (spendView !== v) return; // 처리 중 취소 등으로 이미 정리된 경우 — 방어
+    if (ok) {
+      const fn = pendingSpendResolve;
+      pendingSpendResolve = null;
+      spendView = null;
+      spendDialogRoot().innerHTML = '';
+      if (!document.querySelector('.confirm-dialog, .bottomsheet')) document.body.classList.remove('overlay-open');
+      if (fn) fn('ok');
+    } else {
+      v.busy = false;
+      renderSpendDialog(); // 팝업은 유지, 로딩만 풀어 재시도 가능하게(실패 안내는 execute가 이미 alert함)
+    }
+  }
   // 팝업 결과 처리 — 'buy'면 구매 페이지로 보내고, 진행 여부(boolean)만 호출부에 돌려준다.
+  // feature==='combined'일 때는 카카오페이 리다이렉트로 나가기 전에 S2 입력 상태를 저장해둔다
+  // (정책 3-4 — 결제 완료 후 P2로 자동 복귀하려면 필요, app.js의 saveCmbNyangResumeSnapshot 참고).
   async function askSpend(title, need, opts) {
     const r = await confirmSpend(title, need, opts);
-    if (r === 'buy' && window.NyangShop) NyangShop.open();
+    if (r === 'buy') {
+      if (opts && opts.feature === 'combined' && window.saveCmbNyangResumeSnapshot) {
+        try { await window.saveCmbNyangResumeSnapshot(); } catch (e) { console.error('[nyang] 복귀 상태 저장 실패', e); }
+      }
+      if (window.NyangShop) NyangShop.open();
+    }
     return r === 'ok';
   }
 
@@ -1060,7 +1103,7 @@
       // 그대로 읽어서 analyzeCharacter 호출에 실어 보낸다(feature 이름이 state의 최상위 키와 같다:
       // 'combined'→state.combined, 'gungham'→state.gungham).
       if (state[feature]) state[feature].nyangTicketId = result.ticketId || null;
-      showToast(result.skipped ? '분석을 시작합니다.' : '구매되었습니다.');
+      showToast(result.skipped ? '분석을 시작합니다.' : '냥 1개를 사용했어요.');
       return true;
     }
     if (result.code === 'LOGIN_REQUIRED') {
@@ -1078,15 +1121,6 @@
   // 서버 트랜잭션은 각 요청을 정확히 처리할 뿐, "같은 사람이 연타했다"는 건 막아주지 않는다).
   // 그래서 클라이언트에서 진행 중 플래그로 재진입을 막고 버튼도 같이 비활성화한다.
   let analysisInFlight = false;
-  // 버튼 라벨이 탭마다 다르므로(통합분석 "분석하기" / 궁합 "궁합 분석하기") 원래 문구를 기억했다가
-  // 되돌린다 — 하드코딩하면 궁합 버튼이 "분석하기"로 바뀌어 버린다.
-  function setCtaBusy(dockId, busy) {
-    const btn = document.querySelector('#' + dockId + ' .submit-btn');
-    if (!btn) return;
-    if (busy && !btn.dataset.label) btn.dataset.label = btn.textContent;
-    btn.disabled = busy;
-    btn.textContent = busy ? '분석 중...' : (btn.dataset.label || btn.textContent);
-  }
 
   async function runCombinedWrapped() {
     if (analysisInFlight) return;
@@ -1102,27 +1136,31 @@
     // "분석하기를 눌렀다 → 차감 안내가 떴다 → 확인했다 → 시작됐다"로 읽혀야 자연스럽다.
     // inFlight는 다이얼로그가 떠 있는 동안에도 걸어둬 다이얼로그가 두 개 겹치는 걸 막는다.
     analysisInFlight = true;
+    let lm = null;
     try {
-      // 팝업에서 분석 대상 사주를 확인하고 바꿀 수 있다 — 실제 차감은 "확인"을 누른 뒤부터다.
-      if (!(await askSpend('통합분석을 시작할까요?', 1, { pickProfile: true }))) return;
-      // 팝업 안에서 사주를 바꿨을 수 있으니, 확인을 누른 시점의 대표 사주로 값을 다시 채운다.
-      const target = getRepresentative();
-      applyToContext('combined', target);
-      if (!document.getElementById('cmbBirthDate').value) { alert('생년월일을 입력해주세요.'); return; }
-      setCtaBusy('cmbCtaDock', true);
-      // 사진이 있으면 얼굴 인식까지 성공시켜 놓고 차감한다. 인식 실패(정면 아님·흐림 등)는 실제로 자주
-      // 나는데, 차감을 먼저 하면 결과는 사주만 나오고 냥은 그대로 빠진다 — 환불(refund)은 기획서 §6
-      // 향후 스코프라, 지금은 "차감 전에 실패할 수 있는 걸 미리 확인"하는 쪽으로 막는다(§3.2 확인→차감→실행).
-      let lm = null;
-      if (state.combined.file) {
-        lm = await runFaceAnalysis('combined');
-        if (!lm) return; // 실패 안내는 runFaceAnalysis가 이미 화면에 띄움 — 냥 차감 없이 종료
-      }
-      if (!(await chargeNyangOrAlert('combined'))) return;
+      // 통합분석 서비스 정책.md 3-4 2단계 — "확인"을 눌러도 팝업은 닫히지 않고, execute()가 끝날
+      // 때까지 팝업 자체가 로딩 상태를 보여준다(askSpend/confirmSpend가 처리). 성공해야만 팝업이
+      // 닫히고 곧바로 runCombined(S5)로 넘어간다 — 예전처럼 S2에 "분석 중..." 버튼만 남는 구간이 없다.
+      const ok = await askSpend('통합분석을 시작할까요?', 1, {
+        pickProfile: true,
+        feature: 'combined',
+        execute: async () => {
+          // 사진이 있으면 얼굴 인식까지 성공시켜 놓고 차감한다. 인식 실패(정면 아님·흐림 등)는 실제로
+          // 자주 나는데, 차감을 먼저 하면 결과는 사주만 나오고 냥은 그대로 빠진다 — 환불(refund)은
+          // 기획서 §6 향후 스코프라, 지금은 "차감 전에 실패할 수 있는 걸 미리 확인"하는 쪽으로 막는다
+          // (§3.2 확인→차감→실행). 실패 원인(얼굴 인식·차감 등)을 가리지 않고 팝업은 로딩만 풀고
+          // 그대로 유지 — 사용자가 다시 "확인"을 눌러 재시도할 수 있다(정책 3-4).
+          if (state.combined.file) {
+            lm = await runFaceAnalysis('combined');
+            if (!lm) { alert('냥 차감에 실패했습니다. 잠시 후 다시 시도해주세요.'); return false; }
+          }
+          return await chargeNyangOrAlert('combined');
+        },
+      });
+      if (!ok) return;
       await runCombined(lm); // 위에서 인식한 결과를 넘겨 MediaPipe를 두 번 돌리지 않는다
     } finally {
       analysisInFlight = false;
-      setCtaBusy('cmbCtaDock', false);
     }
   }
   async function runGunghamWrapped() {
@@ -1141,15 +1179,15 @@
 
     analysisInFlight = true;
     try {
-      if (!(await askSpend('궁합 분석을 시작할까요?', 1))) return;
-      setCtaBusy('ggCtaDock', true);
-      if (!(await chargeNyangOrAlert('gungham'))) return;
+      const ok = await askSpend('궁합 분석을 시작할까요?', 1, {
+        execute: async () => await chargeNyangOrAlert('gungham'),
+      });
+      if (!ok) return;
       applyToGunghamA(self);
       applyToGunghamB(partner);
       await runGungham();
     } finally {
       analysisInFlight = false;
-      setCtaBusy('ggCtaDock', false);
     }
   }
 
@@ -1179,7 +1217,7 @@
     getGunghamPartner: function () { return gunghamPartnerId ? getProfile(gunghamPartnerId) : null; },
     getGunghamA: function () { return gunghamAId ? getProfile(gunghamAId) : null; },
     _dismissSwitcher: finishSwitcher, _dismissForm: dismissForm,
-    _closeSpend: closeSpendDialog, _changeSpendProfile: changeSpendProfile,
+    _closeSpend: closeSpendDialog, _spendGo: spendGo,
     runCombined: runCombinedWrapped, runGungham: runGunghamWrapped,
     openPartnerPicker: (opts) => openSwitcher(Object.assign({}, opts, { ggSlot: 'B' })),
     openGunghamAPicker: (opts) => openSwitcher(Object.assign({}, opts, { ggSlot: 'A' })),

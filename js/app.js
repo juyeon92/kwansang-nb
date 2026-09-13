@@ -523,12 +523,16 @@ function renderCombinedSavedReport() {
   // 다시 3개로 접을 수 있다.
   const CMB_SAVED_STEP = 3;
   const visibleCount = Math.min(Math.max(cmbSavedRevealCount, CMB_SAVED_STEP), rows.length);
+  // 통합분석 서비스 정책.md 3-6 — 날짜만 "YYYY.MM.DD 분석" 형식으로 보여준다(관계 배지·시:분은 제외).
+  // ⚠️ 원형 캐릭터 썸네일(아바타)은 아직 리포트별로 저장해두는 캐릭터 이미지 자체가 없어서(문서 참고,
+  // 2026-09-13) 기존 문서 아이콘을 그대로 쓴다 — 실제 아바타를 붙이려면 저장 시점에 캐릭터 이미지를
+  // 함께 남기는 작업이 별도로 필요하다.
   list.innerHTML = rows.map((rec, i) =>
     '<div class="revisit-row' + (i >= visibleCount ? ' cmb-saved-extra' : '') + '" role="button" tabindex="0" onclick="openCombinedSavedReport(\'' + rec.id + '\')">' +
       '<span class="revisit-mark material-symbols-outlined">description</span>' +
       '<div class="revisit-body">' +
         '<div class="revisit-name">' + cmbEsc(rec.title) + '</div>' +
-        '<div class="revisit-desc">' + [rec.sub, rec.when].filter(Boolean).map(cmbEsc).join(' · ') + '</div>' +
+        '<div class="revisit-desc">' + cmbEsc(rec.when ? rec.when.slice(0, 10) + ' 분석' : '') + '</div>' +
       '</div>' +
       '<span class="revisit-arrow material-symbols-outlined">chevron_right</span>' +
     '</div>').join('') +
@@ -2613,6 +2617,88 @@ async function runCombined(preloadedLm) {
   document.getElementById('cmbResult').classList.remove('hidden');
   window.scrollTo(0, 0);
   if (window.Archive) Archive.save('combined'); // 보관함 — 리포트가 완성된 이 지점에서 스냅샷
+}
+
+// ═══ 카카오페이 리다이렉트 복귀 — 통합분석 P2 상태 보존(통합분석 서비스 정책.md 3-4) ═══
+// 카카오페이는 전체 페이지 리다이렉트 방식이라, "냥 구매하기"로 결제 페이지에 나가는 순간 이 탭의
+// JS 상태(업로드한 사진 File 객체 등)가 전부 사라진다. 결제 페이지로 나가기 직전(profile.js의
+// askSpend) 이 스냅샷을 sessionStorage에 남겨두고, 결제가 끝나 돌아왔을 때(성공/실패/취소 전부,
+// nyang-shop.js의 handleKakaoPayReturn) 복원해서 P2를 자동으로 다시 띄운다.
+const CMB_NYANG_RESUME_KEY = 'cmbNyangResume';
+// dataURL로 인코딩하면 원본보다 커지고 sessionStorage 용량도 한정적이라(브라우저마다 다르지만
+// 보통 5~10MB) 너무 큰 사진은 아예 시도하지 않고 건너뛴다 — 이 경우 나머지(Q1~Q3·동의)는 정상
+// 복원되고 사진만 사용자가 다시 올리면 된다(완전 실패보다 부분 복원이 낫다).
+const CMB_NYANG_RESUME_MAX_PHOTO_BYTES = 3 * 1024 * 1024;
+async function saveCmbNyangResumeSnapshot() {
+  try {
+    const snap = {
+      q1: state.combined.q1 || '', q2: state.combined.q2 || '', q3: state.combined.q3 || '',
+      agree: !!(document.getElementById('cmbAgree') && document.getElementById('cmbAgree').checked),
+      photoDataUrl: null, photoName: null, photoType: null,
+    };
+    const file = state.combined.file;
+    if (file && file.size <= CMB_NYANG_RESUME_MAX_PHOTO_BYTES) {
+      snap.photoDataUrl = await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+      snap.photoName = file.name;
+      snap.photoType = file.type;
+    }
+    sessionStorage.setItem(CMB_NYANG_RESUME_KEY, JSON.stringify(snap));
+  } catch (e) {
+    console.error('[combined] 카카오페이 복귀용 상태 저장 실패 — 결제는 그대로 진행', e);
+  }
+}
+
+// 통합분석 탭으로 전환하고 저장해둔 입력을 복원한 뒤, runCombinedWrapped()를 다시 불러 P2를 새로
+// 띄운다(잔액은 그 시점에 서버에서 새로 받아오므로 결제 결과가 바로 반영된다).
+async function restoreCmbNyangResumeSnapshot() {
+  let raw = null;
+  try {
+    raw = sessionStorage.getItem(CMB_NYANG_RESUME_KEY);
+    sessionStorage.removeItem(CMB_NYANG_RESUME_KEY);
+  } catch (e) { return false; }
+  if (!raw) return false;
+  let snap;
+  try { snap = JSON.parse(raw); } catch (e) { return false; }
+
+  const combinedBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => (b.getAttribute('onclick') || '').indexOf("'combined'") >= 0);
+  if (combinedBtn) combinedBtn.click();
+
+  if (snap.photoDataUrl) {
+    try {
+      const blob = await (await fetch(snap.photoDataUrl)).blob();
+      const file = new File([blob], snap.photoName || 'photo.jpg', { type: snap.photoType || blob.type });
+      loadThumb('combined', file);
+    } catch (e) { console.error('[combined] 카카오페이 복귀 — 사진 복원 실패, 다시 업로드 필요', e); }
+  }
+  ['q1', 'q2', 'q3'].forEach(q => {
+    const value = snap[q];
+    if (!value) return;
+    if (q === 'q3') {
+      const el = document.getElementById('cmbQ3');
+      if (el) { el.value = value; onSajuQ3Input('combined', el); }
+      return;
+    }
+    const chips = Array.from(document.querySelectorAll('[onclick*="setSajuAnswer(\'combined\',\'' + q + '\',"]'));
+    const exact = chips.find(b => b.textContent.trim() === value);
+    if (exact) { exact.click(); return; }
+    const customBtn = chips.find(b => b.textContent.trim() === '직접 입력할게요');
+    if (customBtn) {
+      customBtn.click();
+      const custom = document.getElementById(sajuQCustomId('combined', q));
+      if (custom) custom.value = value;
+      state.combined[q] = value;
+    }
+  });
+  const agreeEl = document.getElementById('cmbAgree');
+  if (agreeEl) agreeEl.checked = !!snap.agree;
+
+  if (window.Profile && Profile.runCombined) Profile.runCombined();
+  return true;
 }
 
 // 리포트 본문을 만든다(화면 공개는 하지 않는다). 반환값은 얼굴 랜드마크(사진이 없거나 인식 실패면 null).

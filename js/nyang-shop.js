@@ -106,6 +106,13 @@
       '</div>';
   }
 
+  // P2(냥 사용 팝업)에서 "냥 구매하기"로 들어온 경우, 결제 결과와 무관하게 P2로 자동 복귀한다
+  // (통합분석 서비스 정책.md 3-4) — app.js의 saveCmbNyangResumeSnapshot/restoreCmbNyangResumeSnapshot
+  // 참고. 복원할 스냅샷이 없으면(냥샵을 직접 들어온 경우 등) 아무 일도 하지 않는다.
+  function resumeAfterKakaoPay() {
+    if (window.restoreCmbNyangResumeSnapshot) window.restoreCmbNyangResumeSnapshot();
+  }
+
   // 카카오페이 결제창에서 돌아왔을 때(성공/취소/실패) 처리 — kakao-auth.js의 onAuthStateChanged에서
   // 로그인이 확정된 직후 호출된다. URL 쿼리스트링만으로 판단하고, 처리 즉시 지워서 새로고침해도
   // 중복 승인 요청이 나가지 않게 한다(서버도 kakaoPayOrders.status로 한 번 더 막아주지만 이중 방어).
@@ -117,8 +124,9 @@
     const pgToken = params.get('pg_token');
     history.replaceState(null, '', window.location.pathname);
 
-    if (kakaopay === 'cancel') { notify('결제를 취소했어요.'); return; }
-    if (kakaopay === 'fail') { notify('결제에 실패했어요. 다시 시도해주세요.'); return; }
+    // 취소: 정책상 별도 알림 없이 그대로 복귀.
+    if (kakaopay === 'cancel') { resumeAfterKakaoPay(); return; }
+    if (kakaopay === 'fail') { notify('결제에 실패했어요. 다시 시도해주세요.'); resumeAfterKakaoPay(); return; }
     if (kakaopay !== 'success' || !orderId || !pgToken) return;
 
     open();
@@ -130,6 +138,7 @@
         notify(result.error || '결제 승인에 실패했어요. 문의해주세요.');
       }
       render();
+      resumeAfterKakaoPay();
     });
   }
 
