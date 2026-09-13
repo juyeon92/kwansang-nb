@@ -483,33 +483,35 @@ function renderZone2CommonDiff(elId, common, different) {
 // Zone4 카드1(고정) — "OO의 인생의 흐름을 살펴본다면". early_life/mid_life/late_life는 combined
 // 컨텍스트에서 이미 관상+사주를 함께 근거로 생성되는 필드라 새로 만들지 않고 재사용한다.
 // 나이대 경계(~29세/30~59세/60세~)는 Zone3 라이프라인(app.js의 lifelineStage)과 동일하게 맞춘다.
+// (2026-09-13 Figma 72:4069 재실측) — 예전엔 .chemi-card(회색 카드+굵은 타이틀)였는데, Figma의
+// GgItem(라벨10px/600/gray + 헤드라인12px/800/navy 두 줄 + 풀이, fill #eef2f8)과 완전히 다른
+// 컴포넌트였다. Zone3 "관상 정보"(renderPartDeepDive)와 같은 gg-item+cmb-part-label 패턴으로
+// 다시 그리고, #eef2f8 배경만 Zone4 전용 클래스(.cmb-zone4-highlight)로 얹는다. 섹션 제목은
+// index.html에 정적 .z3-pair-title로 옮겨져 있어 여기서는 그리지 않는다.
 function renderZone4Card1(elId, data) {
-  setHtmlIfExists(elId, `
-    <div class="card-title" style="margin-top:0;">📖 인생의 흐름을 살펴본다면</div>
-    <div class="chemi-card">
-      <div style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:4px;">🌱 초년운 (~29세)</div>
-      <div class="chemi-title">${data.early_life_headline || ''}</div>
-      <div class="chemi-role">${data.early_life}</div>
-    </div>
-    <div class="chemi-card">
-      <div style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:4px;">🌳 중년운 (30세~59세)</div>
-      <div class="chemi-title">${data.mid_life_headline || ''}</div>
-      <div class="chemi-role">${data.mid_life}</div>
-    </div>
-    <div class="chemi-card" style="margin-bottom:0;">
-      <div style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:4px;">🍂 말년운 (60세~)</div>
-      <div class="chemi-title">${data.late_life_headline || ''}</div>
-      <div class="chemi-role">${data.late_life}</div>
-    </div>`);
+  const stage = (label, headline, reading) => `
+    <div class="gg-item cmb-zone4-highlight">
+      <div class="cmb-part-label">${label}</div>
+      <div class="gg-item-head" style="color:var(--char-navy-deep);margin-top:2px;">${headline || ''}</div>
+      <div class="gg-item-reading">${reading || ''}</div>
+    </div>`;
+  setHtmlIfExists(elId, [
+    stage('🌱 초년운 (~29세)', data.early_life_headline, data.early_life),
+    stage('🌳 중년운 (30세~59세)', data.mid_life_headline, data.mid_life),
+    stage('🍂 말년운 (60세~)', data.late_life_headline, data.late_life)
+  ].join(''));
 }
 
 // Zone4 고정카드 2~4(2026-08-21 4차 개편) — "나의 기질"/"남이 모르는 내 모습"/"조언". 제목은
 // 룰베이스 고정 문구(§2 판단기준 1번 — 항상 등장하는 구조라 AI가 짓지 않음), reading/basis만 AI.
 // 가변 카드(renderZone4Cards)와 같은 gg-item 레이아웃을 재사용해 시각적으로 통일한다.
-function renderZone4FixedCard(elId, emoji, title, reading, basis) {
+// extraClass(옵션) — "이제는 이렇게 해보세요" 조언 카드만 Figma상 #eef2f8 배경(GgItem)이라
+// .cmb-zone4-highlight를 추가로 얹는다(호출부 참고). 헤드라인 색은 Figma(72:4069) 실측대로
+// jade가 아니라 navy(--char-navy-deep) — Zone3 renderPartDeepDive와 같은 관행으로 인라인 지정.
+function renderZone4FixedCard(elId, emoji, title, reading, basis, extraClass) {
   setHtmlIfExists(elId, `
-    <div class="gg-item">
-      <div class="gg-item-head">${emoji} ${title}</div>
+    <div class="gg-item${extraClass ? ' ' + extraClass : ''}">
+      <div class="gg-item-head" style="color:var(--char-navy-deep);">${emoji} ${title}</div>
       <div class="gg-item-reading">${reading || ''}</div>
       <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${basis || ''}</div></details>
     </div>`);
@@ -532,7 +534,7 @@ function renderZone4Cards(elId, cards) {
   });
   el.innerHTML = ordered.map(c => `
     <div class="gg-item">
-      <div class="gg-item-head">${CMB_ZONE4_TOPIC_EMOJI[c.topic_key] || '✨'} ${c.title}</div>
+      <div class="gg-item-head" style="color:var(--char-navy-deep);">${CMB_ZONE4_TOPIC_EMOJI[c.topic_key] || '✨'} ${c.title}</div>
       <div class="gg-item-reading">${c.reading}</div>
       <details class="gg-basis-acc"><summary>왜 이렇게 풀이했나요?</summary><div class="gg-basis-content">${c.basis}</div></details>
     </div>`).join('');
@@ -700,7 +702,7 @@ async function requestDeepReport(ctx) {
       if (cfg.zone4Card1Id) { renderZone4Card1(cfg.zone4Card1Id, data); clearAiSkeleton(cfg.zone4Card1Id); }
       if (cfg.zone4TemperamentId) { renderZone4FixedCard(cfg.zone4TemperamentId, '⚖️', '나의 기질과 에너지 밸런스', data.zone4_temperament_reading, data.zone4_temperament_basis); clearAiSkeleton(cfg.zone4TemperamentId); }
       if (cfg.zone4HiddenSelfId) { renderZone4FixedCard(cfg.zone4HiddenSelfId, '🎭', '남이 모르는 내 모습', data.zone4_hidden_self_reading, data.zone4_hidden_self_basis); clearAiSkeleton(cfg.zone4HiddenSelfId); }
-      if (cfg.zone4AdviceId) { renderZone4FixedCard(cfg.zone4AdviceId, '🧭', '이제는 이렇게 해보세요', data.growth_guidance, data.zone4_advice_basis); clearAiSkeleton(cfg.zone4AdviceId); }
+      if (cfg.zone4AdviceId) { renderZone4FixedCard(cfg.zone4AdviceId, '🧭', '이제는 이렇게 해보세요', data.growth_guidance, data.zone4_advice_basis, 'cmb-zone4-highlight'); clearAiSkeleton(cfg.zone4AdviceId); }
       if (cfg.zone4CardsId) {
         // "고민 해결" 카드 마무리(통합분석 리포트 구성.md §10) — q3 미답변인데 AI가 실수로 카드를
         // 만들었으면 안전하게 걸러내고(가짜 고민 지어내기 방지), q3가 있으면 AI가 뭘 보냈든 제목은

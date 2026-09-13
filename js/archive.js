@@ -543,6 +543,90 @@
     zone3.appendChild(wrap);
   }
 
+  // Zone2/Zone3와 같은 이유(2026-09-13 Zone4를 Figma 72:4069에 맞춰 재구성) — 오늘 고치기 전에
+  // 저장된 리포트는 옛 구조 그대로 얼어있다: "인생의 흐름" 3카드가 .card-title+.chemi-card(회색
+  // 카드) 였고, 고정/가변 카드의 .gg-item-head가 jade색이었고, "관상과 사주로본 내 모습은" 섹션
+  // 제목 자체가 없었고, 조언 카드(🧭)에 #eef2f8 배경이 없었다. ZONE4는 summary 텍스트로 특정.
+  // 이미 새 구조(.cmb-zone4-body 있음)면 건드리지 않는다 — 멱등.
+  function repairZone4Structure(rootEl) {
+    const zone4 = Array.from(rootEl.querySelectorAll('.zone-accordion')).find(function (d) {
+      const s = d.querySelector(':scope > summary');
+      return s && s.textContent.indexOf('ZONE 4') === 0;
+    });
+    if (!zone4 || zone4.querySelector(':scope > .cmb-zone4-body')) return;
+    const summary = zone4.querySelector(':scope > summary');
+    const rest = Array.from(zone4.children).filter(function (c) { return c !== summary; });
+    if (!rest.length) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'cmb-zone4-body';
+    const mkTitle = function (text) {
+      const t = document.createElement('div');
+      t.className = 'z3-pair-title'; t.textContent = text;
+      return t;
+    };
+    const mkHr = function () {
+      const hr = document.createElement('div');
+      hr.className = 'cmb-z2-hr'; hr.style.margin = '16px 0';
+      return hr;
+    };
+    // 옛 구조엔 "관상과 사주로본 내 모습은" 섹션 제목이 아예 없었다 — 고정/가변 카드 wrapper div
+    // 앞에 처음 한 번만 새로 만들어 끼워 넣는다.
+    let insertedSecondTitle = false;
+
+    rest.forEach(function (oldDiv) {
+      // "인생의 흐름" 카드1 — 옛 구조: 이 div 안에 .card-title + .chemi-card 3개.
+      if (oldDiv.querySelector(':scope > .chemi-card, :scope > .card-title')) {
+        wrap.appendChild(mkTitle('📖 인생의 흐름을 살펴본다면'));
+        const lifeWrap = document.createElement('div');
+        lifeWrap.className = 'cmb-zone4-life-cards';
+        const labels = ['🌱 초년운 (~29세)', '🌳 중년운 (30세~59세)', '🍂 말년운 (60세~)'];
+        Array.from(oldDiv.querySelectorAll(':scope > .chemi-card')).forEach(function (stage, idx) {
+          const headline = stage.querySelector('.chemi-title');
+          const reading = stage.querySelector('.chemi-role');
+          const item = document.createElement('div');
+          item.className = 'gg-item cmb-zone4-highlight';
+          const labelDiv = document.createElement('div');
+          labelDiv.className = 'cmb-part-label'; labelDiv.textContent = labels[idx] || '';
+          const headDiv = document.createElement('div');
+          headDiv.className = 'gg-item-head';
+          headDiv.style.color = 'var(--char-navy-deep)'; headDiv.style.marginTop = '2px';
+          headDiv.textContent = headline ? headline.textContent : '';
+          const readDiv = document.createElement('div');
+          readDiv.className = 'gg-item-reading'; readDiv.textContent = reading ? reading.textContent : '';
+          item.appendChild(labelDiv); item.appendChild(headDiv); item.appendChild(readDiv);
+          lifeWrap.appendChild(item);
+        });
+        wrap.appendChild(lifeWrap);
+        return;
+      }
+
+      // 그 다음부터는 고정카드(나의 기질/남이 모르는 내 모습/조언)와 가변카드(.cmb-zone4-cards)
+      // wrapper들 — 섹션 제목이 없었으니 첫 번째 것 앞에만 구분선+제목을 새로 끼워 넣는다. 제목
+      // 바로 다음 첫 카드는 margin-top 0(제목의 margin-bottom 12가 간격을 담당), 그 뒤로는 새
+      // 마크업과 같은 12px 간격을 준다.
+      const isFirstOfSection = !insertedSecondTitle;
+      if (!insertedSecondTitle) {
+        insertedSecondTitle = true;
+        wrap.appendChild(mkHr());
+        wrap.appendChild(mkTitle('🎭 관상과 사주로본 내 모습은'));
+      }
+      // 옛 .gg-item-head는 jade색 그대로였다 — Figma 실측대로 navy로 맞춘다.
+      Array.from(oldDiv.querySelectorAll('.gg-item-head')).forEach(function (h) {
+        h.style.color = 'var(--char-navy-deep)';
+      });
+      // 조언 카드(🧭)만 #eef2f8 배경(GgItem) — 텍스트로 특정.
+      const head = oldDiv.querySelector('.gg-item-head');
+      if (head && head.textContent.indexOf('🧭') === 0) {
+        const gi = oldDiv.querySelector(':scope > .gg-item');
+        if (gi) gi.classList.add('cmb-zone4-highlight');
+      }
+      oldDiv.style.marginTop = isFirstOfSection ? '0' : '12px';
+      wrap.appendChild(oldDiv);
+    });
+
+    zone4.appendChild(wrap);
+  }
+
   function snapshot(type) {
     const wrap = document.createElement('div');
     (CONTAINERS[type] || []).forEach(function (id) {
@@ -1003,7 +1087,7 @@
     // 이미 저장돼 있던 리포트에도 조작 요소가 섞여 있을 수 있어 여는 시점에도 한 번 걷어낸다.
     stripChrome(body);
     repairZoneAccordionArrows(body, rec && rec.type === 'combined');
-    if (rec && rec.type === 'combined') { repairZone2Structure(body); repairZone3Structure(body); }
+    if (rec && rec.type === 'combined') { repairZone2Structure(body); repairZone3Structure(body); repairZone4Structure(body); }
     repairZone2OhaengReadingWrap(body);
     // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "보관함에서 리포트 보면 아코디언이 다 열려있음") — 여기서
     // innerHTML로 새로 찍은 zone-accordion들은 app.js의 initZoneAccordions()가 페이지 로드 시 한 번
@@ -1033,7 +1117,7 @@
     // 넘긴다.
     const rec = loadIndex().find(r => r.id === id);
     repairZoneAccordionArrows(el, rec && rec.type === 'combined');
-    if (rec && rec.type === 'combined') { repairZone2Structure(el); repairZone3Structure(el); }
+    if (rec && rec.type === 'combined') { repairZone2Structure(el); repairZone3Structure(el); repairZone4Structure(el); }
     repairZone2OhaengReadingWrap(el);
     return true;
   }

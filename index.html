@@ -367,6 +367,26 @@ body {
    스냅샷에서 지워지므로 클래스(.cmb-part-deep-dive)로 스코프한다. */
 #cmbResult .cmb-part-deep-dive, #cmbSavedBody .cmb-part-deep-dive { display: flex; flex-direction: column; gap: 12px; }
 
+/* Zone4(node 72:4069 "Frame 1261159300", 2026-09-13 재실측) — Zone2/Zone3와 완전히 같은 패턴: Cnt
+   자체엔 패딩 없이 본문을 별도 wrap div(.cmb-zone4-body)로 감싸 상하좌우 16px을 준다(Figma
+   paddingTop 자체는 0이지만, summary 다음 itemSpacing=16을 이 wrap의 padding-top으로 재현 —
+   Zone2/Zone3와 동일 관행). 섹션 구분은 Zone2/3와 같은 .cmb-z2-hr(1px 구분선)로 한다. */
+#cmbResult .cmb-zone4-body, #cmbSavedBody .cmb-zone4-body { padding: 16px; }
+/* Figma "Frame 1261159305"/"Frame 1261159306" 섹션 제목(14px/800/#1c2942=--char-navy-deep, 다음
+   요소까지 gap 12) — 기존 .z3-pair-title(13px)을 재사용하되 Zone4 안에서만 14px+margin-bottom
+   12로 스코프(Zone2의 12px 마진, Zone3의 16px+center 스코프와는 서로 다른 zone이라 충돌 없음). */
+#cmbResult .cmb-zone4-body .z3-pair-title, #cmbSavedBody .cmb-zone4-body .z3-pair-title { font-size: 14px; margin-bottom: 12px; }
+/* Figma "GgItem"(Zone4 전체 공통, 인생흐름/고정카드/가변카드/조언카드 전부) — radius12/padding12,
+   Zone3의 .cmb-zone3-body .gg-item 스코프와 동일 이유로 동일 값을 Zone4에만 스코프. */
+#cmbResult .cmb-zone4-body .gg-item, #cmbSavedBody .cmb-zone4-body .gg-item { border-radius: 12px; padding: 12px; margin-bottom: 0; }
+/* Figma "GgItem" fill #eef2f8(인생흐름 3카드 + 마지막 "이제는 이렇게 해보세요" 조언 카드) — 새 hex가
+   아니라 Zone3의 .cmb-lifeline-reading과 동일 리터럴 재사용(STYLE_GUIDE.md 1.9). */
+#cmbResult .cmb-zone4-highlight, #cmbSavedBody .cmb-zone4-highlight { background: #eef2f8; border-color: #eef2f8; }
+/* "인생의 흐름" 3카드(초년/중년/말년)를 감싸는 컨테이너 — Figma "Frame 1261159305" gap=12를
+   flex+gap으로 재현(Zone3의 .cmb-part-deep-dive와 같은 패턴). id는 보관함 스냅샷에서 지워지므로
+   클래스(.cmb-zone4-life-cards)로 스코프한다. */
+#cmbResult .cmb-zone4-life-cards, #cmbSavedBody .cmb-zone4-life-cards { display: flex; flex-direction: column; gap: 12px; }
+
 /* Figma node 75:1361(통합분석 결과 화면 step1~4, 2026-09-12 재실측) — 이 카드는 gwansang/dogam
    캐릭터 카드(§ "Figma node 56:1149" 주석들)와 같은 네이비 Cnt+CardInner 구조로 다시 그려졌다.
    예전엔 이 3개 id만 별도로 jade/연회색 테마(border-gray, --card2, --jade)를 썼는데, 실측 결과
@@ -2073,11 +2093,17 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 
             <details class="report-accordion zone-accordion cmb-zone4" id="cmbZone4">
         <summary>ZONE 4 · 관상x사주 스토리 풀이<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
-        <div id="cmbZone4Card1" style="margin-top:8px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-        <div id="cmbZone4Temperament" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-        <div id="cmbZone4HiddenSelf" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
-        <div id="cmbZone4Cards" class="cmb-zone4-cards" style="margin-top:16px;"></div>
-        <div id="cmbZone4Advice" style="margin-top:16px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+        <div class="cmb-zone4-body">
+        <div class="z3-pair-title">📖 인생의 흐름을 살펴본다면</div>
+        <div id="cmbZone4Card1" class="cmb-zone4-life-cards" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+
+        <div class="cmb-z2-hr" style="margin:16px 0;"></div>
+        <div class="z3-pair-title">🎭 관상과 사주로본 내 모습은</div>
+        <div id="cmbZone4Temperament" style="color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+        <div id="cmbZone4HiddenSelf" style="margin-top:12px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+        <div id="cmbZone4Cards" class="cmb-zone4-cards" style="margin-top:12px;"></div>
+        <div id="cmbZone4Advice" style="margin-top:12px;color:var(--text2);font-size:13px;">사진 분석이 끝나면 표시돼요.</div>
+        </div>
       </details>
 
       <button class="submit-btn" style="margin-top:20px;" onclick="resetUpload('combined')">다른 통합분석하기</button>
@@ -2844,10 +2870,10 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/character-api.js?v=20260908b"></script>
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
-<script src="js/ai-analysis.js?v=20260913a"></script>
+<script src="js/ai-analysis.js?v=20260913b"></script>
 <script src="js/app.js?v=20260913b"></script>
 <script src="js/profile.js?v=20260913c"></script>
-<script src="js/archive.js?v=20260913b"></script>
+<script src="js/archive.js?v=20260913c"></script>
 <script src="js/inyeon-dogam.js?v=20260913c"></script>
 <script src="js/nyang-shop.js?v=20260904"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>
