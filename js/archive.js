@@ -611,6 +611,11 @@
         wrap.appendChild(mkHr());
         wrap.appendChild(mkTitle('🎭 관상과 사주로본 내 모습은'));
       }
+      // 사용자 리포트(2026-09-13: "여기 갭 안들어갔어 12") — 가변카드 wrapper(#cmbZone4Cards)가
+      // .cmb-zone4-cards class 자체가 생기기 전(오늘 이전)에 저장된 리포트는 이 class가 없어서
+      // gap:12 규칙이 안 걸렸다. 여기 4개(기질/모습/가변카드묶음/조언) 전부에 이 class를 걸어도
+      // 안전하다 — 자식이 하나뿐인 고정카드는 flex+gap이어도 시각적으로 아무 차이가 없다.
+      oldDiv.classList.add('cmb-zone4-cards');
       // 옛 .gg-item-head는 jade색 그대로였다 — Figma 실측대로 navy로 맞춘다.
       Array.from(oldDiv.querySelectorAll('.gg-item-head')).forEach(function (h) {
         h.style.color = 'var(--char-navy-deep)';
