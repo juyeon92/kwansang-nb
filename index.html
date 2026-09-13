@@ -1431,9 +1431,13 @@ body.overlay-open { overflow: hidden; }
    떼거나 요소를 만들어버릴 수 있다(예: Dogam.render()가 #gwansangResult를, guestHost()가
    #dogamGuestSection을 인연도감 탭이 비활성이어도 건드림). 조건에 활성 탭 여부가 전혀 없어서,
    전혀 다른 탭(통합분석 등)을 보고 있는 도중에도 이 백그라운드 작업들 때문에 전역 푸터가
-   사라졌다 — 각 id를 자기 소속 패널의 .active 여부로 한정한다. */
+   사라졌다 — 각 id를 자기 소속 패널의 .active 여부로 한정한다.
+   2026-09-13 재수정(사용자 지적 "리포트 분석에는 푸터 빼라고") — 한때 #cmbSavedReport(저장 리포트
+   상세)를 이 목록에서 뺐었는데, 다시 "리포트 상세 화면 자체엔 푸터가 없어야 한다"는 걸로
+   확정됐다 — #panel-combined.active #cmbSavedReport 조건을 다시 추가한다. */
 .wrap:has(#panel-combined.active #cmbAnalyzing:not(.hidden)) .site-footer,
 .wrap:has(#panel-combined.active #cmbResult:not(.hidden)) .site-footer,
+.wrap:has(#panel-combined.active #cmbSavedReport:not(.hidden)) .site-footer,
 .wrap:has(#panel-gwansang.active #gwansangAnalyzing:not(.hidden)) .site-footer,
 .wrap:has(#panel-gwansang.active #gwansangResult:not(.hidden)) .site-footer,
 .wrap:has(#panel-gungham.active #ggAnalyzing:not(.hidden)) .site-footer,
