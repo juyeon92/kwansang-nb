@@ -1786,6 +1786,15 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
   width: 34px; height: 34px; border-radius: 50%; background: var(--mint-10); color: var(--jade);
   display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
 }
+/* 궁합보기 S3 목록 전용 — A·B 원형 아바타 2개를 겹쳐 보여준다(Figma node 79:2047 DogamRow).
+   .revisit-thumb/.revisit-mark 자체 크기(44px)는 그대로 두고, 뒤쪽(A) 위에 앞쪽(B)을 20px만
+   오른쪽으로 밀어 겹치며, --surface 테두리로 겹치는 경계를 분리해 보이게 한다. */
+.revisit-thumb-pair { position: relative; width: 64px; height: 44px; flex-shrink: 0; }
+.revisit-thumb-pair .revisit-thumb, .revisit-thumb-pair .revisit-mark {
+  position: absolute; top: 0; left: 0; border: 2px solid var(--surface);
+}
+.revisit-thumb-pair .revisit-mark { width: 44px; height: 44px; font-size: 20px; }
+.revisit-thumb-pair .revisit-thumb:last-child, .revisit-thumb-pair .revisit-mark:last-child { left: 20px; z-index: 1; }
 
 .confirm-backdrop { z-index: 102; }
 .confirm-dialog {
@@ -3170,9 +3179,9 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260908"></script>
 <script src="js/ai-analysis.js?v=20260914a"></script>
-<script src="js/app.js?v=20260914a"></script>
+<script src="js/app.js?v=20260914b"></script>
 <script src="js/profile.js?v=20260914a"></script>
-<script src="js/archive.js?v=20260914a"></script>
+<script src="js/archive.js?v=20260914b"></script>
 <script src="js/inyeon-dogam.js?v=20260913c"></script>
 <script src="js/nyang-shop.js?v=20260914c"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>

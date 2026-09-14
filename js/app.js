@@ -713,12 +713,18 @@ function renderGunghamSavedReport() {
   const GG_SAVED_STEP = 3;
   const ggVisibleCount = Math.min(Math.max(ggSavedRevealCount, GG_SAVED_STEP), rows.length);
   // 궁합 리포트 구성.md — 원형 캐릭터 썸네일(아바타)은 통합분석 S3와 동일 패턴(js/archive.js buildLabel의
-  // gungham 분기가 A의 characterId를 저장해둔다). characterId 없는 옛 저장분은 기존 하트 아이콘 유지.
+  // gungham 분기가 A·B 둘 다의 characterId를 저장해둔다)이되, 궁합보기는 두 사람이라 Figma(node
+  // 79:2047 DogamRow)처럼 A·B 아바타를 겹쳐서 보여준다. characterId 없는 쪽(옛 저장분 등)은 각자
+  // 하트 아이콘으로 폴백.
+  function ggAvatarPair(rec) {
+    const one = (id) => id
+      ? '<img class="revisit-thumb" src="' + getCharacterIllustration(id) + '" alt="">'
+      : '<span class="revisit-mark material-symbols-outlined">favorite</span>';
+    return '<div class="revisit-thumb-pair">' + one(rec.characterId) + one(rec.partnerCharacterId) + '</div>';
+  }
   list.innerHTML = rows.map((rec, i) =>
     '<div class="revisit-row' + (i >= ggVisibleCount ? ' cmb-saved-extra' : '') + '" role="button" tabindex="0" onclick="openGunghamSavedReport(\'' + rec.id + '\')">' +
-      (rec.characterId
-        ? '<img class="revisit-thumb" src="' + getCharacterIllustration(rec.characterId) + '" alt="">'
-        : '<span class="revisit-mark material-symbols-outlined">favorite</span>') +
+      ggAvatarPair(rec) +
       '<div class="revisit-body">' +
         '<div class="revisit-name">' + cmbEsc(rec.title) + '</div>' +
         '<div class="revisit-desc">' + [rec.sub, rec.when].filter(Boolean).map(cmbEsc).join(' · ') + '</div>' +
