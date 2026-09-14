@@ -1053,9 +1053,9 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
    .cmb-report로 스코프한다(id는 보관함 스냅샷에서 지워져 클래스로 스코프 — 위 zone-accordion
    주석 참고). */
 #cmbResult .headline-quote, #cmbSavedBody .headline-quote { padding: 16px; background: var(--mint-pale); border-color: var(--mint-border); border-radius: 12px; font-size: 16px; color: var(--char-navy); }
-/* Figma node 81:3668 "HeadlineQuote"(궁합보기 종합 점수 & 케미 분석) 실측 — 통합분석과 달리 옅은
-   틴트가 아니라 진한 솔리드 민트(#55ccbb=--mint) 배경 + 네이비 텍스트다. */
-#ggResult .headline-quote, #ggSavedBody .headline-quote { padding: 16px; background: var(--mint); border-color: var(--mint); border-radius: 12px; font-size: 16px; color: var(--char-navy); margin-top: 16px; }
+/* Figma node 81:3668 "HeadlineQuote"(궁합보기 종합 점수 & 케미 분석) 실측 — 통합분석과 같은 옅은
+   민트 틴트 배경 + 네이비 텍스트(2026-09-14 재수정: 솔리드 민트로 잘못 바꿨던 것을 원복). */
+#ggResult .headline-quote, #ggSavedBody .headline-quote { padding: 16px; background: var(--mint-pale); border-radius: 12px; font-size: 16px; color: var(--char-navy); margin-top: 16px; }
 .part-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .part-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
 .part-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
