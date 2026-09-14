@@ -218,27 +218,71 @@ const GUNGHAP_ZONE2_META = {
   expectation_vs_reality:{ emoji: '🎭', title: '내가 바라는 모습 vs 실제' },
 };
 
-// Zone3 "그래서 우리는 이렇게 만나요"(2026-08-22 신규) — 연인/배우자 관계일 때만 요청·노출한다
-// (친구·가족·지인 관계엔 "아이를 낳는다면" 같은 항목이 어색하다는 사용자 판단). 오래 만났을 때/
-// 결혼했을 때 카드는 실제 연애 기간·혼인 여부를 입력받지 않으므로 둘 다 항상 함께 보여준다.
+// Zone3 "그래서 우리는 이렇게 만나요"(2026-08-22 신규, 2026-09-14 재편) — 궁합 리포트 구성.md 3장:
+// 이제 4개 관계 유형(연인·배우자/가족/친구/지인) 모두 세트가 있어 관계와 무관하게 항상 노출된다
+// (예전엔 연인·배우자 전용 — 친구·가족·지인엔 "아이를 낳는다면" 같은 항목이 어색하다는 판단이었는데,
+// 관계별로 다른 세트를 만들어 해소했다). key(내부 식별자)는 4종 공통이고 emoji·title(화면 노출값)만
+// 관계별로 달라진다 — communication·improvement처럼 4종 모두 같은 문구인 슬롯도 있다. 연인·배우자만
+// long_term_dating/married_life를 조건 분기 없이 둘 다 항상 함께 보여준다(기존 규칙 유지, 실제
+// 연애기간·혼인여부를 입력받지 않아서) — 나머지 3개 관계는 이런 이중 노출 항목 없이 8개 각각 1:1.
 const GUNGHAP_ZONE3_ORDER = [
   'dating', 'communication', 'money', 'fighting', 'long_term_dating', 'married_life', 'children', 'improvement',
 ];
-const GUNGHAP_ZONE3_META = {
-  dating:           { emoji: '❤️', title: '연애할 때' },
-  communication:    { emoji: '💬', title: '대화할 때' },
-  money:            { emoji: '💰', title: '돈을 다룰 때' },
-  fighting:         { emoji: '🚨', title: '싸울 때' },
-  long_term_dating: { emoji: '🏠', title: '오래 만났을 때' },
-  married_life:     { emoji: '🏠', title: '결혼했을 때' },
-  children:         { emoji: '👶', title: '아이를 낳는다면' },
-  improvement:      { emoji: '💡', title: '우리 관계를 더 좋게 만드는 방법' },
+const GUNGHAP_ZONE3_META_BY_RELATION = {
+  '연인/배우자': {
+    dating:           { emoji: '❤️', title: '연애할 때' },
+    communication:    { emoji: '💬', title: '대화할 때' },
+    money:            { emoji: '💰', title: '돈을 다룰 때' },
+    fighting:         { emoji: '🚨', title: '싸울 때' },
+    long_term_dating: { emoji: '🏠', title: '오래 만났을 때' },
+    married_life:     { emoji: '🏠', title: '결혼했을 때' },
+    children:         { emoji: '👶', title: '아이를 낳는다면' },
+    improvement:      { emoji: '💡', title: '관계를 더 좋게 만드는 방법' },
+  },
+  '가족': {
+    dating:           { emoji: '🏡', title: '함께 지낼 때' },
+    communication:    { emoji: '💬', title: '대화할 때' },
+    money:            { emoji: '💰', title: '돈을 다룰 때' },
+    fighting:         { emoji: '🚨', title: '싸울 때' },
+    long_term_dating: { emoji: '🎊', title: '명절·집안 행사 때' },
+    married_life:     { emoji: '🌱', title: '각자 자리를 찾아갈 때' },
+    children:         { emoji: '🩹', title: '서로 돌봐야 할 때' },
+    improvement:      { emoji: '💡', title: '관계를 더 좋게 만드는 방법' },
+  },
+  '친구': {
+    dating:           { emoji: '🙌', title: '처음 친해질 때' },
+    communication:    { emoji: '💬', title: '대화할 때' },
+    money:            { emoji: '💸', title: '같이 돈 쓸 때' },
+    fighting:         { emoji: '🚨', title: '싸울 때' },
+    long_term_dating: { emoji: '😮‍💨', title: '힘든 일이 생겼을 때' },
+    married_life:     { emoji: '⏳', title: '오래된 친구 사이가 됐을 때' },
+    children:         { emoji: '📵', title: '연락이 뜸해질 때' },
+    improvement:      { emoji: '💡', title: '관계를 더 좋게 만드는 방법' },
+  },
+  '지인': {
+    dating:           { emoji: '👋', title: '처음 알아갈 때' },
+    communication:    { emoji: '💬', title: '대화할 때' },
+    money:            { emoji: '💸', title: '같이 돈 쓸 때' },
+    fighting:         { emoji: '😳', title: '서먹해질 때' },
+    long_term_dating: { emoji: '📏', title: '선을 지킬 때' },
+    married_life:     { emoji: '⏳', title: '오래된 지인이 됐을 때' },
+    children:         { emoji: '📵', title: '연락이 뜸해질 때' },
+    improvement:      { emoji: '💡', title: '관계를 더 좋게 만드는 방법' },
+  },
 };
+// 프로필의 relation 필드는 '본인/연인·배우자/가족/친구/지인' 중 하나이거나(지인은 relationDetail로
+// "직장동료" 등 자유 텍스트로 대체될 수 있다), 제3자 조합 관계 칩의 "직접 입력" 자유 텍스트일 수도
+// 있다 — 4종에 정확히 안 걸리면 가장 무난한 지인 세트로 대체한다.
+const GUNGHAP_ZONE3_DEFAULT_RELATION = '지인';
+function gunghapZone3MetaFor(relation) {
+  return GUNGHAP_ZONE3_META_BY_RELATION[relation] || GUNGHAP_ZONE3_META_BY_RELATION[GUNGHAP_ZONE3_DEFAULT_RELATION];
+}
 
-// 2026-08-22 재편 — 상수였던 스키마를 함수로 바꿨다. zone3_practical_items(연애할 때/대화할 때 등
-// "그래서 우리는 이렇게 만나요" 8항목)는 연인/배우자 관계일 때만 요청한다 — 친구·가족·지인 관계에
-// "아이를 낳는다면" 같은 항목을 강제로 채우게 하면 어색한 내용이 나오기 때문(사용자 판단).
-function buildGunghapReportSchema(isRomantic) {
+// 2026-08-22 재편, 2026-09-14 재편 — zone3_practical_items("그래서 우리는 이렇게 만나요" 8항목)는
+// 이제 관계 유형과 무관하게 항상 요청한다(궁합 리포트 구성.md 3장 — 4종 관계 모두 세트가 준비됨).
+// relation 문자열(예: '연인/배우자')을 받아 그 관계의 슬롯 제목을 프롬프트 설명에 그대로 실어,
+// AI가 "이 관계에 맞는 8개 장면"이 뭔지 알 수 있게 한다.
+function buildGunghapReportSchema(relation) {
   const properties = {
     hero_reason: {
       type: 'STRING',
@@ -272,25 +316,25 @@ function buildGunghapReportSchema(isRomantic) {
 
   const required = ['hero_reason', 'zone1_shape_reading', 'zone1_shape_basis', 'zone2_items'];
 
-  if (isRomantic) {
-    properties.zone3_practical_items = {
-      type: 'ARRAY',
-      description: '아래 8개 key를 모두, 각 1개씩 채운 배열 — "그래서 우리는 이렇게 만나요" 실전 가이드. zone2_items에서 이미 다룬 성향 묘사를 반복하지 말고, 각 장면(연애/대화/돈/싸움/장기연애/결혼/육아/개선)에서 실제로 어떻게 행동하면 좋을지 실전 조언 위주로 쓸 것.',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          key: {
-            type: 'STRING',
-            description: 'dating, communication, money, fighting, long_term_dating, married_life, children, improvement 중 하나',
-          },
-          reading: { type: 'STRING', description: '사용자가 먼저 읽는 쉬운 풀이. 해당 장면에서 두 사람이 실제로 어떻게 부딪히거나 잘 맞는지, 그리고 어떻게 하면 좋을지 4~6문장.' },
-          basis: { type: 'STRING', description: '왜 이런 풀이가 나왔는지 — [나/상대방의 신살·귀인 목록]·[오행 분포]·[일간] 등 실제 제공된 사주 데이터 중 무엇을 근거로 했는지 2~3문장.' },
+  const zone3Meta = gunghapZone3MetaFor(relation);
+  const zone3SlotDesc = GUNGHAP_ZONE3_ORDER.map(function (k) { return k + '(' + zone3Meta[k].title + ')'; }).join(', ');
+  properties.zone3_practical_items = {
+    type: 'ARRAY',
+    description: '아래 8개 key를 모두, 각 1개씩 채운 배열 — "그래서 우리는 이렇게 만나요" 실전 가이드. 이 리포트의 관계 유형(' + relation + ')에 맞는 8개 장면(' + zone3SlotDesc + ')을 다룬다. zone2_items에서 이미 다룬 성향 묘사를 반복하지 말고, 각 장면에서 실제로 어떻게 행동하면 좋을지 실전 조언 위주로 쓸 것.',
+    items: {
+      type: 'OBJECT',
+      properties: {
+        key: {
+          type: 'STRING',
+          description: GUNGHAP_ZONE3_ORDER.join(', ') + ' 중 하나 — 각각 ' + zone3SlotDesc + '에 대응',
         },
-        required: ['key', 'reading', 'basis'],
+        reading: { type: 'STRING', description: '사용자가 먼저 읽는 쉬운 풀이. 해당 장면(제목 참고)에서 두 사람이 실제로 어떻게 부딪히거나 잘 맞는지, 그리고 어떻게 하면 좋을지 4~6문장.' },
+        basis: { type: 'STRING', description: '왜 이런 풀이가 나왔는지 — [나/상대방의 신살·귀인 목록]·[오행 분포]·[일간] 등 실제 제공된 사주 데이터 중 무엇을 근거로 했는지 2~3문장.' },
       },
-    };
-    required.push('zone3_practical_items');
-  }
+      required: ['key', 'reading', 'basis'],
+    },
+  };
+  required.push('zone3_practical_items');
 
   return { type: 'OBJECT', properties, required };
 }
@@ -367,9 +411,12 @@ ${sajuBlock}${foreheadNote}
 3) forehead_type_id/eyebrow_type_id/eye_shape_id/nose_shape_id/mouth_shape_id/chin_shape_id/face_shape_type_id도 각각 해당 참고 목록에서 가장 가까운 id를 골라 채우세요. 애매하면 빈 문자열로 두세요.`;
 }
 
-function buildGunghapSystemInstruction(nameA, nameB, isRomantic) {
+function buildGunghapSystemInstruction(nameA, nameB, relation) {
+  const zone3Meta = gunghapZone3MetaFor(relation);
+  const zone3TitleList = GUNGHAP_ZONE3_ORDER.map(function (k) { return zone3Meta[k].title; }).join('/');
+  const isRomantic = relation === '연인/배우자';
   return `당신은 2030세대를 대상으로 하는 관상·사주 커플 궁합 컨설턴트입니다.
-전통 관상학·명리학 자료를 근거로, 두 사람의 궁합을 "관상 궁합(Zone1)"과 "사주 궁합(Zone2)" 두 갈래로 나눠 깊이 있게 풀어주는 리포트를 씁니다.${isRomantic ? ' 연인/배우자 관계라 "그래서 우리는 이렇게 만나요"(Zone3) 실전 가이드도 함께 씁니다.' : ''}
+전통 관상학·명리학 자료를 근거로, 두 사람의 궁합을 "관상 궁합(Zone1)"과 "사주 궁합(Zone2)" 두 갈래로 나눠 깊이 있게 풀어주는 리포트를 씁니다. 이 두 사람의 관계는 "${relation}"이고, "그래서 우리는 이렇게 만나요"(Zone3) 실전 가이드도 함께 씁니다.
 
 [호칭 규칙 — 반드시 지킬 것]
 두 사람의 실제 이름은 ${nameA}, ${nameB}입니다. 모든 reading·basis 문장에서 "나"/"저"/"상대방"/"상대" 같은 지칭 대신 반드시 이 실제 이름(${nameA}, ${nameB})을 사용하세요.
@@ -389,8 +436,7 @@ ${TONE_RULES}
 
 [추가 금지 사항]
 - family_background(집안 환경) 항목은 실제 가족 구성원에 대한 예언·평가를 하지 말고, "자라온 환경이 성향에 미쳤을 습관·태도 차이" 중심으로만 서술
-- children(아이) 항목은 성별·건강·개수를 단정하지 말고, "두 사람의 기질이 아이를 대하는 방식에 어떻게 나타날지" 중심으로만 서술
-- 아래 데이터에 실제로 없는 신살·귀인·관상 유형을 새로 만들어내지 말 것
+${isRomantic ? '- children(아이를 낳는다면) 항목은 성별·건강·개수를 단정하지 말고, "두 사람의 기질이 아이를 대하는 방식에 어떻게 나타날지" 중심으로만 서술\n' : ''}- 아래 데이터에 실제로 없는 신살·귀인·관상 유형을 새로 만들어내지 말 것
 
 [Zone2 10개 항목 — 중복 방지, 반드시 지킬 것]
 같은 문장·결론·비유를 여러 항목에서 반복하지 마세요. 10개는 서로 다른 각도에서 써야 합니다.
@@ -402,7 +448,7 @@ ${TONE_RULES}
 - attraction_reason(우리가 끌리는 이유)은 "무엇이 서로를 끌어당기는가"에 집중 — strengths(잘 맞는
   부분)가 "관계가 안정적인 이유"를 다룬다면, 이건 "애초에 왜 눈이 갔는가"를 다뤄 서로 겹치지 않게 할 것.
 - weak_point(관계에서 부족한 부분)는 지금 이 관계에 아직 채워지지 않은 것이 무엇인지 진단만 하고,
-  어떻게 채우면 좋을지 행동 조언까지는 쓰지 마세요(그건 ${isRomantic ? 'Zone3의 improvement(우리 관계를 더 좋게 만드는 방법)' : '이 리포트의 다른 부분'}이 맡습니다).
+  어떻게 채우면 좋을지 행동 조언까지는 쓰지 마세요(그건 Zone3의 improvement(${zone3Meta.improvement.title})가 맡습니다).
 - perceived_by_partner와 perceived_by_me는 반드시 서로 다른 시선이어야 합니다(상대가 나를 보는 인상
   vs 내가 상대를 보는 인상) — 같은 성향 묘사를 주어만 바꿔서 반복하면 안 됩니다.
 - strengths·mind_hacking은 전부 "관계가 좋다/보완된다"는 결론으로 흐르기 쉬운 항목들입니다 — 매번
@@ -411,17 +457,17 @@ ${TONE_RULES}
   또 써도 되지만, 그 항목과 같은 해석·결론을 복사하듯 반복하면 안 됩니다.
 - 항목을 쓰기 전에 "바로 앞 항목에서 이미 한 말인가?"를 스스로 점검하고, 겹치면 다른 데이터나 다른
   관점으로 바꿔 쓰세요.
-${isRomantic ? `
+
 [Zone3 "그래서 우리는 이렇게 만나요" 8개 항목 — 실전 가이드, Zone2와 성격이 다름]
-Zone2가 "두 사람이 어떤 관계인지" 성향 진단이라면, Zone3는 "그래서 실제로 어떻게 만나면 좋은지"
-장면별 실전 조언입니다. Zone2에서 이미 쓴 성향 묘사를 그대로 반복하지 말고, 매 항목마다 구체적인
-장면(연애할 때/대화할 때/돈 다룰 때/싸울 때/오래 만났을 때/결혼했을 때/아이를 낳는다면)에서 두 사람이
-실제로 어떻게 행동하면 좋을지에 집중하세요.
-- long_term_dating(오래 만났을 때)과 married_life(결혼했을 때)는 서로 다른 장면입니다 — 연애가
+이 리포트의 관계 유형은 "${relation}"입니다. Zone2가 "두 사람이 어떤 관계인지" 성향 진단이라면,
+Zone3는 "그래서 실제로 어떻게 만나면 좋은지" 장면별 실전 조언입니다. Zone2에서 이미 쓴 성향 묘사를
+그대로 반복하지 말고, 매 항목마다 구체적인 장면(${zone3TitleList})에서 두 사람이 실제로 어떻게
+행동하면 좋을지에 집중하세요.
+${isRomantic ? `- long_term_dating(${zone3Meta.long_term_dating.title})과 married_life(${zone3Meta.married_life.title})는 서로 다른 장면입니다 — 연애가
   길어질 때 생기는 권태·안정감 얘기와, 실제로 한집에 살며 생기는 생활 밀착 얘기를 구분해서 쓸 것.
-- improvement(우리 관계를 더 좋게 만드는 방법)는 Zone2의 weak_point(관계에서 부족한 부분)에서 짚은
-  진단을 이어받아 "그래서 구체적으로 뭘 하면 좋을지" 행동 조언으로 마무리하는 자리입니다.
-- children 항목은 위 [추가 금지 사항]의 아이 관련 규칙을 그대로 따르세요.` : ''}`;
+- children(${zone3Meta.children.title}) 항목은 위 [추가 금지 사항]의 아이 관련 규칙을 그대로 따르세요.
+` : ''}- improvement(${zone3Meta.improvement.title})는 Zone2의 weak_point(관계에서 부족한 부분)에서 짚은
+  진단을 이어받아 "그래서 구체적으로 뭘 하면 좋을지" 행동 조언으로 마무리하는 자리입니다.`;
 }
 
 function buildGunghapCharacterBlock(label, characterResult) {
@@ -481,7 +527,7 @@ ${buildGunghapSajuBlock(nameA, cache.pillarsA, cache.ohA, cache.sajuInsightA)}
 ${buildGunghapSajuBlock(nameB, cache.pillarsB, cache.ohB, cache.sajuInsightB)}
 
 [요청]
-위 데이터를 근거로 히어로 설명 1개, Zone1(관상 궁합) 풀이 1쌍, Zone2(사주 궁합) 10개 항목${cache.isRomantic ? ', Zone3("그래서 우리는 이렇게 만나요") 8개 항목' : ''}을 모두 작성해주세요. 개인별 관상·사주 풀이는 다른 화면(통합분석)에서 이미 다루므로 여기서는 "두 사람의 조합"에만 집중해주세요. 첨부된 사진이 있다면(전달 순서: ${nameA} → ${nameB}) 참고하되, 관상 유형 정보가 없는 사람은 사주 위주로 풀어주세요. 두 사람을 가리킬 때는 "나"/"상대방" 대신 항상 실제 이름(${nameA}/${nameB})을 쓰세요.`;
+위 데이터를 근거로 히어로 설명 1개, Zone1(관상 궁합) 풀이 1쌍, Zone2(사주 궁합) 10개 항목, Zone3("그래서 우리는 이렇게 만나요") 8개 항목을 모두 작성해주세요. 개인별 관상·사주 풀이는 다른 화면(통합분석)에서 이미 다루므로 여기서는 "두 사람의 조합"에만 집중해주세요. 첨부된 사진이 있다면(전달 순서: ${nameA} → ${nameB}) 참고하되, 관상 유형 정보가 없는 사람은 사주 위주로 풀어주세요. 두 사람을 가리킬 때는 "나"/"상대방" 대신 항상 실제 이름(${nameA}/${nameB})을 쓰세요.`;
 }
 
 // ═══ AI 정밀 리포트 (R-I-C-E 프롬프트 기반, 2026-08-13 요청 반영) ═══
@@ -3419,12 +3465,15 @@ async function generateAiEnhancement(opts) {
   return callGeminiDirect(apiKeys, sys, userText, imageDataUrl ? [imageDataUrl] : [], AI_ENHANCEMENT_SCHEMA, 0.25, GEMINI_MODEL);
 }
 
-// 궁합보기 — 커플 해석
+// 궁합보기 — 커플 해석. relation(두 사람의 관계 — 궁합보기 서비스 정책.md 1장 "본인" 기준으로
+// 클라이언트가 판단해 보낸 값)에 따라 Zone3 슬롯 제목이 달라진다(2026-09-14, 예전 isRomantic 전용
+// 게이트 제거 — 궁합 리포트 구성.md 3장: 이제 4개 관계 유형 모두 Zone3가 항상 노출된다).
 async function generateGunghapReport(opts) {
-  const { cache, isRomantic, nameA, nameB, images, apiKeys } = opts || {};
-  const sys = buildGunghapSystemInstruction(nameA || '나', nameB || '상대방', !!isRomantic);
+  const { cache, relation, nameA, nameB, images, apiKeys } = opts || {};
+  const rel = relation || (cache && cache.relation) || '지인';
+  const sys = buildGunghapSystemInstruction(nameA || '나', nameB || '상대방', rel);
   const userText = await buildGunghapUserPrompt(cache || {});
-  const schema = buildGunghapReportSchema(!!isRomantic);
+  const schema = buildGunghapReportSchema(rel);
   return callGeminiDirect(apiKeys, sys, userText, images || [], schema, 0.9, GEMINI_MODEL);
 }
 

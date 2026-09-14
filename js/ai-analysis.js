@@ -45,22 +45,60 @@ const GUNGHAP_ZONE2_META = {
   expectation_vs_reality:{ emoji: '🎭', title: '내가 바라는 모습 vs 실제' },
 };
 
-// Zone3 "그래서 우리는 이렇게 만나요"(2026-08-22 신규) — 연인/배우자 관계일 때만 요청·노출한다
-// (친구·가족·지인 관계엔 "아이를 낳는다면" 같은 항목이 어색하다는 사용자 판단). 오래 만났을 때/
-// 결혼했을 때 카드는 실제 연애 기간·혼인 여부를 입력받지 않으므로 둘 다 항상 함께 보여준다.
+// Zone3 "그래서 우리는 이렇게 만나요"(2026-08-22 신규, 2026-09-14 재편) — 궁합 리포트 구성.md 3장:
+// 4개 관계 유형(연인·배우자/가족/친구/지인) 모두 세트가 있어 관계와 무관하게 항상 노출된다(예전엔
+// 연인·배우자 전용). key는 4종 공통, emoji·title만 관계별로 다르다 — 서버(functions/engine/
+// prompt-builders.js)의 같은 이름 테이블과 반드시 동기화해서 유지한다. 연인·배우자만
+// long_term_dating/married_life를 조건 분기 없이 둘 다 항상 함께 보여준다(기존 규칙 유지).
 const GUNGHAP_ZONE3_ORDER = [
   'dating', 'communication', 'money', 'fighting', 'long_term_dating', 'married_life', 'children', 'improvement',
 ];
-const GUNGHAP_ZONE3_META = {
-  dating:           { emoji: '❤️', title: '연애할 때' },
-  communication:    { emoji: '💬', title: '대화할 때' },
-  money:            { emoji: '💰', title: '돈을 다룰 때' },
-  fighting:         { emoji: '🚨', title: '싸울 때' },
-  long_term_dating: { emoji: '🏠', title: '오래 만났을 때' },
-  married_life:     { emoji: '🏠', title: '결혼했을 때' },
-  children:         { emoji: '👶', title: '아이를 낳는다면' },
-  improvement:      { emoji: '💡', title: '우리 관계를 더 좋게 만드는 방법' },
+const GUNGHAP_ZONE3_META_BY_RELATION = {
+  '연인/배우자': {
+    dating:           { emoji: '❤️', title: '연애할 때' },
+    communication:    { emoji: '💬', title: '대화할 때' },
+    money:            { emoji: '💰', title: '돈을 다룰 때' },
+    fighting:         { emoji: '🚨', title: '싸울 때' },
+    long_term_dating: { emoji: '🏠', title: '오래 만났을 때' },
+    married_life:     { emoji: '🏠', title: '결혼했을 때' },
+    children:         { emoji: '👶', title: '아이를 낳는다면' },
+    improvement:      { emoji: '💡', title: '관계를 더 좋게 만드는 방법' },
+  },
+  '가족': {
+    dating:           { emoji: '🏡', title: '함께 지낼 때' },
+    communication:    { emoji: '💬', title: '대화할 때' },
+    money:            { emoji: '💰', title: '돈을 다룰 때' },
+    fighting:         { emoji: '🚨', title: '싸울 때' },
+    long_term_dating: { emoji: '🎊', title: '명절·집안 행사 때' },
+    married_life:     { emoji: '🌱', title: '각자 자리를 찾아갈 때' },
+    children:         { emoji: '🩹', title: '서로 돌봐야 할 때' },
+    improvement:      { emoji: '💡', title: '관계를 더 좋게 만드는 방법' },
+  },
+  '친구': {
+    dating:           { emoji: '🙌', title: '처음 친해질 때' },
+    communication:    { emoji: '💬', title: '대화할 때' },
+    money:            { emoji: '💸', title: '같이 돈 쓸 때' },
+    fighting:         { emoji: '🚨', title: '싸울 때' },
+    long_term_dating: { emoji: '😮‍💨', title: '힘든 일이 생겼을 때' },
+    married_life:     { emoji: '⏳', title: '오래된 친구 사이가 됐을 때' },
+    children:         { emoji: '📵', title: '연락이 뜸해질 때' },
+    improvement:      { emoji: '💡', title: '관계를 더 좋게 만드는 방법' },
+  },
+  '지인': {
+    dating:           { emoji: '👋', title: '처음 알아갈 때' },
+    communication:    { emoji: '💬', title: '대화할 때' },
+    money:            { emoji: '💸', title: '같이 돈 쓸 때' },
+    fighting:         { emoji: '😳', title: '서먹해질 때' },
+    long_term_dating: { emoji: '📏', title: '선을 지킬 때' },
+    married_life:     { emoji: '⏳', title: '오래된 지인이 됐을 때' },
+    children:         { emoji: '📵', title: '연락이 뜸해질 때' },
+    improvement:      { emoji: '💡', title: '관계를 더 좋게 만드는 방법' },
+  },
 };
+const GUNGHAP_ZONE3_DEFAULT_RELATION = '지인';
+function gunghapZone3MetaFor(relation) {
+  return GUNGHAP_ZONE3_META_BY_RELATION[relation] || GUNGHAP_ZONE3_META_BY_RELATION[GUNGHAP_ZONE3_DEFAULT_RELATION];
+}
 
 // "OO님의 질문, 냥반이 답해드려요" — 제목 형식 자체는 항상 등장하는 구조라 AI가 짓지 않고 코드가
 // 강제한다(§2 판단기준 1번과 동일 원칙, 고정 카드 제목들과 같은 이유). AI가 title에 뭘 써서 보내든
@@ -895,12 +933,13 @@ function renderGunghapResult(data) {
     .join('');
   setHtml('ggZone2AiItems', zone2Html);
 
-  // Zone3 "그래서 우리는 이렇게 만나요"(연인/배우자 관계일 때만 요청됨 — data.zone3_practical_items가
-  // 아예 없는 응답이면 조용히 비운다. 섹션 자체의 노출 여부는 runGungham()이 relation으로 결정한다).
+  // Zone3 "그래서 우리는 이렇게 만나요" — 이제 관계 유형과 무관하게 항상 요청·노출된다(궁합 리포트
+  // 구성.md 3장). 슬롯 제목·이모지는 두 사람의 관계(state.gungham.relation)에 맞는 세트를 쓴다.
   const practicalByKey = {};
   (data.zone3_practical_items || []).forEach(it => { practicalByKey[it.key] = it; });
+  const zone3Meta = gunghapZone3MetaFor(state.gungham.relation);
   const zone3Html = GUNGHAP_ZONE3_ORDER
-    .map(key => (practicalByKey[key] ? gunghapItemCardHtml(GUNGHAP_ZONE3_META[key], practicalByKey[key]) : ''))
+    .map(key => (practicalByKey[key] ? gunghapItemCardHtml(zone3Meta[key], practicalByKey[key]) : ''))
     .join('');
   setHtml('ggPracticalItems', zone3Html);
 }
@@ -1784,11 +1823,13 @@ async function requestCoupleAi() {
   if (state.gunghamB.lm && canvasB.width) images.push(getCleanImageDataUrl('gunghamB', 'gunghamCanvasB'));
 
   try {
-    const isRomantic = !!cache.isRomantic;
+    // 궁합보기 서비스 정책.md 1장 — relation은 이미 "본인" 기준으로 판단돼 state.gungham.relation에
+    // 채워져 있다(profile.js syncGunghamRelation 참고). 서버가 이 값으로 Zone3 슬롯 제목을 고른다
+    // (functions/engine/prompt-builders.js gunghapZone3MetaFor).
     // ANALYSIS_LOGIC_SERVER_MIGRATION.md "아직 남은 작업 3번" — 시스템 프롬프트·스키마 조립과 Gemini
     // 호출을 서버(generateGunghapReport)가 그대로 맡는다.
     const data = await AiReportAPI.generateGunghapReport({
-      cache, isRomantic, nameA: cache.nameA || '나', nameB: cache.nameB || '상대방', images,
+      cache, relation: cache.relation, nameA: cache.nameA || '나', nameB: cache.nameB || '상대방', images,
     });
     renderGunghapResult(data);
   } catch (e) {

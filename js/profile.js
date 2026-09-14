@@ -222,6 +222,13 @@
     const list = loadProfiles();
     return list.find(p => p.isDefault) || list[0] || null;
   }
+  // 궁합보기 서비스 정책.md 1장 — "본인"(관계="본인"으로 등록된 프로필)은 대표 프로필과 다른 개념이다.
+  // 대표 프로필은 헤더 표시값일 뿐이라 본인이 아닌 다른 프로필로 바뀌어 있을 수 있고, 그 경우에도
+  // 궁합보기 A 기본값·관계 자동판단은 "진짜 나"인 이 프로필을 따라가야 한다. 여러 개가 등록돼 있으면
+  // (있으면 안 되는 상태지만) 먼저 등록한 것을 쓴다.
+  function getSelf() {
+    return loadProfiles().find(p => p.relation === '본인') || null;
+  }
   function setRepresentative(id) {
     const list = loadProfiles();
     list.forEach(p => { p.isDefault = (p.id === id); });
@@ -257,6 +264,15 @@
     const combined = Archive.listOf('combined').filter(r => r.profileId === id).length;
     const gungham = Archive.listOf('gungham').filter(r => r.profileId === id).length;
     return { combined, gungham, total: combined + gungham };
+  }
+  // 궁합보기 서비스 정책.md 3-2 — "이 조합(반대쪽에 이미 고른 프로필 + 이 행의 프로필)으로 이미 확인한
+  // 궁합이 있는 경우"를 판정한다. 어느 쪽이 A/B였는지와 무관하게(같은 두 사람이면 자리가 바뀌어도
+  // 같은 조합) profileId·partnerId를 순서 상관없이 대조한다.
+  function comboReportExists(idA, idB) {
+    if (!idA || !idB || !window.Archive || !Archive.listOf) return false;
+    return Archive.listOf('gungham').some(function (r) {
+      return (r.profileId === idA && r.partnerId === idB) || (r.profileId === idB && r.partnerId === idA);
+    });
   }
   function deleteProfile(id) {
     let list = loadProfiles();
@@ -331,27 +347,31 @@
     // state.gungham.relation은 더 이상 여기서 바로 정하지 않는다 — syncGunghamRelation()이 A/B가
     // 둘 다 정해진 뒤에 "둘 중 대표(나)가 있는 쪽" 기준으로 계산한다(아래 참고).
   }
-  // A(나)/B(상대) 중 어느 쪽이 실제로 관계를 판단할 근거가 되는지 정한다(2026-08-22, 궁합보기
-  // "대표 프로필 vs 분석 대상" 정리 — 사용자 확정: A/B 모두 대표가 아닐 수 있게 됨).
-  function isRepresentativeId(id) {
-    const rep = getRepresentative();
-    return !!(rep && id && rep.id === id);
+  // A(나)/B(상대) 중 어느 쪽이 실제로 관계를 판단할 근거가 되는지 정한다. 궁합보기 서비스 정책.md
+  // 1장/3-1 — 판단 기준은 대표 프로필이 아니라 "본인"이다(2026-09-14 수정). 대표 프로필이 본인이
+  // 아닌 다른 프로필로 바뀌어 있어도(예: 통합분석에서 대표를 아빠로 지정해둔 상태) 이 판단은 영향받지
+  // 않아야 한다 — 대표 프로필 기준으로 판단하면 상대 프로필의 "나와의 관계" 값을 엉뚱한 사람 기준으로
+  // 잘못 쓰게 된다.
+  function isSelfId(id) {
+    const self = getSelf();
+    return !!(self && id && self.id === id);
   }
   // 두 사람의 관계(state.gungham.relation)를 정한다.
-  // - A나 B 중 하나가 대표(나)면, 그 반대쪽 프로필에 저장된 "이 사람과 나의 관계"를 그대로 쓴다
+  // - A나 B 중 하나가 본인이면, 그 반대쪽 프로필에 저장된 "이 사람과 나의 관계"를 그대로 쓴다
   //   (기존 동작과 동일 — 프로필의 relation 필드 자체가 "이 사람과 나의 관계"라는 뜻이라서).
-  // - A·B 둘 다 대표가 아니면(예: 엄마 vs 아빠) 그 필드로는 두 사람 사이의 관계를 알 수 없다 —
-  //   #ggRelAsk 칩을 띄워 사용자에게 직접 물어본다(setGunghamRelation이 답을 채운다).
+  // - A·B 둘 다 본인이 아니면(예: 엄마 vs 아빠, 또는 본인 프로필 자체가 없으면) 그 필드로는 두 사람
+  //   사이의 관계를 알 수 없다 — #ggRelAsk 칩을 띄워 사용자에게 직접 물어본다(setGunghamRelation이
+  //   답을 채운다).
   function syncGunghamRelation() {
     const askEl = document.getElementById('ggRelAsk');
     if (!gunghamAId || !gunghamPartnerId) { if (askEl) askEl.classList.add('hidden'); return; }
     const aProf = getProfile(gunghamAId), bProf = getProfile(gunghamPartnerId);
-    if (isRepresentativeId(gunghamAId) && bProf) {
+    if (isSelfId(gunghamAId) && bProf) {
       state.gungham.relation = bProf.relationDetail || bProf.relation;
       if (askEl) askEl.classList.add('hidden');
       return;
     }
-    if (isRepresentativeId(gunghamPartnerId) && aProf) {
+    if (isSelfId(gunghamPartnerId) && aProf) {
       state.gungham.relation = aProf.relationDetail || aProf.relation;
       if (askEl) askEl.classList.add('hidden');
       return;
@@ -386,14 +406,30 @@
   }
   function applyRepresentativeEverywhere() {
     const rep = getRepresentative();
-    if (!rep) return;
-    applyToContext('gwansang', rep);
-    applyToContext('combined', rep);
-    // 궁합보기 A(나)는 이제 대표 프로필과 독립적이다(2026-08-22) — 사용자가 아직 A를 직접 고르지
-    // 않았을 때만(gunghamAId가 비어있을 때만) 대표를 기본값으로 채운다. 한 번 A를 명시적으로 고르면
-    // 그 뒤로 대표가(예: 통합분석에서 다른 사람 분석하느라) 바뀌어도 A는 따라가지 않고 그대로 남는다.
-    if (!gunghamAId) { gunghamAId = rep.id; applyToGunghamA(rep); renderGunghamA(rep); }
+    if (rep) {
+      applyToContext('gwansang', rep);
+      applyToContext('combined', rep);
+    }
+    // 궁합보기 A(나)는 대표 프로필과 완전히 무관하다(궁합보기 서비스 정책.md 1장, 2026-09-14 수정
+    // — 이전엔 대표 프로필을 기본값으로 썼으나, "본인"과 "대표 프로필"은 다른 개념이라 분리했다).
+    // 사용자가 아직 A를 직접 고르지 않았을 때만(gunghamAId가 비어있을 때만) "본인"(관계="본인") 프로필을
+    // 기본값으로 채운다. 한 번 A를 명시적으로 고르면 그 뒤로 본인 프로필 정보가 바뀌거나 대표 프로필이
+    // (예: 통합분석에서 다른 사람 분석하느라) 바뀌어도 A는 따라가지 않고 그대로 남는다.
+    if (!gunghamAId) {
+      const self = getSelf();
+      if (self) { gunghamAId = self.id; applyToGunghamA(self); renderGunghamA(self); }
+    }
     syncGunghamRelation();
+  }
+  // 궁합보기 서비스 정책.md 3-7 "새로운 조합으로 궁합보기" — A·B 모두 초기화한다. A는 gunghamAId를
+  // 비운 뒤 위 applyRepresentativeEverywhere와 같은 규칙(본인 프로필이 있으면 프리필)을 재사용해서
+  // 채운다. app.js의 startGunghamForOther()가 사진·업로드 상태 초기화와 함께 호출한다.
+  function resetGunghamCombo() {
+    gunghamAId = null;
+    gunghamPartnerId = null;
+    renderGunghamB(null);
+    applyRepresentativeEverywhere();
+    if (!gunghamAId) renderGunghamA(null); // 본인 프로필이 없으면 applyRepresentativeEverywhere가 못 채우므로 명시적으로 빈 상태 렌더
   }
 
   // ── 헤더 Info box 렌더 ────────────────────────────────────────────────
@@ -561,26 +597,44 @@
     if (!el) return;
     if (!list.length) { el.innerHTML = '<p class="dogam-empty">등록된 사주가 없어요. 사주를 추가해주세요.</p>'; return; }
     // P4(통합분석 사주 선택 바텀시트, 정책 3-2)에서만 — 이미 리포트가 있는 사주는 선택 자체를 막는다.
-    // "사주 관리"(대표 프로필 변경)·궁합보기 A/B 픽커는 리포트 보유 여부와 무관하게 그대로 고를 수
-    // 있어야 해서 이 타이틀일 때만 적용한다(openCombinedSajuPicker/startCombinedForOther 전용).
+    // "사주 관리"(대표 프로필 변경)는 리포트 보유 여부와 무관하게 그대로 고를 수 있어야 해서 이
+    // 타이틀일 때만 적용한다(openCombinedSajuPicker/startCombinedForOther 전용).
     const lockLinked = switcherOpts.title === '분석할 사주 선택';
-    // 정렬: 활성화 항목 우선, 잠긴(리포트 보유) 항목은 아래로 — 각 그룹 내에서는 등록순 유지(Array.sort는
+    // 궁합보기 A/B 픽커(P1, 궁합 서비스 정책.md 3-2) — 반대쪽(A↔B)에 이미 고른 프로필과 동일한
+    // 프로필, 그리고 그 조합으로 이미 확인한 궁합이 있는 프로필은 이 시트에서 선택을 막는다.
+    const oppositeId = ggSlot === 'A' ? gunghamPartnerId : ggSlot === 'B' ? gunghamAId : null;
+    // 이 행을 선택할 수 없는 이유(있으면 문자열, 없으면 null) — 컨텍스트별로 기준이 다르다.
+    function selectBlockReason(p) {
+      if (lockLinked) {
+        return linkedReportCounts(p.id).total > 0
+          ? '이미 이 사주로 분석한 리포트가 있어요. 보관함에서 삭제하면 다시 분석할 수 있어요.'
+          : null;
+      }
+      if (ggSlot && oppositeId) {
+        if (p.id === oppositeId) return '이미 선택한 프로필이에요.';
+        if (comboReportExists(p.id, oppositeId)) return '이미 이 조합으로 확인한 궁합이 있어요. 보관함에서 삭제하면 다시 분석할 수 있어요.';
+      }
+      return null;
+    }
+    // 정렬: 활성화 항목 우선, 선택 불가 항목은 아래로 — 각 그룹 내에서는 등록순 유지(Array.sort는
     // stable이라 원래 순서가 보존된다).
-    const rows = lockLinked
+    const needsSort = lockLinked || !!ggSlot;
+    const rows = needsSort
       ? list.slice().sort((a, b) => {
-          const la = linkedReportCounts(a.id).total > 0, lb = linkedReportCounts(b.id).total > 0;
+          const la = !!selectBlockReason(a), lb = !!selectBlockReason(b);
           return la === lb ? 0 : (la ? 1 : -1);
         })
       : list;
     el.innerHTML = rows.map(p => {
       const isCandidate = p.id === switcherCandidateId;
       // 이미 이 프로필로 만든 리포트가 있으면 openForm()이 그 사주를 잠가 수정을 막는데(사용자 요청
-      // 2026-08-27, linkedReportCounts 주석 참고). Figma 실측 — 연필(수정) 아이콘은 지금 고른 후보
-      // 행에만 있고, 나머지 행은 삭제(X) 아이콘만 있다.
-      const locked = linkedReportCounts(p.id).total > 0;
-      const lockRow = lockLinked && locked;
+      // 2026-08-27, linkedReportCounts 주석 참고) — 이건 "선택 가능 여부"와 별개로 항상 적용된다.
+      // Figma 실측 — 연필(수정) 아이콘은 지금 고른 후보 행에만 있고, 나머지 행은 삭제(X) 아이콘만 있다.
+      const editLocked = linkedReportCounts(p.id).total > 0;
+      const reason = selectBlockReason(p);
+      const lockRow = !!reason;
       const rowClick = lockRow
-        ? `alert('이미 이 사주로 분석한 리포트가 있어요. 보관함에서 삭제하면 다시 분석할 수 있어요.')`
+        ? `alert('${reason}')`
         : `Profile._selectCandidateRow('${p.id}', '${ggSlot || ''}')`;
       return `
         <div class="profile-row ${isCandidate ? 'is-selected' : ''} ${lockRow ? 'is-locked' : ''}" onclick="${rowClick}">
@@ -592,7 +646,7 @@
             </div>
             <div class="profile-row-sub">${esc(fmtYmd(...String(p.solarDate||'').split('-')))} · ${esc(hourLabel(p.birthHour))}</div>
           </div>
-          ${(isCandidate && !locked) ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._editRow('${p.id}', '${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>` : ''}
+          ${(isCandidate && !editLocked) ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._editRow('${p.id}', '${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>` : ''}
           ${list.length > 1 ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._deleteRow('${p.id}')"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
         </div>`;
     }).join('');
@@ -1213,27 +1267,40 @@
   }
   async function runGunghamWrapped() {
     if (analysisInFlight) return;
-    // A(나)는 더 이상 대표 프로필과 동일하지 않다(2026-08-22) — gunghamAId가 실제 선택값이고,
-    // 대표 프로필은 그저 그 값이 비어 있을 때(applyRepresentativeEverywhere) 채워주는 기본값이다.
-    if (!gunghamAId) { openForm(null, { onSavedRun: 'gungham' }); return; }
+    // A(나)는 대표 프로필과 무관하다 — gunghamAId가 실제 선택값이고, 본인 프로필은 그 값이 비어
+    // 있을 때(applyRepresentativeEverywhere)만 기본값으로 채워준다(궁합보기 서비스 정책.md 1장).
+    if (!gunghamAId) { alert('A 프로필을 선택해주세요.'); return; }
     const self = getProfile(gunghamAId);
-    if (!self) { alert('내 프로필을 다시 선택해주세요.'); return; }
-    if (!gunghamPartnerId) { alert('상대방 프로필을 선택해주세요.'); return; }
+    if (!self) { alert('A 프로필을 다시 선택해주세요.'); return; }
+    if (!gunghamPartnerId) { alert('B 프로필을 선택해주세요.'); return; }
     const partner = getProfile(gunghamPartnerId);
-    if (!partner) { alert('상대방 프로필을 다시 선택해주세요.'); return; }
-    // A·B 둘 다 대표(나)가 아니면(예: 엄마 vs 아빠) syncGunghamRelation()이 관계를 자동으로 못 정하고
+    if (!partner) { alert('B 프로필을 다시 선택해주세요.'); return; }
+    // A·B 둘 다 본인이 아니면(예: 엄마 vs 아빠) syncGunghamRelation()이 관계를 자동으로 못 정하고
     // #ggRelAsk로 직접 물어보게 비워둔다 — 그 상태로 진행하지 않게 막는다.
     if (!state.gungham.relation) { alert('두 사람의 관계를 선택해주세요.'); return; }
+    if (!state.gunghamA.file) { alert('A 사진을 선택해주세요.'); return; }
+    if (!state.gunghamB.file) { alert('B 사진을 선택해주세요.'); return; }
 
     analysisInFlight = true;
+    let lmA = null, lmB = null;
     try {
+      // 궁합보기 서비스 정책.md 3-4 2단계 — "확인"을 눌러도 팝업은 닫히지 않고, execute()가 끝날
+      // 때까지 로딩 상태를 보여준다(통합분석 runCombinedWrapped와 동일 패턴). A·B 얼굴 인식을 냥
+      // 차감보다 먼저 끝내둬서, 인식 실패로 결과가 반쪽만 나오는데 냥은 이미 빠진 상황을 막는다.
       const ok = await askSpend('궁합 분석을 시작할까요?', 1, {
-        execute: async () => await chargeNyangOrAlert('gungham'),
+        execute: async () => {
+          const tasks = [];
+          tasks.push(runFaceAnalysis('gunghamA', 'gunghamCanvasA').then(lm => { lmA = lm; }));
+          tasks.push(runFaceAnalysis('gunghamB', 'gunghamCanvasB').then(lm => { lmB = lm; }));
+          await Promise.all(tasks);
+          if (!lmA || !lmB) { alert('냥 차감에 실패했습니다. 잠시 후 다시 시도해주세요.'); return false; }
+          return await chargeNyangOrAlert('gungham');
+        },
       });
       if (!ok) return;
       applyToGunghamA(self);
       applyToGunghamB(partner);
-      await runGungham();
+      await runGungham(lmA, lmB); // 위에서 인식한 결과를 넘겨 MediaPipe를 두 번 돌리지 않는다
     } finally {
       analysisInFlight = false;
     }
@@ -1264,6 +1331,7 @@
     getRepresentative, describe: describeProfile, hourShort, hourLabel,
     getGunghamPartner: function () { return gunghamPartnerId ? getProfile(gunghamPartnerId) : null; },
     getGunghamA: function () { return gunghamAId ? getProfile(gunghamAId) : null; },
+    getSelf: getSelf, resetGunghamCombo: resetGunghamCombo,
     _dismissSwitcher: finishSwitcher, _dismissForm: dismissForm,
     _closeSpend: closeSpendDialog, _spendGo: spendGo,
     runCombined: runCombinedWrapped, runGungham: runGunghamWrapped,

@@ -36,7 +36,7 @@ const AiReportAPI = (function () {
     return data.data;
   }
 
-  // opts: { cache, isRomantic, nameA, nameB, images }
+  // opts: { cache, relation, nameA, nameB, images }
   async function generateGunghapReport(opts) {
     const data = await postJson(GENERATE_GUNGHAP_REPORT_FUNCTION_URL, opts);
     return data.data;

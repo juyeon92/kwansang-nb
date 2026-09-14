@@ -1079,10 +1079,17 @@
       // 바뀌었을 때 이미 저장된 리포트 제목까지 엉뚱하게 바뀌어 보일 수 있었다.
       const self = window.Profile && Profile.getGunghamA ? Profile.getGunghamA() : rep;
       const partner = window.Profile && Profile.getGunghamPartner ? Profile.getGunghamPartner() : null;
+      // characterId — S3 원형 아바타(궁합 리포트 구성.md, 통합분석과 같은 patttern)는 A의 캐릭터
+      // 판정을 쓴다(문서에 어느 쪽인지 명시는 없으나, A가 이 리포트를 만든 화면상 기준 인물이다).
+      const characterId = (st && st.gunghamA && st.gunghamA.characterResult && st.gunghamA.characterResult.characterId) || null;
       return {
-        title: (self ? self.name : repName) + ' ✕ ' + (partner ? partner.name : '상대방'),
+        title: (self ? self.name : repName) + '♥' + (partner ? partner.name : '상대방'),
         sub: (st && st.gungham && st.gungham.relation) || '',
         profileId: self ? self.id : (rep ? rep.id : null),
+        // partnerId(B) — 정책 3-3 "프로필 삭제 시: 그 프로필이 A 또는 B로 쓰인 궁합 리포트는 모두
+        // 함께 삭제됨". profileId(A)만 기록하면 B로만 쓰인 프로필 삭제 시 이 리포트가 안 지워진다.
+        partnerId: partner ? partner.id : null,
+        characterId: characterId,
       };
     }
     // gwansang(인연도감)은 여기 없다 — 더 이상 buildLabel을 거쳐 저장되지 않는다(save()의 가드 참고).
@@ -1117,6 +1124,7 @@
     list.push({
       id: id, type: type, title: label.title, sub: label.sub,
       profileId: label.profileId || null, // "이 프로필로 이미 분석했는지" 나중에 대조하기 위함
+      partnerId: label.partnerId || null, // 궁합보기 B — 프로필 삭제 캐스케이드(정책 3-3)에 필요
       characterId: label.characterId || null, // S3 목록의 원형 아바타(정책 3-6) — buildLabel 참고
       paid: PAID_TYPES.indexOf(type) >= 0, // 결제 상품 여부 — 결제내역 화면에서 재사용할 수 있게 남긴다
       createdAt: label.createdAt || new Date().toISOString(), // 인연도감은 도감 자체의 실제 생성 시각을 그대로 쓴다
@@ -1293,7 +1301,10 @@
     const uid = currentUid();
     if (!uid || !profileId) return;
     const list = loadIndex();
-    const toRemove = list.filter(r => (r.type === 'combined' || r.type === 'gungham') && r.profileId === profileId);
+    const toRemove = list.filter(r =>
+      (r.type === 'combined' && r.profileId === profileId) ||
+      (r.type === 'gungham' && (r.profileId === profileId || r.partnerId === profileId))
+    );
     if (!toRemove.length) return;
     toRemove.forEach(r => { removeReportHtml(uid, r.id); markDeleted(r.id); });
     const left = list.filter(r => toRemove.indexOf(r) < 0);
@@ -1537,7 +1548,7 @@
     return loadIndex()
       .filter(r => r.type === type)
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)) // 항상 최신순 — 목록 화면의 정렬 토글과 무관하게
-      .map(r => ({ id: r.id, type: r.type, title: r.title, sub: r.sub, profileId: r.profileId || null, characterId: r.characterId || null, createdAt: r.createdAt, when: fmtWhen(r.createdAt) }));
+      .map(r => ({ id: r.id, type: r.type, title: r.title, sub: r.sub, profileId: r.profileId || null, partnerId: r.partnerId || null, characterId: r.characterId || null, createdAt: r.createdAt, when: fmtWhen(r.createdAt) }));
   }
   function latestOf(type) { return listOf(type)[0] || null; }
   // 저장된 리포트 본문을 임의의 컨테이너에 그린다. 보관함 상세와 같은 정리(조작 요소 제거)를 거친다.

@@ -2965,14 +2965,14 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 
         <div class="err-msg" id="ggErr" style="margin:16px 4px 0;"></div>
 
-        <div class="cta-dock hidden" id="ggCtaDock">
-          <button class="submit-btn" onclick="Profile.runGungham()">궁합 분석하기</button>
+        <div class="cta-dock" id="ggCtaDock">
+          <button class="submit-btn" onclick="startGunghamAnalysis()">궁합 분석하기</button>
         </div>
     </div>
         <div class="hidden cmb-form-card" id="ggSavedStep">
       <div class="cmb-form-card-title">이미 확인한 궁합이 있어요</div>
       <div class="card revisit-card" id="ggSavedList"></div>
-      <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">다른 상대와 궁합보기</button>
+      <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">새로운 조합으로 궁합보기</button>
     </div>
 
         <div class="hidden" id="ggSavedReport">
@@ -2983,7 +2983,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <h2 id="ggSavedTitle"></h2>
       </div>
       <div class="arc-report" id="ggSavedBody"></div>
-      <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">다른 상대와 궁합보기</button>
+      <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">새로운 조합으로 궁합보기</button>
     </div>
 
         <div class="cmb-analyzing hidden" id="ggAnalyzing">
@@ -3101,7 +3101,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <div class="card-title">🚨 티격태격 모먼트 &amp; 극복 전략</div>
         <div id="ggMomentCards"></div>
 
-        <div id="ggPracticalSection" class="hidden">
+        <div id="ggPracticalSection">
           <div class="cmb-z2-hr" style="margin:16px 0;"></div>
           <div class="card-title">💌 그래서 우리는 이렇게 만나요</div>
           <div id="ggPracticalItems"></div>

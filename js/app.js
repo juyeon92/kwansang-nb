@@ -300,19 +300,23 @@ function updateCtaDock(ctx) {
   // 2026-09-05(3차 피드백) — 인연도감(gwansang)은 더 이상 "사진 업로드 여부"로 CTA를 가리지 않는다.
   // 버튼은 처음부터 기본 노출(index.html #gwansangCtaDock)이고, 사진 없이 눌러도 startAnalysis()가
   // 이미 안내하므로 안전하다. 분석이 끝나 결과 화면으로 넘어갈 때만 markAnalyzed('gwansang')이
-  // 명시적으로 숨긴다. 다른 탭(궁합보기)은 기존처럼 업로드 여부로 계속 게이트한다.
+  // 명시적으로 숨긴다.
   // ⚠️ 통합분석 서비스 정책.md 2-3(2026-09-10) — combined도 gwansang과 같은 방식으로 바꿨다.
   // "통합분석 풀이 보기" 버튼은 항상 노출·항상 클릭 가능하고, 미완료 항목은 startCombinedAnalysis()가
   // 순서대로 alert로 안내한다(사주 선택+사진 없이 눌러도 안전).
-  if (ctx === 'gwansang' || ctx === 'combined') return;
-  const show = (ctx === 'gunghamA' || ctx === 'gunghamB')
-    ? !!(state.gunghamA.file && state.gunghamB.file)
-    : !!state[ctx].file;
+  // ⚠️ 궁합보기 서비스 정책.md 3-1(2026-09-14) — "궁합 분석하기"도 같은 방식으로 바꿨다. 업로드 여부로
+  // 가리는 대신 항상 노출하고, startGunghamAnalysis()가 순서대로 alert로 안내한다. 노출 여부는 이제
+  // setGgCtaVisible(showGunghamInputStep/renderGunghamSavedReport)이 화면 전환 시점에 직접 맡는다 —
+  // 여기서는 A/B 아코디언 자동 접힘/펼침(syncGgAccordion)만 계속 처리한다.
+  if (ctx === 'gwansang' || ctx === 'combined' || ctx === 'gungham' || ctx === 'gunghamA' || ctx === 'gunghamB') {
+    if (ctx === 'gunghamA' || ctx === 'gunghamB') {
+      if (window.Profile && Profile.syncGgAccordion) Profile.syncGgAccordion();
+    }
+    return;
+  }
+  const show = !!state[ctx].file;
   const el = document.getElementById(id);
   if (el) el.classList.toggle('hidden', !show);
-  if (ctx === 'gunghamA' || ctx === 'gunghamB') {
-    if (window.Profile && Profile.syncGgAccordion) Profile.syncGgAccordion();
-  }
 }
 
 // 사진 등록 영역(라벨·안심 안내·업로드 드롭존·썸네일·좌우 반전) 전체 — 분석 전까지만 필요하고,
@@ -668,6 +672,14 @@ function setGgHeroVisible(on) {
   if (hero) hero.classList.toggle('hidden', !on);
 }
 
+// 궁합보기 서비스 정책.md 3-1 — "궁합 분석하기"가 통합분석의 setCmbCtaVisible과 같은 패턴으로
+// 항상노출로 바뀌면서(updateCtaDock 참고), #ggCtaDock은 #ggInputStep 바깥의 별도 요소라 화면 전환과
+// 자동으로 같이 안 움직인다 — 입력 화면이 보일 때만 같이 보이도록 여기서 직접 맞춘다.
+function setGgCtaVisible(on) {
+  const dock = document.getElementById('ggCtaDock');
+  if (dock) dock.classList.toggle('hidden', !on);
+}
+
 function showGunghamInputStep() {
   const input = document.getElementById('ggInputStep');
   if (input) input.classList.remove('hidden');
@@ -676,6 +688,7 @@ function showGunghamInputStep() {
     if (el) el.classList.add('hidden');
   });
   setGgHeroVisible(true);
+  setGgCtaVisible(true);
 }
 
 function renderGunghamSavedReport() {
@@ -699,9 +712,13 @@ function renderGunghamSavedReport() {
   // 3개까지 우선 노출 후 "더보기"를 누른 만큼 3개씩 추가 노출, 전부 열리면 "더보기 닫기"로 복귀.
   const GG_SAVED_STEP = 3;
   const ggVisibleCount = Math.min(Math.max(ggSavedRevealCount, GG_SAVED_STEP), rows.length);
+  // 궁합 리포트 구성.md — 원형 캐릭터 썸네일(아바타)은 통합분석 S3와 동일 패턴(js/archive.js buildLabel의
+  // gungham 분기가 A의 characterId를 저장해둔다). characterId 없는 옛 저장분은 기존 하트 아이콘 유지.
   list.innerHTML = rows.map((rec, i) =>
     '<div class="revisit-row' + (i >= ggVisibleCount ? ' cmb-saved-extra' : '') + '" role="button" tabindex="0" onclick="openGunghamSavedReport(\'' + rec.id + '\')">' +
-      '<span class="revisit-mark material-symbols-outlined">favorite</span>' +
+      (rec.characterId
+        ? '<img class="revisit-thumb" src="' + getCharacterIllustration(rec.characterId) + '" alt="">'
+        : '<span class="revisit-mark material-symbols-outlined">favorite</span>') +
       '<div class="revisit-body">' +
         '<div class="revisit-name">' + cmbEsc(rec.title) + '</div>' +
         '<div class="revisit-desc">' + [rec.sub, rec.when].filter(Boolean).map(cmbEsc).join(' · ') + '</div>' +
@@ -720,6 +737,7 @@ function renderGunghamSavedReport() {
   if (report && !report.classList.contains('hidden') && !viewingGone) {
     input.classList.add('hidden');
     setGgHeroVisible(false);
+    setGgCtaVisible(false);
     return;
   }
   ggViewingReportId = null;
@@ -727,6 +745,7 @@ function renderGunghamSavedReport() {
   input.classList.add('hidden');
   saved.classList.remove('hidden');
   setGgHeroVisible(true);
+  setGgCtaVisible(false);
 }
 
 // "더보기"/"더보기 닫기" — 통합분석의 cmbRevealMoreSaved/cmbCollapseSavedList와 동일 패턴.
@@ -772,23 +791,39 @@ function closeGunghamSavedReport() {
   window.scrollTo(0, 0);
 }
 
-// "다른 상대와 궁합보기" — 상대방만 다시 고르면 된다(나는 대표 프로필로 고정). 고른 뒤에 선택
-// 단계(#ggInputStep)로 돌아가 사진 등록부터 새로 진행한다.
-// ⚠️ 버그 수정(2026-08-25) — startCombinedForOther는 onPick 안에서 resetUpload('combined')를 불러
-// 이전 사진·상태를 지우는데, 이 함수는 showGunghamInputStep()만 부르고 state.gunghamB(사진·랜드마크)를
-// 지우지 않았다. applyToGunghamB가 생년월일·성별은 새로 고른 상대 걸로 채워주지만 사진은 그대로 남아,
-// "새 상대의 생년월일 + 예전 상대의 사진"이 섞인 채로 입력 단계가 열렸다. 나(A)는 대표 프로필 고정이라
-// 의도적으로 안 건드리고, 상대(B)만 resetUpload로 사진·랜드마크를 비운다.
+// "새로운 조합으로 궁합보기"(궁합보기 서비스 정책.md 3-7) — A·B 모두 초기화한다. A는 본인 프로필이
+// 있으면 다시 프리필되고(대표 프로필이 아니라 "본인" 기준 — Profile.resetGunghamCombo가
+// applyRepresentativeEverywhere와 같은 규칙을 재사용한다), B는 미선택 상태로 시작 — 둘 다 자유롭게
+// 다시 고를 수 있다(제3자 조합 포함). ⚠️ 예전엔("다른 상대와 궁합보기") 상대(B)만 다시 고르고 나(A)는
+// 대표 프로필로 고정해 건드리지 않았는데, "본인"과 "대표 프로필"이 분리되면서(1장) A도 같은 리셋
+// 대상이 됐다 — 대표 프로필이 본인이 아닌 다른 사람으로 바뀌어 있어도 A는 항상 본인 기준으로 되돌아가야
+// 한다. resetUpload로 A·B 사진·랜드마크도 함께 비운다(2026-08-25 버그 수정과 같은 이유).
 function startGunghamForOther() {
-  if (!window.Profile || !Profile.openPartnerPicker) return;
-  Profile.openPartnerPicker({
-    onPick: function () {
-      resetUpload('gunghamB');
-      ggWantsNewAnalysis = true;
-      showGunghamInputStep();
-      window.scrollTo(0, 0);
-    },
-  });
+  resetUpload('gunghamA');
+  resetUpload('gunghamB');
+  if (window.Profile && Profile.resetGunghamCombo) Profile.resetGunghamCombo();
+  ggWantsNewAnalysis = true;
+  showGunghamInputStep();
+  window.scrollTo(0, 0);
+}
+
+// 궁합보기 서비스 정책.md 3-1 — "궁합 분석하기"는 항상 클릭 가능하고, 화면에 보이는 순서(A→B→
+// 관계(제3자 조합만)→A사진→B사진) 그대로 위에서부터 확인해서 alert로 안내한다(startCombinedAnalysis와
+// 동일 패턴). 전부 통과하면 기존 Profile.runGungham()(=runGunghamWrapped)에 그대로 넘긴다 — 프로필
+// 재조회, 냥 확인, 얼굴 인식→차감 순서는 그 함수가 이미 갖고 있어 여기서 다시 만들지 않는다.
+function startGunghamAnalysis() {
+  if (!(window.Profile && Profile.getGunghamA && Profile.getGunghamA())) {
+    alert('A 프로필을 선택해주세요.');
+    return;
+  }
+  if (!(window.Profile && Profile.getGunghamPartner && Profile.getGunghamPartner())) {
+    alert('B 프로필을 선택해주세요.');
+    return;
+  }
+  if (!state.gungham.relation) { alert('두 사람의 관계를 선택해주세요.'); return; }
+  if (!state.gunghamA.file) { alert('A 사진을 선택해주세요.'); return; }
+  if (!state.gunghamB.file) { alert('B 사진을 선택해주세요.'); return; }
+  if (window.Profile && Profile.runGungham) Profile.runGungham();
 }
 
 // ═══ SPINNER / ERROR HELPERS ═══
@@ -2821,7 +2856,7 @@ function hideGgAnalyzing() {
   if (box) box.classList.add('hidden');
 }
 
-async function runGungham() {
+async function runGungham(preloadedLmA, preloadedLmB) {
   const dateA = document.getElementById('ggBirthA').value;
   const dateB = document.getElementById('ggBirthB').value;
   if (!dateA || !dateB) { showErr('ggErr', '두 사람의 생년월일을 모두 입력해주세요.'); return; }
@@ -2875,11 +2910,13 @@ async function runGungham() {
     renderCompatScore(sajuOnlyCompat);
     let heroScores = { total: sajuOnlyCompat.score, saju: sajuOnlyCompat.score, gwansang: null };
 
-    // ② 사진 있으면 관상 분석 (병렬 실행)
-    let lmA = null, lmB = null;
+    // ② 사진 있으면 관상 분석(병렬 실행) — 궁합보기 서비스 정책.md 3-4 2단계: P3(냥 사용 확인 팝업)의
+    // "확인" 단계에서 이미 얼굴 인식을 끝내고 lmA/lmB를 넘겨받았으면(runGunghamWrapped 참고) MediaPipe를
+    // 다시 돌리지 않는다.
+    let lmA = preloadedLmA || null, lmB = preloadedLmB || null;
     const tasks = [];
-    if (state.gunghamA.file) { setGgAnalyzingMsg('얼굴을 분석하는 중이에요'); tasks.push(runFaceAnalysis('gunghamA', 'gunghamCanvasA').then(lm => { lmA = lm; })); }
-    if (state.gunghamB.file) tasks.push(runFaceAnalysis('gunghamB', 'gunghamCanvasB').then(lm => { lmB = lm; }));
+    if (!lmA && state.gunghamA.file) { setGgAnalyzingMsg('얼굴을 분석하는 중이에요'); tasks.push(runFaceAnalysis('gunghamA', 'gunghamCanvasA').then(lm => { lmA = lm; })); }
+    if (!lmB && state.gunghamB.file) tasks.push(runFaceAnalysis('gunghamB', 'gunghamCanvasB').then(lm => { lmB = lm; }));
     if (tasks.length > 0) await Promise.all(tasks);
 
     // ②-1 관상 캐릭터 판정 — 개인별 관상 형상(눈모양·동물상) 카드·골든타임은 통합분석 탭에 이미 있어
@@ -2910,9 +2947,9 @@ async function runGungham() {
     const sajuInsightA = collectSajuInsightSummary(pillarsA);
     const sajuInsightB = collectSajuInsightSummary(pillarsB);
 
-    // Gemini "AI 정밀 해석" 버튼이 재사용할 수 있도록 계산 결과 캐시
-    // isRomantic(2026-08-22 추가) — 연인/배우자 관계일 때만 Zone3 "그래서 우리는 이렇게 만나요"를
-    // 요청·노출한다(친구·가족·지인 관계에 "아이를 낳는다면" 같은 항목은 어색하다는 사용자 판단).
+    // Gemini "AI 정밀 해석" 버튼이 재사용할 수 있도록 계산 결과 캐시. relation — 궁합 리포트 구성.md
+    // 3장(2026-09-14 재편): Zone3 "그래서 우리는 이렇게 만나요"는 이제 관계 유형과 무관하게 항상
+    // 노출되고, 슬롯 제목만 이 값(gunghapZone3MetaFor)에 따라 달라진다(예전엔 연인/배우자 전용 게이트).
     state.gungham.cache = {
       nameA, nameB,
       pillarsA, pillarsB, ohA, ohB,
@@ -2921,13 +2958,8 @@ async function runGungham() {
       sajuInsightA, sajuInsightB,
       characterA: state.gunghamA.characterResult || null,
       characterB: state.gunghamB.characterResult || null,
-      isRomantic: rel === '연인/배우자',
+      relation: rel,
     };
-
-    // Zone3 실전 가이드 섹션은 연인/배우자 관계일 때만 보인다 — AI 성공 여부와 무관하게 relation만으로
-    // 즉시 결정(로딩 중에도 스켈레톤 대신 아예 숨어 있어야 자연스러움).
-    const practicalSection = document.getElementById('ggPracticalSection');
-    if (practicalSection) practicalSection.classList.toggle('hidden', rel !== '연인/배우자');
 
     // ④ 지침서 예시② 구조의 4섹션 비교 리포트 (STEP3에 해당, 관상 없어도 사주만으로 생성)
     const chemi = buildRoleChemi(pillarsA[2].stem, narrativeA.statusMap, pillarsB[2].stem, narrativeB.statusMap);
