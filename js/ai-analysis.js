@@ -32,18 +32,33 @@ const GUNGHAP_ZONE2_ORDER = [
   'overall_relationship', 'attraction_reason', 'sinsal_combo', 'strengths', 'weak_point',
   'perceived_by_partner', 'perceived_by_me', 'mind_hacking', 'family_background', 'expectation_vs_reality',
 ];
+// ⚠️ 사용자 리포트(2026-09-14) — perceived_by_partner/perceived_by_me/mind_hacking/expectation_vs_reality
+// 제목이 "나"/"상대" 기준으로 고정돼 있어서, A·B 둘 다 본인이 아닌 제3자 조합(예: 친구 X↔Y의 궁합을
+// 계정 주인이 조회)에서는 "상대가 보는 나"의 "나"가 누구인지 알 수 없어 어색했다. perceived_by_partner/
+// perceived_by_me는 실제 이름을 넣어 방향을 명시하도록 title을 '{A}'/'{B}' 플레이스홀더로 바꾸고
+// (renderGunghapResult가 cache.nameA/nameB로 치환), mind_hacking·expectation_vs_reality는 "나"/"상대"
+// 자체를 빼고 서로(mutual) 관점으로 재구성했다 — 본인이 포함된 조합에서도 그대로 자연스럽다.
 const GUNGHAP_ZONE2_META = {
   overall_relationship:  { emoji: '🌡️', title: '우리 관계, 한 줄로 말하면' },
   attraction_reason:     { emoji: '💘', title: '우리가 끌리는 이유' },
   sinsal_combo:          { emoji: '🔮', title: '신살·귀인이 만드는 케미' },
   strengths:             { emoji: '✨', title: '특히 잘 맞는 부분' },
   weak_point:            { emoji: '⚠️', title: '관계에서 부족한 부분' },
-  perceived_by_partner:  { emoji: '🪞', title: '상대가 보는 나' },
-  perceived_by_me:       { emoji: '🔍', title: '내가 보는 상대' },
-  mind_hacking:          { emoji: '🔑', title: '상대 마음 사로잡는 법' },
+  perceived_by_partner:  { emoji: '🪞', title: '{B}가 보는 {A}' },
+  perceived_by_me:       { emoji: '🔍', title: '{A}가 보는 {B}' },
+  mind_hacking:          { emoji: '🔑', title: '서로의 마음을 사로잡는 법' },
   family_background:     { emoji: '🌳', title: '서로 다르게 자라온 환경' },
-  expectation_vs_reality:{ emoji: '🎭', title: '내가 바라는 모습 vs 실제' },
+  expectation_vs_reality:{ emoji: '🎭', title: '서로 바라는 모습 vs 실제' },
 };
+// {A}/{B} 플레이스홀더가 있는 title을 실제 이름으로 치환한 meta 객체를 돌려준다(없는 항목은 그대로).
+function gunghapZone2MetaWithNames(nameA, nameB) {
+  const out = {};
+  Object.keys(GUNGHAP_ZONE2_META).forEach(function (key) {
+    const m = GUNGHAP_ZONE2_META[key];
+    out[key] = { emoji: m.emoji, title: m.title.replace('{A}', nameA || '나').replace('{B}', nameB || '상대방') };
+  });
+  return out;
+}
 
 // Zone3 "그래서 우리는 이렇게 만나요"(2026-08-22 신규, 2026-09-14 재편) — 궁합 리포트 구성.md 3장:
 // 4개 관계 유형(연인·배우자/가족/친구/지인) 모두 세트가 있어 관계와 무관하게 항상 노출된다(예전엔
@@ -913,6 +928,8 @@ function renderGunghapResult(data) {
 
   const itemsByKey = {};
   (data.zone2_items || []).forEach(it => { itemsByKey[it.key] = it; });
+  const cache = state.gungham.cache || {};
+  const zone2Meta = gunghapZone2MetaWithNames(cache.nameA, cache.nameB);
 
   // ① 사주 궁합 한줄 총평 — overall_relationship만 목록에서 떼어내 Zone2 맨 위에 단독 노출(2026-08-22).
   // Figma(81:3802) 실측 — 이 소제목("🌡️ 우리 관계, 한 줄로 말하면")은 아이템 카드 안이 아니라 밖의
@@ -929,7 +946,7 @@ function renderGunghapResult(data) {
   // ④ 사주 관계 풀이 — overall_relationship을 뺀 나머지 9개.
   const zone2Html = GUNGHAP_ZONE2_ORDER
     .filter(key => key !== 'overall_relationship')
-    .map(key => (itemsByKey[key] ? gunghapItemCardHtml(GUNGHAP_ZONE2_META[key], itemsByKey[key]) : ''))
+    .map(key => (itemsByKey[key] ? gunghapItemCardHtml(zone2Meta[key], itemsByKey[key]) : ''))
     .join('');
   setHtml('ggZone2AiItems', zone2Html);
 

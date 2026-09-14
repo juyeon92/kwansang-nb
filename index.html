@@ -715,9 +715,9 @@ body {
 .thumb-sub { font-size: 11px; color: var(--text-sub); }
 .thumb-btns { display: flex; flex-direction: column; gap: 8px; }
 
-#gwansangUploadSection .thumb-img, #dogamGuestSection .thumb-img, #cmbUploadSection .thumb-img { width: 100px; height: 100px; }
-#gwansangUploadSection .thumb-area, #dogamGuestSection .thumb-area, #cmbUploadSection .thumb-area { justify-content: center; }
-#gwansangUploadSection .thumb-btns, #dogamGuestSection .thumb-btns, #cmbUploadSection .thumb-btns { flex-direction: column; flex: none; }
+#gwansangUploadSection .thumb-img, #dogamGuestSection .thumb-img, #cmbUploadSection .thumb-img, #ggUploadSectionA .thumb-img, #ggUploadSectionB .thumb-img { width: 100px; height: 100px; }
+#gwansangUploadSection .thumb-area, #dogamGuestSection .thumb-area, #cmbUploadSection .thumb-area, #ggUploadSectionA .thumb-area, #ggUploadSectionB .thumb-area { justify-content: center; }
+#gwansangUploadSection .thumb-btns, #dogamGuestSection .thumb-btns, #cmbUploadSection .thumb-btns, #ggUploadSectionA .thumb-btns, #ggUploadSectionB .thumb-btns { flex-direction: column; flex: none; }
 .analyze-btn {
   padding: 10px 18px; border-radius: var(--r-btn); border: none;
   background: var(--mint); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
@@ -2143,7 +2143,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
               </g>
             </svg>
           </span>
-          <p>목선까지 보이는 정면사진을 올려주세요.(얼굴 60% 이상)</p>
+          <p>이마와 목선까지 보이는 정면사진을 올려주세요.(얼굴 60% 이상)</p>
         </div>
       </div>
       <input type="file" id="cmbFileInput" accept="image/*" style="display:none" onchange="handleFile('combined', event)">
@@ -2402,7 +2402,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
                 </g>
               </svg>
             </span>
-            <p>목선까지 보이는 정면사진을 올려주세요.(얼굴 60% 이상)</p>
+            <p>이마와 목선까지 보이는 정면사진을 올려주세요.(얼굴 60% 이상)</p>
           </div>
         </div>
         <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile('gwansang', event)">
@@ -2880,14 +2880,16 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
                 </g>
               </svg>
             </span>
-            <p>목선까지 보이는 정면사진을 올려주세요.(얼굴 60% 이상)</p>
+            <p>이마와 목선까지 보이는 정면사진을 올려주세요.(얼굴 60% 이상)</p>
           </div>
         </div>
         <input type="file" id="ggFileA" accept="image/*" style="display:none" onchange="handleFile('gunghamA', event)">
         <div class="thumb-area" id="ggThumbA">
           <img id="ggImgA" class="thumb-img" src="" alt="">
-          <div class="thumb-info"><div class="thumb-name">나</div></div>
-          <button class="reupload-btn" onclick="resetUpload('gunghamA')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
+          <div class="thumb-btns" id="ggThumbBtnsA">
+            <button type="button" class="reupload-btn" onclick="document.getElementById('ggFileA').click()">다시 선택하기</button>
+            <button class="reupload-btn" onclick="toggleMirror('gunghamA', this)" title="비대칭 판정이 반대로 나오는 것 같으면 눌러보세요"><span class="material-symbols-outlined" style="font-size:14px;">flip</span> 좌우 반전</button>
+          </div>
         </div>
         <input type="hidden" id="ggBirthA" value="">
         <input type="hidden" id="ggBirthHourA" value="-1">
@@ -2932,14 +2934,16 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
                 </g>
               </svg>
             </span>
-            <p>목선까지 보이는 정면사진을 올려주세요.(얼굴 60% 이상)</p>
+            <p>이마와 목선까지 보이는 정면사진을 올려주세요.(얼굴 60% 이상)</p>
           </div>
         </div>
         <input type="file" id="ggFileB" accept="image/*" style="display:none" onchange="handleFile('gunghamB', event)">
         <div class="thumb-area" id="ggThumbB">
           <img id="ggImgB" class="thumb-img" src="" alt="">
-          <div class="thumb-info"><div class="thumb-name">상대방</div></div>
-          <button class="reupload-btn" onclick="resetUpload('gunghamB')"><span class="material-symbols-outlined" style="font-size:14px;">refresh</span></button>
+          <div class="thumb-btns" id="ggThumbBtnsB">
+            <button type="button" class="reupload-btn" onclick="document.getElementById('ggFileB').click()">다시 선택하기</button>
+            <button class="reupload-btn" onclick="toggleMirror('gunghamB', this)" title="비대칭 판정이 반대로 나오는 것 같으면 눌러보세요"><span class="material-symbols-outlined" style="font-size:14px;">flip</span> 좌우 반전</button>
+          </div>
         </div>
         <input type="hidden" id="ggBirthB" value="">
         <input type="hidden" id="ggBirthHourB" value="-1">

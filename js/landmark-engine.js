@@ -51,6 +51,56 @@ const IDX = {
 let faceLandmarker = null;
 let landmarkerLoading = null;
 
+// ═══ 사진 품질 사전검증 — 카드사 OCR처럼 업로드 즉시 자동 반려 (2026-09-14 추가) ═══
+// 관상 판정이 사진 각도·앞머리·구도에 따라 크게 흔들리는 문제(같은 사람인데 사또상/수문장상처럼
+// 다른 캐릭터가 나옴)의 근본 원인 중 하나가 "애초에 판정에 부적합한 사진"이 그대로 분석까지
+// 들어가는 것이었다. 여기서 4가지 기준(얼굴 크기·턱/목선 크롭·이마 노출·정면 여부)을 만족하지
+// 못하면 runFaceAnalysis가 서버 호출(CharacterAPI.classifyGwansang) 전에 즉시 반려하고 재업로드를
+// 유도한다 — 서버까지 안 가고 클라이언트에서 바로 걸러서 응답도 빠르고 서버 호출 비용도 아낀다.
+// ⚠️ 모든 임계값은 실측 사진 없이 만든 초안이다 — 다른 임계값들(FOREHEAD_RELIABLE_RANGE 등)과
+// 마찬가지로 오탐(정상 사진 반려)이 잦으면 좁히고, 미탐(부적합 사진 통과)이 잦으면 넓혀서 실측
+// 데이터로 보정해야 한다.
+const PHOTO_QUALITY = {
+  faceRatio: [0.20, 0.85],       // 얼굴폭 ÷ 사진폭 — drawRegions 배지가 쓰던 기준과 동일(그 배지는 이제 사실상 통과한 사진에만 표시됨)
+  foreheadGwanR: [0.15, 0.65],   // 이마세로 ÷ 눈-턱세로 — gwansang-classify.js FOREHEAD_RELIABLE_RANGE와 동일 값
+  yawMin: 0.72,                  // min(좌,우 볼-코끝 거리) ÷ max(...) — 1에 가까울수록 정면, 낮을수록 옆모습
+  chinMarginMin: 0.06,           // (사진 높이 - 턱끝y) ÷ 사진 높이 — 턱 아래 여백 비율, 작으면 목선이 잘림
+};
+
+function assessPhotoQuality(lm, w, h) {
+  const browY = (lm[IDX.browPeakL].y + lm[IDX.browPeakR].y) / 2;
+  const faceW = Math.abs(lm[IDX.cheekR].x - lm[IDX.cheekL].x);
+  const faceRatio = faceW / w;
+  if (faceRatio < PHOTO_QUALITY.faceRatio[0]) {
+    return { ok: false, message: '얼굴이 너무 작게 나왔어요. 얼굴이 더 크게 보이는 사진으로 다시 올려주세요.' };
+  }
+  if (faceRatio > PHOTO_QUALITY.faceRatio[1]) {
+    return { ok: false, message: '얼굴이 너무 가깝게 나왔어요. 조금 떨어져서 찍은 사진으로 다시 올려주세요.' };
+  }
+
+  const chinMargin = (h - lm[IDX.chin].y) / h;
+  if (chinMargin < PHOTO_QUALITY.chinMarginMin) {
+    return { ok: false, message: '턱과 목선이 사진 아래로 잘렸어요. 목선까지 나오게 찍은 사진으로 다시 올려주세요.' };
+  }
+
+  const eyeToChinH = Math.abs(lm[IDX.chin].y - browY);
+  const foreheadH = Math.abs(browY - lm[IDX.hairline].y);
+  const gwanR = eyeToChinH ? foreheadH / eyeToChinH : 0;
+  if (gwanR < PHOTO_QUALITY.foreheadGwanR[0] || gwanR > PHOTO_QUALITY.foreheadGwanR[1]) {
+    return { ok: false, message: '앞머리 등으로 이마가 가려져 있어요. 이마가 보이는 사진으로 다시 올려주세요.' };
+  }
+
+  const noseTip = lm[IDX.noseTip];
+  const distL = Math.abs(noseTip.x - lm[IDX.cheekL].x);
+  const distR = Math.abs(lm[IDX.cheekR].x - noseTip.x);
+  const yawRatio = Math.max(distL, distR) ? Math.min(distL, distR) / Math.max(distL, distR) : 0;
+  if (yawRatio < PHOTO_QUALITY.yawMin) {
+    return { ok: false, message: '옆모습에 가까운 사진이에요. 정면을 바라보고 찍은 사진으로 다시 올려주세요.' };
+  }
+
+  return { ok: true, message: null };
+}
+
 // ═══ MODELS — MediaPipe Tasks Vision (동적 import, CDN 절대경로라 file://에서도 CORS 문제 없음) ═══
 async function loadModels(spinnerMsgId) {
   if (faceLandmarker) return true;
@@ -134,6 +184,14 @@ async function runFaceAnalysis(ctx, canvasIdOverride) {
     // 정규화 좌표(0~1) → 픽셀 좌표로 변환. 이렇게 하면 이후 코드는 예전 face-api.js의 lm[N].x/.y와
     // 동일한 형태(픽셀 {x,y} 배열)로 다룰 수 있어 인덱스 값만 바뀌고 나머지 구조는 그대로 유지된다.
     const lm = result.faceLandmarks[0].map(p => ({ x: p.x * w, y: p.y * h }));
+
+    const quality = assessPhotoQuality(lm, w, h);
+    if (!quality.ok) {
+      hideSpinner(m.spinner);
+      showErr(m.err, quality.message);
+      return null;
+    }
+
     state[ctx].lm = lm; state[ctx].w = w; state[ctx].h = h;
     // AI로 보낼 이미지는 반드시 drawRegions "이전"에 떠둔다. 이 캔버스는 화면 표시용이라 바로 아래에서
     // 부위별 컬러 폴리곤·한글 라벨·비율 수치가 덧그려지는데, 예전엔 ai-analysis.js가 그 오버레이까지
