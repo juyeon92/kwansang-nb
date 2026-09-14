@@ -5,10 +5,10 @@ const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 
 // Stored state per context
 const state = {
-  gwansang: { relation: '본인', file: null, lm: null, w: 0, h: 0 },
-  combined: { relation: '본인', name: '', file: null, lm: null, q1: '', q2: '', q3: '' },
-  gunghamA: { file: null, lm: null },
-  gunghamB: { file: null, lm: null },
+  gwansang: { relation: '본인', file: null, lm: null, w: 0, h: 0, qualityError: null },
+  combined: { relation: '본인', name: '', file: null, lm: null, q1: '', q2: '', q3: '', qualityError: null },
+  gunghamA: { file: null, lm: null, qualityError: null, qualityChecked: false },
+  gunghamB: { file: null, lm: null, qualityError: null, qualityChecked: false },
   gungham: { relation: '연인/배우자' },
 };
 
@@ -276,8 +276,11 @@ function setGgGender(who, g) {
 const ctxMap = {
   gwansang: { uploadArea: 'uploadArea', thumbArea: 'thumbArea', thumbImg: 'thumbImg', spinner: 'gwansangSpinner', err: 'gwansangErr' },
   combined: { uploadArea: 'cmbUploadArea', thumbArea: 'cmbThumbArea', thumbImg: 'cmbThumbImg', spinner: 'cmbSpinner', err: 'cmbErr' },
-  gunghamA: { uploadArea: 'ggUploadA', thumbArea: 'ggThumbA', thumbImg: 'ggImgA', spinner: null, err: 'ggErr' },
-  gunghamB: { uploadArea: 'ggUploadB', thumbArea: 'ggThumbB', thumbImg: 'ggImgB', spinner: null, err: 'ggErr' },
+  // photo-quality 에러는 각자 전용 박스(ggErrA/ggErrB)에 — 공유 박스 하나였을 때 "누구 사진이 문제인지"가
+  // 안 보였다(사용자 리포트 2026-09-14: "1번이 잘못됐으면 1번 밑에, 2번이 잘못됐으면 2번 밑에"). 두 사람
+  // 공통 검증(생년월일 등)은 여전히 아래쪽 공유 #ggErr을 그대로 쓴다.
+  gunghamA: { uploadArea: 'ggUploadA', thumbArea: 'ggThumbA', thumbImg: 'ggImgA', spinner: null, err: 'ggErrA' },
+  gunghamB: { uploadArea: 'ggUploadB', thumbArea: 'ggThumbB', thumbImg: 'ggImgB', spinner: null, err: 'ggErrB' },
 };
 
 function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag'); }
@@ -290,6 +293,42 @@ function handleDrop(ctx, e) {
 }
 function handleFile(ctx, e) {
   if (e.target.files[0]) loadThumb(ctx, e.target.files[0]);
+}
+
+// "관상 정보" 라벨의 ? 버튼 — 업로드 전 촬영 가이드(사용자 요청 2026-09-14). 여권사진 안내처럼 실제
+// 얼굴 대신 일러스트 실루엣 위에 이마/중앙/어깨 가이드선을 겹쳐서 보여준다. 4곳(통합분석·관상보기·
+// 궁합보기 A/B)이 전부 같은 내용을 공유하므로 여기 한 곳에만 만든다 — 새 오버레이 클래스 대신 기존
+// .overlay-backdrop + .bottomsheet를 그대로 재사용한다(STYLE_GUIDE 6.3).
+function showPhotoGuide() {
+  if (document.getElementById('photoGuideSheet')) return; // 중복 클릭 방지
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="overlay-backdrop" id="photoGuideBackdrop" onclick="closePhotoGuide()"></div>
+    <div class="bottomsheet" id="photoGuideSheet">
+      <div class="bottomsheet-header">
+        <span>사진 촬영 가이드</span>
+        <button class="overlay-close" onclick="closePhotoGuide()"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div style="padding:20px;text-align:center;">
+        <div style="display:flex;justify-content:center;">
+          <img src="images/Guide.png" alt="사진 촬영 가이드" style="width:100%;max-width:260px;height:auto;border-radius:12px;">
+        </div>
+        <div style="text-align:left;font-size:13px;line-height:1.8;color:var(--text-sub2);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-top:16px;">
+          <div style="display:flex;gap:8px;margin-bottom:6px;"><span>🙂</span><span>정면을 바라보고, 고개를 숙이거나 젖히지 않은 사진</span></div>
+          <div style="display:flex;gap:8px;"><span>🖼️</span><span>이마부터 목선까지 가리지 않고 나온 사진</span></div>
+        </div>
+      </div>
+      <div class="switcher-foot">
+        <button class="btn-solid-primary" style="margin:0;" onclick="closePhotoGuide()">확인했어요</button>
+      </div>
+    </div>`);
+  document.body.classList.add('overlay-open');
+}
+function closePhotoGuide() {
+  const backdrop = document.getElementById('photoGuideBackdrop');
+  const sheet = document.getElementById('photoGuideSheet');
+  if (backdrop) backdrop.remove();
+  if (sheet) sheet.remove();
+  document.body.classList.remove('overlay-open');
 }
 
 // 사진 업로드에 따라 나타나는 CTA(관상보기/통합분석/궁합보기)
@@ -335,7 +374,7 @@ function markAnalyzed(ctx) {
     // ⚠️ 버그 수정(2026-09-13 사용자 리포트: "리포트 쓸 때 두 분의 관계는? 카드가 안 숨겨짐") —
     // 블록 두 개만 숨기고 #ggRelAsk(관계 질문 카드)·#ggErr는 빠져 있어서 분석 중 화면에 그대로
     // 남아있었다.
-    ['ggBlockA', 'ggBlockB', 'ggRelAsk', 'ggErr'].forEach(id => {
+    ['ggBlockA', 'ggBlockB', 'ggRelAsk', 'ggErr', 'ggErrA', 'ggErrB'].forEach(id => {
       const b = document.getElementById(id);
       if (b) b.classList.add('hidden');
     });
@@ -348,6 +387,10 @@ function markAnalyzed(ctx) {
 function loadThumb(ctx, file) {
   state[ctx].file = file;
   state[ctx].cleanImg = null; // 사진을 바꾸면 이전 사진의 AI 전송용 원본은 즉시 버린다
+  // 궁합보기 아코디언(Profile.syncGgAccordion)이 "검증 전"과 "검증 통과"를 구분할 수 있게 표시해둔다 —
+  // 안 그러면 사진을 고른 즉시(품질 확인이 끝나기도 전에) A가 접히고 B가 펼쳐졌다(2026-09-14 사용자
+  // 리포트: "사진이 비정상이어도 아코디언이 닫혀버림. 정상일 때만 닫혀야지").
+  if (ctx === 'gunghamA' || ctx === 'gunghamB') state[ctx].qualityChecked = false;
   const m = ctxMap[ctx];
   // 버그 수정(2026-09-05) — 좌우 반전 미리보기를 새로 붙이면서 드러난 문제: 반전 상태가 사진이
   // 바뀌어도 초기화되지 않아, 이전 사진에서 반전해뒀다가 새 사진(또는 "다시 선택하기")을 고르면
@@ -387,6 +430,12 @@ function loadThumb(ctx, file) {
     if (qBlock) qBlock.classList.remove('hidden');
   }
   updateCtaDock(ctx);
+
+  // 사용자 요청(2026-09-14) — 예전엔 "분석하기"를 눌러야만(=냥 차감 직전에야) 사진이 부적합하다는 걸
+  // 알 수 있었다. 사진을 고른 즉시(분석 버튼을 누르기 전에) 같은 기준으로 미리 확인해서 바로 알려준다.
+  // classifyGwansang(서버) 호출·오버레이 그리기는 하지 않는 가벼운 로컬 전용 검사라 비용이 없다.
+  reportCtxErr(ctx, null); // 새 사진을 고른 순간 이전 사진의 에러부터 지운다
+  checkPhotoQualityOnUpload(ctx);
 }
 
 // 통합분석 서비스 정책.md 2-1 4번 — 진입 질문(Q1~Q3)은 "사주 선택 + 사진 업로드"가 둘 다 끝나야
@@ -403,10 +452,19 @@ function maybeRevealCmbSajuQBlock() {
   if (ready && wasHidden) qBlock.scrollIntoView({ behavior: 'smooth' });
 }
 
+// "다시 선택하기" — 파일 선택창을 열기 전에 이전 사진의 검증 에러부터 지운다. 안 지우면 선택창이
+// 떠 있는 동안(또는 취소했을 때) 이미 고친 것으로 착각하기 쉬운 옛 에러 배너가 그대로 남아있었다
+// (사용자 리포트 2026-09-14).
+function reselectPhoto(ctx, inputId) {
+  reportCtxErr(ctx, null);
+  document.getElementById(inputId).click();
+}
+
 function resetUpload(ctx) {
   state[ctx].file = null;
   state[ctx].lm = null;
   state[ctx].cleanImg = null;
+  reportCtxErr(ctx, null);
   const m = ctxMap[ctx];
   document.getElementById(m.uploadArea).style.display = '';
   document.getElementById(m.thumbArea).classList.remove('show');
@@ -855,6 +913,20 @@ function showErr(id, msg) {
 function hideErr(id) {
   const el = document.getElementById(id);
   if (el) el.classList.remove('show');
+}
+
+// 사진 품질 에러를 컨텍스트별 전용 err 박스(gwansangErr/cmbErr/ggErrA/ggErrB)에 반영하는 공용 창구.
+// ⚠️ 예전엔 gunghamA/B가 에러 박스(#ggErr)를 공유해서 두 줄을 합쳐 보여줬는데, 사용자 피드백
+// (2026-09-14: "1번이 잘못됐으면 1번 밑에, 2번이 잘못됐으면 2번 밑에 — 섞지 말아줘")에 따라 각자
+// 자기 사진 영역 바로 아래(ggErrA/ggErrB)에 표시하도록 바꿨다. message가 null/빈 값이면 지운다.
+// state[ctx].qualityError는 냥 차감 확인 팝업처럼 이 배너가 안 보이는 곳(profile.js)에서도 같은 사유를
+// alert로 재사용하기 위해 남겨둔다. landmark-engine.js(runFaceAnalysis, 업로드 즉시검증)와 이 파일
+// 양쪽에서 공통으로 쓴다.
+function reportCtxErr(ctx, message) {
+  state[ctx].qualityError = message || null;
+  const m = ctxMap[ctx];
+  if (!m || !m.err) return;
+  if (message) showErr(m.err, message); else hideErr(m.err);
 }
 
 // 인연도감 서비스 정책.md v4(2-0/2-1 1번) — 최초 진입은 닉네임+사진 둘 다 필수. startAnalysis

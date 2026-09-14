@@ -60,11 +60,24 @@ let landmarkerLoading = null;
 // ⚠️ 모든 임계값은 실측 사진 없이 만든 초안이다 — 다른 임계값들(FOREHEAD_RELIABLE_RANGE 등)과
 // 마찬가지로 오탐(정상 사진 반려)이 잦으면 좁히고, 미탐(부적합 사진 통과)이 잦으면 넓혀서 실측
 // 데이터로 보정해야 한다.
+// ⚠️ 임계값 보정(2026-09-14) — 기획서/ 폴더 실사진 74장(1~69번 + jungwon/juyeon/yg/워렌버핏1)으로
+// 1차 검증했을 때 yawMin=0.72가 26장(35%)을 반려시켰는데, 그중 다수(2.png/14.png/66.png 등)는 육안상
+// 명백히 정면 사진이었다. "관상 판정에 적합한 사진"을 스스로 골라 올린 juyeon.jpg(0.760)·
+// jungwon.jpeg(0.922)를 기준점으로 삼아, juyeon.jpg가 여유 있게 통과하도록 하한을 낮췄다.
+// faceRatio도 이 두 기준 사진(0.415/0.471)이 편안하게 들어오는 범위로 좁혔다(0.20~0.85는 너무 넓어서
+// 저해상도로 뭉개지는 사진까지 통과시킬 여지가 있었음).
 const PHOTO_QUALITY = {
-  faceRatio: [0.20, 0.85],       // 얼굴폭 ÷ 사진폭 — drawRegions 배지가 쓰던 기준과 동일(그 배지는 이제 사실상 통과한 사진에만 표시됨)
-  foreheadGwanR: [0.15, 0.65],   // 이마세로 ÷ 눈-턱세로 — gwansang-classify.js FOREHEAD_RELIABLE_RANGE와 동일 값
-  yawMin: 0.72,                  // min(좌,우 볼-코끝 거리) ÷ max(...) — 1에 가까울수록 정면, 낮을수록 옆모습
+  faceRatio: [0.30, 0.70],       // 얼굴폭 ÷ 사진폭 — juyeon.jpg(0.415)·jungwon.jpeg(0.471) 기준으로 보정
+  foreheadGwanR: [0.15, 0.65],   // 이마세로 ÷ 눈-턱세로 — gwansang-classify.js FOREHEAD_RELIABLE_RANGE와 동일 값.
+                                 // ⚠️ 이 체크가 실제로 "앞머리로 이마 가림"을 잡아내는지는 미검증 — 아래 참고.
+  yawMin: 0.55,                 // min(좌,우 볼-코끝 거리) ÷ max(...) — juyeon.jpg(0.760) 기준으로 여유를 둔 값
   chinMarginMin: 0.06,           // (사진 높이 - 턱끝y) ÷ 사진 높이 — 턱 아래 여백 비율, 작으면 목선이 잘림
+  // lenR(얼굴세로 ÷ 얼굴가로, gwansang-classify.js와 동일 정의) — 동일인 8쌍(기획서/동일인/) 검증 결과,
+  // 각도가 아니라 촬영 거리(카메라-얼굴 렌즈 원근)로 인한 lenR 변동이 face_archetype/face_shape_type/
+  // nose_shape 판정 불일치의 가장 큰 원인이었다. 분류기 쪽에서 고칠 수 없는 문제라 애초에 이 범위를
+  // 벗어난 사진(너무 가까이/멀리서 찍어 원근 왜곡이 큰 사진)을 업로드 단계에서 막는 방향으로 대응한다.
+  // 73장 실측 표본 p10=1.125·p90=1.235 기준, 약간의 여유를 두고 [1.10, 1.24]로 설정(2026-09-14 추가).
+  lenR: [1.10, 1.24],
 };
 
 function assessPhotoQuality(lm, w, h) {
@@ -88,6 +101,15 @@ function assessPhotoQuality(lm, w, h) {
   const gwanR = eyeToChinH ? foreheadH / eyeToChinH : 0;
   if (gwanR < PHOTO_QUALITY.foreheadGwanR[0] || gwanR > PHOTO_QUALITY.foreheadGwanR[1]) {
     return { ok: false, message: '앞머리 등으로 이마가 가려져 있어요. 이마가 보이는 사진으로 다시 올려주세요.' };
+  }
+
+  const faceH = Math.abs(lm[IDX.chin].y - lm[IDX.hairline].y);
+  const lenR = faceW ? faceH / faceW : 0;
+  if (lenR > PHOTO_QUALITY.lenR[1]) {
+    return { ok: false, message: '얼굴 비율이 세로로 길게 나왔어요. 고개를 젖히거나 숙이지 말고, 정면에서 찍은 사진으로 다시 올려주세요.' };
+  }
+  if (lenR < PHOTO_QUALITY.lenR[0]) {
+    return { ok: false, message: '얼굴 비율이 가로로 넓게 나왔어요. 카메라에 너무 가까이 대지 말고, 조금 떨어져서 정면으로 찍은 사진으로 다시 올려주세요.' };
   }
 
   const noseTip = lm[IDX.noseTip];
@@ -150,7 +172,7 @@ function toggleMirror(ctx, btn) {
 async function runFaceAnalysis(ctx, canvasIdOverride) {
   const m = ctxMap[ctx] || { spinner: null, err: 'ggErr' };
   const ok = await loadModels(m.spinner);
-  if (!ok) { showErr(m.err, '모델 로딩 실패. 인터넷 연결 확인 후 새로고침해주세요.'); hideSpinner(m.spinner); return null; }
+  if (!ok) { reportCtxErr(ctx, '모델 로딩 실패. 인터넷 연결 확인 후 새로고침해주세요.'); hideSpinner(m.spinner); return null; }
 
   setSpinner(m.spinner, '얼굴 랜드마크 분석 중...');
 
@@ -177,7 +199,7 @@ async function runFaceAnalysis(ctx, canvasIdOverride) {
     const result = faceLandmarker.detect(canvas);
     if (!result.faceLandmarks || !result.faceLandmarks.length) {
       hideSpinner(m.spinner);
-      showErr(m.err, '얼굴을 감지하지 못했습니다. 정면을 바라보는 선명한 사진을 사용해주세요.');
+      reportCtxErr(ctx, '얼굴을 감지하지 못했습니다. 정면을 바라보는 선명한 사진을 사용해주세요.');
       return null;
     }
 
@@ -188,9 +210,10 @@ async function runFaceAnalysis(ctx, canvasIdOverride) {
     const quality = assessPhotoQuality(lm, w, h);
     if (!quality.ok) {
       hideSpinner(m.spinner);
-      showErr(m.err, quality.message);
+      reportCtxErr(ctx, quality.message);
       return null;
     }
+    reportCtxErr(ctx, null); // 업로드 즉시검증 단계에서 남아있던 에러가 있으면 여기서 확정적으로 지운다
 
     state[ctx].lm = lm; state[ctx].w = w; state[ctx].h = h;
     // AI로 보낼 이미지는 반드시 drawRegions "이전"에 떠둔다. 이 캔버스는 화면 표시용이라 바로 아래에서
@@ -209,8 +232,55 @@ async function runFaceAnalysis(ctx, canvasIdOverride) {
     return lm;
   } catch (e) {
     hideSpinner(m.spinner);
-    showErr(m.err, '분석 중 오류: ' + e.message);
+    reportCtxErr(ctx, '분석 중 오류: ' + e.message);
     return null;
+  }
+}
+
+// ═══ 업로드 즉시 사진 품질 사전확인 (서버 호출 없음) ═══
+// "분석하기"를 누르기 전, 사진을 고른 순간 바로 같은 4가지 기준(얼굴 크기·턱/목선 크롭·이마 노출·
+// 정면 여부·세로/가로 비율)으로 미리 걸러서 알려준다(사용자 요청 2026-09-14: "1번째 사진 올리자마자
+// 아니라고 알럿 뜨는거지"). runFaceAnalysis와 달리 classifyGwansang(서버) 호출·drawRegions(오버레이
+// 그리기)는 하지 않는 순수 로컬 검사라 비용이 없다 — 여기서 뽑은 랜드마크는 버리고, 실제 "분석하기"
+// 시점엔 runFaceAnalysis가 어차피 같은 사진을 다시 처리한다(온디바이스라 중복 비용 없음).
+async function checkPhotoQualityOnUpload(ctx) {
+  const m = ctxMap[ctx] || { spinner: null };
+  const myFile = state[ctx].file;
+  if (!myFile) return;
+  const ok = await loadModels(m.spinner);
+  hideSpinner(m.spinner); // loadModels가 최초 1회 모델 로딩 스피너를 띄웠을 수 있어 확인 후 바로 내린다
+  if (!ok || state[ctx].file !== myFile) return; // 로딩되는 동안 사진이 바뀌었으면 중단
+
+  try {
+    const bitmap = await createImageBitmap(myFile, { imageOrientation: 'from-image' });
+    if (state[ctx].file !== myFile) return;
+    const MAX_W = 600;
+    let w = bitmap.width, h = bitmap.height;
+    if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
+    const tmpCanvas = document.createElement('canvas'); // 화면에 안 붙이는 임시 캔버스 — 실제 분석용 캔버스는 건드리지 않는다
+    tmpCanvas.width = w; tmpCanvas.height = h;
+    const c = tmpCanvas.getContext('2d');
+    if (state[ctx].mirrored) { c.translate(w, 0); c.scale(-1, 1); }
+    c.drawImage(bitmap, 0, 0, w, h);
+
+    const result = faceLandmarker.detect(tmpCanvas);
+    let message = null;
+    if (!result.faceLandmarks || !result.faceLandmarks.length) {
+      message = '얼굴을 감지하지 못했습니다. 정면을 바라보는 선명한 사진을 사용해주세요.';
+    } else {
+      const lm = result.faceLandmarks[0].map(p => ({ x: p.x * w, y: p.y * h }));
+      const quality = assessPhotoQuality(lm, w, h);
+      if (!quality.ok) message = quality.message;
+    }
+    if (state[ctx].file !== myFile) return; // 결과가 오는 동안 다른 사진으로 또 바뀌었으면 무시
+    if (ctx === 'gunghamA' || ctx === 'gunghamB') state[ctx].qualityChecked = true;
+    reportCtxErr(ctx, message);
+    // 검증이 막 끝난 시점에만 아코디언 완료 여부를 다시 계산한다 — loadThumb 쪽 sync 호출은 검증이
+    // 끝나기 전(qualityChecked=false)에 먼저 일어나므로, 여기서 한 번 더 불러야 "정상 판정"이 실제로
+    // 아코디언을 접어준다(반대로 불합격이면 아래 syncGgAccordion이 completeA/B를 false로 유지해 열어둔다).
+    if ((ctx === 'gunghamA' || ctx === 'gunghamB') && window.Profile && Profile.syncGgAccordion) Profile.syncGgAccordion();
+  } catch (e) {
+    // 조용히 무시 — "분석하기"를 누르면 runFaceAnalysis가 같은 사진을 다시 검사하며 필요하면 알려준다.
   }
 }
 

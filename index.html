@@ -47,6 +47,9 @@
   --card2: #F0F4F3;
   --oh-badge-bg: #FFF5DD;
   --gg-tip-text: #4a4a4a;
+  --illust-skin: #FCE8D5;
+  --illust-hair: #A97C50;
+  --illust-top: #E8AABF;
   --text: #17201F;
   --text2: #68716F;
   --text3: #9AA3A1;
@@ -647,6 +650,12 @@ body {
 #gwansangUploadSection .upload-label { font-size: 13px; }
 
 .upload-label { font-size: 14px; font-weight: 400; color: var(--text-title); margin-bottom: 8px; }
+/* "관상 정보" 라벨 옆 촬영 가이드 버튼(?) — 라벨 자체(.upload-label/.form-field-label)는 "사주 정보"·
+   "이름" 등 다른 곳에서도 공유해서 쓰므로 건드리지 않고, 이 버튼이 붙는 4곳에만 별도 클래스로
+   가로 정렬을 준다(사용자 요청 2026-09-14). */
+.label-with-help { display: flex; align-items: center; gap: 4px; }
+.field-help-btn { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: none; background: none; color: var(--text-sub2); cursor: pointer; flex-shrink: 0; }
+.field-help-btn .material-symbols-outlined { font-size: 17px; }
 .reassure-box { background: var(--bg-soft); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
 .reassure-head { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
 .reassure-head .icon { font-size: 16px; color: var(--text-sub); }
@@ -2137,7 +2146,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>
       </button>
 
-      <div class="upload-label">관상 정보</div>
+      <div class="upload-label label-with-help">관상 정보<button type="button" class="field-help-btn" onclick="showPhotoGuide()" aria-label="사진 촬영 가이드 보기"><span class="material-symbols-outlined">help</span></button></div>
 
       <div class="upload-area" id="cmbUploadArea"
            onclick="document.getElementById('cmbFileInput').click()"
@@ -2163,7 +2172,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       <div class="thumb-area" id="cmbThumbArea">
         <img id="cmbThumbImg" class="thumb-img" src="" alt="">
         <div class="thumb-btns" id="cmbThumbBtns">
-          <button type="button" class="reupload-btn" onclick="document.getElementById('cmbFileInput').click()">다시 선택하기</button>
+          <button type="button" class="reupload-btn" onclick="reselectPhoto('combined','cmbFileInput')">다시 선택하기</button>
           <button class="reupload-btn" onclick="toggleMirror('combined', this)" title="비대칭 판정이 반대로 나오는 것 같으면 눌러보세요"><span class="material-symbols-outlined" style="font-size:14px;">flip</span> 좌우 반전</button>
         </div>
       </div>
@@ -2392,7 +2401,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         </div>
 
         <div class="dogam-field-group">
-        <div class="form-field-label" id="gwansangCharInfoLabel">관상 정보</div>
+        <div class="form-field-label label-with-help" id="gwansangCharInfoLabel">관상 정보<button type="button" class="field-help-btn" onclick="showPhotoGuide()" aria-label="사진 촬영 가이드 보기"><span class="material-symbols-outlined">help</span></button></div>
 
         <div class="upload-area" id="uploadArea"
              onclick="document.getElementById('fileInput').click()"
@@ -2422,7 +2431,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <div class="thumb-area" id="thumbArea">
           <img id="thumbImg" class="thumb-img" src="" alt="선택한 사진">
           <div class="thumb-btns" id="gwansangThumbBtns">
-            <button type="button" class="reupload-btn" onclick="document.getElementById('fileInput').click()">다시 선택하기</button>
+            <button type="button" class="reupload-btn" onclick="reselectPhoto('gwansang','fileInput')">다시 선택하기</button>
             <button class="reupload-btn" onclick="toggleMirror('gwansang', this)" title="비대칭 판정이 반대로 나오는 것 같으면 눌러보세요"><span class="material-symbols-outlined" style="font-size:14px;">flip</span> 좌우 반전</button>
           </div>
         </div>
@@ -2875,7 +2884,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 
       <div class="upload-section" id="ggUploadSectionA">
         <div class="dogam-field-group">
-        <div class="form-field-label">관상 정보</div>
+        <div class="form-field-label label-with-help">관상 정보<button type="button" class="field-help-btn" onclick="showPhotoGuide()" aria-label="사진 촬영 가이드 보기"><span class="material-symbols-outlined">help</span></button></div>
         <div class="upload-area" id="ggUploadA"
              onclick="document.getElementById('ggFileA').click()"
              ondrop="handleDrop('gunghamA', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
@@ -2899,7 +2908,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <div class="thumb-area" id="ggThumbA">
           <img id="ggImgA" class="thumb-img" src="" alt="">
           <div class="thumb-btns" id="ggThumbBtnsA">
-            <button type="button" class="reupload-btn" onclick="document.getElementById('ggFileA').click()">다시 선택하기</button>
+            <button type="button" class="reupload-btn" onclick="reselectPhoto('gunghamA','ggFileA')">다시 선택하기</button>
             <button class="reupload-btn" onclick="toggleMirror('gunghamA', this)" title="비대칭 판정이 반대로 나오는 것 같으면 눌러보세요"><span class="material-symbols-outlined" style="font-size:14px;">flip</span> 좌우 반전</button>
           </div>
         </div>
@@ -2909,6 +2918,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
           <summary>🔒 사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
           <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
         </details>
+        <div class="err-msg" id="ggErrA"></div>
         </div>
       </div>
       </div>    </div>
@@ -2929,7 +2939,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 
       <div class="upload-section" id="ggUploadSectionB">
         <div class="dogam-field-group">
-        <div class="form-field-label">관상 정보</div>
+        <div class="form-field-label label-with-help">관상 정보<button type="button" class="field-help-btn" onclick="showPhotoGuide()" aria-label="사진 촬영 가이드 보기"><span class="material-symbols-outlined">help</span></button></div>
         <div class="upload-area" id="ggUploadB"
              onclick="document.getElementById('ggFileB').click()"
              ondrop="handleDrop('gunghamB', event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
@@ -2953,7 +2963,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <div class="thumb-area" id="ggThumbB">
           <img id="ggImgB" class="thumb-img" src="" alt="">
           <div class="thumb-btns" id="ggThumbBtnsB">
-            <button type="button" class="reupload-btn" onclick="document.getElementById('ggFileB').click()">다시 선택하기</button>
+            <button type="button" class="reupload-btn" onclick="reselectPhoto('gunghamB','ggFileB')">다시 선택하기</button>
             <button class="reupload-btn" onclick="toggleMirror('gunghamB', this)" title="비대칭 판정이 반대로 나오는 것 같으면 눌러보세요"><span class="material-symbols-outlined" style="font-size:14px;">flip</span> 좌우 반전</button>
           </div>
         </div>
@@ -2963,6 +2973,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
           <summary>🔒 사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
           <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
         </details>
+        <div class="err-msg" id="ggErrB"></div>
         </div>
       </div>
       </div>    </div>
@@ -3170,7 +3181,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="js/archetype-db.js?v=20260830b"></script>
-<script src="js/landmark-engine.js?v=20260914a"></script>
+<script src="js/landmark-engine.js?v=20260914d"></script>
 <script src="js/config.js?v=20260908"></script>
 <script src="js/firebase-init.js?v=20260827c"></script>
 <script src="js/kakao-auth.js?v=20260912c"></script>
@@ -3181,8 +3192,8 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260914a"></script>
 <script src="js/ai-analysis.js?v=20260914a"></script>
-<script src="js/app.js?v=20260914i"></script>
-<script src="js/profile.js?v=20260914a"></script>
+<script src="js/app.js?v=20260914m"></script>
+<script src="js/profile.js?v=20260914c"></script>
 <script src="js/archive.js?v=20260914c"></script>
 <script src="js/inyeon-dogam.js?v=20260913c"></script>
 <script src="js/nyang-shop.js?v=20260914c"></script>

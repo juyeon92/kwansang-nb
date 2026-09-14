@@ -530,11 +530,15 @@
     if (icon) icon.textContent = open ? 'expand_less' : 'expand_more';
   }
   function toggleGgAcc(who) { setGgAccOpen(who, !ggOpen[who]); }
+  // completeA/B는 사진 파일이 있다는 것만으로는 부족하다 — 품질 검증(js/landmark-engine.js의
+  // checkPhotoQualityOnUpload)이 끝났고(qualityChecked) 에러가 없을 때만 "완료"로 친다. 안 그러면
+  // 사진을 고른 직후(검증이 끝나기도 전에) A가 바로 접혀버렸다가, 잠시 뒤 사실은 불량 사진이었다는
+  // 걸 알게 되는 순서가 된다(2026-09-14 사용자 리포트: "사진이 비정상이면 아코디언이 닫히면 안 돼").
   function syncGgAccordion() {
-    const completeA = !!(gunghamAId && state.gunghamA && state.gunghamA.file);
+    const completeA = !!(gunghamAId && state.gunghamA && state.gunghamA.file && state.gunghamA.qualityChecked && !state.gunghamA.qualityError);
     if (completeA && !ggWasComplete.A) { setGgAccOpen('A', false); setGgAccOpen('B', true); }
     ggWasComplete.A = completeA;
-    ggWasComplete.B = !!(gunghamPartnerId && state.gunghamB && state.gunghamB.file);
+    ggWasComplete.B = !!(gunghamPartnerId && state.gunghamB && state.gunghamB.file && state.gunghamB.qualityChecked && !state.gunghamB.qualityError);
   }
 
   // ── 오버레이(팝업/바텀시트) 루트 ──────────────────────────────────────
@@ -1254,7 +1258,9 @@
           // 그대로 유지 — 사용자가 다시 "확인"을 눌러 재시도할 수 있다(정책 3-4).
           if (state.combined.file) {
             lm = await runFaceAnalysis('combined');
-            if (!lm) { alert('냥 차감에 실패했습니다. 잠시 후 다시 시도해주세요.'); return false; }
+            // 냥 차감 확인 팝업이 화면을 덮고 있어 사진 영역의 사유 배너(cmbErr)가 안 보인다 — 같은
+            // 사유를 alert로도 띄운다(2026-09-14 사용자 리포트: 궁합보기에서 사유 없이 "차감 실패"만 뜸).
+            if (!lm) { alert(state.combined.qualityError || '냥 차감에 실패했습니다. 잠시 후 다시 시도해주세요.'); return false; }
           }
           return await chargeNyangOrAlert('combined');
         },
@@ -1293,7 +1299,16 @@
           tasks.push(runFaceAnalysis('gunghamA', 'gunghamCanvasA').then(lm => { lmA = lm; }));
           tasks.push(runFaceAnalysis('gunghamB', 'gunghamCanvasB').then(lm => { lmB = lm; }));
           await Promise.all(tasks);
-          if (!lmA || !lmB) { alert('냥 차감에 실패했습니다. 잠시 후 다시 시도해주세요.'); return false; }
+          if (!lmA || !lmB) {
+            // 사진이 2장이라 "차감 실패"만으로는 어느 쪽이 문제인지 알 수 없었다(2026-09-14 사용자
+            // 리포트). 냥 차감 확인 팝업이 화면을 덮어 사유 배너(ggErr)가 안 보이므로 alert에도
+            // 나/상대 구분해서 같은 사유를 담는다.
+            const lines = [];
+            if (!lmA && state.gunghamA.qualityError) lines.push('나 사진 - ' + state.gunghamA.qualityError);
+            if (!lmB && state.gunghamB.qualityError) lines.push('상대 사진 - ' + state.gunghamB.qualityError);
+            alert(lines.length ? lines.join('\n') : '냥 차감에 실패했습니다. 잠시 후 다시 시도해주세요.');
+            return false;
+          }
           return await chargeNyangOrAlert('gungham');
         },
       });
