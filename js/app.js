@@ -527,12 +527,15 @@ function renderCombinedSavedReport() {
   const CMB_SAVED_STEP = 3;
   const visibleCount = Math.min(Math.max(cmbSavedRevealCount, CMB_SAVED_STEP), rows.length);
   // 통합분석 서비스 정책.md 3-6 — 날짜만 "YYYY.MM.DD 분석" 형식으로 보여준다(관계 배지·시:분은 제외).
-  // ⚠️ 원형 캐릭터 썸네일(아바타)은 아직 리포트별로 저장해두는 캐릭터 이미지 자체가 없어서(문서 참고,
-  // 2026-09-13) 기존 문서 아이콘을 그대로 쓴다 — 실제 아바타를 붙이려면 저장 시점에 캐릭터 이미지를
-  // 함께 남기는 작업이 별도로 필요하다.
+  // 원형 캐릭터 썸네일(아바타) — 저장 시점의 판정 결과(characterId, js/archive.js buildLabel)로
+  // js/character/character-db.js의 getCharacterIllustration()이 캐릭터별 고정 일러스트 경로를
+  // 돌려준다(캐릭터별 실사진이 아니라 16종 캐릭터 일러스트 중 하나 — 개인정보 걱정 없음). characterId가
+  // 없는 옛 저장분(이 기능 이전에 저장됨)은 기존 문서 아이콘으로 대체 표시한다.
   list.innerHTML = rows.map((rec, i) =>
     '<div class="revisit-row' + (i >= visibleCount ? ' cmb-saved-extra' : '') + '" role="button" tabindex="0" onclick="openCombinedSavedReport(\'' + rec.id + '\')">' +
-      '<span class="revisit-mark material-symbols-outlined">description</span>' +
+      (rec.characterId
+        ? '<img class="revisit-thumb" src="' + getCharacterIllustration(rec.characterId) + '" alt="">'
+        : '<span class="revisit-mark material-symbols-outlined">description</span>') +
       '<div class="revisit-body">' +
         '<div class="revisit-name">' + cmbEsc(rec.title) + '</div>' +
         '<div class="revisit-desc">' + cmbEsc(rec.when ? rec.when.slice(0, 10) + ' 분석' : '') + '</div>' +
@@ -857,8 +860,9 @@ function startCombinedAnalysis() {
     return;
   }
   if (!state.combined.file) { alert('사진을 선택해주세요.'); return; }
-  const cmbAgree = document.getElementById('cmbAgree');
-  if (!cmbAgree || !cmbAgree.checked) { alert('필수 동의 항목에 체크해주세요.'); return; }
+  // 필수 동의 체크박스는 뺐다(사용자 확정 2026-09-14) — 이름·사진 이용 동의는 비로그인으로 쓰는
+  // 인연도감에만 필요하다. 통합분석·궁합보기는 로그인 기반이라 카카오 로그인 시 약관 동의로 이미
+  // 커버된다(통합분석 서비스 정책.md는 애초에 이 체크박스를 언급하지 않았다).
   if (!state.combined.q1) { alert('현재 연애 상태를 알려주세요.'); return; }
   if (!state.combined.q2) { alert('현재 직장(일) 상태를 알려주세요.'); return; }
   if (window.Profile && Profile.runCombined) Profile.runCombined();
@@ -2660,8 +2664,11 @@ const CMB_NYANG_RESUME_MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 async function saveCmbNyangResumeSnapshot() {
   try {
     const snap = {
+      // 통합분석 서비스 정책.md 1장/3-2 — 분석 대상은 P4("분석할 사주 선택")에서 고른 사주
+      // (cmbSajuSelectedId)다. 카카오페이는 전체 페이지 리다이렉트라 이 in-memory 선택값도 사진·
+      // Q1~Q3처럼 왕복하는 사이 날아가므로 같이 저장해둔다.
+      sajuId: (window.Profile && Profile.getCmbSajuSelectedId) ? Profile.getCmbSajuSelectedId() : null,
       q1: state.combined.q1 || '', q2: state.combined.q2 || '', q3: state.combined.q3 || '',
-      agree: !!(document.getElementById('cmbAgree') && document.getElementById('cmbAgree').checked),
       photoDataUrl: null, photoName: null, photoType: null,
     };
     const file = state.combined.file;
@@ -2696,6 +2703,11 @@ async function restoreCmbNyangResumeSnapshot() {
   const combinedBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => (b.getAttribute('onclick') || '').indexOf("'combined'") >= 0);
   if (combinedBtn) combinedBtn.click();
 
+  if (snap.sajuId && window.Profile && Profile.setCombinedSajuSelection) {
+    Profile.setCombinedSajuSelection(snap.sajuId);
+    if (window.maybeRevealCmbSajuQBlock) maybeRevealCmbSajuQBlock();
+  }
+
   if (snap.photoDataUrl) {
     try {
       const blob = await (await fetch(snap.photoDataUrl)).blob();
@@ -2722,8 +2734,6 @@ async function restoreCmbNyangResumeSnapshot() {
       state.combined[q] = value;
     }
   });
-  const agreeEl = document.getElementById('cmbAgree');
-  if (agreeEl) agreeEl.checked = !!snap.agree;
 
   if (window.Profile && Profile.runCombined) Profile.runCombined();
   return true;

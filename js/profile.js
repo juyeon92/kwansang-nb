@@ -532,7 +532,12 @@
     // forPartner 하나였는데, 궁합보기 A(나) 자리도 대표와 분리해 자유롭게 고를 수 있게 하면서
     // 'A'/'B'/null 3갈래로 넓혔다 — 궁합 리포트 구성.md §(대표 프로필 vs 분석 대상) 참고.
     const ggSlot = opts.ggSlot || null;
-    const selectedId = ggSlot === 'A' ? gunghamAId : ggSlot === 'B' ? gunghamPartnerId : (rep && rep.id);
+    // 통합분석 P4("분석할 사주 선택")는 대표 프로필과 분리된 별도 상태(cmbSajuSelectedId)를 후보
+    // 초기값으로 쓴다 — 대표 프로필이 있다고 해서 그걸 미리 골라두면 안 된다(정책 3-2 "기본 미선택").
+    // 아직 한 번도 고른 적 없으면(cmbSajuSelectedId===null) 실제로 미선택 상태로 열린다.
+    const selectedId = ggSlot === 'A' ? gunghamAId : ggSlot === 'B' ? gunghamPartnerId
+      : (opts.title === '분석할 사주 선택') ? cmbSajuSelectedId
+      : (rep && rep.id);
     switcherCandidateId = selectedId; // 시트를 열 때마다 "지금 실제로 적용된 것"을 후보 초기값으로.
     root().innerHTML = `
       <div class="overlay-backdrop" onclick="Profile._dismissSwitcher()"></div>
@@ -598,8 +603,9 @@
     renderSwitcherRows(loadProfiles(), ggSlot || null);
   }
   // "사주 선택하기" 버튼 — 지금 고른 후보를 실제로 적용한다(예전 pickRow가 행 클릭에서 바로 하던 일).
+  // 통합분석 서비스 정책.md 3-2 — 후보를 하나도 못 고른 채 누르면 안내한다.
   function confirmSwitcher(ggSlot) {
-    if (!switcherCandidateId) return;
+    if (!switcherCandidateId) { alert('사주 정보를 선택해주세요.'); return; }
     pickRow(switcherCandidateId, ggSlot || null);
   }
 
@@ -621,7 +627,11 @@
       if (ggSlot === 'A') { gunghamAId = id; applyToGunghamA(p); renderGunghamA(p); }
       else { gunghamPartnerId = id; applyToGunghamB(p); renderGunghamB(p); }
       syncGunghamRelation();
-    } else {
+    } else if (!onPick) {
+      // onPick이 없는 흐름(헤더의 "사주 관리" 등)만 대표 프로필을 바꾼다. 통합분석 P4("분석할 사주
+      // 선택")는 onPick(setCombinedSajuSelection)으로 이번 분석 대상만 정할 뿐, 대표 프로필은 프로필
+      // 관리 화면에서 명시적으로 바꿀 때만 변경된다(통합분석 서비스 정책.md 1장/3-2 — 과거엔 여기서
+      // 대표 프로필까지 같이 바꿔서, 아빠를 분석하면 헤더의 "나"도 아빠로 바뀌는 부작용이 있었다).
       setRepresentative(id);
     }
     finishSwitcher();
@@ -711,9 +721,10 @@
     cmbSajuSelectedId = id;
     renderCombinedSajuChip(getProfile(id));
   }
-  // 칩을 탭하면 기존 "사주 관리" 팝업을 그대로 연다 — 등록된 사주가 0개면 openSwitcher가 알아서
-  // 등록 폼으로 보내주므로 별도 빈 상태 분기가 필요 없다. 고르면 대표 프로필도 같이 바뀐다
-  // (pickRow의 기본 동작, 2026-09-10 사용자 확정).
+  // 칩을 탭하면 기존 "사주 선택" 바텀시트(P4)를 그대로 연다 — 등록된 사주가 0개면 openSwitcher가
+  // 빈 상태 문구("등록된 사주가 없어요. 사주를 추가해주세요.")를 보여주며 시트를 그대로 연다(title이
+  // '분석할 사주 선택'이면 openSwitcher가 openForm 직행을 건너뛴다, 위 openSwitcher 참고). 여기서 고른
+  // 사주는 이번 분석 대상일 뿐이다 — 대표 프로필은 바뀌지 않는다(통합분석 서비스 정책.md 1장/3-2).
   function openCombinedSajuPicker() {
     openSwitcher({
       title: '분석할 사주 선택',
@@ -742,14 +753,14 @@
     renderForm();
   }
 
-  // 통합분석·사주보기·궁합보기를 프로필 없이 쓰려다 등록 화면으로 넘어온 경우에만 표시하는
-  // 문구 — 어떤 기능이 프로필을 필요로 했는지에 따라 다르게 안내한다(사용자 요청 2026-08-18).
-  // openForm의 onSavedRun과 값이 같은 키를 그대로 재사용한다: 이 값이 있다는 것 자체가
+  // 궁합보기를 프로필 없이 쓰려다 등록 화면으로 넘어온 경우에만 표시하는 문구(사용자 요청
+  // 2026-08-18). openForm의 onSavedRun과 값이 같은 키를 그대로 재사용한다: 이 값이 있다는 것 자체가
   // "저장하고 나서 바로 이 분석을 이어서 실행해야 한다"는 뜻이라, 곧 "게이트를 타고 왔다"는
   // 뜻과 같다. 마이페이지·헤더 등 정상적인 프로필 추가 흐름은 onSavedRun을 안 넘기므로
-  // 자연히 문구가 안 뜬다.
+  // 자연히 문구가 안 뜬다. 통합분석은 더 이상 이 게이트를 타지 않는다 — "분석할 사주 선택"(P4)에서
+  // 항상 먼저 고르고 나서야 실행되므로(통합분석 서비스 정책.md 1장/3-2), 프로필이 없으면 P4의
+  // "사주 추가하기"로 안내된다.
   const PROFILE_GATE_NOTICE = {
-    combined: '사주를 등록해야 관상과 함께 분석이 가능해요',
     gungham: '사주를 등록해야 궁합 분석이 가능해요',
   };
 
@@ -841,7 +852,18 @@
   // 폼을 저장하지 않고 닫을 때 — 호출자가 돌아갈 화면(onDone)을 지정했으면 그 화면으로 되돌린다.
   function dismissForm() {
     const onDone = draft && draft._onDone;
+    const onPick = draft && draft._onPick;
+    const ggSlot = draft && draft._ggSlot;
     draft = null;
+    if (onPick && !ggSlot) {
+      // 통합분석 P4("분석할 사주 선택") 안에서 "사주 추가하기"/수정으로 들어온 경우 — 정책 3-2/3-3:
+      // 취소하면 이 바텀시트로 복귀하고, 선택 상태는 그대로 둔다(바뀌지 않는다).
+      const keepCandidate = switcherCandidateId;
+      openSwitcher(switcherOpts);
+      switcherCandidateId = keepCandidate;
+      renderSwitcherRows(loadProfiles(), null);
+      return;
+    }
     if (onDone) onDone(); else closeOverlay();
   }
 
@@ -863,15 +885,21 @@
     const savedId = upsertProfile(draft);
     if (ggSlot === 'B') { gunghamPartnerId = savedId; renderGunghamB(getProfile(savedId)); syncGunghamRelation(); }
     else if (ggSlot === 'A') { gunghamAId = savedId; renderGunghamA(getProfile(savedId)); syncGunghamRelation(); }
-    if (onDone) onDone(); else closeOverlay();
     if (onPick && !ggSlot) {
-      setRepresentative(savedId); // 방금 만든/고친 사주로 분석을 이어가는 흐름이라 대표로 세운다
-      onPick(savedId);
+      // 통합분석 P4("분석할 사주 선택")의 "사주 추가하기"/수정 저장 — 정책 3-2/3-3: 대표 프로필은
+      // 바꾸지 않고(1장), P1을 닫아 P4로 돌아가 방금 저장한 사주를 후보로 자동 선택한다. 최종 확정은
+      // 사용자가 "사주 선택하기"를 눌러야(confirmSwitcher → pickRow → onPick) 이뤄진다 — 과거엔 여기서
+      // 곧장 대표 프로필로 세우고 onPick을 불러 오버레이를 통째로 닫았다.
+      openSwitcher(switcherOpts);
+      switcherCandidateId = savedId;
+      renderSwitcherRows(loadProfiles(), null);
+    } else {
+      if (onDone) onDone(); else closeOverlay();
     }
-    if (onSavedRun === 'combined') runCombinedWrapped();
     // gungham은 저장만으로 끝나지 않는다(상대 프로필도 필요) — 이어서 부르면 기존 안내
-    // ("상대방 프로필을 선택해주세요")로 자연스럽게 이어진다.
-    else if (onSavedRun === 'gungham') runGunghamWrapped();
+    // ("상대방 프로필을 선택해주세요")로 자연스럽게 이어진다. combined는 더 이상 이 게이트를 안 탄다 —
+    // "분석할 사주 선택"(P4)에서 이미 고른 뒤에만 runCombinedWrapped가 실행되기 때문(1장/3-2).
+    if (onSavedRun === 'gungham') runGunghamWrapped();
   }
 
   // ── 커스텀 날짜 피커 ─────────────────────────────────────────────────
@@ -985,10 +1013,13 @@
     pendingSpendResolve = null;
     if (fn) fn(result);
   }
-  // 분석 대상 사주를 한 번 더 확인시키는 줄 — 사주가 여러 개면 대표 사주가 무엇인지 모른 채
-  // 확인을 눌러 엉뚱한 사람으로 분석되는 일이 생긴다(사용자 요청 2026-08-18). 여기서 바로 바꿀 수 있다.
+  // 분석 대상 사주를 한 번 더 확인시키는 줄 — 사주가 여러 개면 어떤 사주로 분석되는지 모른 채
+  // 확인을 눌러 엉뚱한 사람으로 분석되는 일이 생긴다(사용자 요청 2026-08-18). 여기 보여주는 건
+  // 대표 프로필이 아니라 P4("분석할 사주 선택")에서 고른 이번 분석 대상이다(정책 3-4/1장 —
+  // 대표 프로필은 프로필 관리 화면에서만 바뀐다). 지금은 통합분석 전용 팝업만 pickProfile:true를
+  // 넘겨 이 줄을 쓴다.
   function spendProfileRowHtml() {
-    const d = describeProfile(getRepresentative());
+    const d = describeProfile(cmbSajuSelectedId ? getProfile(cmbSajuSelectedId) : null);
     if (!d) return '';
     // 정보 노출만 — 탭해도 반응 없음(정책 3-4). 분석 대상을 바꾸려면 취소 후 S2의 사주 정보에서
     // 다시 골라야 한다(예전엔 여기서 바로 바꿀 수 있었으나, 정책상 변경 불가로 확정됨).
@@ -1124,7 +1155,8 @@
     } else if (result.code === 'INSUFFICIENT_BALANCE') {
       alert('냥이 부족해요 — 구매 후 이용해주세요.\n(냥 구매 기능은 준비 중이에요.)');
     } else {
-      alert(result.error || '냥 차감에 실패했어요. 잠시 후 다시 시도해주세요.');
+      // 통합분석 서비스 정책.md 3-4 2단계 문구와 통일.
+      alert(result.error || '냥 차감에 실패했습니다. 잠시 후 다시 시도해주세요.');
     }
     return false;
   }
@@ -1136,12 +1168,16 @@
 
   async function runCombinedWrapped() {
     if (analysisInFlight) return;
-    const rep = getRepresentative();
-    if (!rep) { openForm(null, { onSavedRun: 'combined' }); return; }
+    // 통합분석 서비스 정책.md 1장/3-2 — 분석 대상은 대표 프로필이 아니라 P4("분석할 사주 선택")에서
+    // 고른 사주다(cmbSajuSelectedId). app.js의 startCombinedAnalysis()가 CTA 클릭 시 이미 선택 여부를
+    // 확인하므로 보통 여기 도달할 땐 항상 있지만, 카카오페이 복귀(restoreCmbNyangResumeSnapshot) 등
+    // 다른 경로로 직접 불릴 수도 있어 안전망을 남겨둔다.
+    const selected = cmbSajuSelectedId ? getProfile(cmbSajuSelectedId) : null;
+    if (!selected) { alert('사주 정보를 선택해주세요.'); return; }
 
     // 차감보다 먼저 입력값을 채우고 검증한다 — 예전엔 차감 뒤에 applyToContext를 해서, 프로필에
     // 생년월일이 비어 있으면 runCombined가 "생년월일을 입력해주세요"로 바로 빠져나가면서 냥만 사라졌다.
-    applyToContext('combined', rep);
+    applyToContext('combined', selected);
     if (!document.getElementById('cmbBirthDate').value) { alert('생년월일을 입력해주세요.'); return; }
 
     // 확인 다이얼로그는 눌린 직후 바로 띄운다(얼굴 인식 스피너보다 먼저) — 사용자 입장에선

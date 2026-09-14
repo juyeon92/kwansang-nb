@@ -846,6 +846,16 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace, q1, q2, q3) {
         '[대운 정보]와 [삼정 비율(상정/중정/하정 = 초년/중년/말년)]을 함께 근거로 들어, 인생 시기별 흐름이 사주와 얼굴 양쪽에서 어떻게 나타나는지 3~4문장으로 설명. ⚠️ [화면에 이미 표시된 대운 시기 흐름]이 주어졌다면 그 목록의 십이운성·뜻과 어긋나는 명칭·서술을 새로 만들지 말 것 — 바로 위 "대운x삼정 타임라인" 위젯에 같은 계산 결과가 이미 노출되어 있어 모순되면 바로 눈에 띔.'
     };
 
+    // 통합분석 리포트 구성.md 3장(Zone3 페어2) — "근거에 일간 오행 + 관상 6기질 중 실제 고/저
+    // 기질명·점수 인용 필수"가 명시돼 있는데, 이 필드만 짝이 되는 basis가 없어서(위 zone3_manseryeok_basis
+    // 참고) "왜 이렇게 풀이했나요?" 영역 자체가 화면에 안 뜨고 있었다(js/ai-analysis.js의
+    // renderReadingBasis 참고). 문서 기준대로 추가한다.
+    properties.zone3_daeun_basis = {
+      type: 'STRING',
+      description:
+        '위 대운x삼정 풀이가 어떤 데이터를 근거로 나왔는지 1~3문장으로 밝히는 "왜 이렇게 풀이했나요?" 영역. ⚠️ 반드시 구체적으로 인용할 것 — 일간 오행(예: "일간 갑목(甲木)")과 [관상 6기질 점수]에서 실제로 높게/낮게 나온 기질명·점수를 그대로 쓸 것. "다양한 기운" 같은 추상적 표현만 쓰는 것은 금지.'
+    };
+
     // Zone4 고정카드 2~4(2026-08-21 4차 개편) — "나는 누구인가"를 다루는 순수 개인 서술. 제목은
     // 룰베이스 고정 문구(renderZone4FixedExtra)로 붙이고, 여기서는 reading/basis만 받는다.
     properties.zone4_temperament_reading = {
@@ -926,6 +936,7 @@ function buildPersonalDeepReportSchema(hasSaju, hasFace, q1, q2, q3) {
       'zone3_manseryeok_basis',
       'zone3_ohaeng_reading',
       'zone3_daeun_reading',
+      'zone3_daeun_basis',
       'zone4_temperament_reading',
       'zone4_temperament_basis',
       'zone4_hidden_self_reading',
@@ -1126,7 +1137,7 @@ personality_detail의 근거가 되어야 해.
 [관상×사주 데이터 풀이·스토리 — 관상 실측 데이터와 사주 정보가 둘 다 있을 때만 요청됨]
 
 zone2_review/zone3_manseryeok_reading/zone3_manseryeok_basis/zone3_ohaeng_reading/zone3_daeun_reading/
-zone4_temperament_reading/zone4_temperament_basis/zone4_hidden_self_reading/zone4_hidden_self_basis/
+zone3_daeun_basis/zone4_temperament_reading/zone4_temperament_basis/zone4_hidden_self_reading/zone4_hidden_self_basis/
 zone4_advice_basis/zone4_cards가 스키마에 있다면 아래 기준으로 채워.
 
 - zone2_review: [관상x사주 케미 점수]는 이미 계산되어 주어진다. 새 숫자를 만들지 말고, 그
@@ -1134,8 +1145,8 @@ zone4_advice_basis/zone4_cards가 스키마에 있다면 아래 기준으로 채
 - zone3_manseryeok_reading/zone3_ohaeng_reading/zone3_daeun_reading: 각각 [사주 원국]↔[관상
   6기질 점수], [사주 오행 분포]↔[관상 오행 분포], [대운 정보]↔[삼정 비율]을 짝지어, 두 데이터가
   같은 이야기를 하는지 다른 이야기를 하는지 구체적으로 짚어. ⚠️ zone3_manseryeok_reading·
-  zone3_manseryeok_basis는 "다양한 기운" "차분한 에너지" 같은 뭉뚱그린 표현 대신 일간 오행·관상
-  기질명을 실제로 언급해(스키마 설명 참고). ⚠️ zone3_ohaeng_reading에서 어느
+  zone3_manseryeok_basis, zone3_daeun_basis는 "다양한 기운" "차분한 에너지" 같은 뭉뚱그린 표현
+  대신 일간 오행·관상 기질명을 실제로 언급해(스키마 설명 참고). ⚠️ zone3_ohaeng_reading에서 어느
   쪽이 더 높은지는 [오행 비교표]에 이미 계산돼 있다 — [사주 오행 분포]·[관상 오행 분포] 원본으로
   직접 다시 비교하지 말고(스케일이 달라 방향이 틀리기 쉬움) [오행 비교표]의 방향을 그대로 따라.
   ⚠️ [신강/신약]·[용신(필요 오행)]과 오행 zero/과다 개인 서사는 여기서 쓰지 마 — Zone4 고정카드
