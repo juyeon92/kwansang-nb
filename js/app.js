@@ -82,6 +82,8 @@ function switchTab(tab, btn) {
         cmbResultEl.classList.add('hidden');
         const cmbCanvasCardEl = document.getElementById('cmbCanvasCard');
         if (cmbCanvasCardEl) cmbCanvasCardEl.classList.add('hidden');
+        const cmbBackBtnEl = document.getElementById('cmbBackBtn');
+        if (cmbBackBtnEl) cmbBackBtnEl.classList.add('hidden');
         state.combined.file = null;
         state.combined.lm = null;
         // ⚠️ 버그 수정(2026-08-27 사용자 리포트: "통합분석에서 리포트 보고 궁합보기 갔다오면
@@ -492,6 +494,7 @@ function resetUpload(ctx) {
   } else if (ctx === 'combined') {
     document.getElementById('cmbCanvasCard').classList.add('hidden');
     document.getElementById('cmbResult').classList.add('hidden');
+    document.getElementById('cmbBackBtn').classList.add('hidden');
     // markAnalyzed()가 숨겼던 CTA 버튼은 아래 showCombinedPhotoStep()이 setCmbCtaVisible(true)로
     // 다시 노출한다(updateCtaDock은 더 이상 combined를 건드리지 않으므로).
     // "다른 (사람으로) 통합분석하기"로 들어온 자리 — 보관된 리포트 대신 사진 등록 단계부터 다시 시작한다.
@@ -671,6 +674,18 @@ function closeCombinedSavedReport() {
   document.getElementById('cmbSavedReport').classList.add('hidden');
   renderCombinedSavedReport();
   window.scrollTo(0, 0);
+}
+
+// ═══ 방금 생성된 리포트 화면의 "통합분석 메인으로" — 궁합보기 backToGunghamMain의 쌍둥이 함수 ═══
+// 새 분석이 아니라 이 탭의 기본 화면(내역 목록 또는 업로드 화면)으로 그냥 되돌아간다.
+function backToCombinedMain() {
+  resetUpload('combined');
+  cmbWantsNewAnalysis = false;
+  document.getElementById('cmbResult').classList.add('hidden');
+  document.getElementById('cmbCanvasCard').classList.add('hidden');
+  document.getElementById('cmbBackBtn').classList.add('hidden');
+  renderCombinedSavedReport();
+  document.getElementById('panel-combined').scrollIntoView({ behavior: 'smooth' });
 }
 
 // "다른 사람으로 통합분석하기" — 통합분석 서비스 정책.md 2-1/3-1/3-6(2026-09-14 정책 변경).
@@ -2730,6 +2745,7 @@ async function runCombined(preloadedLm) {
   hideErr('cmbErr');
   document.getElementById('cmbResult').classList.add('hidden');
   document.getElementById('cmbCanvasCard').classList.add('hidden');
+  document.getElementById('cmbBackBtn').classList.add('hidden');
   markAnalyzed('combined');                  // 사진 등록 화면·CTA를 먼저 접고
   showCmbAnalyzing('사주를 뽑는 중이에요');    // 진행 화면만 남긴다
 
@@ -2749,6 +2765,11 @@ async function runCombined(preloadedLm) {
   hideCmbAnalyzing();
   if (lm) document.getElementById('cmbCanvasCard').classList.remove('hidden');
   document.getElementById('cmbResult').classList.remove('hidden');
+  // 방금 생성된 리포트도 보관함에서 다시 연 리포트와 같은 굵은 제목 헤더를 쓴다(사용자 요청
+  // 2026-09-14) — js/archive.js buildLabel(combined)와 같은 이름표("OO님의 통합 분석 리포트").
+  const cmbRep = window.Profile && Profile.getRepresentative ? Profile.getRepresentative() : null;
+  document.getElementById('cmbFreshTitle').textContent = (cmbRep ? cmbRep.name : '나') + '님의 통합 분석 리포트';
+  document.getElementById('cmbBackBtn').classList.remove('hidden');
   window.scrollTo(0, 0);
   if (window.Archive) Archive.save('combined'); // 보관함 — 리포트가 완성된 이 지점에서 스냅샷
 }
@@ -3065,6 +3086,9 @@ async function runGungham(preloadedLmA, preloadedLmB) {
     hideGgAnalyzing();
     if (lmA || lmB) document.getElementById('ggCanvasCard').classList.remove('hidden');
     document.getElementById('ggResult').classList.remove('hidden');
+    // 방금 생성된 리포트도 보관함/S3에서 다시 연 리포트와 같은 굵은 제목 헤더를 쓴다(사용자 요청
+    // 2026-09-14) — js/archive.js buildLabel(gungham)과 같은 이름표·구분자(연인/배우자만 ♥, 그 외 X).
+    document.getElementById('ggFreshTitle').textContent = nameA + (rel === '연인/배우자' ? ' ♥ ' : ' X ') + nameB + '님의 궁합 리포트';
     document.getElementById('gunghamBackBtn').classList.remove('hidden');
     // ⚠️ 버그 수정(2026-08-24 사용자 리포트: "다른 상대와 궁합보기"로 새로 분석한 직후 진입 배너가
     // 리포트와 같이 떠 있음) — startGunghamForOther()가 세워둔 ggWantsNewAnalysis=true가 여기서
