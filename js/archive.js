@@ -590,10 +590,13 @@
 
   // 궁합보기 "종합 점수 & 케미 분석" 존을 Figma(node 81:3668)에 맞춰 재구성(2026-09-13)하기 전에
   // 저장된 리포트는 옛 구조 그대로 얼어있다: 학자상×임금님상 서브카피가 headline-quote와 chemi-card
-  // 사이 독립된 줄("근거: " 접두어 포함)이었고, chemi-title이 "🧠 AI 궁합 종합 점수"였고, 총점 단위가
-  // "%"가 아니라 "점"이었다. summary 텍스트("종합 점수")로 존을 특정하고, headline-quote 바로
-  // 다음이 chemi-card가 아니면(=사이에 옛 서브카피 줄이 끼어 있으면) chemi-card 맨 앞으로 옮긴다.
+  // 사이 독립된 줄("근거: " 접두어 포함)이었고, chemi-title이 "🧠 AI 궁합 종합 점수"였다.
+  // summary 텍스트("종합 점수")로 존을 특정하고, headline-quote 바로 다음이 chemi-card가 아니면
+  // (=사이에 옛 서브카피 줄이 끼어 있으면) chemi-card 맨 앞으로 옮긴다.
   // 이미 새 구조(서브카피가 이미 chemi-card 안)면 건드리지 않는다 — 멱등.
+  // ⚠️ 2026-09-14 수정 — 예전엔 여기서 총점 단위를 "점"→"%"로 바꿨었는데, Figma(81:3668) 텍스트를
+  // 직접 확인해보니 정답은 "점"이었다(옛 스냅샷이 맞았고 새 스태틱 템플릿 쪽이 실수로 "%"였음 —
+  // index.html도 같이 고침). 그래서 이 변환은 삭제 — 옛 스냅샷의 "점"은 그대로 둔다.
   function repairGunghamHeroStructure(rootEl) {
     const hero = Array.from(rootEl.querySelectorAll('.zone-accordion')).find(function (d) {
       const s = d.querySelector(':scope > summary');
@@ -617,8 +620,10 @@
     const titleEl = chemiCard.querySelector(':scope > .chemi-title');
     if (titleEl && titleEl.textContent.indexOf('관상·사주 싱크') < 0) titleEl.textContent = '🧠 관상·사주 싱크';
 
+    // 2026-09-13 재구성 배포~2026-09-14 수정 사이에 실제로 저장된 리포트는 스태틱 템플릿의 실수를
+    // 그대로 물려받아 "%"로 저장돼 있다 — 그 좁은 구간의 스냅샷만 다시 "점"으로 되돌린다.
     const unitEl = chemiCard.querySelector(':scope > .gg-hero-total > span');
-    if (unitEl && unitEl.textContent.trim() === '점') unitEl.textContent = '%';
+    if (unitEl && unitEl.textContent.trim() === '%') unitEl.textContent = '점';
 
     Array.from(chemiCard.querySelectorAll(':scope > .chemi-role')).forEach(function (row) {
       if (row.textContent.indexOf('관상만') === 0) row.classList.add('chemi-score-breakdown');
@@ -1086,7 +1091,12 @@
     // profileId — "이 프로필로 이미 분석한 적 있는지" 나중에 확인하려면 이름만으로는 부족하다
     // (동명이인 프로필이 있을 수 있음). 저장 시점의 대표 프로필 id를 같이 남긴다(사용자 요청
     // 2026-08-19: 같은 사주를 다시 골라도 새로 분석하는 것처럼 보이는 문제).
-    return { title: repName, sub: rel, profileId: rep ? rep.id : null };
+    // characterId — 통합분석 서비스 정책.md 3-6 "원형 아바타(캐릭터 썸네일)" — classifyAndBuildCharacter
+    // (js/ai-analysis.js)가 분석 도중 state[type].characterResult.characterId에 이미 채워둔 값을
+    // 그대로 가져다 쓴다. S3 목록 렌더(js/app.js)가 js/character/character-db.js의
+    // getCharacterIllustration(characterId)로 원형 일러스트 경로를 얻는다.
+    const characterId = (st && st[type] && st[type].characterResult && st[type].characterResult.characterId) || null;
+    return { title: repName, sub: rel, profileId: rep ? rep.id : null, characterId: characterId };
   }
 
   // ── 결제 게이트 ──────────────────────────────────────────────────────
@@ -1107,6 +1117,7 @@
     list.push({
       id: id, type: type, title: label.title, sub: label.sub,
       profileId: label.profileId || null, // "이 프로필로 이미 분석했는지" 나중에 대조하기 위함
+      characterId: label.characterId || null, // S3 목록의 원형 아바타(정책 3-6) — buildLabel 참고
       paid: PAID_TYPES.indexOf(type) >= 0, // 결제 상품 여부 — 결제내역 화면에서 재사용할 수 있게 남긴다
       createdAt: label.createdAt || new Date().toISOString(), // 인연도감은 도감 자체의 실제 생성 시각을 그대로 쓴다
     });
@@ -1442,21 +1453,21 @@
     }).join('');
 
     if (mySeq !== pageRenderSeq || viewingId) return;
-    h.innerHTML = pageHeader() +
-      '<div class="arc-sort">' +
-        '<button class="arc-sort-btn" onclick="Archive.toggleSort()">' +
-          (sortDesc ? '최신순' : '오래된순') +
-          '<span class="material-symbols-outlined">swap_vert</span></button>' +
-      '</div>' +
-      sections;
+    // Figma(node 83:4396) 실측 — 정렬 버튼은 타이틀과 한 줄(space-between)에 있다. 로그인 전(위
+    // currentUid() 분기)에는 정렬할 목록 자체가 없으니 pageHeader()에 안 넘기고 그대로 둔다.
+    h.innerHTML = pageHeader(
+      '<button class="arc-sort-btn" onclick="Archive.toggleSort()">' +
+        (sortDesc ? '최신순' : '오래된순') +
+        '<span class="material-symbols-outlined">swap_vert</span></button>'
+    ) + sections;
   }
 
   // ⚠️ 뒤로가기 버튼 제거(2026-08-21 사용자 요청) — 보관함이 마이페이지에서 들어오는 오버레이였을
   // 때는 "이전 탭으로 돌아가기"가 필요했지만, 이제는 하단 네비의 동등한 탭이라 다른 탭을 누르면
   // 되므로 이 버튼은 더 이상 필요 없다. Archive.closePage()는 여전히 남겨둔다 — 이 버튼 말고도
   // 다른 진입 경로(예: 저장 직후 자동으로 열리는 경우)에서 쓰일 수 있어 함수 자체는 지우지 않는다.
-  function pageHeader() {
-    return '<div class="arc-page-head"><h2>보관함</h2></div>';
+  function pageHeader(extraHtml) {
+    return '<div class="arc-page-head"><h2>보관함</h2>' + (extraHtml || '') + '</div>';
   }
 
   function openReport(id) {
@@ -1482,14 +1493,20 @@
 
     const rec = loadIndex().find(r => r.id === viewingId);
     const section = SECTIONS.find(s => rec && s.type === rec.type);
+    // 2026-09-14 — 통합분석(openCombinedSavedReport)·궁합보기(openGunghamSavedReport)의 "‹ {이름}
+    // 리포트" 한 줄 헤더와 통일(사용자 요청, Figma node 81:3504 등). 전엔 뒤로가기+범용 탭 이름
+    // ("궁합보기")+별도 메타 줄("A ✕ B · 관계")+카드 안 타이틀 바까지 3~4겹으로 겹쳐 있었다.
+    const titleText = !rec ? (section ? section.label : '리포트')
+      : rec.type === 'combined' ? rec.title + '님의 통합 분석 리포트'
+      : rec.type === 'gungham' ? rec.title + ' 궁합 리포트'
+      : (section ? section.label : '리포트');
     h.innerHTML =
-      '<div class="arc-page-head">' +
-        '<button class="arc-back" aria-label="목록으로" onclick="Archive.backToList()">' +
-          '<span class="material-symbols-outlined">arrow_back</span></button>' +
-        '<h2>' + esc(section ? section.label : '리포트') + '</h2>' +
+      '<div class="cmb-report-header">' +
+        '<button type="button" class="cmb-report-back" aria-label="목록으로" onclick="Archive.backToList()">' +
+          '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.0444 3.62249C15.4039 3.34207 15.9243 3.37327 16.2466 3.7094C16.5904 4.06834 16.5782 4.639 16.2192 4.98284L8.89307 11.9994L16.2192 19.018L16.2827 19.0854C16.5784 19.4326 16.5689 19.954 16.2466 20.2905C15.9243 20.6267 15.404 20.6586 15.0444 20.3783L14.9741 20.3178L6.96924 12.6498C6.79232 12.4802 6.69196 12.2456 6.69189 12.0004C6.69189 11.7551 6.79211 11.5198 6.96924 11.35L14.9741 3.68206L15.0444 3.62249Z" fill="currentColor"/></svg>' +
+        '</button>' +
+        '<h2>' + esc(titleText) + '</h2>' +
       '</div>' +
-      (rec ? '<div class="arc-report-meta">' + esc(rec.title) +
-               (rec.sub ? ' · ' + esc(rec.sub) : '') + '</div>' : '') +
       '<div class="arc-report" id="arcReportBody"><div class="arc-empty">리포트를 불러오는 중…</div></div>';
 
     const { html, confirmed } = await loadReportHtml(viewingId);
@@ -1520,7 +1537,7 @@
     return loadIndex()
       .filter(r => r.type === type)
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)) // 항상 최신순 — 목록 화면의 정렬 토글과 무관하게
-      .map(r => ({ id: r.id, type: r.type, title: r.title, sub: r.sub, profileId: r.profileId || null, createdAt: r.createdAt, when: fmtWhen(r.createdAt) }));
+      .map(r => ({ id: r.id, type: r.type, title: r.title, sub: r.sub, profileId: r.profileId || null, characterId: r.characterId || null, createdAt: r.createdAt, when: fmtWhen(r.createdAt) }));
   }
   function latestOf(type) { return listOf(type)[0] || null; }
   // 저장된 리포트 본문을 임의의 컨테이너에 그린다. 보관함 상세와 같은 정리(조작 요소 제거)를 거친다.

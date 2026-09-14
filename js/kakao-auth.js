@@ -644,7 +644,7 @@
     const balance = window.Wallet ? Wallet.getCachedBalance() : null;
     const balanceText = balance == null ? '불러오는 중…' : balance + '냥';
     return '<div class="mypage-section">' +
-        '<div class="mypage-section-title"><span class="material-symbols-outlined">paid</span>보유 냥</div>' +
+        '<div class="mypage-section-title"><span class="is-badge-icon material-symbols-outlined">paid</span>보유 냥</div>' +
         '<div class="wallet-balance-card">' +
           '<span class="wallet-balance-num">' + esc(balanceText) + '</span>' +
           // 대표프로필의 "변경" 버튼(.mypage-rep-change)과 같은 스타일로 통일 — 사용자 요청 2026-08-16
@@ -801,7 +801,7 @@
             menuItem('결제내역', 'receipt_long', 'PayHistory.open()') +
           '</div>' +
           '<div class="mypage-divider"></div>' +
-          '<div class="mypage-menu">' +
+          '<div class="mypage-menu is-plain">' +
             '<button class="mypage-menu-item is-quiet" onclick="KakaoAuth.logout()">로그아웃</button>' +
             '<button class="mypage-menu-item is-danger" onclick="KakaoAuth.withdraw()">회원탈퇴</button>' +
           '</div>' +

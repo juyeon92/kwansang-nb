@@ -5,6 +5,12 @@
 // ⚠️ 2026-09-03 카카오페이 연동 — 아직 카카오페이 가맹점 심사 전이라 functions/index.js의
 // KAKAO_PAY_CID가 테스트 코드(TC0ONETIME)로 되어 있다. 코드 흐름 자체는 실제 가맹점 승인 후에도
 // CID만 실제 값으로 바꾸면 그대로 쓸 수 있다 — 결제창 진입부터 승인·냥 지급까지 전부 이 상태로 동작한다.
+//
+// 2026-09-14 Figma(node 75:1812) 재대조 — 예전엔 헤더에 닫기(X) 버튼이 있어 모달처럼 보였는데,
+// 다른 페이지(보관함 등)와 똑같이 페이지 타이틀만 두고 나가기는 하단 고정 CTA 독의 "취소" 버튼으로
+// 옮겼다. 그 독에 "결제 수단"(현재 카카오페이 1종) 표시 영역(.shop-payment)도 새로 추가 — 아직 선택
+// UI는 없고 안내 행 하나뿐이지만, 실제 PG 연동(카카오페이 승인 전/추가 결제수단)이 붙을 때 이 영역
+// 안에서 확장하면 된다.
 (function () {
   // 가격표 — 사용자 요청 2026-08-16: "우선은 1냥 990원, 가격표는 1냥만". 묶음 상품(3냥/5냥/10냥 등)은
   // 여기 배열에 행을 추가하기만 하면 화면·선택 로직이 그대로 따라간다.
@@ -55,7 +61,7 @@
       notify(p.name + ' · ' + won(p.price) + '\n결제 기능은 준비 중이에요.');
       return;
     }
-    const btn = document.querySelector('.shop-cta-dock .submit-btn');
+    const btn = document.querySelector('.shop-cta-dock .btn-solid-primary');
     if (btn) { btn.disabled = true; btn.textContent = '결제 준비 중...'; }
     const result = await Wallet.kakaoPayReady(p.id);
     if (!result.ok) {
@@ -87,21 +93,32 @@
     }).join('');
 
     const picked = PRODUCTS.find(function (x) { return x.id === selectedId; });
+    // Figma(node 75:1812 → 83:2295) 재실측(2026-09-14): 헤더는 페이지 타이틀만(닫기 X 없음), 결제
+    // 버튼 라벨은 가격 없이 "냥 N개 구매하기"(미선택 시 "냥을 선택해주세요") — 가격은 이미 상품 행에
+    // 보이니 중복 표기 안 함. 보유 냥은 MENU 카드 밖 텍스트 줄이 아니라 카드 안 흰 박스(.shop-balance-box)
+    // 로, 상품 행은 리스트 구분선이 아니라 카드 하나하나(.shop-row가 흰 배경 박스)로, 페이지 전체는
+    // Figma "Warp" 배경(--card2)을 두른 .shop-page-bg로 감쌌다.
     h.innerHTML =
-      '<div class="shop-head">' +
-        '<h2>냥 가격표</h2>' +
-        '<button class="shop-close" onclick="NyangShop.close()" aria-label="닫기"><span class="material-symbols-outlined">close</span></button>' +
+      '<div class="shop-page-bg">' +
+        '<div class="shop-head"><h2>냥 가격표</h2></div>' +
+        '<div class="shop-menu-card">' +
+          '<div class="shop-menu-title">MENU</div>' +
+          '<div class="shop-menu-price-row"><span class="shop-menu-coin-label">냥</span><span class="shop-menu-coin-price">990원</span></div>' +
+          '<div class="shop-menu-note">냥으로 통합분석과 궁합보기를 볼 수 있어요.</div>' +
+          '<div class="shop-balance-box"><span>보유 냥</span><strong>' + balanceText + '</strong></div>' +
+        '</div>' +
+        '<div class="shop-list">' + rows + '</div>' +
+        '<div class="shop-payment">' +
+          '<div class="shop-payment-title">결제 수단</div>' +
+          '<div class="shop-payment-row">' +
+            '<span class="shop-payment-row-label">카카오페이</span>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
-      '<div class="shop-balance">보유 냥 <strong>' + balanceText + '</strong></div>' +
-      '<div class="shop-menu-card">' +
-        '<div class="shop-menu-title">MENU</div>' +
-        '<div class="shop-menu-coin"><span class="shop-menu-coin-label">냥</span><span class="shop-menu-coin-price">990원</span></div>' +
-        '<div class="shop-menu-note">냥 1개로 통합분석 1회를 볼 수 있어요</div>' +
-      '</div>' +
-      '<div class="shop-list">' + rows + '</div>' +
-      '<div class="shop-cta-dock">' +
-        '<button class="submit-btn" onclick="NyangShop.buy()"' + (picked ? '' : ' disabled') + '>' +
-          (picked ? picked.name + ' · ' + won(picked.price) + ' 구매하기' : '상품을 선택하세요') +
+      '<div class="cta-dock shop-cta-dock">' +
+        '<button class="btn-outline-primary" onclick="NyangShop.close()">취소</button>' +
+        '<button class="btn-solid-primary" onclick="NyangShop.buy()"' + (picked ? '' : ' disabled') + '>' +
+          (picked ? picked.name + ' 구매하기' : '냥을 선택해주세요') +
         '</button>' +
       '</div>';
   }
@@ -126,7 +143,7 @@
 
     // 취소: 정책상 별도 알림 없이 그대로 복귀.
     if (kakaopay === 'cancel') { resumeAfterKakaoPay(); return; }
-    if (kakaopay === 'fail') { notify('결제에 실패했어요. 다시 시도해주세요.'); resumeAfterKakaoPay(); return; }
+    if (kakaopay === 'fail') { notify('결제에 실패했어요. 잠시 후 다시 시도해주세요.'); resumeAfterKakaoPay(); return; }
     if (kakaopay !== 'success' || !orderId || !pgToken) return;
 
     open();
