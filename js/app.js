@@ -611,30 +611,17 @@ function closeCombinedSavedReport() {
   window.scrollTo(0, 0);
 }
 
-// "다른 사람으로 통합분석하기" — 사주(프로필)를 먼저 고르게 하고, 고른 뒤에 사진 등록부터 다시 시작한다.
-// 닫기·배경 클릭으로 나가면(onPick 미호출) 보고 있던 리포트 화면이 그대로 남는다.
-// ⚠️ 프로필이 하나뿐이거나 이미 분석한 사람을 또 고르면, 사진 등록 화면만 새로 뜨는 게 마치 다른
-// 사람 분석이 시작된 것처럼 보였다(사용자 요청 2026-08-19). 고른 프로필로 이미 완료된 통합분석
-// 기록이 있으면 진행하지 않고 안내한다 — 다시 하려면 그 기록을 지우고 오라는 뜻.
+// "다른 사람으로 통합분석하기" — 통합분석 서비스 정책.md 2-1/3-1/3-6(2026-09-14 정책 변경).
+// 예전엔 이 버튼이 사주 선택 바텀시트(P4)부터 띄우고, 고른 뒤에야 S2(입력 화면)로 보냈다. 이제는
+// 최초 진입과 완전히 동일하게 곧장 빈 입력 화면(S2 — 사주·사진·Q1~Q3 전부 미입력)으로 보낸다.
+// P4는 그 S2 화면 안의 "사주 정보" 드롭다운(Profile.openCombinedSajuPicker)을 눌러야만 열린다 —
+// 최초 진입이든 이 버튼으로 재진입이든 P4 진입 경로가 완전히 동일해진다.
+// ⚠️ "이미 이 사주로 분석한 리포트가 있으면 막는" 보호는 이제 여기가 아니라 P4 자체(js/profile.js
+// openSwitcher의 lockLinked 분기, 정책 3-2)가 행 비활성화로 처리한다 — 이 함수에서 따로 확인하지
+// 않는다(전에 여기 있던 사후 alert 체크는 그래서 제거).
 function startCombinedForOther() {
-  if (!window.Profile || !Profile.openSwitcher) return;
-  Profile.openSwitcher({
-    title: '분석할 사주 선택',
-    onPick: function (id) {
-      const already = window.Archive && Archive.listOf && Archive.listOf('combined').some(function (r) { return r.profileId === id; });
-      if (already) {
-        alert('이미 분석한 내용이 있습니다.\n동일 사주로 다른 분석을 원하시면 삭제 후 이용해주세요.');
-        startCombinedForOther(); // 다른 프로필을 고르도록 시트를 다시 띄운다
-        return;
-      }
-      resetUpload('combined'); // 안에서 cmbWantsNewAnalysis를 세우고 사진 등록 단계를 되살린다(사주 선택도 일단 초기화)
-      // resetUpload가 방금 초기화한 사주 선택을, 여기서 막 고른 프로필로 다시 채운다 — "다른 사람으로"는
-      // 이미 이 팝업에서 대상을 골랐으니 사진 등록 화면의 사주 정보 칩에도 그 결과가 바로 보여야 한다.
-      if (window.Profile && Profile.setCombinedSajuSelection) Profile.setCombinedSajuSelection(id);
-      if (window.maybeRevealCmbSajuQBlock) maybeRevealCmbSajuQBlock();
-      window.scrollTo(0, 0);
-    },
-  });
+  resetUpload('combined'); // cmbWantsNewAnalysis를 세우고 사주 선택·사진·Q1~Q3를 전부 초기화한 뒤 S2(사진 등록 단계)를 되살린다
+  window.scrollTo(0, 0);
 }
 
 // ═══ 궁합보기 재입력 — "다른 궁합 분석하기" ═══
