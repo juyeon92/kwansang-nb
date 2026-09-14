@@ -1515,9 +1515,12 @@
     // 2026-09-14 — 통합분석(openCombinedSavedReport)·궁합보기(openGunghamSavedReport)의 "‹ {이름}
     // 리포트" 한 줄 헤더와 통일(사용자 요청, Figma node 81:3504 등). 전엔 뒤로가기+범용 탭 이름
     // ("궁합보기")+별도 메타 줄("A ✕ B · 관계")+카드 안 타이틀 바까지 3~4겹으로 겹쳐 있었다.
+    // 궁합보기 제목 — S3 목록(js/app.js renderGunghamSavedReport)의 붙여쓴 "여니♥워니"는 이 한 줄
+    // 헤더에선 combined("OO님의 통합 분석 리포트")와 같은 문장체가 되도록 구분자 앞뒤에 띄어쓰기를
+    // 넣고 "님의"를 붙인다(Figma node 81:3504 실측 — 사용자 요청 2026-09-14).
     const titleText = !rec ? (section ? section.label : '리포트')
       : rec.type === 'combined' ? rec.title + '님의 통합 분석 리포트'
-      : rec.type === 'gungham' ? rec.title + ' 궁합 리포트'
+      : rec.type === 'gungham' ? rec.title.replace(/([♥X])/, ' $1 ') + '님의 궁합 리포트'
       : (section ? section.label : '리포트');
     h.innerHTML =
       '<div class="cmb-report-header">' +

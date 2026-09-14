@@ -736,7 +736,7 @@ body {
 #gwansangCanvas, #combinedCanvas, #gunghamCanvasA, #gunghamCanvasB { max-width: 100%; border-radius: 10px; display: block; }
 
 .cmb-analyzing {
-  text-align: center; padding: 40px 24px; margin-top: 24px;
+  text-align: center; padding: 40px 24px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
 }
 .cmb-analyzing-title { font-size: 16px; font-weight: 800; color: var(--text-title); }
@@ -838,6 +838,8 @@ body {
    중간에 div가 남고, gungham은 거쳐서 #ggSavedBody처럼 평평해지므로 두 형태 다 잡는다. */
 #arcReportBody .cmb-result-title, #arcReportBody .gg-result-title,
 #arcReportBody > div > .card-title:first-child, #arcReportBody > .card-title:first-child { display: none; }
+/* 사용자 요청(2026-09-14) — 궁합보기 결과(#ggResult)는 공용 .card 테두리(아웃라인 박스)가 필요 없다. */
+#ggResult { border: none; }
 
 .gender-btns { display: flex; gap: 8px; }
 .gender-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; font-family: inherit; }
@@ -1039,7 +1041,7 @@ body:has(#dogamGuestSection) #gwansangInputCard.dogam-form-card { background: no
 #cmbResult .headline-quote, #cmbSavedBody .headline-quote { padding: 16px; background: var(--mint-pale); border-color: var(--mint-border); border-radius: 12px; font-size: 16px; color: var(--char-navy); }
 /* Figma node 81:3668 "HeadlineQuote"(궁합보기 종합 점수 & 케미 분석) 실측 — 통합분석과 달리 옅은
    틴트가 아니라 진한 솔리드 민트(#55ccbb=--mint) 배경 + 네이비 텍스트다. */
-#ggResult .headline-quote, #ggSavedBody .headline-quote { padding: 16px; background: var(--mint-pale); border-color: var(--mint-border); border-radius: 12px; font-size: 16px; color: var(--char-navy); margin-top: 16px; }
+#ggResult .headline-quote, #ggSavedBody .headline-quote { padding: 16px; background: var(--mint); border-color: var(--mint); border-radius: 12px; font-size: 16px; color: var(--char-navy); margin-top: 16px; }
 .part-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .part-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
 .part-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
@@ -3179,9 +3181,9 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260914a"></script>
 <script src="js/ai-analysis.js?v=20260914a"></script>
-<script src="js/app.js?v=20260914b"></script>
+<script src="js/app.js?v=20260914i"></script>
 <script src="js/profile.js?v=20260914a"></script>
-<script src="js/archive.js?v=20260914b"></script>
+<script src="js/archive.js?v=20260914c"></script>
 <script src="js/inyeon-dogam.js?v=20260913c"></script>
 <script src="js/nyang-shop.js?v=20260914c"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>

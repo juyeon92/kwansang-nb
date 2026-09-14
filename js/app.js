@@ -771,8 +771,10 @@ async function openGunghamSavedReport(id) {
   const rec = (window.Archive && Archive.listOf) ? Archive.listOf('gungham').find(r => r.id === id) : null;
   if (!body || !rec) return;
   // 통합분석(closeCombinedSavedReport 쌍둥이 함수)과 같은 헤더 패턴(뒤로가기+한 줄 제목)으로 통일
-  // (사용자 요청 2026-09-13) — rec.title은 "이름A ✕ 이름B" 형태라 "님의"를 붙이지 않는다.
-  if (titleEl) titleEl.textContent = rec.title + ' 궁합 리포트';
+  // (사용자 요청 2026-09-13). rec.title은 S3 목록에 쓰는 붙여쓴 "여니♥워니" 형태라, 이 한 줄
+  // 헤더에선 구분자 앞뒤에 띄어쓰기를 넣고 "님의"를 붙여 문장체로 만든다(Figma node 81:3504,
+  // js/archive.js의 같은 헤더 로직과 동일 — 사용자 요청 2026-09-14).
+  if (titleEl) titleEl.textContent = rec.title.replace(/([♥X])/, ' $1 ') + '님의 궁합 리포트';
   body.innerHTML = '<div class="arc-empty">리포트를 불러오는 중…</div>';
   document.getElementById('ggSavedStep').classList.add('hidden');
   document.getElementById('ggSavedReport').classList.remove('hidden');
