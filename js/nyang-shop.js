@@ -12,10 +12,13 @@
 // UI는 없고 안내 행 하나뿐이지만, 실제 PG 연동(카카오페이 승인 전/추가 결제수단)이 붙을 때 이 영역
 // 안에서 확장하면 된다.
 (function () {
-  // 가격표 — 사용자 요청 2026-08-16: "우선은 1냥 990원, 가격표는 1냥만". 묶음 상품(3냥/5냥/10냥 등)은
-  // 여기 배열에 행을 추가하기만 하면 화면·선택 로직이 그대로 따라간다.
+  // 가격표 — 카카오페이 가맹점 심사 요건(활성화된 판매상품 3개 이상) 대응으로 2026-09-14 2개·3개
+  // 추가(사용자 요청: 묶음 할인 없이 990원 × 개수로 단순하게). 묶음 상품(5냥/10냥 등)을 나중에
+  // 더 추가할 때도 이 배열에 행만 더하면 화면·선택 로직이 그대로 따라간다.
   const PRODUCTS = [
     { id: 'nyang1', name: '냥 1개', desc: '통합분석 1회', amount: 1, price: 990 },
+    { id: 'nyang2', name: '냥 2개', desc: '통합분석 2회', amount: 2, price: 1980 },
+    { id: 'nyang3', name: '냥 3개', desc: '통합분석 3회', amount: 3, price: 2970 },
   ];
 
   let prevTab = 'combined';
@@ -107,7 +110,7 @@
           '<div class="shop-menu-note">냥으로 통합분석과 궁합보기를 볼 수 있어요.</div>' +
           '<div class="shop-balance-box"><span>보유 냥</span><strong>' + balanceText + '</strong></div>' +
         '</div>' +
-        '<div class="shop-list">' + rows + '</div>' +
+        '<div class="shop-list"><div class="shop-payment-title">상품 정보</div>' + rows + '</div>' +
         '<div class="shop-payment">' +
           '<div class="shop-payment-title">결제 수단</div>' +
           '<div class="shop-payment-row">' +
