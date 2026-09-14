@@ -847,8 +847,13 @@ body {
    중간에 div가 남고, gungham은 거쳐서 #ggSavedBody처럼 평평해지므로 두 형태 다 잡는다. */
 #arcReportBody .cmb-result-title, #arcReportBody .gg-result-title,
 #arcReportBody > div > .card-title:first-child, #arcReportBody > .card-title:first-child { display: none; }
-/* 사용자 요청(2026-09-14) — 궁합보기 결과(#ggResult)는 공용 .card 테두리(아웃라인 박스)가 필요 없다. */
-#ggResult { border: none; }
+/* 사용자 요청(2026-09-14) — 궁합보기 결과(#ggResult)는 저장 리포트(#ggSavedBody, .arc-report)와
+   똑같이 완전히 flush해야 한다. .arc-report 자체엔 padding/border/radius가 전혀 없고(내용은 언랩된
+   맨몸 마크업), .wrap이 이미 32px/20px 여백을 주므로 그걸 그대로 물려받는다 — #ggResult도 공용
+   .card의 border/padding/radius/margin-bottom을 전부 지워 같은 모양을 만든다(border만 지웠던 첫
+   시도는 padding·radius·margin이 남아 여전히 "카드"처럼 보였다). #panel-combined .card가 이미 같은
+   방식으로 #cmbResult를 처리하는 것과 동일 패턴. */
+#ggResult { border: none; border-radius: 0; padding: 0; margin-bottom: 0; }
 
 .gender-btns { display: flex; gap: 8px; }
 .gender-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; font-family: inherit; }
