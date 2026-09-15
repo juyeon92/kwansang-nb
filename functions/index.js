@@ -1020,6 +1020,16 @@ async function settleDogamForUid(uid, preferredSlug) {
   const conflicts = [];
   for (const other of others) {
     const otherData = other.data() || {};
+    // ⚠️ 버그 수정(2026-09-11, 사용자 리포트 — 로그인 시 "같은 도감인데 2개로 보이는" 선택 팝업) —
+    // 정상 흐름에서 도감은 항상 캐릭터 분석이 끝난 뒤에만 만들어지므로(js/inyeon-dogam.js
+    // createMyDogam은 myCharacterId()가 있을 때만 호출됨) ownerCharacterId가 비어있는 도감은 로그인
+    // 처리 중 레이스로 생긴 빈 껍데기일 가능성이 크다. 이런 후보를 캐릭터가 "다르다"고 보고 매번
+    // 사용자에게 선택을 물으면, 실제로는 도감이 1개뿐인데도 매 로그인마다 의미 없는 선택 팝업이
+    // 뜬다 — 병합 시도 없이 조용히 지운다.
+    if (!otherData.ownerCharacterId) {
+      await purgeDogam(other, 'login_settle_incomplete');
+      continue;
+    }
     if (otherData.ownerCharacterId === keeperCharacterId) {
       const entriesSnap = await other.ref.collection('entries').get();
       for (const d of entriesSnap.docs) {
