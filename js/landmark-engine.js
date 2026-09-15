@@ -66,21 +66,48 @@ let landmarkerLoading = null;
 // jungwon.jpeg(0.922)를 기준점으로 삼아, juyeon.jpg가 여유 있게 통과하도록 하한을 낮췄다.
 // faceRatio도 이 두 기준 사진(0.415/0.471)이 편안하게 들어오는 범위로 좁혔다(0.20~0.85는 너무 넓어서
 // 저해상도로 뭉개지는 사진까지 통과시킬 여지가 있었음).
+//
+// ⚠️ 2차 보정(2026-09-15) — 오탐/미탐 사례 20장(기획서/"반려되면 안되는데 반려됨" 12장 +
+// "반려돼야하는데 통과됨" 2장 + "반려는 맞는데 엉뚱한 사유" 6장, scratchpad harness로 실측)으로
+// 재검증한 결과:
+// - faceRatio: 상반신까지 나온 정상 셀카 3장이 0.262~0.294로 하한(0.30) 밖이라 반려됨 → 0.25로 완화.
+// - lenR: 정상 사진 12장의 실측 범위가 1.054~1.340으로 기존 [1.10,1.24]보다 훨씬 넓게 퍼져있었다(12장
+//   중 9장이 lenR 하나 때문에 반려됨 — 원인은 faceH가 foreheadGwanR와 똑같이 hairline(IDX.hairline=10)
+//   점에 의존해서 생기는 같은 뿌리의 불안정성). 실측 분포를 담을 수 있게 [1.00, 1.40]으로 확장.
+// - yawRatio(코끝↔좌우 볼 "2D 거리" 비율)는 폐기 — 앞머리가 한쪽 볼을 가리거나(3.jpg/5.jpg) 광각
+//   셀카봉 왜곡(12.jpg)이 있으면 완전 정면 사진도 0.15 근처까지 떨어지는데, 진짜 측면 사진(엉뚱한
+//   사유 세트의 04번)은 0.171로 오히려 더 "정면처럼" 나오는 역전이 있어 하나의 임계값으로 못 갈랐다.
+//   같은 20장에 MediaPipe facialTransformationMatrixes(모델이 이미 추정하는 얼굴의 실제 3D 회전)로
+//   구한 headYawDeg를 찍어보니 정상 사진 최댓값 26.7°, 진짜 측면 사진 최솟값 39.9°로 13°의 깨끗한
+//   공백이 있어 이 값으로 교체했다. assessPhotoQuality() 참고.
 const PHOTO_QUALITY = {
-  faceRatio: [0.30, 0.70],       // 얼굴폭 ÷ 사진폭 — juyeon.jpg(0.415)·jungwon.jpeg(0.471) 기준으로 보정
+  faceRatio: [0.25, 0.70],       // 얼굴폭 ÷ 사진폭
   foreheadGwanR: [0.15, 0.65],   // 이마세로 ÷ 눈-턱세로 — gwansang-classify.js FOREHEAD_RELIABLE_RANGE와 동일 값.
                                  // ⚠️ 이 체크가 실제로 "앞머리로 이마 가림"을 잡아내는지는 미검증 — 아래 참고.
-  yawMin: 0.55,                 // min(좌,우 볼-코끝 거리) ÷ max(...) — juyeon.jpg(0.760) 기준으로 여유를 둔 값
+  yawMaxDeg: 32,                 // MediaPipe facialTransformationMatrixes 기반 머리 좌우 회전각(도) — 클수록 옆모습
   chinMarginMin: 0.06,           // (사진 높이 - 턱끝y) ÷ 사진 높이 — 턱 아래 여백 비율, 작으면 목선이 잘림
   // lenR(얼굴세로 ÷ 얼굴가로, gwansang-classify.js와 동일 정의) — 동일인 8쌍(기획서/동일인/) 검증 결과,
   // 각도가 아니라 촬영 거리(카메라-얼굴 렌즈 원근)로 인한 lenR 변동이 face_archetype/face_shape_type/
   // nose_shape 판정 불일치의 가장 큰 원인이었다. 분류기 쪽에서 고칠 수 없는 문제라 애초에 이 범위를
   // 벗어난 사진(너무 가까이/멀리서 찍어 원근 왜곡이 큰 사진)을 업로드 단계에서 막는 방향으로 대응한다.
-  // 73장 실측 표본 p10=1.125·p90=1.235 기준, 약간의 여유를 두고 [1.10, 1.24]로 설정(2026-09-14 추가).
-  lenR: [1.10, 1.24],
+  lenR: [1.00, 1.40],
 };
 
-function assessPhotoQuality(lm, w, h) {
+function assessPhotoQuality(lm, w, h, transformMatrix) {
+  // 옆모습 체크를 맨 앞에 둔 이유(2026-09-15) — faceRatio/lenR은 얼굴이 카메라를 향해 돌아가 있으면
+  // 원근 때문에 같이 왜곡된다(예: 옆모습이라 lenR이 먼저 튀어 "세로로 길다"는 엉뚱한 메시지가 뜨고
+  // 정작 진짜 원인인 옆모습 체크까지 못 감). 회전각은 다른 값들과 달리 이런 왜곡의 "원인"이지 "결과"가
+  // 아니므로 가장 먼저 확인한다.
+  // data[8]·data[10] = 얼굴 로컬 Z축(정면 방향 벡터)이 카메라 공간에 투영된 x·z 성분 — 완전 정면이면
+  // 벡터가 카메라를 거의 똑바로 향해 x성분이 0에 가깝고, 좌우로 돌수록 x성분이 커진다.
+  if (transformMatrix && transformMatrix.data) {
+    const d = transformMatrix.data;
+    const headYawDeg = Math.atan2(d[8], Math.abs(d[10])) * 180 / Math.PI;
+    if (Math.abs(headYawDeg) > PHOTO_QUALITY.yawMaxDeg) {
+      return { ok: false, message: '옆모습에 가까운 사진이에요. 정면을 바라보고 찍은 사진으로 다시 올려주세요.' };
+    }
+  }
+
   const browY = (lm[IDX.browPeakL].y + lm[IDX.browPeakR].y) / 2;
   const faceW = Math.abs(lm[IDX.cheekR].x - lm[IDX.cheekL].x);
   const faceRatio = faceW / w;
@@ -118,14 +145,6 @@ function assessPhotoQuality(lm, w, h) {
     return { ok: false, message: '얼굴 비율이 가로로 넓게 나왔어요. 카메라에 너무 가까이 대지 말고, 조금 떨어져서 정면으로 찍은 사진으로 다시 올려주세요.' };
   }
 
-  const noseTip = lm[IDX.noseTip];
-  const distL = Math.abs(noseTip.x - lm[IDX.cheekL].x);
-  const distR = Math.abs(lm[IDX.cheekR].x - noseTip.x);
-  const yawRatio = Math.max(distL, distR) ? Math.min(distL, distR) / Math.max(distL, distR) : 0;
-  if (yawRatio < PHOTO_QUALITY.yawMin) {
-    return { ok: false, message: '옆모습에 가까운 사진이에요. 정면을 바라보고 찍은 사진으로 다시 올려주세요.' };
-  }
-
   return { ok: true, message: null, warning: warning };
 }
 
@@ -147,6 +166,7 @@ async function loadModels(spinnerMsgId) {
         },
         runningMode: 'IMAGE',
         numFaces: 1,
+        outputFacialTransformationMatrixes: true, // assessPhotoQuality의 옆모습 판정(headYawDeg)에 사용
       });
       return true;
     } catch (e) {
@@ -213,7 +233,7 @@ async function runFaceAnalysis(ctx, canvasIdOverride) {
     // 동일한 형태(픽셀 {x,y} 배열)로 다룰 수 있어 인덱스 값만 바뀌고 나머지 구조는 그대로 유지된다.
     const lm = result.faceLandmarks[0].map(p => ({ x: p.x * w, y: p.y * h }));
 
-    const quality = assessPhotoQuality(lm, w, h);
+    const quality = assessPhotoQuality(lm, w, h, result.facialTransformationMatrixes && result.facialTransformationMatrixes[0]);
     if (!quality.ok) {
       hideSpinner(m.spinner);
       reportCtxErr(ctx, quality.message);
@@ -278,7 +298,7 @@ async function checkPhotoQualityOnUpload(ctx) {
       message = '얼굴을 감지하지 못했습니다. 정면을 바라보는 선명한 사진을 사용해주세요.';
     } else {
       const lm = result.faceLandmarks[0].map(p => ({ x: p.x * w, y: p.y * h }));
-      const quality = assessPhotoQuality(lm, w, h);
+      const quality = assessPhotoQuality(lm, w, h, result.facialTransformationMatrixes && result.facialTransformationMatrixes[0]);
       if (!quality.ok) message = quality.message; else warning = quality.warning || null;
     }
     if (state[ctx].file !== myFile) return; // 결과가 오는 동안 다른 사진으로 또 바뀌었으면 무시
