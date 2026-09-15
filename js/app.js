@@ -904,6 +904,12 @@ function startGunghamAnalysis() {
   if (!state.gungham.relation) { alert('두 사람의 관계를 선택해주세요.'); return; }
   if (!state.gunghamA.file) { alert('A 사진을 선택해주세요.'); return; }
   if (!state.gunghamB.file) { alert('B 사진을 선택해주세요.'); return; }
+  // 2026-09-15 사용자 리포트 — startCombinedAnalysis와 동일한 이유. 업로드 즉시검증이 이미 gunghamA/B
+  // qualityError를 저장해뒀는데 여기서 안 막으면 Profile.runGungham()이 냥 사용 확인 팝업부터 띄우고,
+  // "확인"을 눌러야 같은 사유로 튕긴다. alert 대신 각자 사진 입력 바로 아래(ggErrA/ggErrB)에 이미 떠
+  // 있는 배너로 스크롤만 시킨다 — 화면 순서(A→B)대로 A를 먼저 확인한다.
+  if (state.gunghamA.qualityError) { scrollToCtxErr('gunghamA'); return; }
+  if (state.gunghamB.qualityError) { scrollToCtxErr('gunghamB'); return; }
   if (window.Profile && Profile.runGungham) Profile.runGungham();
 }
 
@@ -944,6 +950,16 @@ function reportCtxErr(ctx, message) {
   if (message) showErr(m.err, message); else hideErr(m.err);
 }
 
+// 2026-09-15 사용자 리포트 — "냥 사용하기까지 넘어간 뒤에야 사진 반려 사유가 alert로 뜬다"는 문제를
+// 고치면서, 그 alert 자체도 없앴다. 업로드 즉시검증(checkPhotoQualityOnUpload)이 사진 입력 바로
+// 아래(gwansangErr/cmbErr/ggErrA/ggErrB, 4곳 모두 같은 위치 규칙)에 이미 사유를 띄워둔 상태라, CTA를
+// 눌렀을 때는 그 배너로 스크롤만 시켜주면 된다 — 팝업으로 다시 가로막지 않는다.
+function scrollToCtxErr(ctx) {
+  const m = ctxMap[ctx];
+  const el = m && m.err && document.getElementById(m.err);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 // 인연도감 서비스 정책.md v4(2-0/2-1 1번) — 최초 진입은 닉네임+사진 둘 다 필수. startAnalysis
 // 자체에는 이 검사를 넣지 않는다 — inyeon-dogam.js의 registerEntry()(B가 새 사진으로 재분석하는
 // 경로)도 startAnalysis('gwansang')을 그대로 호출하는데, B는 별도 이름 필드(#dogamGuestName)로
@@ -977,6 +993,11 @@ function startCombinedAnalysis() {
     return;
   }
   if (!state.combined.file) { alert('사진을 선택해주세요.'); return; }
+  // 2026-09-15 사용자 리포트 — 업로드 즉시검증(checkPhotoQualityOnUpload)이 이미 사유를 저장해뒀는데도
+  // 여기서 안 막으면 Profile.runCombined()가 바로 냥 사용 확인 팝업부터 띄운다. 사용자가 "확인(냥
+  // 사용하기)"까지 누른 뒤에야 같은 사유로 튕기던 문제라, CTA를 누른 이 시점에 먼저 걸러서 팝업 자체가
+  // 뜨지 않게 한다. alert 대신 사진 입력 바로 아래(cmbErr)에 이미 떠 있는 배너로 스크롤만 시킨다.
+  if (state.combined.qualityError) { scrollToCtxErr('combined'); return; }
   // 필수 동의 체크박스는 뺐다(사용자 확정 2026-09-14) — 이름·사진 이용 동의는 비로그인으로 쓰는
   // 인연도감에만 필요하다. 통합분석·궁합보기는 로그인 기반이라 카카오 로그인 시 약관 동의로 이미
   // 커버된다(통합분석 서비스 정책.md는 애초에 이 체크박스를 언급하지 않았다).

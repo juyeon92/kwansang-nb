@@ -773,7 +773,7 @@ body {
 .auth-loading-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(10,16,15,0.45); display: flex; align-items: center; justify-content: center; }
 .auth-loading-overlay .spin-ring { margin: 0; border-color: rgba(255,255,255,0.35); border-top-color: #fff; }
 
-.err-msg { display: none; background: #FDECEC; border: 1px solid #F5C2C2; color: #C23B3B; border-radius: var(--r); padding: 14px; text-align: center; font-size: 13px; }
+.err-msg { display: none; background: #FDECEC; border: 1px solid #F5C2C2; color: #C23B3B; border-radius: var(--r-drop); padding: 12px; text-align: center; font-size: 13px; margin-top: 8px; }
 .err-msg.show { display: block; }
 
 .result-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
@@ -2194,6 +2194,8 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         </div>
       </div>
 
+      <div class="err-msg" id="cmbErr"></div>
+
       <details class="dogam-policy" style="margin-top:8px;margin-bottom:12px;">
         <summary>🔒사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
         <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
@@ -2265,7 +2267,6 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <div class="spin-ring"></div>
         <p style="color:var(--text2);font-size:13px;" id="cmbSpinnerMsg">분석 중...</p>
       </div>
-      <div class="err-msg" id="cmbErr"></div>
     </div>
 
         <div class="cmb-analyzing hidden" id="cmbAnalyzing">
@@ -2940,11 +2941,11 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         </div>
         <input type="hidden" id="ggBirthA" value="">
         <input type="hidden" id="ggBirthHourA" value="-1">
+        <div class="err-msg" id="ggErrA"></div>
         <details class="dogam-policy">
           <summary>🔒 사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
           <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
         </details>
-        <div class="err-msg" id="ggErrA"></div>
         </div>
       </div>
       </div>    </div>
@@ -2995,11 +2996,11 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         </div>
         <input type="hidden" id="ggBirthB" value="">
         <input type="hidden" id="ggBirthHourB" value="-1">
+        <div class="err-msg" id="ggErrB"></div>
         <details class="dogam-policy">
           <summary>🔒 사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
           <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
         </details>
-        <div class="err-msg" id="ggErrB"></div>
         </div>
       </div>
       </div>    </div>
@@ -3226,7 +3227,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260914a"></script>
 <script src="js/ai-analysis.js?v=20260914a"></script>
-<script src="js/app.js?v=20260914n"></script>
+<script src="js/app.js?v=20260915b"></script>
 <script src="js/profile.js?v=20260914c"></script>
 <script src="js/archive.js?v=20260914c"></script>
 <script src="js/inyeon-dogam.js?v=20260915a"></script>
