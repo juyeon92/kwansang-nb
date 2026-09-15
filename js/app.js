@@ -1534,28 +1534,42 @@ function josaEunNeun(word) {
   if (ch < 0xAC00 || ch > 0xD7A3) return '는';
   return (ch - 0xAC00) % 28 !== 0 ? '은' : '는';
 }
+// 궁합 리포트 구성.md §4("나"/"상대방" → 실명 표기) — 이름 뒤에 "가"/"이"를 붙일 때 받침 유무로
+// 고른다. josaEunNeun과 같은 받침 판정이지만 결과가 반대(받침 있으면 "이", 없으면 "가")다.
+// ⚠️ "나"만은 이 함수로 처리하면 안 된다 — "나"+가는 "나가"가 아니라 "내가"(불규칙 축약형)라서,
+// 이름이 없어 "나"로 폴백하는 자리는 호출부가 "내가"를 직접 하드코딩해서 쓴다(아래 buildMoments 등 참고).
+function josaIga(word) {
+  const ch = word.charCodeAt(word.length - 1);
+  if (ch < 0xAC00 || ch > 0xD7A3) return '가';
+  return (ch - 0xAC00) % 28 !== 0 ? '이' : '가';
+}
 function sipseongMeaningSentence(role, meaning) {
   const dot = meaning.indexOf('.');
   const subject = `${role}${josaEunNeun(role)}`;
   if (dot < 0) return `${subject} ${meaning}`;
   return `${subject} ${meaning.slice(0, dot)}이에요.${meaning.slice(dot + 1)}`;
 }
-function renderSipseongCross(cross, elId) {
+// 궁합 리포트 구성.md §4 — 이름이 있으면 "나"/"상대"를 실명으로 바꾼다(첫 등장이 아니라 "님" 없이
+// 이름만). 이름이 없으면 기존 폴백("나"/"상대") 그대로.
+function renderSipseongCross(cross, elId, nameA, nameB) {
   const el = document.getElementById(elId);
   if (!el) return;
   if (!cross) { el.innerHTML = ''; return; }
+  const nA = nameA || '나', nB = nameB || '상대';
+  const nBSubj = `${nB}${josaEunNeun(nB)}`;   // "상대는" → "OO는/은"
+  const nASubj = `${nA}${josaEunNeun(nA)}`;   // "나는" → "OO는/은"
   // Figma(81:3802) 실측 — 소제목만 14px(다른 gg-item-head보다 큼), 두 문장이 한 문단으로 이어지고
   // "근거:" 줄은 아코디언이 아니라 항상 펼쳐진 회색 텍스트다(다른 gg-item과 다른 점).
   el.innerHTML = `
     <div class="gg-item gg-item-tint">
-      <div class="gg-item-head gg-sipseong-head">상대 → 나</div>
-      <div class="gg-item-reading">상대는 나에게 <strong>${cross.partnerToMe}</strong> 같은 존재예요. ${sipseongMeaningSentence(cross.partnerToMe, cross.meaningPartnerToMe)}</div>
-      <div class="gg-item-basis-visible">근거: 내 일간(${cross.dayOhA}) 기준 상대 일간(${cross.dayOhB}) → ${cross.partnerToMe}</div>
+      <div class="gg-item-head gg-sipseong-head">${nB} → ${nA}</div>
+      <div class="gg-item-reading">${nBSubj} ${nA}에게 <strong>${cross.partnerToMe}</strong> 같은 존재예요. ${sipseongMeaningSentence(cross.partnerToMe, cross.meaningPartnerToMe)}</div>
+      <div class="gg-item-basis-visible">근거: ${nA} 일간(${cross.dayOhA}) 기준 ${nB} 일간(${cross.dayOhB}) → ${cross.partnerToMe}</div>
     </div>
     <div class="gg-item gg-item-tint">
-      <div class="gg-item-head gg-sipseong-head">나 → 상대</div>
-      <div class="gg-item-reading">나는 상대에게 <strong>${cross.meToPartner}</strong> 같은 존재예요. ${sipseongMeaningSentence(cross.meToPartner, cross.meaningMeToPartner)}</div>
-      <div class="gg-item-basis-visible">근거: 상대 일간(${cross.dayOhB}) 기준 내 일간(${cross.dayOhA}) → ${cross.meToPartner}</div>
+      <div class="gg-item-head gg-sipseong-head">${nA} → ${nB}</div>
+      <div class="gg-item-reading">${nASubj} ${nB}에게 <strong>${cross.meToPartner}</strong> 같은 존재예요. ${sipseongMeaningSentence(cross.meToPartner, cross.meaningMeToPartner)}</div>
+      <div class="gg-item-basis-visible">근거: ${nB} 일간(${cross.dayOhB}) 기준 ${nA} 일간(${cross.dayOhA}) → ${cross.meToPartner}</div>
     </div>`;
 }
 
@@ -1640,24 +1654,31 @@ function buildYongsinChemi(pillarsA, pillarsB, ohA, ohB) {
   return { yongsinOhA: yA.yongsinOh, yongsinOhB: yB.yongsinOh, bHasForA, aHasForB };
 }
 // 오행 5개가 고르면 각 20%씩이라, 20%를 "평균 이상 갖고 있다"의 기준선으로 삼는다.
-function renderYongsinChemi(yongsin, elId) {
+// 궁합 리포트 구성.md §4 — "내게"(나에게의 짧은형)는 이름으로 일반화가 안 돼서 "나에게"로 통일했다
+// (뜻은 동일). "내가"도 이름이 있으면 "OO가/이"(josaIga)로, 없으면 그대로 "내가"를 쓴다 — "나"+"가"는
+// "나가"가 아니라 "내가"인 불규칙 축약이라 josaIga를 그대로 적용하면 안 된다(위 josaIga 주석 참고).
+function renderYongsinChemi(yongsin, elId, nameA, nameB) {
   const el = document.getElementById(elId);
   if (!el) return;
   if (!yongsin) { el.innerHTML = ''; return; }
   const { yongsinOhA, yongsinOhB, bHasForA, aHasForB } = yongsin;
+  const meDat = nameA ? `${nameA}에게` : '나에게';
+  const meSubj = nameA ? `${nameA}${josaIga(nameA)}` : '내가';
+  const youDat = nameB ? `${nameB}에게` : '상대에게';
+  const youSubj = nameB ? `${nameB}${josaIga(nameB)}` : '상대가';
   const textForA = bHasForA >= 20
-    ? `내게 필요한 ${yongsinOhA} 기운을 상대가 넉넉히 갖고 있어요(${bHasForA}%) — 존재만으로 균형이 맞춰지는 조합이에요.`
-    : `내게 필요한 ${yongsinOhA} 기운이 상대에게도 부족한 편이에요(${bHasForA}%) — 둘이 서로 채워주기보단, 취미나 환경에서 그 기운을 보완하면 좋아요.`;
+    ? `${meDat} 필요한 ${yongsinOhA} 기운을 ${youSubj} 넉넉히 갖고 있어요(${bHasForA}%) — 존재만으로 균형이 맞춰지는 조합이에요.`
+    : `${meDat} 필요한 ${yongsinOhA} 기운이 ${youDat}도 부족한 편이에요(${bHasForA}%) — 둘이 서로 채워주기보단, 취미나 환경에서 그 기운을 보완하면 좋아요.`;
   const textForB = aHasForB >= 20
-    ? `상대에게 필요한 ${yongsinOhB} 기운을 내가 넉넉히 갖고 있어요(${aHasForB}%) — 상대에게 내가 힘이 되어주는 조합이에요.`
-    : `상대에게 필요한 ${yongsinOhB} 기운이 나에게도 부족한 편이에요(${aHasForB}%) — 둘 다 외부에서 채워야 하는 기운이에요.`;
+    ? `${youDat} 필요한 ${yongsinOhB} 기운을 ${meSubj} 넉넉히 갖고 있어요(${aHasForB}%) — ${youDat} ${meSubj} 힘이 되어주는 조합이에요.`
+    : `${youDat} 필요한 ${yongsinOhB} 기운이 ${meDat}도 부족한 편이에요(${aHasForB}%) — 둘 다 외부에서 채워야 하는 기운이에요.`;
   el.innerHTML = `
     <div class="gg-item gg-item-tint">
-      <div class="gg-item-head">나에게 필요한 오행 — ${yongsinOhA}</div>
+      <div class="gg-item-head">${meDat} 필요한 오행 — ${yongsinOhA}</div>
       <div class="gg-item-reading">${textForA}</div>
     </div>
     <div class="gg-item gg-item-tint">
-      <div class="gg-item-head">상대에게 필요한 오행 — ${yongsinOhB}</div>
+      <div class="gg-item-head">${youDat} 필요한 오행 — ${yongsinOhB}</div>
       <div class="gg-item-reading">${textForB}</div>
     </div>
     <div class="gg-item-basis-visible" style="margin-top:4px;">💡 이 판정은 간이 억부법 기준의 참고용 해석이에요.</div>`;
@@ -2642,7 +2663,9 @@ function renderFaceOhaengBars(count, elId) {
 // 궁합보기 관상오행 비교 — 도넛(2026-08-25)에서 좌우 대칭 막대로 되돌림(2026-08-27 사용자 요청,
 // 통합분석 Zone2와 같은 이유: 두 조각의 각도 대조보다 오행별 한 줄 막대 길이 대조가 더 직관적).
 // 여기는 나·상대방 둘 다 관상(퍼센트)이라 단위가 같으므로, Zone2 사주 비교와 달리 %/% 그대로 맞대면 된다.
-function renderFaceOhaengCompare(compare, elId) {
+// 궁합 리포트 구성.md §4 — 실명 표기가 처음 등장하는 자리라 "OO님"(호출부가 nameA/nameB에 이미
+// "님"을 붙여 넘긴다, runGungham 참고)까지 그대로 쓴다. 그 아래 카드들은 "님" 없이 이름만 쓴다.
+function renderFaceOhaengCompare(compare, elId, nameA, nameB) {
   const el = document.getElementById(elId);
   if (!el) return;
   if (!compare) {
@@ -2671,9 +2694,9 @@ function renderFaceOhaengCompare(compare, elId) {
   }).join('');
   el.innerHTML = `
     <div class="gg-manse-head" style="margin-bottom:12px;">
-      <div class="gg-manse-name">나</div>
+      <div class="gg-manse-name">${nameA || '나'}</div>
       <div class="gg-manse-heart">❤</div>
-      <div class="gg-manse-name">상대방</div>
+      <div class="gg-manse-name">${nameB || '상대방'}</div>
     </div>
     ${rows}
     <div style="display:flex;gap:8px;margin-top:12px;">
@@ -2682,14 +2705,16 @@ function renderFaceOhaengCompare(compare, elId) {
     </div>`;
 }
 // 재물관상 케미(4-2) 렌더 — buildMoneyChemi가 null(사진 없음)이면 안내 문구만 그린다.
-function renderMoneyChemi(money, elId) {
+// 궁합 리포트 구성.md §4 — "근거:" 줄의 "나"/"상대"를 실명으로(이름 없으면 기존 폴백 유지).
+function renderMoneyChemi(money, elId, nameA, nameB) {
   const el = document.getElementById(elId);
   if (!el) return;
+  const nA = nameA || '나', nB = nameB || '상대';
   // Figma "GgItem"(💰 재물관상 케미, node 81:4583) — 소제목 없이 설명 + "왜 이렇게 풀이했나요?"
   // 아코디언 1개. 컨테이너(#ggMoneyChemiCard) 자체가 이미 .gg-money-item 박스라 안에는 내용만 채운다.
   // 옛 구조는 "근거: ..." 줄이 항상 펼쳐져 있었는데, 이제 다른 gg-item들처럼 접이식 아코디언으로 맞춘다.
   el.innerHTML = money
-    ? `<div class="gg-item-reading">${money.text}</div>${basisAccordion('💰', `재백궁(콧볼) 크기 나 ${money.levelA}% · 상대 ${money.levelB}% · 유사도 ${money.similarity}%`)}`
+    ? `<div class="gg-item-reading">${money.text}</div>${basisAccordion('💰', `재백궁(콧볼) 크기 ${nA} ${money.levelA}% · ${nB} ${money.levelB}% · 유사도 ${money.similarity}%`)}`
     : `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 재물관상 케미를 볼 수 있어요.</div>`;
 }
 // 생애주기(초년·중년·말년) 궁합(4-1) 렌더 — 좌우 대칭 diverging bar(gg-ohaeng-row) 대신, 오행
@@ -2713,14 +2738,16 @@ function lifeStageStackHTML(ratio, name) {
   }).join('');
   return `<div class="ls-stack-block"><div class="ls-stack-name">${name}</div><div class="ls-stack-track">${segs}</div><div class="ls-stack-labels">${labels}</div></div>`;
 }
-function renderLifeStageChemi(life, elId) {
+// 궁합 리포트 구성.md §4 — 막대그래프 이름표를 실명으로(이름 없으면 기존 폴백 "나"/"상대방" 유지).
+// life.text(요약 문장)는 buildLifeStageChemi가 이미 nameA/nameB(님 포함)로 채워 넘겨주므로 손대지 않는다.
+function renderLifeStageChemi(life, elId, nameA, nameB) {
   const el = document.getElementById(elId);
   if (!el) return;
   if (!life) {
     el.innerHTML = `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 생애주기 궁합을 볼 수 있어요.</div>`;
     return;
   }
-  const stacks = lifeStageStackHTML(life.a, '나') + lifeStageStackHTML(life.b, '상대방');
+  const stacks = lifeStageStackHTML(life.a, nameA || '나') + lifeStageStackHTML(life.b, nameB || '상대방');
   // Figma "GgItem"(⏳ 생애주기 요약, node 81:4583) — #eef2f8 배경, 아코디언 없이 설명만. 위 막대그래프
   // (stacks)는 Figma가 장식용 목업 이미지로 대체해둔 자리라 그대로 두고, 이 요약 박스만 새 스타일.
   el.innerHTML = stacks + `<div class="gg-item gg-life-summary">${life.text}</div>`;
@@ -3018,7 +3045,7 @@ async function runGungham(preloadedLmA, preloadedLmB) {
     state.gunghamA.pillars = pillarsA; state.gunghamA.ohaeng = ohA;
     state.gunghamB.pillars = pillarsB; state.gunghamB.ohaeng = ohB;
     renderGunghamManseryeok(nameA, dateA, hourA, pillarsA, nameB, dateB, hourB, pillarsB);
-    renderSipseongCross(buildSipseongCross(pillarsA, pillarsB), 'ggSipseongCross');
+    renderSipseongCross(buildSipseongCross(pillarsA, pillarsB), 'ggSipseongCross', state.gunghamA.name, state.gunghamB.name);
 
     // ① 참고용 궁합 점수(접힌 상세 영역에만 노출)
     function renderCompatScore(compat) {
@@ -3089,10 +3116,10 @@ async function runGungham(preloadedLmA, preloadedLmB) {
     const faceOhaengCompare = buildFaceOhaengCompare(gwansangBundleA, gwansangBundleB);
     const moneyChemi = buildMoneyChemi(gwansangBundleA, gwansangBundleB, ggGenderA, ggGenderB, rel);
     const lifeStage = buildLifeStageChemi(gwansangBundleA, gwansangBundleB, nameA, nameB);
-    const energy = buildEnergyChemi(ohA, ohB);
+    const energy = buildEnergyChemi(ohA, ohB, state.gunghamA.name, state.gunghamB.name);
     const yongsinChemi = buildYongsinChemi(pillarsA, pillarsB, ohA, ohB);
-    const moments = buildMoments(ohA, ohB, narrativeA.statusMap, narrativeB.statusMap);
-    renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, yongsinChemi, moments);
+    const moments = buildMoments(ohA, ohB, narrativeA.statusMap, narrativeB.statusMap, state.gunghamA.name, state.gunghamB.name);
+    renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, yongsinChemi, moments, nameA, nameB, state.gunghamA.name, state.gunghamB.name);
 
     // ⑤ Gemini 정밀 해석 자동 요청(수동 버튼 없음) — 키가 없으면 requestCoupleAi 내부에서 조용히 스킵된다.
     setGgAnalyzingMsg('AI가 두 사람의 궁합을 읽는 중이에요');
@@ -3565,12 +3592,15 @@ function buildFaceComboChemi(bundleA, bundleB, genderA, genderB, rel, nameA, nam
 }
 
 // 2) 사주 기운 케미 — 각자의 기운을 먼저 밝히고(사주 대 사주), 시너지 + 마음의 안식처로 종합
-function buildEnergyChemi(ohA, ohB) {
+// 궁합 리포트 구성.md §4 — 이름 있으면 실명(+은/는), 없으면 기존 폴백("나는"/"상대는"/"상대방") 그대로.
+function buildEnergyChemi(ohA, ohB, nameA, nameB) {
   const domA = Object.entries(ohA).sort((a,b)=>b[1]-a[1])[0][0];
   const domB = Object.entries(ohB).sort((a,b)=>b[1]-a[1])[0][0];
   const weakA = Object.entries(ohA).sort((a,b)=>a[1]-b[1])[0][0];
   const vA = OHAENG_VIBE[domA], vB = OHAENG_VIBE[domB];
-  const compare = `나는 "${vA.line}"에 가깝고, 상대는 "${vB.line}"에 가까워요.`;
+  const subjA = nameA ? `${nameA}${josaEunNeun(nameA)}` : '나는';
+  const subjB = nameB ? `${nameB}${josaEunNeun(nameB)}` : '상대는';
+  const compare = `${subjA} "${vA.line}"에 가깝고, ${subjB} "${vB.line}"에 가까워요.`;
   let synergy;
   if (sangSaeng[domA].includes(domB) || sangSaeng[domB].includes(domA)) {
     synergy = `${compare} 두 사람 모두 주관이 명확하고 현실 감각이 뛰어나요. 서로를 키워주는 조합이라, 함께 있을수록 서로의 장점이 더 잘 드러나요.`;
@@ -3580,7 +3610,7 @@ function buildEnergyChemi(ohA, ohB) {
     synergy = `${compare} 결이 비슷해서 안정적이고 예측 가능한 관계를 만들어요. 큰 충돌 없이 꾸준하게 이어갈 수 있는 궁합이에요.`;
   }
   const haven = (sangSaeng[domB].includes(weakA) || domB === weakA)
-    ? `한쪽의 추진력이 과열될 때 상대방의 기운이 브레이크 역할을 해줘요. 각자 자기 할 일을 잘하면서도, 함께 있을 때 제일 안정감을 느끼는 관계예요.`
+    ? `한쪽의 추진력이 과열될 때 ${nameB || '상대방'}의 기운이 브레이크 역할을 해줘요. 각자 자기 할 일을 잘하면서도, 함께 있을 때 제일 안정감을 느끼는 관계예요.`
     : `서로 다른 결을 가졌지만, 집에 오면 가장 편안해지는 사이예요. 굳이 애쓰지 않아도 옆에 있는 것만으로 채워지는 부분이 있어요.`;
   return { synergy, haven };
 }
@@ -3590,17 +3620,21 @@ function buildEnergyChemi(ohA, ohB) {
 // 값이 높을수록 속으로 파고드는(내향) 편, 낮을수록 답답함을 느끼기 쉬운(표현이 빠른) 편.
 const OHAENG_INTROVERT_RANK = { 수: 4, 금: 3, 목: 2, 토: 1, 화: 0 };
 // 3) 티격태격 모먼트 & 극복 전략 — 오행 상극 여부 + 같은 강점이 겹칠 때
-function buildMoments(ohA, ohB, statusMapA, statusMapB) {
+// 궁합 리포트 구성.md §4 — 이름 있으면 실명(+이/가), 없으면 기존 폴백("내가"/"상대방이") 그대로.
+// "나"+"가"는 "나가"가 아니라 "내가"인 불규칙 축약이라 josaIga를 이름에만 적용하고 폴백은 하드코딩한다.
+function buildMoments(ohA, ohB, statusMapA, statusMapB, nameA, nameB) {
   const domA = Object.entries(ohA).sort((a,b)=>b[1]-a[1])[0][0];
   const domB = Object.entries(ohB).sort((a,b)=>b[1]-a[1])[0][0];
+  const meSubj = nameA ? `${nameA}${josaIga(nameA)}` : '내가';
+  const youSubj = nameB ? `${nameB}${josaIga(nameB)}` : '상대방이';
   const moments = [];
   if (sangGeuk[domA].includes(domB) || sangGeuk[domB].includes(domA)) {
     // ⚠️ 버그 수정(2026-08-20 사용자 리포트: "한쪽은 ~, 다른 한쪽은 ~"이라 누가 누군지 안 보임) —
     // 둘이 다른 오행이니(상극 관계는 항상 서로 다른 오행끼리) 위 순위로 실제 누가 파고드는 쪽인지
     // 밝힌다. 이미 buildLifeStageChemi가 "내가"/"상대방이"로 구분하는 것과 같은 방식.
     const introvertIsA = OHAENG_INTROVERT_RANK[domA] > OHAENG_INTROVERT_RANK[domB];
-    const introvertWho = introvertIsA ? '내가' : '상대방이';
-    const stuffyWho = introvertIsA ? '상대방이' : '내가';
+    const introvertWho = introvertIsA ? meSubj : youSubj;
+    const stuffyWho = introvertIsA ? youSubj : meSubj;
     moments.push({ title:'속마음 표현의 속도 차이', desc:`${introvertWho} 고민이 생기면 속으로 파고드는 편이라, ${stuffyWho} 답답하게 느낄 수 있어요.`, tip:'"천천히 생각하고 말해줘도 돼"라는 여유를 건네주는 대화법을 써보세요.' });
   }
   if (statusMapA && statusMapB && statusMapA.midbrow === 'strength' && statusMapB.midbrow === 'strength') {
@@ -3643,20 +3677,22 @@ function basisAccordion(emoji, basis) {
 
 // 개인별 관상/사주 서술은 통합분석 탭에 이미 있으므로 여기서는 그리지 않는다(2026-08-20 재편) —
 // narrativeA/B는 이제 이 함수 밖(buildRoleChemi의 statusMap 등)에서만 쓰인다.
-function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, yongsinChemi, moments) {
+// 궁합 리포트 구성.md §4 — nameA/nameB(님 포함, 첫 등장 관상오행 비교에만 씀)와 bareNameA/bareNameB
+// (님 없이 이름만, 그 아래 카드들에 씀)를 함께 받는다. 이름이 없으면 각 자리의 기존 폴백을 그대로 쓴다.
+function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lifeStage, energy, yongsinChemi, moments, nameA, nameB, bareNameA, bareNameB) {
   document.getElementById('ggHeadline').innerHTML = `"${buildCoupleHeadline(chemi.sameRole)}"`;
   renderHeadlineSub();
-  renderFaceOhaengCompare(faceOhaengCompare, 'ggFaceOhaengCompare');
+  renderFaceOhaengCompare(faceOhaengCompare, 'ggFaceOhaengCompare', nameA, nameB);
 
   // STEP3 — 관상 케미 (한줄 총평 + 역할 분담) — 2026-08-22 재편으로 총평을 Zone1 맨 위로 독립시켰다.
   document.getElementById('ggRoleTotal').innerHTML = `<div class="gg-origin-box">${chemi.total}</div>`;
   document.getElementById('ggRoleCards').innerHTML = `
     <div class="gg-role-box">
-      <div class="gg-role-line">👤 나 → <strong>${chemi.roleA}</strong></div>
-      <div class="gg-role-line">👤 상대 → <strong>${chemi.roleB}</strong></div>
+      <div class="gg-role-line">👤 ${bareNameA || '나'} → <strong>${chemi.roleA}</strong></div>
+      <div class="gg-role-line">👤 ${bareNameB || '상대'} → <strong>${chemi.roleB}</strong></div>
     </div>`;
 
-  renderMoneyChemi(moneyChemi, 'ggMoneyChemiCard');
+  renderMoneyChemi(moneyChemi, 'ggMoneyChemiCard', bareNameA, bareNameB);
 
   // 얼굴형·눈·입·광대 "조합"으로 보는 궁합 — 부위별 강점/보완 비교와 달리 두 사람 유형의 조합 자체를 본다.
   // 노출 순서: 눈 > 코 > 광대뼈 > 입 > 턱 > 얼굴형(사용자 요청 2026-08-20). 크기 비교 문장 아래에
@@ -3671,14 +3707,14 @@ function renderCoupleReport(chemi, faceCombo, faceOhaengCompare, moneyChemi, lif
     <div class="gg-item"><div class="gg-item-head">얼굴형 조합 (${faceCombo.faceShape.a} × ${faceCombo.faceShape.b})</div><div class="gg-item-reading">${faceCombo.faceShape.text}</div>${basisAccordion('🙂', faceCombo.faceShape.basis)}</div>`
     : `<div class="chemi-role" style="color:var(--text2);">📸 두 사람 모두 사진을 업로드하면 얼굴형·눈·입·광대 조합으로 보는 궁합을 볼 수 있어요.</div>`;
 
-  renderLifeStageChemi(lifeStage, 'ggLifeStageCard');
+  renderLifeStageChemi(lifeStage, 'ggLifeStageCard', bareNameA, bareNameB);
 
-  // STEP3 — 사주 기운 케미
+  // STEP3 — 사주 기운 케미 — energy.synergy/haven은 buildEnergyChemi가 이미 이름을 채워 넘긴다.
   document.getElementById('ggEnergyCards').innerHTML = `
     <div class="gg-item gg-item-tint"><div class="gg-item-head">에너지 시너지 (사주 대 사주)</div><div class="gg-item-reading">${energy.synergy}</div></div>
     <div class="gg-item gg-item-tint"><div class="gg-item-head">마음의 안식처 케미</div><div class="gg-item-reading">${energy.haven}</div></div>`;
 
-  renderYongsinChemi(yongsinChemi, 'ggYongsinCard');
+  renderYongsinChemi(yongsinChemi, 'ggYongsinCard', bareNameA, bareNameB);
 
   // Figma(81:3997) 실측 — 소제목엔 번호 접두어가 없고, 해결책 줄은 tint 카드 안의 흰 배경 박스로
   // 한 번 더 강조된 형태다.

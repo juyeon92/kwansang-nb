@@ -3012,9 +3012,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <button type="button" class="rel-chip" onclick="Profile.setGunghamRelation('가족', this)">가족</button>
         <button type="button" class="rel-chip" onclick="Profile.setGunghamRelation('친구', this)">친구</button>
         <button type="button" class="rel-chip" onclick="Profile.setGunghamRelation('지인', this)">지인</button>
-        <button type="button" class="rel-chip" onclick="Profile.setGunghamRelation('직접 입력', this)">직접 입력</button>
       </div>
-      <input type="text" class="field-input saju-q-custom hidden" id="ggRelCustom" placeholder="관계를 입력해주세요" oninput="Profile.setGunghamRelationCustom(this.value)">
     </div>
 
         <div class="err-msg" id="ggErr" style="margin:16px 4px 0;"></div>
@@ -3026,7 +3024,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <div class="hidden cmb-form-card" id="ggSavedStep">
       <div class="cmb-form-card-title">이미 확인한 궁합이 있어요</div>
       <div class="card revisit-card" id="ggSavedList"></div>
-      <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">새로운 조합으로 궁합보기</button>
+      <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">새로운 궁합보기</button>
     </div>
 
         <div class="hidden" id="ggSavedReport">
@@ -3037,7 +3035,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <h2 id="ggSavedTitle"></h2>
       </div>
       <div class="arc-report" id="ggSavedBody"></div>
-      <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">새로운 조합으로 궁합보기</button>
+      <button class="submit-btn" style="margin-top:20px;" onclick="startGunghamForOther()">새로운 궁합보기</button>
     </div>
 
         <div class="cmb-analyzing hidden" id="ggAnalyzing">
@@ -3095,7 +3093,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       </details>
 
             <details class="report-accordion zone-accordion" id="ggZone1">
-        <summary>🎭 Zone 1 · 관상으로 보는 우리 케미<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
+        <summary>🎭 얼굴로 보는 우리 케미<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
 
                 <div class="gg-zone1-body">
         <div class="card-title">🎭 관상 케미 한줄 총평</div>
@@ -3126,7 +3124,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       </details>
 
             <details class="report-accordion zone-accordion" id="ggZone2">
-        <summary>☯️ Zone 2 · 사주 궁합<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
+        <summary>☯️ 사주로 보는 우리 궁합<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
 
                 <div class="gg-zone2-body">
         <div class="card-title gg-overall-title">🌡️ 우리 관계, 한 줄로 말하면</div>
@@ -3155,7 +3153,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       </details>
 
             <details class="report-accordion zone-accordion" id="ggZone3">
-        <summary>💌 Zone 3 · 관계 실전 가이드<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
+        <summary>💌 관계 실전 가이드<span class="zone-accordion-arrow"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(180deg)"><path d="M2.24565 11.118C2.57319 11.4053 3.10423 11.4053 3.43176 11.118L7.99998 6.44333L12.5682 11.118C12.8957 11.4053 13.4268 11.4053 13.7543 11.118C14.0818 10.8306 14.0818 10.3647 13.7543 10.0773L8.59304 4.88235C8.2655 4.59499 7.73446 4.59499 7.40693 4.88235L2.24565 10.0773C1.91812 10.3647 1.91812 10.8306 2.24565 11.118Z" fill="currentColor"/></svg></span></summary>
 
         <div class="gg-zone3-body">
         <div class="card-title">🚨 티격태격 모먼트 &amp; 극복 전략</div>
