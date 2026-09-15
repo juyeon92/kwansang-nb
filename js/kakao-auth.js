@@ -238,6 +238,15 @@
       // 참고: prompt는 Kakao.Auth.authorize()(리다이렉트 방식) 전용 옵션 — 팝업 방식인 login()에
       // 넘기면 "Invalid parameter keys" 에러로 로그인 자체가 막힌다. 계정 전환은 계정 로그아웃 절차로 처리한다.
       success: function () {
+        // ⚠️ 버그 수정(2026-09-15 사용자 리포트: "로그인 팝업 바로 사라지는데 로딩이 3초 있다가
+        // 뜨니까 로그인 시도가 안되나 싶다") — 카카오 팝업이 닫힌 이 시점부터 /v2/user/me →
+        // signInToFirebase()의 Cloud Function 호출 → signInWithCustomToken까지 순차 네트워크
+        // 요청 3번이 이어지는데, 그동안 로딩 표시가 전혀 없었다(onAuthStateChanged가 실계정으로
+        // 확정되는 맨 마지막에야 showAuthLoading()이 뜸). 데이터가 실제로 넘어가기 시작하는 지금
+        // 바로 띄운다 — showAuthLoading()은 이미 표시 중이면 아무것도 안 하는 멱등 함수라, 아래
+        // onAuthStateChanged 쪽이 또 불러도 중복되지 않고, 성공 시엔 그쪽의 최종 hideAuthLoading()
+        // 체인이 그대로 닫아준다(실패 시엔 아래 각 fail/catch에서 직접 닫음).
+        showAuthLoading();
         Kakao.API.request({
           url: '/v2/user/me',
           success: function (res) {
@@ -250,6 +259,7 @@
           },
           fail: function (err) {
             console.error('카카오 사용자 정보 조회 실패', err);
+            hideAuthLoading();
             alert('카카오 사용자 정보를 가져오지 못했습니다.');
           },
         });
@@ -405,6 +415,7 @@
       // 사용자는 "로그인이 됐다"고 믿은 채 넘어갔다가 새로고침 후에야(fbAuth.currentUser가 애초에
       // 없었으므로) 로그아웃 상태를 보고 당황했다. 이제 실패를 조용히 넘기지 않고 바로 알린다.
       console.error('[kakao-auth] Firebase 로그인 실패', e);
+      hideAuthLoading(); // login()의 success 콜백에서 미리 띄워둔 로딩 — 실패 시 onAuthStateChanged가 다시 안 불려 안 닫힐 수 있다.
       alert('로그인 처리 중 문제가 생겼어요.\n' + ((e && e.message) || e) + '\n새로고침 후 다시 시도해주세요.');
     }
   }

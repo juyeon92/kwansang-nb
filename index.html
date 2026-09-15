@@ -1702,6 +1702,7 @@ body.overlay-open { overflow: hidden; }
    숨김과 같은 8개 ID)에서만 숨긴다 — 대표 프로필과 다른 사람의 리포트가 떠 있는데 헤더는 계속 대표
    프로필을 보여줘서 오해를 주던 문제. */
 body:has(#panel-gwansang.active) #profileInfoBox,
+body:has(#panel-payhistory.active) #profileInfoBox,
 body:has(#cmbAnalyzing:not(.hidden)) #profileInfoBox,
 body:has(#cmbResult:not(.hidden)) #profileInfoBox,
 body:has(#cmbSavedReport:not(.hidden)) #profileInfoBox,
@@ -1988,12 +1989,28 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
   font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
 }
 
-.ph-summary {
-  display: flex; gap: 14px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 10px;
-  border-radius: 12px; background: var(--card2); font-size: 12px; font-weight: 700; color: var(--text-sub);
+/* Figma(node 87:4832/126:5230/126:5358) 재대조 — 전체/구매/사용 탭 신설(2026-09-15). 카드 안에
+   탭 → "총 N건 + 정렬" 줄 → 목록 순서로 담는다. 예전 .ph-summary(총건수+지급구매/사용 합계 3분할)는
+   Figma에 없어서 걷어내고 이 구조로 교체한다. */
+.ph-card { background: var(--surface); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 20px; }
+.ph-tabs { display: flex; gap: 8px; }
+.ph-tab {
+  flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border-lavender);
+  background: var(--surface); color: var(--text-sub); font-size: 14px; font-weight: 400;
+  font-family: inherit; cursor: pointer; text-align: center;
 }
-.ph-summary .is-plus { color: var(--jade); }
-.ph-summary .is-minus { color: var(--icon-orange); }
+.ph-tab.is-on { border-color: var(--jade); background: var(--mint-10); color: var(--jade); font-weight: 800; }
+.ph-toolbar { display: flex; align-items: center; justify-content: space-between; }
+.ph-count { font-size: 14px; color: var(--text-strong2); }
+.ph-count b { color: var(--jade); font-weight: 700; }
+.ph-sort-btn {
+  display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 8px;
+  border: 1px solid var(--border-gray); background: var(--surface); color: var(--text-sub);
+  font-size: 12px; font-weight: 500; font-family: inherit; cursor: pointer;
+}
+.ph-sort-btn .material-symbols-outlined { font-size: 15px; }
+.ph-list { display: flex; flex-direction: column; }
+.ph-list .ph-row:last-child { border-bottom: none; }
 .ph-row { padding: 13px 4px; border-bottom: 1px solid var(--border); }
 .ph-row-main { display: flex; align-items: center; gap: 8px; }
 .ph-badge {
@@ -2031,6 +2048,8 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 /* 2026-09-14 Figma node 83:4396 실측 — 보관함 타이틀은 700/#111111(L1 표준, 2.1 참고)이라 500/text-heading
    기본값과 다르다. .arc-page-head 자체는 공유 클래스라 여기서도 손대지 않고 id로만 좁힌다. */
 #panel-archive .arc-page-head h2 { font-weight: 700; color: var(--text-title); }
+/* Figma node 87:4832 "결제내역" 타이틀 실측 — 20px/700/#111111, 인연도감·보관함과 같은 조합. */
+#panel-payhistory .arc-page-head h2 { font-weight: 700; color: var(--text-title); }
 /* 같은 노드 실측 — 타이틀·정렬 버튼이 한 줄(space-between)에 나란히 있다. 다른 탭은 타이틀 1개뿐이라
    justify-content를 줘도 시각적으로 그대로다(1개짜리 flex space-between = flex-start와 동일). */
 #panel-archive .arc-page-head { justify-content: space-between; }
@@ -3199,7 +3218,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/landmark-engine.js?v=20260914d"></script>
 <script src="js/config.js?v=20260908"></script>
 <script src="js/firebase-init.js?v=20260827c"></script>
-<script src="js/kakao-auth.js?v=20260912c"></script>
+<script src="js/kakao-auth.js?v=20260915a"></script>
 <script src="js/wallet.js?v=20260904"></script>
 <script src="js/character/trait-labels.js?v=20260830a"></script>
 <script src="js/character/character-db.js?v=20260830b"></script>
@@ -3210,9 +3229,9 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/app.js?v=20260914n"></script>
 <script src="js/profile.js?v=20260914c"></script>
 <script src="js/archive.js?v=20260914c"></script>
-<script src="js/inyeon-dogam.js?v=20260913c"></script>
+<script src="js/inyeon-dogam.js?v=20260915a"></script>
 <script src="js/nyang-shop.js?v=20260914c"></script>
 <script src="js/nyang-history.js?v=20260827c"></script>
-<script src="js/pay-history.js?v=20260827c"></script>
+<script src="js/pay-history.js?v=20260915b"></script>
 </body>
 </html>

@@ -587,7 +587,15 @@
   }
   function setDisplay(id, value) {
     const el = document.getElementById(id);
-    if (el) el.style.display = value;
+    if (!el) return;
+    el.style.display = value;
+    // ⚠️ 버그 수정(2026-09-15 사용자 리포트: "로그아웃해도 업로드 폼 자체가 안 보임") — markAnalyzed()
+    // (js/app.js)가 캐릭터를 한 번 보여준 뒤 이 업로드 섹션에 .hidden 클래스를 붙여 숨겨두는데, 그
+    // 상태에서 로그아웃 등으로 도감이 사라져 이 함수가 다시 display:''로 되돌려도 .hidden 클래스가
+    // 여전히 display:none을 강제해서(인라인 스타일이 비어 있으면 클래스 규칙이 그대로 적용됨) 화면엔
+    // 아무것도 안 보였다. 보이려는 의도(value !== 'none')일 때는 클래스도 같이 지워 인라인 스타일과
+    // 어긋나지 않게 한다.
+    if (value !== 'none') el.classList.remove('hidden');
   }
 
   // render()는 여러 곳에서 각각 호출된다 — 로그인 상태 확정(kakao-auth), 관상 분석 완료(app.js),
@@ -810,6 +818,22 @@
       // 스냅샷만 지워지고 도감은 살아남아 "삭제해도 다시 생긴다"는 사고가 반복됐다(사용자 리포트
       // 2026-08-31). 이제 보관함은 인연도감을 따로 저장하지 않고 Dogam.ensureMyDogam()으로 실물을
       // 그때그때 직접 물어본다(archive.js renderPage 참고) — 여기서 더 이상 찍어둘 스냅샷이 없다.
+    } else {
+      // ⚠️ 버그 수정(2026-09-15 사용자 리포트: "로그아웃했는데 이전 계정의 인연도감 캐릭터 카드가
+      // 그대로 남아있음") — populateGwansangReportFromSaved는 #gwansangCharacterCard/
+      // #gwansangCharacterDetail을 "채우기"만 하고 "비우기"는 한 적이 없다. 로그아웃 등으로 charId가
+      // 없어져도(clearDeviceTraceOnLogout이 SLUG_KEY·캐릭터 캐시를 지워 mine이 null이 됨) 이 두
+      // DOM은 render()가 건드리지 않아서, 마지막으로 그렸던 이전 계정의 캐릭터 카드가 그대로 화면에
+      // 남아 있었다 — 로그인 유도 팝업이 그 위에 겹쳐 뜨면서 더 눈에 띄게 드러났다. charId가 없는
+      // 상태로 이 화면을 그릴 때는 명시적으로 비우고 다시 숨긴다.
+      const cardEl = document.getElementById('gwansangCharacterCard');
+      const detailEl = document.getElementById('gwansangCharacterDetail');
+      if (cardEl) cardEl.innerHTML = '';
+      if (detailEl) detailEl.innerHTML = '';
+      const canvasCardEl = document.getElementById('canvasCard');
+      const resultEl = document.getElementById('gwansangResult');
+      if (canvasCardEl) canvasCardEl.classList.add('hidden');
+      if (resultEl) resultEl.classList.add('hidden');
     }
     if (typeof renderGwansangRevisitCard === 'function') renderGwansangRevisitCard();
     if (stale && stale()) return;
