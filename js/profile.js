@@ -610,7 +610,10 @@
     // 이 행을 선택할 수 없는 이유(있으면 문자열, 없으면 null) — 컨텍스트별로 기준이 다르다.
     function selectBlockReason(p) {
       if (lockLinked) {
-        return linkedReportCounts(p.id).total > 0
+        // 🐛 버그 수정(2026-09-15 사용자 리포트) — 통합분석 사주 선택 차단은 "통합분석 리포트가
+        // 있는지"만 봐야 하는데, total(combined+gungham)을 검사해서 궁합보기에만 쓰인 사주까지
+        // "이미 리포트 있음"으로 잘못 막고 있었다. combined만 본다.
+        return linkedReportCounts(p.id).combined > 0
           ? '이미 이 사주로 분석한 리포트가 있어요. 보관함에서 삭제하면 다시 분석할 수 있어요.'
           : null;
       }
