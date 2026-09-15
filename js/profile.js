@@ -310,6 +310,19 @@
     return `${d.birthYear}-${String(d.birthMonth).padStart(2, '0')}-${String(d.birthDay).padStart(2, '0')}`;
   }
   function fmtYmd(y, m, d) { return `${y}.${String(m).padStart(2,'0')}.${String(d).padStart(2,'0')}`; }
+  // ⚠️ 버그 수정(2026-09-15 사용자 리포트: "음력으로 입력했는데 저장하니 양력으로 바뀌었다") — 실제로는
+  // calendarType/birthYear/Month/Day 원본은 저장 시 전혀 안 건드리고(프로필 편집 폼을 다시 열면 그대로
+  // 복원됨), solarDate는 사주 계산용으로 별도 추가되는 필드일 뿐이다(진짜 데이터 유실은 아님). 문제는
+  // 목록·칩 등 요약 텍스트가 전부 이 solarDate만 보여주고 원래 음력으로 입력했다는 사실을 안 알려준
+  // 표시(UI) 버그였다 — 프로필 선택 목록·미니 프로필 칩·기타 요약까지 총 5곳이 같은 패턴을 각자
+  // 반복하고 있어서, 하나라도 빠뜨리지 않도록 공용 헬퍼로 묶는다. 실제 사주 계산에 쓰는 solarDate
+  // 자체는 이 함수와 무관하게 그대로 둔다(표시 문구만 보정).
+  function birthSummaryText(p) {
+    if (!p) return '';
+    const dateStr = fmtYmd(...String(p.solarDate || '').split('-'));
+    const lunarTag = p.calendarType === '음력' ? ' (음력)' : '';
+    return `${dateStr}${lunarTag} · ${hourLabel(p.birthHour)}`;
+  }
 
   // ── 기존 app.js DOM/전역에 값 주입 (계산 로직 무수정, 값만 채움) ─────
   function applyToContext(ctx, profile) {
@@ -474,7 +487,7 @@
           <span class="mini-profile-name">${esc(profile.name)}</span>
           <span class="mini-profile-badge">${esc(profile.relationDetail || profile.relation)}</span>
         </span>
-        <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourLabel(profile.birthHour))}</span>
+        <span class="mini-profile-sub">${esc(birthSummaryText(profile))}</span>
       </span>
       <span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>`;
     syncGgAccordion();
@@ -500,7 +513,7 @@
           <span class="mini-profile-name">${esc(profile.name)}</span>
           <span class="mini-profile-badge">${esc(profile.relationDetail || profile.relation)}</span>
         </span>
-        <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourLabel(profile.birthHour))}</span>
+        <span class="mini-profile-sub">${esc(birthSummaryText(profile))}</span>
       </span>
       <span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>`;
     syncGgAccordion();
@@ -642,7 +655,7 @@
               <span class="profile-row-name">${esc(p.name)}</span>
               <span class="profile-row-badge">${esc(p.relationDetail || p.relation)}</span>
             </div>
-            <div class="profile-row-sub">${esc(fmtYmd(...String(p.solarDate||'').split('-')))} · ${esc(hourLabel(p.birthHour))}</div>
+            <div class="profile-row-sub">${esc(birthSummaryText(p))}</div>
           </div>
           ${(isCandidate && !editLocked) ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._editRow('${p.id}', '${ggSlot || ''}')"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>` : ''}
           ${list.length > 1 ? `<button class="profile-row-edit" onclick="event.stopPropagation();Profile._deleteRow('${p.id}')"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
@@ -756,7 +769,7 @@
           <span class="mini-profile-name">${esc(profile.name)}</span>
           <span class="mini-profile-badge">${esc(profile.relationDetail || profile.relation)}</span>
         </span>
-        <span class="mini-profile-sub">${esc(fmtYmd(...String(profile.solarDate||'').split('-')))} · ${esc(hourLabel(profile.birthHour))}</span>
+        <span class="mini-profile-sub">${esc(birthSummaryText(profile))}</span>
       </span>
       <span class="material-symbols-outlined mini-profile-chip-arrow">expand_more</span>`;
   }
@@ -1331,7 +1344,7 @@
     return {
       name: p.name,
       relation: p.relationDetail || p.relation,
-      birth: `${fmtYmd(...String(p.solarDate || '').split('-'))} · ${hourLabel(p.birthHour)}`,
+      birth: birthSummaryText(p),
     };
   }
 
