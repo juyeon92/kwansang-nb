@@ -566,7 +566,7 @@ function cmbEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
-function renderCombinedSavedReport() {
+async function renderCombinedSavedReport() {
   const photo = document.getElementById('cmbPhotoStep');
   const saved = document.getElementById('cmbSavedStep');
   const list = document.getElementById('cmbSavedList');
@@ -584,6 +584,15 @@ function renderCombinedSavedReport() {
     showCombinedPhotoStep();
     return;
   }
+
+  // 🐛 버그 수정(2026-09-15 사용자 리포트: "궁합보기/통합분석 목록에서 캐릭터 일러스트가 서로 다른데
+  // 같은 기본 이미지로 겹쳐 보임") — getCharacterIllustration()이 읽는 CHARACTER_DB는 이 세션에서
+  // 실제 분석을 한 번도 안 돌렸으면 빈 채로 남아있다(ensureCharacterCatalog를 아무도 먼저 안 불렀으면).
+  // 캐시가 비면 모든 characterId가 같은 폴백 이미지로 보이므로, 목록을 그리기 전에 채워지는 걸
+  // 보장한다 — 이미 채워진 뒤라면 메모이즈돼 있어 즉시 반환된다(ensureCharacterCatalog 참고).
+  // CharacterAPI(js/character-api.js)는 window에 붙지 않는 top-level const라 다른 호출부(ai-analysis.js,
+  // inyeon-dogam.js)와 같은 방식으로 그냥 이름으로 참조한다 — 스크립트 로드 순서상 항상 먼저 실행된다.
+  try { await CharacterAPI.ensureCharacterCatalog(); } catch (e) { /* 실패해도 폴백 이미지로 계속 진행 */ }
 
   // 사용자 요청(2026-09-12, Figma node 75:1362 / 2026-09-13, node 79:1894) — 삭제는 보관함
   // (Archive)에서만 하도록 이 목록에서 삭제 버튼을 뺐고, 처음엔 3개만 보이고 나머지는 "더보기"를
@@ -764,7 +773,7 @@ function showGunghamInputStep() {
   setGgCtaVisible(true);
 }
 
-function renderGunghamSavedReport() {
+async function renderGunghamSavedReport() {
   const input = document.getElementById('ggInputStep');
   const saved = document.getElementById('ggSavedStep');
   const list = document.getElementById('ggSavedList');
@@ -780,6 +789,10 @@ function renderGunghamSavedReport() {
   if (liveResult && !liveResult.classList.contains('hidden')) return;
   const rows = (window.Archive && Archive.listOf) ? Archive.listOf('gungham') : [];
   if (!rows.length) { showGunghamInputStep(); return; }
+
+  // 🐛 버그 수정(2026-09-15 사용자 리포트) — renderCombinedSavedReport와 동일한 이유. CHARACTER_DB가
+  // 비어있으면 A·B가 서로 다른 캐릭터여도 둘 다 같은 폴백 이미지로 겹쳐 보인다.
+  try { await CharacterAPI.ensureCharacterCatalog(); } catch (e) { /* 실패해도 폴백 이미지로 계속 진행 */ }
 
   // Figma node 79:2035 "DogamRow" — 삭제 아이콘 없음(삭제는 보관함 전용, 통합분석과 동일 정책),
   // 3개까지 우선 노출 후 "더보기"를 누른 만큼 3개씩 추가 노출, 전부 열리면 "더보기 닫기"로 복귀.

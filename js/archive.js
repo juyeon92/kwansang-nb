@@ -1067,7 +1067,14 @@
   }
 
   // 분석 대상이 누구였는지 — 각 탭이 쓰는 프로필/관계에서 가져온다.
-  function buildLabel(type) {
+  // 🐛 버그 수정(2026-09-15 사용자 리포트: "궁합보기 목록에서 캐릭터 일러스트가 안 나옴") — save()가
+  // 로그인 상태에서 buildLabel(type)을 Promise.all([archiveReady, profileReady]).then() 안, 즉 저장이
+  // 실제로 트리거된 시점보다 늦게 호출하는데(1198행 주석 참고 — 이름표(title/sub)는 Profile.ready()를
+  // 기다려야 정확하다), 그 대기 구간에 사용자가 새 분석을 시작하면 state.gunghamA/B.characterResult가
+  // 바뀌거나 비어서 characterId가 null로 저장됐다. characterId는 title/sub와 달리 Profile 로딩과
+  // 무관하게 save() 호출 시점에 이미 확정된 값이라, charOverride로 미리 캡처해 넘기면 그 값을 그대로
+  // 쓰고(state를 다시 읽지 않고) 나머지(title/sub 등)만 기존처럼 st에서 읽는다.
+  function buildLabel(type, charOverride) {
     const rep = window.Profile ? Profile.getRepresentative() : null;
     const repName = rep ? rep.name : '나';
     // app.js의 state는 const 전역이라 window에 붙지 않는다 — 전역 렉시컬 스코프로 직접 참조한다.
@@ -1081,11 +1088,15 @@
       const partner = window.Profile && Profile.getGunghamPartner ? Profile.getGunghamPartner() : null;
       // characterId — S3 원형 아바타(궁합 리포트 구성.md, 통합분석과 같은 patttern)는 A의 캐릭터
       // 판정을 쓴다(문서에 어느 쪽인지 명시는 없으나, A가 이 리포트를 만든 화면상 기준 인물이다).
-      const characterId = (st && st.gunghamA && st.gunghamA.characterResult && st.gunghamA.characterResult.characterId) || null;
+      const characterId = charOverride
+        ? (charOverride.characterId || null)
+        : ((st && st.gunghamA && st.gunghamA.characterResult && st.gunghamA.characterResult.characterId) || null);
       // partnerCharacterId(B) — S3 목록에서 통합분석과 달리 궁합보기는 두 사람이라 원형 아바타를
       // 2개(A·B) 겹쳐 보여준다(Figma node 79:2047 DogamRow). B가 아직 캐릭터 판정 전(옛 저장분 등)
       // 이면 null — 렌더 쪽(js/app.js)이 하트 아이콘으로 폴백한다.
-      const partnerCharacterId = (st && st.gunghamB && st.gunghamB.characterResult && st.gunghamB.characterResult.characterId) || null;
+      const partnerCharacterId = charOverride
+        ? (charOverride.partnerCharacterId || null)
+        : ((st && st.gunghamB && st.gunghamB.characterResult && st.gunghamB.characterResult.characterId) || null);
       const rel = (st && st.gungham && st.gungham.relation) || '';
       return {
         // 이름 사이 구분자 — 연인/배우자만 ♥, 그 외(가족·친구·지인)는 X(Figma node 79:2047: "여니X워니").
@@ -1109,8 +1120,23 @@
     // (js/ai-analysis.js)가 분석 도중 state[type].characterResult.characterId에 이미 채워둔 값을
     // 그대로 가져다 쓴다. S3 목록 렌더(js/app.js)가 js/character/character-db.js의
     // getCharacterIllustration(characterId)로 원형 일러스트 경로를 얻는다.
-    const characterId = (st && st[type] && st[type].characterResult && st[type].characterResult.characterId) || null;
+    const characterId = charOverride
+      ? (charOverride.characterId || null)
+      : ((st && st[type] && st[type].characterResult && st[type].characterResult.characterId) || null);
     return { title: repName, sub: rel, profileId: rep ? rep.id : null, characterId: characterId };
+  }
+  // save() 진입 시점(html 스냅샷 직후)에 characterId를 동기로 캡처해두기 위한 헬퍼 — buildLabel의
+  // characterId/partnerCharacterId 계산 부분만 그대로 옮겨왔다(title/sub 등 프로필 이름표는 여기서
+  // 다루지 않는다 — 그건 여전히 Profile.ready()를 기다린 뒤 buildLabel이 계산해야 정확하다).
+  function captureCharacterIds(type) {
+    const st = (typeof state !== 'undefined') ? state : null;
+    if (type === 'gungham') {
+      return {
+        characterId: (st && st.gunghamA && st.gunghamA.characterResult && st.gunghamA.characterResult.characterId) || null,
+        partnerCharacterId: (st && st.gunghamB && st.gunghamB.characterResult && st.gunghamB.characterResult.characterId) || null,
+      };
+    }
+    return { characterId: (st && st[type] && st[type].characterResult && st[type].characterResult.characterId) || null };
   }
 
   // ── 결제 게이트 ──────────────────────────────────────────────────────
@@ -1183,13 +1209,24 @@
         });
         return;
       }
+      // 🐛 버그 수정(2026-09-15) — html 스냅샷 직후, 즉 save()가 실제로 불린 이 시점에 characterId를
+      // 동기로 캡처해둔다. 로그인 상태 경로(아래 Promise.all().then())는 이 값을 그대로 쓰고 state를
+      // 다시 읽지 않는다 — 그 사이(archiveReady/profileReady 대기 중) 사용자가 새 분석을 시작해
+      // state.gunghamA/B.characterResult가 바뀌거나 비면 characterId가 null로 저장되는 문제가 있었다.
+      const charIds = captureCharacterIds(type);
       const uid = isRealUid();
       if (!uid) {
         // 인연도감은 원래 비로그인이 기본 경로라, 여기서 포기하지 않고 완성된 스냅샷을 기기에
         // 남겨둔다. 같은 type이 또 완성되면(사진을 다시 찍는 등) 최신 것으로 덮어쓴다.
-        const label = buildLabel(type);
+        const label = buildLabel(type, charIds);
         const pending = loadPending().filter(function (p) { return p.type !== type; });
-        pending.push({ type: type, html: html, title: label.title, sub: label.sub, profileId: label.profileId || null, ts: Date.now() });
+        pending.push({
+          type: type, html: html, title: label.title, sub: label.sub, profileId: label.profileId || null,
+          // characterId/partnerCharacterId도 같이 남겨야 나중에 commitPending()이 로그인 후(시간이
+          // 한참 지난 뒤일 수 있다) 다시 이름표를 계산할 때도 이 값을 그대로 쓸 수 있다 — 안 남기면
+          // 그때는 state가 이미 비거나 다른 값으로 바뀌어 있어 같은 버그가 재발한다.
+          characterId: label.characterId || null, partnerCharacterId: label.partnerCharacterId || null, ts: Date.now(),
+        });
         savePendingList(pending);
         console.warn('[archive] 비로그인 상태 — 리포트를 기기에 임시 보관(로그인 시 편입)', type);
         return;
@@ -1209,7 +1246,7 @@
       const archiveReady = (gate && !gate.done) ? gate.promise : Promise.resolve();
       const profileReady = (window.Profile && Profile.ready) ? Profile.ready() : Promise.resolve();
       Promise.all([archiveReady, profileReady]).then(function () {
-        commitSave(uid, type, html, buildLabel(type));
+        commitSave(uid, type, html, buildLabel(type, charIds));
       });
     } catch (e) {
       console.error('[archive] 리포트 보관 실패', type, e);
@@ -1230,7 +1267,10 @@
       // migrateLocalOnLogin·Profile.loadFromCloud·Archive.loadFromCloud를 먼저 기다린 뒤 호출),
       // 그 시점의 진짜 대표 프로필로 이름표를 다시 계산한다 — 옛 이름표를 그대로 쓰면 이미 있던
       // 정확한 기록(다른 기기에서 만든 "최주연")을 "나"로 덮어써버린다.
-      const label = buildLabel(p.type);
+      // characterId/partnerCharacterId는 이름표와 달리 로그인 전 임시 보관 시점에 이미 정확한
+      // 값이었다(save()가 그때 captureCharacterIds로 캡처해 p에 같이 남겨둠) — 지금 다시 state를
+      // 읽으면 그 사이 다른 분석으로 바뀌었거나 비어 있을 수 있어 그대로(charOverride로) 넘긴다.
+      const label = buildLabel(p.type, { characterId: p.characterId || null, partnerCharacterId: p.partnerCharacterId || null });
       commitSave(uid, p.type, p.html, label);
     });
     localStorage.removeItem(PENDING_KEY);
