@@ -44,18 +44,29 @@ const GUNGHAP_ZONE2_META = {
   sinsal_combo:          { emoji: '🔮', title: '신살·귀인이 만드는 케미' },
   strengths:             { emoji: '✨', title: '특히 잘 맞는 부분' },
   weak_point:            { emoji: '⚠️', title: '관계에서 부족한 부분' },
-  perceived_by_partner:  { emoji: '🪞', title: '{B}가 보는 {A}' },
-  perceived_by_me:       { emoji: '🔍', title: '{A}가 보는 {B}' },
+  perceived_by_partner:  { emoji: '🪞', title: '{Bsubj} 보는 {A}' },
+  perceived_by_me:       { emoji: '🔍', title: '{Asubj} 보는 {B}' },
   mind_hacking:          { emoji: '🔑', title: '서로의 마음을 사로잡는 법' },
   family_background:     { emoji: '🌳', title: '서로 다르게 자라온 환경' },
   expectation_vs_reality:{ emoji: '🎭', title: '서로 바라는 모습 vs 실제' },
 };
 // {A}/{B} 플레이스홀더가 있는 title을 실제 이름으로 치환한 meta 객체를 돌려준다(없는 항목은 그대로).
+// ⚠️ 버그 수정(2026-09-15 사용자 리포트: "에이미님가 보는 빙님" — 조사 "가" 하드코딩) — nameA/nameB
+// 자리에 "OO님"(받침 있음, "이"가 맞음)이 들어올 수 있는데 title 템플릿에 "가"가 그대로 박혀 있었다.
+// {Asubj}/{Bsubj} 플레이스홀더로 바꾸고 여기서 js/app.js의 josaIga(word)로 받침에 맞는 조사를 골라
+// 붙인다. 단, "나"만은 josaIga로 처리하면 안 된다 — "나"+"가"는 "나가"가 아니라 "내가"(불규칙
+// 축약형)라서, 이름이 없어 "나"로 폴백한 경우엔 "내가"를 그대로 쓴다("상대방"은 받침이 있어
+// josaIga가 "이"를 정확히 골라주므로 별도 처리가 필요 없다).
 function gunghapZone2MetaWithNames(nameA, nameB) {
+  const a = nameA || '나', b = nameB || '상대방';
+  const subjA = a === '나' ? '내가' : `${a}${josaIga(a)}`;
+  const subjB = b === '상대방' ? '상대방이' : `${b}${josaIga(b)}`;
   const out = {};
   Object.keys(GUNGHAP_ZONE2_META).forEach(function (key) {
     const m = GUNGHAP_ZONE2_META[key];
-    out[key] = { emoji: m.emoji, title: m.title.replace('{A}', nameA || '나').replace('{B}', nameB || '상대방') };
+    out[key] = { emoji: m.emoji, title: m.title
+      .replace('{Asubj}', subjA).replace('{Bsubj}', subjB)
+      .replace('{A}', a).replace('{B}', b) };
   });
   return out;
 }
