@@ -775,6 +775,11 @@ body {
 
 .err-msg { display: none; background: #FDECEC; border: 1px solid #F5C2C2; color: #C23B3B; border-radius: var(--r-drop); padding: 12px; text-align: center; font-size: 13px; margin-top: 8px; }
 .err-msg.show { display: block; }
+/* ⚠️ 참고: 아래 .warn-msg는 "반려"(err-msg, 빨간 박스)가 아니라 "참고용 경고" 전용 박스다(이마
+   가림 판정 다운그레이드, 2026-09-15) — 톤은 "🔒 사진은 저장되지 않으니 안심하세요"(.dogam-policy)와
+   같은 회색 카드(var(--card2))를 그대로 따른다. */
+.warn-msg { display: none; background: var(--card2); color: var(--text-sub2); border-radius: var(--r-drop); padding: 12px; text-align: left; font-size: 13px; line-height: 1.6; margin-top: 8px; }
+.warn-msg.show { display: block; }
 
 .result-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
 .result-card { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
@@ -2195,6 +2200,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
       </div>
 
       <div class="err-msg" id="cmbErr"></div>
+      <div class="warn-msg" id="cmbWarn"></div>
 
       <details class="dogam-policy" style="margin-top:8px;margin-bottom:12px;">
         <summary>🔒사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
@@ -2464,6 +2470,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         </div>
 
                 <div class="err-msg" id="gwansangErr"></div>
+                <div class="warn-msg" id="gwansangWarn"></div>
 
                 <details class="dogam-policy" id="gwansangPhotoPrivacyNote">
           <summary>🔒 사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
@@ -2942,6 +2949,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <input type="hidden" id="ggBirthA" value="">
         <input type="hidden" id="ggBirthHourA" value="-1">
         <div class="err-msg" id="ggErrA"></div>
+        <div class="warn-msg" id="ggWarnA"></div>
         <details class="dogam-policy">
           <summary>🔒 사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
           <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
@@ -2997,6 +3005,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
         <input type="hidden" id="ggBirthB" value="">
         <input type="hidden" id="ggBirthHourB" value="-1">
         <div class="err-msg" id="ggErrB"></div>
+        <div class="warn-msg" id="ggWarnB"></div>
         <details class="dogam-policy">
           <summary>🔒 사진은 저장되지 않으니 안심하세요<span class="material-symbols-outlined dogam-policy-arrow">expand_more</span></summary>
           <p style="font-size:12px;line-height:1.7;color:var(--text-sub2);margin-top:8px;">사진은 관상 분석에만 사용되고, AI 학습 등 다른 목적으로는 활용되지 않아요. 분석이 끝나면 서버에 저장하지 않고 바로 삭제돼요.</p>
@@ -3214,7 +3223,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="js/archetype-db.js?v=20260830b"></script>
-<script src="js/landmark-engine.js?v=20260914d"></script>
+<script src="js/landmark-engine.js?v=20260915a"></script>
 <script src="js/config.js?v=20260908"></script>
 <script src="js/firebase-init.js?v=20260827c"></script>
 <script src="js/kakao-auth.js?v=20260915a"></script>
@@ -3225,7 +3234,7 @@ body:has(#ggSavedReport:not(.hidden)) #profileInfoBox {
 <script src="js/saju-api.js?v=20260908"></script>
 <script src="js/ai-report-api.js?v=20260914a"></script>
 <script src="js/ai-analysis.js?v=20260915a"></script>
-<script src="js/app.js?v=20260915c"></script>
+<script src="js/app.js?v=20260915d"></script>
 <script src="js/profile.js?v=20260915b"></script>
 <script src="js/archive.js?v=20260915a"></script>
 <script src="js/inyeon-dogam.js?v=20260915a"></script>

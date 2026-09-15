@@ -96,11 +96,17 @@ function assessPhotoQuality(lm, w, h) {
     return { ok: false, message: '턱과 목선이 사진 아래로 잘렸어요. 목선까지 나오게 찍은 사진으로 다시 올려주세요.' };
   }
 
+  // 2026-09-15 사용자 확정 — 이마 가림 판정은 랜드마크 좌표만으로는 머리카락 유무를 직접 보는 게
+  // 아니라 이마 비율 추정치라 오탐(앞머리 있어도 통과/없어도 반려)이 잦다고 확인됐다. 그래서 이
+  // 항목만 업로드를 막는 반려 기준에서 빼고, 통과(ok:true)는 시키되 참고용 경고 문구만 같이
+  // 돌려준다 — 호출부(runFaceAnalysis/checkPhotoQualityOnUpload)가 이 경고를 err(빨간 반려 박스)가
+  // 아닌 별도의 회색 참고 박스에 표시한다. 나머지 6개 검사는 그대로 반려(ok:false) 유지.
+  let warning = null;
   const eyeToChinH = Math.abs(lm[IDX.chin].y - browY);
   const foreheadH = Math.abs(browY - lm[IDX.hairline].y);
   const gwanR = eyeToChinH ? foreheadH / eyeToChinH : 0;
   if (gwanR < PHOTO_QUALITY.foreheadGwanR[0] || gwanR > PHOTO_QUALITY.foreheadGwanR[1]) {
-    return { ok: false, message: '앞머리 등으로 이마가 가려져 있어요. 이마가 보이는 사진으로 다시 올려주세요.' };
+    warning = '💡 이마가 잘 보이는 사진일수록 관상 분석이 더 정확해요. 앞머리로 이마가 가려져 있다면 다른 사진으로 바꿔보는 걸 추천드려요.';
   }
 
   const faceH = Math.abs(lm[IDX.chin].y - lm[IDX.hairline].y);
@@ -120,7 +126,7 @@ function assessPhotoQuality(lm, w, h) {
     return { ok: false, message: '옆모습에 가까운 사진이에요. 정면을 바라보고 찍은 사진으로 다시 올려주세요.' };
   }
 
-  return { ok: true, message: null };
+  return { ok: true, message: null, warning: warning };
 }
 
 // ═══ MODELS — MediaPipe Tasks Vision (동적 import, CDN 절대경로라 file://에서도 CORS 문제 없음) ═══
@@ -211,9 +217,11 @@ async function runFaceAnalysis(ctx, canvasIdOverride) {
     if (!quality.ok) {
       hideSpinner(m.spinner);
       reportCtxErr(ctx, quality.message);
+      reportCtxWarning(ctx, null); // 반려 상태에선 경고 박스도 같이 지워 중복 표시를 막는다
       return null;
     }
     reportCtxErr(ctx, null); // 업로드 즉시검증 단계에서 남아있던 에러가 있으면 여기서 확정적으로 지운다
+    reportCtxWarning(ctx, quality.warning || null); // 이마 가림 등 반려는 아니지만 참고할 경고
 
     state[ctx].lm = lm; state[ctx].w = w; state[ctx].h = h;
     // AI로 보낼 이미지는 반드시 drawRegions "이전"에 떠둔다. 이 캔버스는 화면 표시용이라 바로 아래에서
@@ -265,16 +273,18 @@ async function checkPhotoQualityOnUpload(ctx) {
 
     const result = faceLandmarker.detect(tmpCanvas);
     let message = null;
+    let warning = null;
     if (!result.faceLandmarks || !result.faceLandmarks.length) {
       message = '얼굴을 감지하지 못했습니다. 정면을 바라보는 선명한 사진을 사용해주세요.';
     } else {
       const lm = result.faceLandmarks[0].map(p => ({ x: p.x * w, y: p.y * h }));
       const quality = assessPhotoQuality(lm, w, h);
-      if (!quality.ok) message = quality.message;
+      if (!quality.ok) message = quality.message; else warning = quality.warning || null;
     }
     if (state[ctx].file !== myFile) return; // 결과가 오는 동안 다른 사진으로 또 바뀌었으면 무시
     if (ctx === 'gunghamA' || ctx === 'gunghamB') state[ctx].qualityChecked = true;
     reportCtxErr(ctx, message);
+    reportCtxWarning(ctx, warning); // 이마 가림 등 반려는 아니지만 참고할 경고(2026-09-15)
     // 검증이 막 끝난 시점에만 아코디언 완료 여부를 다시 계산한다 — loadThumb 쪽 sync 호출은 검증이
     // 끝나기 전(qualityChecked=false)에 먼저 일어나므로, 여기서 한 번 더 불러야 "정상 판정"이 실제로
     // 아코디언을 접어준다(반대로 불합격이면 아래 syncGgAccordion이 completeA/B를 false로 유지해 열어둔다).

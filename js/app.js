@@ -275,14 +275,17 @@ function setGgGender(who, g) {
 }
 
 // ═══ UPLOAD / THUMBNAIL LOGIC ═══
+// warn: 반려(err, 빨간 박스)가 아니라 참고용 경고(회색 박스)를 담는 자리 — 2026-09-15 사용자 요청
+// "이마 가림 판정은 오탐이 잦으니 반려 대신 경고로 낮추자"에서 처음 생겼다. err처럼 사진 영역 바로
+// 아래, 같은 위치에 뜨되 스타일만 다르다(reportCtxWarning 참고).
 const ctxMap = {
-  gwansang: { uploadArea: 'uploadArea', thumbArea: 'thumbArea', thumbImg: 'thumbImg', spinner: 'gwansangSpinner', err: 'gwansangErr' },
-  combined: { uploadArea: 'cmbUploadArea', thumbArea: 'cmbThumbArea', thumbImg: 'cmbThumbImg', spinner: 'cmbSpinner', err: 'cmbErr' },
+  gwansang: { uploadArea: 'uploadArea', thumbArea: 'thumbArea', thumbImg: 'thumbImg', spinner: 'gwansangSpinner', err: 'gwansangErr', warn: 'gwansangWarn' },
+  combined: { uploadArea: 'cmbUploadArea', thumbArea: 'cmbThumbArea', thumbImg: 'cmbThumbImg', spinner: 'cmbSpinner', err: 'cmbErr', warn: 'cmbWarn' },
   // photo-quality 에러는 각자 전용 박스(ggErrA/ggErrB)에 — 공유 박스 하나였을 때 "누구 사진이 문제인지"가
   // 안 보였다(사용자 리포트 2026-09-14: "1번이 잘못됐으면 1번 밑에, 2번이 잘못됐으면 2번 밑에"). 두 사람
   // 공통 검증(생년월일 등)은 여전히 아래쪽 공유 #ggErr을 그대로 쓴다.
-  gunghamA: { uploadArea: 'ggUploadA', thumbArea: 'ggThumbA', thumbImg: 'ggImgA', spinner: null, err: 'ggErrA' },
-  gunghamB: { uploadArea: 'ggUploadB', thumbArea: 'ggThumbB', thumbImg: 'ggImgB', spinner: null, err: 'ggErrB' },
+  gunghamA: { uploadArea: 'ggUploadA', thumbArea: 'ggThumbA', thumbImg: 'ggImgA', spinner: null, err: 'ggErrA', warn: 'ggWarnA' },
+  gunghamB: { uploadArea: 'ggUploadB', thumbArea: 'ggThumbB', thumbImg: 'ggImgB', spinner: null, err: 'ggErrB', warn: 'ggWarnB' },
 };
 
 function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag'); }
@@ -437,6 +440,7 @@ function loadThumb(ctx, file) {
   // 알 수 있었다. 사진을 고른 즉시(분석 버튼을 누르기 전에) 같은 기준으로 미리 확인해서 바로 알려준다.
   // classifyGwansang(서버) 호출·오버레이 그리기는 하지 않는 가벼운 로컬 전용 검사라 비용이 없다.
   reportCtxErr(ctx, null); // 새 사진을 고른 순간 이전 사진의 에러부터 지운다
+  reportCtxWarning(ctx, null); // 이전 사진의 경고(이마 가림 등)도 같이 지운다
   checkPhotoQualityOnUpload(ctx);
 }
 
@@ -961,6 +965,17 @@ function reportCtxErr(ctx, message) {
   const m = ctxMap[ctx];
   if (!m || !m.err) return;
   if (message) showErr(m.err, message); else hideErr(m.err);
+}
+
+// 사진 품질 "경고"(반려는 아니지만 참고하면 좋은 사유)를 err와 같은 위치·다른 스타일(.warn-msg,
+// 회색 톤)의 박스에 반영한다 — 2026-09-15 사용자 요청. 이마 가림 판정은 랜드마크 좌표만으로는
+// 오탐(앞머리 있어도 통과/없어도 반려)이 잦아 업로드를 막는 기준에서 뺐고, 그 대신 이 경고로
+// 낮췄다. err와 달리 분석 진행을 막지 않으므로 startCombinedAnalysis 등 CTA 단에서 검사하지 않고,
+// CTA 클릭을 막는 state[ctx].qualityError와도 무관하게 별도로 둔다.
+function reportCtxWarning(ctx, message) {
+  const m = ctxMap[ctx];
+  if (!m || !m.warn) return;
+  if (message) showErr(m.warn, message); else hideErr(m.warn);
 }
 
 // 2026-09-15 사용자 리포트 — "냥 사용하기까지 넘어간 뒤에야 사진 반려 사유가 alert로 뜬다"는 문제를
